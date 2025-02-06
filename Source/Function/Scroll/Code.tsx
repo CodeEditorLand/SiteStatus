@@ -1,12 +1,9 @@
-export default (
-	{ Text, Font }: { Text: string; Font?: number } = {
-		Text: "",
-		Font: 1,
-	},
-) => {
+import "@Function/Scroll/Stylesheet.css";
+
+export default ({ Text = "", Font = 1 }: { Text?: string; Font?: number }) => {
 	const [Offset, _Offset] = createSignal(0);
 
-	const [Element, _Element] = createSignal<HTMLDivElement | undefined>();
+	const [Element, _Element] = createSignal<HTMLDivElement>();
 
 	const [Count, _Count] = createSignal(10);
 
@@ -53,6 +50,7 @@ export default (
 
 			if (Past >= Time) {
 				_Offset((prev) => (prev - 0.2 + Size) % Size);
+
 				_LastTimestamp(Current);
 			}
 
@@ -80,30 +78,51 @@ export default (
 	};
 
 	return (
-		<div class={`w-full overflow-hidden bg-black p-2`} ref={_Element}>
+		<div class="w-full overflow-hidden p-2" ref={_Element}>
 			<p class="sr-only">{_Text()}</p>
-
 			<div class="flex justify-center" aria-hidden="true">
 				{Display()
 					.split("")
-					.map((Visible) => (
-						<div>
+					.map((Visible, charIndex) => (
+						<div class="mr-2">
 							{((Position) => (
-								<div class="mr-2">
+								<div>
 									{(
 										Matrix[Position.toUpperCase()] ||
 										Matrix[" "]
-									)?.map((Row) => (
+									)?.map((Row, rowIndex) => (
 										<div class="flex">
-											{Row.map((Pixel) => (
+											{Row.map((Pixel, pixelIndex) => (
 												<div>
-													{((Show) => {
-														return (
-															<div
-																class={`Pixel h-${Font} w-${Font} ${Show ? "bg-white" : "bg-black"}`}
-															/>
-														);
-													})(Pixel)}
+													{((Show) => (
+														<div
+															class={`Pixel h-${Font} w-${Font} ${
+																Show
+																	? `Color ${
+																			(charIndex +
+																				rowIndex +
+																				pixelIndex) %
+																				2 ===
+																			0
+																				? "Left"
+																				: "Right"
+																		}`
+																	: "bg-transparent"
+															} `}
+															style={
+																Show
+																	? `animation-delay: ${
+																			charIndex *
+																				0.1 +
+																			rowIndex *
+																				0.05 +
+																			pixelIndex *
+																				0.02
+																		}s;`
+																	: ""
+															}
+														/>
+													))(Pixel)}
 												</div>
 											))}
 										</div>
