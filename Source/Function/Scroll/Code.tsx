@@ -1,4 +1,4 @@
-import "@Function/Scroll/Stylesheet.css";
+import "@Function/Scroll/Stylesheet.scss";
 
 export default ({ Text = "", Font = 1 }: { Text?: string; Font?: number }) => {
 	const [Offset, _Offset] = createSignal(0);
@@ -86,45 +86,43 @@ export default ({ Text = "", Font = 1 }: { Text?: string; Font?: number }) => {
 					.map((Visible, IndexChar) => (
 						<div class="mr-2">
 							{((Position) => (
-								<div>
+								<div class="Grid">
 									{(
 										Matrix[Position.toUpperCase()] ||
 										Matrix[" "]
 									)?.map((Row, IndexRow) => (
-										<div class="flex">
-											{Row.map((Pixel, IndexPixel) => (
-												<div>
-													{((Show) => (
-														<div
-															class={`Pixel h-${Font} w-${Font} ${
-																Show
-																	? `Color ${
-																			(IndexChar +
-																				IndexRow +
-																				IndexPixel) %
-																				2 ===
-																			0
-																				? "Left"
-																				: "Right"
-																		}`
-																	: "bg-transparent"
-															} `}
-															style={
-																Show
-																	? `animation-delay: ${
-																			IndexChar *
-																				0.1 +
-																			IndexRow *
-																				0.05 +
-																			IndexPixel *
-																				0.02
-																		}s;`
-																	: ""
-															}
-														/>
-													))(Pixel)}
-												</div>
-											))}
+										<div class="Row flex">
+											{Row.map((Pixel, IndexPixel) =>
+												((Show) => (
+													<div
+														class={`Pixel h-${Font} w-${Font} ${
+															Show
+																? `Color ${
+																		(IndexChar +
+																			IndexRow +
+																			IndexPixel) %
+																			2 ===
+																		0
+																			? "Left"
+																			: "Right"
+																	}`
+																: "bg-transparent"
+														} `}
+														style={
+															Show
+																? `animation-delay: ${
+																		IndexChar *
+																			0.1 +
+																		IndexRow *
+																			0.05 +
+																		IndexPixel *
+																			0.02
+																	}s;`
+																: ""
+														}
+													/>
+												))(Pixel),
+											)}
 										</div>
 									))}
 								</div>

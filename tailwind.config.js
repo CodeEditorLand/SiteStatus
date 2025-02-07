@@ -19,6 +19,7 @@ export default {
 			},
 			fontFamily: {
 				sans: ["Albert Sans", ...fontFamily.sans],
+				Hack: ["Hack", ...fontFamily.mono],
 			},
 			typography: {
 				DEFAULT: {
