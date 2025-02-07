@@ -83,25 +83,25 @@ export default ({ Text = "", Font = 1 }: { Text?: string; Font?: number }) => {
 			<div class="flex justify-center" aria-hidden="true">
 				{Display()
 					.split("")
-					.map((Visible, charIndex) => (
+					.map((Visible, IndexChar) => (
 						<div class="mr-2">
 							{((Position) => (
 								<div>
 									{(
 										Matrix[Position.toUpperCase()] ||
 										Matrix[" "]
-									)?.map((Row, rowIndex) => (
+									)?.map((Row, IndexRow) => (
 										<div class="flex">
-											{Row.map((Pixel, pixelIndex) => (
+											{Row.map((Pixel, IndexPixel) => (
 												<div>
 													{((Show) => (
 														<div
 															class={`Pixel h-${Font} w-${Font} ${
 																Show
 																	? `Color ${
-																			(charIndex +
-																				rowIndex +
-																				pixelIndex) %
+																			(IndexChar +
+																				IndexRow +
+																				IndexPixel) %
 																				2 ===
 																			0
 																				? "Left"
@@ -112,11 +112,11 @@ export default ({ Text = "", Font = 1 }: { Text?: string; Font?: number }) => {
 															style={
 																Show
 																	? `animation-delay: ${
-																			charIndex *
+																			IndexChar *
 																				0.1 +
-																			rowIndex *
+																			IndexRow *
 																				0.05 +
-																			pixelIndex *
+																			IndexPixel *
 																				0.02
 																		}s;`
 																	: ""

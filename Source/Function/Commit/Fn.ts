@@ -9,6 +9,7 @@ export const Fn = async (_Owner, _Repository, _SHA) => {
 		return [];
 	} catch (_Error) {
 		console.error("Cannot Commit:", _Error);
+
 		return [];
 	}
 
