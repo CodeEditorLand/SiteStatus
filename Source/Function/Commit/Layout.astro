@@ -67,6 +67,39 @@ const UUID = (await import("@Function/UUID/Fn.js")).default();
 		content: "●";
 		content: "●"/"";
 	}
+
+	.HighLight {
+		color: black;
+		position: relative;
+	}
+
+	.HighLight::before {
+		content: "";
+		display: block;
+		position: absolute;
+		z-index: -1;
+		top: -0.25rem;
+		left: -0.5rem;
+		right: -0.5rem;
+		bottom: -0.25rem;
+		background-color: yellow;
+	}
+
+	html.dark table.dataTable.cell-border > tbody > tr > td,
+	html.dark table.dataTable.cell-border > tbody > tr > th,
+	table.dataTable.cell-border > tbody > tr > * {
+		border-top-width: 2px;
+		border-right-width: 2px;
+	}
+
+	html.dark table.dataTable.cell-border > tbody > tr > td:first-child,
+	html.dark table.dataTable.cell-border > tbody > tr > th:first-child {
+		border-left-width: 2px;
+	}
+
+	html.dark .dt-container.dt-empty-footer table.dataTable {
+		border-bottom-width: 2px;
+	}
 </style>
 
 <script define:vars={{ Last, UUID }}>
@@ -76,6 +109,28 @@ const UUID = (await import("@Function/UUID/Fn.js")).default();
 
 <script>
 	import DataTable from "datatables.net-dt";
+
+	export const Remove = (Container: HTMLElement, HighLight = "HighLight") =>
+		Container.querySelectorAll<HTMLSpanElement>(
+			`span.${HighLight}`,
+		).forEach((Span) => (Span.outerHTML = Span.textContent ?? ""));
+
+	export const HighLight = (
+		Container: HTMLElement,
+		Search: string,
+		HighLight = "HighLight",
+	) => {
+		Remove(Container, HighLight);
+
+		if (!Container || !Search) {
+			return;
+		}
+
+		Container.innerHTML = Container.innerHTML.replace(
+			new RegExp(Search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"),
+			(Match: string) => `<span class="${HighLight}">${Match}</span>`,
+		);
+	};
 
 	document.addEventListener("DOMContentLoaded", () => {
 		const Theme = () =>
@@ -98,29 +153,38 @@ const UUID = (await import("@Function/UUID/Fn.js")).default();
 
 				new DataTable(`[data-uuid=${UUID}] table`, {
 					columns: [
-						{ title: "COMMIT MESSAGE", data: "Commit Message" },
+						{
+							title: "COMMIT MESSAGE",
+							data: "Commit Message",
+							render: (Text) =>
+								`<span class="Text">${Text}</span>`,
+						},
 						{
 							title: "AUTHOR",
 							data: "Author",
+							render: (Text) =>
+								`<span class="Text">${Text}</span>`,
 						},
 						{
 							title: "DATE",
 							render: (Text) =>
-								`${new Date(Text).toLocaleDateString()}`,
+								`<span class="Text">${new Date(Text).toLocaleDateString()}</span>`,
 							data: (Row) => new Date(Row.Date).getTime(),
 						},
 						{
 							title: "HREF",
 							render: (
-								Text,
+								_Text,
 								_Type,
 								Row,
-							) => `<a class="font-medium text-amber-950 Pulse" \
-									href="${Text}" \
+							) => `<a class="font-medium text-green-600 dark:text-red-600 Pulse" \
+									href="${Row.HREF}" \
 									rel="noopener noreferrer" \
-									target="_blank" \
-								>@COMMIT_<span class="tabular-nums uppercase font-Hack ">${Row.SHA}</span></a>`,
-							data: "HREF",
+									target="_blank"> \
+										<span class="Text">@COMMIT_</span> \
+										<span class="tabular-nums uppercase font-Hack Text">${Row.SHA}</span> \
+									</a>`,
+							data: (Row) => `@COMMIT_${Row.SHA}`,
 						},
 					],
 					// @ts-expect-error
@@ -131,6 +195,18 @@ const UUID = (await import("@Function/UUID/Fn.js")).default();
 					scrollY: "1000px",
 					processing: true,
 					order: [[2, "desc"]],
+					drawCallback(Internal) {
+						document
+							.querySelectorAll<HTMLSpanElement>(
+								`#${Internal["sInstance"]} .Text`,
+							)
+							.forEach((Element) => {
+								HighLight(
+									Element,
+									Internal["oPreviousSearch"]["search"],
+								);
+							});
+					},
 				});
 			}
 		}
