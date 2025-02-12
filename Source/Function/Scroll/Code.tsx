@@ -1,6 +1,14 @@
-import "@Function/Scroll/Stylesheet.scss";
+import "@Function/Scoll/Stylesheet.scss";
 
-export default ({ Text = "", Font = 1 }: { Text?: string; Font?: number }) => {
+import type { JSX } from "solid-js";
+
+export default ({
+	Text = "",
+	Font = 1,
+}: {
+	Text?: string;
+	Font?: number;
+}): JSX.Element => {
 	const [Offset, _Offset] = createSignal(0);
 
 	const [Element, _Element] = createSignal<HTMLDivElement>();
@@ -11,16 +19,16 @@ export default ({ Text = "", Font = 1 }: { Text?: string; Font?: number }) => {
 
 	const [_Text] = createSignal(Text);
 
-	const Padded = () => _Text() + "   " + _Text() + "   ";
+	const Padded = (): string => `${_Text()}   ${_Text()}   `;
 
-	const Animate = () => _Text().length > Count();
+	const Animate = (): boolean => _Text().length > Count();
 
 	const [LastTimestamp, _LastTimestamp] = createSignal(0);
 
 	const Time = 50;
 
 	onMount(() => {
-		const Factor = () => {
+		const Factor = (): void => {
 			if (Element()) {
 				_Count(
 					Math.max(
@@ -35,17 +43,19 @@ export default ({ Text = "", Font = 1 }: { Text?: string; Font?: number }) => {
 
 		window.addEventListener("resize", Factor);
 
-		return () => window.removeEventListener("resize", Factor);
+		return (): void => window.removeEventListener("resize", Factor);
 	});
 
 	createEffect(() => {
-		if (!Animate()) return;
+		if (!Animate()) {
+			return;
+		}
 
 		let ID: number;
 
 		const Size = Padded().length * Width;
 
-		const Roll = (Current: number) => {
+		const Roll = (Current: number): void => {
 			const Past = Current - LastTimestamp();
 
 			if (Past >= Time) {
@@ -59,10 +69,10 @@ export default ({ Text = "", Font = 1 }: { Text?: string; Font?: number }) => {
 
 		ID = requestAnimationFrame(Roll);
 
-		return () => cancelAnimationFrame(ID);
+		return (): void => cancelAnimationFrame(ID);
 	});
 
-	const Display = () => {
+	const Display = (): string => {
 		if (!Animate()) {
 			return _Text().slice(0, Count());
 		}
