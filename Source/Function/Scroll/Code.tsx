@@ -1,4 +1,4 @@
-import "@Function/Scoll/Stylesheet.scss";
+import "@Function/Scroll/Stylesheet.scss";
 
 import type { JSX } from "solid-js";
 
