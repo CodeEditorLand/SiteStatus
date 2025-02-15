@@ -111,11 +111,11 @@ export default ({
 
 													IndexChar,
 
-													IndexRow,
-
 													IndexPixel,
 
 													Show,
+
+													Display().length,
 												);
 											})}
 										</div>

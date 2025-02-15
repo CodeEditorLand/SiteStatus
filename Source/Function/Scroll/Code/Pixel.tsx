@@ -2,28 +2,29 @@ import { createNoise2D } from "simplex-noise";
 import type { JSX } from "solid-js";
 
 export default (
-	...[Font, IndexChar, IndexRow, IndexPixel, Show]: [
+	...[Font, Character, Pixel, Show, Text]: [
 		number,
-
 		number,
-
 		number,
-
 		number,
-
 		number,
 	]
 ): JSX.Element => {
+	let Element: HTMLDivElement | undefined;
+
+	// Calculate actual character position in the full text
+	const Position =
+		// (IndexChar + Math.floor(ScrollOffset)) % TextLength;
+		Character % Text;
+
 	// Calculate grid position (0-2 for columns, 0-4 for rows in 3x5 grid)
-	const Col = IndexPixel % 3;
-	const Row = Math.floor(IndexPixel / 3);
+	const Column = Pixel % 3;
+	const Row = Math.floor(Pixel / 3);
 
 	// Compute the seed once for each pixel
-	const Seed = IndexChar * 0.1 + Row * 0.05 + Col * 0.02;
+	const Seed = Position * 0.1 + Row * 0.05 + Column * 0.02;
 
-	const Delay = (Row * 3 + Col) * 0.05 + IndexChar * 0.1;
-
-	let Element: HTMLDivElement | undefined;
+	const Delay = Position * 0.1 + (Row * 3 + Column) * 0.05;
 
 	// We'll store the current polar coordinates for smooth interpolation.
 	// in radians
@@ -52,7 +53,7 @@ export default (
 	const MultiplierTimeV = 0.002;
 
 	// Ramp parameters: start at (0,0) and ramp to full movement.
-	const TimeS = 0;
+	const TimeS = performance.now();
 
 	if (Show) {
 		onMount(() => {
@@ -76,14 +77,14 @@ export default (
 				const MultiplierTime =
 					MultiplierTimeB + Noise(NoiseTimeB, 30) * MultiplierTimeV;
 
-				const TimeN = TimeC * MultiplierTime;
+				const TimeN = Position * 0.1 + TimeC * MultiplierTime;
 
 				// Compute polar coordinates:
 				// Angle: noise mapped from [-1, 1] to [-π, π].
-				const AngleT = Noise(TimeN + Seed, Col) * Math.PI;
+				const AngleT = Noise(TimeN + Seed, Column + Position) * Math.PI;
 
 				// Radius: noise normalized to [0,1] and then scaled.
-				const RadiusN = (Noise(Row, TimeN + Seed) + 1) / 2;
+				const RadiusN = (Noise(Row + Position, TimeN + Seed) + 1) / 2;
 
 				const RadiusT = RadiusN * AmplitudeD * Ramp;
 
@@ -115,7 +116,7 @@ export default (
 			class={`Pixel h-${Font} w-${Font} ${
 				Show
 					? `Color ${
-							(IndexChar + Row + Col) % 2 === 0 ? "Left" : "Right"
+							(Position + Row + Column) % 2 === 0 ? "Left" : "Right"
 						}`
 					: "bg-transparent"
 			}`}
