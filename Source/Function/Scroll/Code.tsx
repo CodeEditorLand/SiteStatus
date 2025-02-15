@@ -4,9 +4,11 @@ import type { JSX } from "solid-js";
 
 export default ({
 	Text = "",
+
 	Font = 1,
 }: {
 	Text?: string;
+
 	Font?: number;
 }): JSX.Element => {
 	const [Offset, _Offset] = createSignal(0);
@@ -33,6 +35,7 @@ export default ({
 				_Count(
 					Math.max(
 						1,
+
 						Math.floor((Element()?.offsetWidth ?? 100) / 32),
 					),
 				);
@@ -102,37 +105,19 @@ export default ({
 										Matrix[" "]
 									)?.map((Row, IndexRow) => (
 										<div class="Row flex">
-											{Row.map((Pixel, IndexPixel) =>
-												((Show) => (
-													<div
-														class={`Pixel h-${Font} w-${Font} ${
-															Show
-																? `Color ${
-																		(IndexChar +
-																			IndexRow +
-																			IndexPixel) %
-																			2 ===
-																		0
-																			? "Left"
-																			: "Right"
-																	}`
-																: "bg-transparent"
-														} `}
-														style={
-															Show
-																? `animation-delay: ${
-																		IndexChar *
-																			0.1 +
-																		IndexRow *
-																			0.05 +
-																		IndexPixel *
-																			0.02
-																	}s;`
-																: ""
-														}
-													/>
-												))(Pixel),
-											)}
+											{Row.map((Show, IndexPixel) => {
+												return Pixel(
+													Font,
+
+													IndexChar,
+
+													IndexRow,
+
+													IndexPixel,
+
+													Show,
+												);
+											})}
 										</div>
 									))}
 								</div>
@@ -146,4 +131,10 @@ export default ({
 
 export const { default: Matrix } = await import("@Variable/Scroll/Matrix.js");
 
-export const { createEffect, createSignal, onMount } = await import("solid-js");
+export const { createEffect, createSignal, onMount, onCleanup } = await import(
+	"solid-js"
+);
+
+export const { default: Pixel } = await import(
+	"@Function/Scroll/Code/Pixel.js"
+);
