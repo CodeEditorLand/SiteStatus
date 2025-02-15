@@ -74,6 +74,8 @@ export default (
 
 				if (Element) {
 					Element.style.transform = `rotate(${Degree}deg) translateX(${Radius}px) rotate(${-Degree}deg)`;
+
+					Element.style.transitionDuration = `${(((Noise(TimeN + Seed, Column + 100) + 1) / 2) * 10 + 5).toFixed(2)}s`;
 				}
 
 				ID = requestAnimationFrame(Move);
@@ -89,13 +91,7 @@ export default (
 		<div
 			ref={Element}
 			class={`Pixel h-${Font} w-${Font} ${
-				Show
-					? `Color ${
-							(Position + Row + Column) % 2 === 0
-								? "Left"
-								: "Right"
-						}`
-					: "bg-transparent"
+				Show ? "Color" : "bg-transparent"
 			}`}
 			style={Show ? { "animation-delay": `${Delay}s` } : {}}
 		/>

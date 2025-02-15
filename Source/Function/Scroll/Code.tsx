@@ -91,7 +91,7 @@ export default ({
 	};
 
 	return (
-		<div class="w-full overflow-hidden p-2" ref={_Element}>
+		<div class="Scroll w-full p-2" ref={_Element}>
 			<p class="sr-only">{_Text()}</p>
 			<div class="flex justify-center" aria-hidden="true">
 				{Display()
