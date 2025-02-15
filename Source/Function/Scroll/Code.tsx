@@ -103,10 +103,10 @@ export default ({
 									{(
 										Matrix[Position.toUpperCase()] ||
 										Matrix[" "]
-									)?.map((Row, IndexRow) => (
+									)?.map((Row) => (
 										<div class="Row flex">
-											{Row.map((Show, IndexPixel) => {
-												return Pixel(
+											{Row.map((Show, IndexPixel) =>
+												Pixel(
 													Font,
 
 													IndexChar,
@@ -116,8 +116,8 @@ export default ({
 													Show,
 
 													Display().length,
-												);
-											})}
+												),
+											)}
 										</div>
 									))}
 								</div>
