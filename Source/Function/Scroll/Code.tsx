@@ -1,5 +1,3 @@
-import "@Function/Scroll/Stylesheet.scss";
-
 import type { Mouse } from "@Function/Scroll/Code/Pixel.js";
 import type { JSX } from "solid-js";
 
