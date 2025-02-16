@@ -1,6 +1,6 @@
 import "@Function/Scroll/Stylesheet.scss";
 
-import type { Mouse } from "@Function/Scroll/Duplicate/Pixel.js";
+import type { Mouse } from "@Function/Scroll/Code/Pixel.js";
 import type { JSX } from "solid-js";
 
 export default ({
@@ -42,6 +42,7 @@ export default ({
 
 	const Move = (e: MouseEvent): void => {
 		const currentTime = performance.now();
+
 		_Mouse((prev) => {
 			const dx = e.clientX - prev.X;
 			const dy = e.clientY - prev.Y;
@@ -53,7 +54,7 @@ export default ({
 				Y: e.clientY,
 				Velocity: Math.sqrt(dx * dx + dy * dy),
 				Last: currentTime,
-				active: true,
+				Active: true,
 			};
 		});
 	};
@@ -63,7 +64,7 @@ export default ({
 			Element()?.addEventListener("mousemove", Move);
 
 			Element()?.addEventListener("mouseleave", () =>
-				_Mouse((prev) => ({ ...prev, active: false })),
+				_Mouse((Previous) => ({ ...Previous, Active: false })),
 			);
 		}
 

@@ -14,7 +14,6 @@ export const Spectrum = (Step: number): string[] => {
 	for (let Index = 0; Index < Step; Index++) {
 		Spectrum.push(`hsl(${(Index / Step) * 360}, 100%, 50%)`);
 	}
-
 	return Spectrum;
 };
 
@@ -35,11 +34,11 @@ export interface Mouse {
 }
 
 interface MovementDimensional {
-	x: number;
+	X: number;
 
-	y: number;
+	Y: number;
 
-	rotation: number;
+	Rotation: number;
 
 	Scale: number;
 }
@@ -62,7 +61,7 @@ export default (
 		number,
 		number,
 		Accessor<Mouse>,
-		Accessor<HTMLDivElement>,
+		Accessor<HTMLDivElement | undefined>,
 	]
 ): JSX.Element => {
 	const [Element, _Element] = createSignal<HTMLDivElement>();
@@ -107,53 +106,57 @@ export default (
 					return;
 				}
 
-				const TimeC = performance.now();
+				const CurrentTime = performance.now();
 
-				const timeSinceMouse = TimeC - MouseState().Last;
+				const MouseTime = CurrentTime - MouseState().Last;
 
-				const mouseTransition = Math.max(
+				const MouseTransition = Math.max(
 					0,
-					1 - timeSinceMouse / FadeDuration,
+					1 - MouseTime / FadeDuration,
 				);
 
-				// Calculate default simplex noise animation
-				const NoiseTimeB = TimeC * 0.001 + Seed;
+				// Calculate default simplex noise animation parameters
+				const NoiseTimeB = CurrentTime * 0.001 + Seed;
 
 				const SmoothingD =
 					SmoothingB + Noise(NoiseTimeB, 20) * SmoothingV;
 
 				const TimeN =
 					Position * 0.1 +
-					TimeC *
+					CurrentTime *
 						(MultiplierTimeB +
 							Noise(NoiseTimeB, 30) * MultiplierTimeV);
 
-				// Mouse influence calculations if active
+				// Mouse influence calculations (if active)
 				let InfluenceMouse = 0;
 
 				let OffsetDimensional: MovementDimensional = {
-					x: 0,
-					y: 0,
-					rotation: 0,
+					X: 0,
+					Y: 0,
+					Rotation: 0,
 					Scale: 1,
 				};
 
 				if (MouseState().Active) {
-					const pixelY =
-						Container()?.getBoundingClientRect().top + Row * Font;
-
 					const dx =
 						MouseState().X -
-						(Container()?.getBoundingClientRect().left +
+						// @ts-expect-error
+						(Container().getBoundingClientRect().left +
 							Column * Font);
 
-					const dy = MouseState().Y - pixelY;
+					const dy =
+						MouseState().Y -
+						// @ts-expect-error
+						(Container().getBoundingClientRect().top + Row * Font);
 
-					const distance = Math.sqrt(dx * dx + dy * dy);
-
-					InfluenceMouse =
-						Math.max(0, 1 - distance / RadiusEffect) *
-						mouseTransition;
+					InfluenceMouse = Lerp(
+						InfluenceMouse,
+						Math.max(
+							0,
+							1 - Math.sqrt(dx * dx + dy * dy) / RadiusEffect,
+						) * MouseTransition,
+						0.1,
+					);
 
 					// Calculate dimensional offsets with mouse influence
 					OffsetDimensional = new Array(Dimension)
@@ -165,33 +168,34 @@ export default (
 						}))
 						.reduce((MovementDimensional, _Noise, Dimension) => {
 							const Value = Noise(
-								TimeC * 0.001 * _Noise.Frequence + _Noise.Phase,
+								CurrentTime * 0.001 * _Noise.Frequence +
+									_Noise.Phase,
 								Dimension * 1000 + Seed,
 							);
 
 							const MouseFactor =
 								InfluenceMouse *
 								(Math.min(1, MouseState().Velocity / 100) *
-									mouseTransition);
+									MouseTransition);
 
 							// biome-ignore lint/style/useDefaultSwitchClause:
 							switch (Dimension) {
 								case 0:
-									MovementDimensional.x =
+									MovementDimensional.X =
 										Value * _Noise.Amplitude +
 										dx * MouseFactor;
 
 									break;
 
 								case 1:
-									MovementDimensional.y =
+									MovementDimensional.Y =
 										Value * _Noise.Amplitude +
 										dy * MouseFactor;
 
 									break;
 
 								case 2:
-									MovementDimensional.rotation =
+									MovementDimensional.Rotation =
 										Value * 360 * MouseFactor;
 
 									break;
@@ -202,63 +206,93 @@ export default (
 
 									break;
 							}
-
 							return MovementDimensional;
 						}, OffsetDimensional);
 				}
 
-				// Blend between default and mouse-influenced states
-				Angle +=
-					(Noise(TimeN + Seed, Column + Position) * Math.PI - Angle) *
-						SmoothingD *
-						(1 - InfluenceMouse) +
-					OffsetDimensional.rotation * InfluenceMouse;
+				// Blend noise-driven rotation with any mouse-influenced rotation
+				Angle =
+					Lerp(
+						Angle,
+						Layer(TimeN + Seed, Column + Position) * Math.PI,
+						SmoothingD * (1 - InfluenceMouse),
+					) +
+					OffsetDimensional.Rotation * InfluenceMouse;
 
 				Radius =
-					((Noise(Row + Position, TimeN + Seed) + 1) / 2) *
-						(AmplitudeB + Noise(NoiseTimeB, 10) * AmplitudeV) *
-						Math.min((TimeC - TimeS) / 1000, 1) *
-						(1 - InfluenceMouse) +
+					Lerp(
+						Radius,
+						((Layer(Row + Position, TimeN + Seed) + 1) / 2) *
+							(AmplitudeB + Layer(NoiseTimeB, 10) * AmplitudeV) *
+							Math.min((CurrentTime - TimeS) / 1000, 1) *
+							(1 - InfluenceMouse),
+						SmoothingD,
+					) +
 					Math.sqrt(
-						OffsetDimensional.x * OffsetDimensional.x +
-							OffsetDimensional.y * OffsetDimensional.y,
+						OffsetDimensional.X * OffsetDimensional.X +
+							OffsetDimensional.Y * OffsetDimensional.Y,
 					) *
 						InfluenceMouse;
 
-				// Apply transformations
 				if (Element()) {
 					const __Element = Element() as HTMLDivElement;
 
+					// --- Rotation & Translation ---
 					const Transform = `rotate(${Angle * (180 / Math.PI)}deg) translateX(${Radius}px)`;
 
 					__Element.style.transform = MouseState().Active
-						? `${Transform} ${`translate(${OffsetDimensional.x}px, ${OffsetDimensional.y}px) scale(${OffsetDimensional.Scale})`}`
+						? `${Transform} translate(${OffsetDimensional.X}px, ${OffsetDimensional.Y}px) scale(${OffsetDimensional.Scale})`
 						: Transform;
 
-					// Color blending
+					// --- z-index ---
+					__Element.style.zIndex = Math.floor(
+						Lerp(
+							Math.floor(
+								((Layer(TimeN + Seed, Column + Position) + 1) /
+									2) *
+									10,
+							),
+							100,
+							InfluenceMouse,
+						),
+					).toString();
+
+					// --- Color Blending ---
 					const Default = All[
 						Math.floor(
-							(Noise(TimeN + Seed, Column + Position) + 1) * 180,
+							(Layer(TimeN + Seed, Column + Position) + 1) * 180,
 						)
 					] as string;
 
-					const MouseColor = `hsl(${(MouseState().Velocity * 2) % 360}, 100%, 50%)`;
+					const MouseColor = `hsl(${Lerp(
+						((Layer(TimeN + Seed, Column + Position) + 1) / 2) *
+							360,
+						(MouseState().Velocity * 2) % 360,
+						InfluenceMouse,
+					)}, 100%, 50%)`;
 
 					__Element.style.backgroundColor = MouseState().Active
 						? MouseColor
 						: Default;
 
-					__Element.style.boxShadow = `0 0 ${InfluenceMouse * 20}px ${
-						MouseState().Active ? MouseColor : Default
-					}`;
+					// --- Box-shadow ---
+					__Element.style.boxShadow = `0 0 ${Lerp(
+						((Layer(TimeN + Seed, Column + 50) + 1) / 2) * 10,
+						InfluenceMouse * 20,
+						InfluenceMouse,
+					)}px ${MouseState().Active ? MouseColor : Default}`;
 
-					__Element.style.opacity = (
-						0.7 +
-						InfluenceMouse * 0.3
+					// --- Opacity ---
+					__Element.style.opacity = Lerp(
+						((Layer(TimeN + Seed, Column + 150) + 1) / 2) * 0.3 +
+							0.7,
+						1,
+						InfluenceMouse,
 					).toString();
 
+					// --- Transition Duration ---
 					__Element.style.transitionDuration = `${(
-						((Noise(TimeN + Seed, Column + 100) + 1) / 2) * 10 +
+						((Layer(TimeN + Seed, Column + 100) + 1) / 2) * 10 +
 						5
 					).toFixed(2)}s`;
 				}
@@ -291,3 +325,12 @@ export default (
 };
 
 export const Noise = createNoise2D();
+
+export const Lerp = (a: number, b: number, t: number): number =>
+	a + (b - a) * t;
+
+export const Layer = (
+	Time: number,
+	Offset: number,
+	Strength = 0.0001,
+): number => Noise(Time + Offset, 20) + Strength * Noise(Time * 2 + Offset, 30);
