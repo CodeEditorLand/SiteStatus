@@ -1,5 +1,6 @@
 import "@Function/Scroll/Stylesheet.scss";
 
+import type { Mouse } from "@Function/Scroll/Duplicate/Pixel.js";
 import type { JSX } from "solid-js";
 
 export default ({
@@ -11,6 +12,16 @@ export default ({
 
 	Font?: number;
 }): JSX.Element => {
+	const [Mouse, _Mouse] = createSignal<Mouse>({
+		X: 0,
+		Y: 0,
+		XPrevious: 0,
+		YPrevious: 0,
+		Velocity: 0,
+		Last: 0,
+		Active: false,
+	});
+
 	const [Offset, _Offset] = createSignal(0);
 
 	const [Element, _Element] = createSignal<HTMLDivElement>();
@@ -29,7 +40,33 @@ export default ({
 
 	const Time = 50;
 
+	const Move = (e: MouseEvent): void => {
+		const currentTime = performance.now();
+		_Mouse((prev) => {
+			const dx = e.clientX - prev.X;
+			const dy = e.clientY - prev.Y;
+
+			return {
+				XPrevious: prev.X,
+				YPrevious: prev.Y,
+				X: e.clientX,
+				Y: e.clientY,
+				Velocity: Math.sqrt(dx * dx + dy * dy),
+				Last: currentTime,
+				active: true,
+			};
+		});
+	};
+
 	onMount(() => {
+		if (Element()) {
+			Element()?.addEventListener("mousemove", Move);
+
+			Element()?.addEventListener("mouseleave", () =>
+				_Mouse((prev) => ({ ...prev, active: false })),
+			);
+		}
+
 		const Factor = (): void => {
 			if (Element()) {
 				_Count(
@@ -116,6 +153,10 @@ export default ({
 													Show,
 
 													Display().length,
+
+													Mouse,
+
+													Element,
 												),
 											)}
 										</div>
