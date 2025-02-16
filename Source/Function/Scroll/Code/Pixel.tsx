@@ -98,7 +98,7 @@ export default (
 			let ID: number;
 
 			const Move = (): void => {
-				if (!(Element() && Container)) {
+				if (!(Element() && Container())) {
 					ID = requestAnimationFrame(Move);
 
 					return;
