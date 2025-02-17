@@ -1,5 +1,5 @@
-import type { Mouse } from "@Function/Scroll/Code/Pixel.js";
-import type { JSX } from "solid-js";
+import { type Mouse } from "@Function/Scroll/Type.js";
+import { type JSX } from "solid-js";
 
 export default ({
 	Text = "",
@@ -12,11 +12,17 @@ export default ({
 }): JSX.Element => {
 	const [Mouse, _Mouse] = createSignal<Mouse>({
 		X: 0,
+
 		Y: 0,
+
 		XPrevious: 0,
+
 		YPrevious: 0,
+
 		Velocity: 0,
+
 		Last: 0,
+
 		Active: false,
 	});
 
@@ -25,6 +31,8 @@ export default ({
 	const [Element, _Element] = createSignal<HTMLDivElement>();
 
 	const [Count, _Count] = createSignal(10);
+
+	const [CurrentTime, _CurrentTime] = createSignal(performance.now());
 
 	const Width = 4;
 
@@ -43,46 +51,62 @@ export default ({
 
 		_Mouse((prev) => {
 			const dx = e.clientX - prev.X;
+
 			const dy = e.clientY - prev.Y;
 
 			return {
 				XPrevious: prev.X,
+
 				YPrevious: prev.Y,
+
 				X: e.clientX,
+
 				Y: e.clientY,
+
 				Velocity: Math.sqrt(dx * dx + dy * dy),
+
 				Last: currentTime,
+
 				Active: true,
 			};
 		});
 	};
 
 	onMount(() => {
-		if (Element()) {
-			Element()?.addEventListener("mousemove", Move);
+		const _Element = Element();
 
-			Element()?.addEventListener("mouseleave", () =>
-				_Mouse((Previous) => ({ ...Previous, Active: false })),
-			);
+		if (!_Element) {
+			return;
 		}
 
-		const Factor = (): void => {
-			if (Element()) {
-				_Count(
-					Math.max(
-						1,
+		_Element.addEventListener("mousemove", Move);
 
-						Math.floor((Element()?.offsetWidth ?? 100) / 32),
-					),
-				);
-			}
-		};
+		_Element.addEventListener("mouseleave", () =>
+			_Mouse((Previous) => ({ ...Previous, Active: false })),
+		);
+
+		const Factor = (): number =>
+			_Count(
+				Math.max(
+					1,
+
+					Math.floor((_Element.offsetWidth ?? 100) / 32),
+				),
+			);
 
 		Factor();
 
 		window.addEventListener("resize", Factor);
 
-		return (): void => window.removeEventListener("resize", Factor);
+		onCleanup(() => {
+			_Element.removeEventListener("mousemove", Move);
+
+			_Element.removeEventListener("mouseleave", () =>
+				_Mouse((Previous) => ({ ...Previous, Active: false })),
+			);
+
+			window.removeEventListener("resize", Factor);
+		});
 	});
 
 	createEffect(() => {
@@ -92,23 +116,30 @@ export default ({
 
 		let ID: number;
 
-		const Size = Padded().length * Width;
+		const Scroll = (Time: number): void => {
+			_CurrentTime(Time);
 
-		const Roll = (Current: number): void => {
-			const Past = Current - LastTimestamp();
+			// Text scroll animation
+			if (Animate()) {
+				const Past = Time - LastTimestamp();
 
-			if (Past >= Time) {
-				_Offset((prev) => (prev - 0.2 + Size) % Size);
+				if (Past >= Time) {
+					_Offset(
+						(prev) =>
+							(prev - 0.2 + Padded().length * Width) %
+							(Padded().length * Width),
+					);
 
-				_LastTimestamp(Current);
+					_LastTimestamp(Time);
+				}
 			}
 
-			ID = requestAnimationFrame(Roll);
+			ID = requestAnimationFrame(Scroll);
 		};
 
-		ID = requestAnimationFrame(Roll);
+		ID = requestAnimationFrame(Scroll);
 
-		return (): void => cancelAnimationFrame(ID);
+		onCleanup(() => cancelAnimationFrame(ID));
 	});
 
 	const Display = (): string => {
@@ -139,25 +170,22 @@ export default ({
 									{(
 										Matrix[Position.toUpperCase()] ||
 										Matrix[" "]
-									)?.map((Row) => (
+									)?.map((Row, RowIndex) => (
 										<div class="Row flex">
-											{Row.map((Show, IndexPixel) =>
-												Pixel(
-													Font,
-
-													IndexChar,
-
-													IndexPixel,
-
-													Show,
-
-													Display().length,
-
-													Mouse,
-
-													Element,
-												),
-											)}
+											{Row.map((Show, Index) => (
+												<Pixel
+													Font={Font}
+													Character={IndexChar}
+													Index={Index}
+													Show={Show}
+													Text={Display().length}
+													Mouse={Mouse}
+													Container={Element()?.getBoundingClientRect()}
+													CurrentTime={CurrentTime()}
+													Row={RowIndex}
+													Column={Index % 3}
+												/>
+											))}
 										</div>
 									))}
 								</div>
@@ -169,12 +197,12 @@ export default ({
 	);
 };
 
-export const { default: Matrix } = await import("@Variable/Scroll/Matrix.js");
-
-export const { createEffect, createSignal, onMount, onCleanup } = await import(
-	"solid-js"
-);
-
 export const { default: Pixel } = await import(
 	"@Function/Scroll/Code/Pixel.js"
+);
+
+export const { default: Matrix } = await import("@Variable/Scroll/Matrix.js");
+
+export const { createEffect, createSignal, onCleanup, onMount } = await import(
+	"solid-js"
 );
