@@ -9,4 +9,6 @@ export default {
 	DIMENSION: 4,
 	FADE_DURATION: 0.001,
 	COLOR_STEPS: 360,
-} ;
+
+	DUST_PARTICLE_COUNT: 3,
+};

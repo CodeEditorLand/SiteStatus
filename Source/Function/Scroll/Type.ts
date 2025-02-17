@@ -41,7 +41,7 @@ export interface PixelProps {
 
 	Container: DOMRect | undefined;
 
-	CurrentTime: number;
+	CurrentTime: Accessor<number>;
 
 	Row: number;
 

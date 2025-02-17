@@ -40,11 +40,10 @@ export default ({
 
 	const Padded = (): string => `${_Text()}   ${_Text()}   `;
 
-	const Animate = (): boolean => _Text().length > Count();
+	// const Animate = (): boolean => _Text().length > Count();
+	const Animate = (): boolean => false;
 
 	const [LastTimestamp, _LastTimestamp] = createSignal(0);
-
-	const Time = 50;
 
 	const Move = (e: MouseEvent): void => {
 		const currentTime = performance.now();
@@ -181,7 +180,7 @@ export default ({
 													Text={Display().length}
 													Mouse={Mouse}
 													Container={Element()?.getBoundingClientRect()}
-													CurrentTime={CurrentTime()}
+													CurrentTime={CurrentTime}
 													Row={RowIndex}
 													Column={Index % 3}
 												/>

@@ -2,8 +2,11 @@ import type { Mouse } from "@Function/Scroll/Type.js";
 
 export const Noise = (await import("simplex-noise")).createNoise2D();
 
-export const Lerp = (a: number, b: number, t: number): number =>
-	a + (b - a) * t;
+export const Lerp = (
+	APoint: number,
+	BPoint: number,
+	TargetPoint: number,
+): number => APoint + (BPoint - APoint) * TargetPoint;
 
 export const Layer = (
 	Time: number,
@@ -14,7 +17,7 @@ export const Layer = (
 export const Spectrum = (Step: number): string[] =>
 	Array.from(
 		{ length: Step },
-		(_, i) => `hsl(${(i / Step) * 360}, 100%, 50%)`,
+		(_, Index) => `hsl(${(Index / Step) * 360}, 100%, 50%)`,
 	);
 
 export const Influence = (
@@ -23,11 +26,12 @@ export const Influence = (
 	TimeCurrent: number,
 	MouseState: Mouse,
 ): number => {
-	const { RADIUS_EFFECT, FADE_DURATION } = Constant;
-
 	return (
-		Math.max(0, 1 - Math.sqrt(DX * DX + DY * DY) / RADIUS_EFFECT) *
-		Math.max(0, 1 - (TimeCurrent - MouseState.Last) / FADE_DURATION)
+		Math.max(0, 1 - Math.sqrt(DX * DX + DY * DY) / Constant.RADIUS_EFFECT) *
+		Math.max(
+			0,
+			1 - (TimeCurrent - MouseState.Last) / Constant.FADE_DURATION,
+		)
 	);
 };
 
