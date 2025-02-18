@@ -2,8 +2,11 @@ import type { Mouse, MovementDimensional } from "@Function/Scroll/Type.js";
 
 export default class {
 	private readonly TimeCurrent: number;
+
 	private readonly Seed: number;
+
 	private readonly StateMouse: Mouse;
+
 	private readonly InfluenceMouse: number;
 
 	constructor(
@@ -13,8 +16,11 @@ export default class {
 		mouseInfluence: number,
 	) {
 		this.TimeCurrent = TimeCurrent;
+
 		this.Seed = Seed;
+
 		this.StateMouse = StateMouse;
+
 		this.InfluenceMouse = mouseInfluence;
 	}
 
@@ -53,6 +59,7 @@ export default class {
 					FactorMouse,
 					COLOR_STEPS,
 				);
+
 				return Accumulate;
 			},
 			{ X: 0, Y: 0, Rotation: 0, Scale: 1 } as MovementDimensional,
@@ -72,15 +79,22 @@ export default class {
 		switch (Dimension) {
 			case 0:
 				Accumulate.X = Value * amplitude + DX * FactorMouse;
+
 				break;
+
 			case 1:
 				Accumulate.Y = Value * amplitude + DY * FactorMouse;
+
 				break;
+
 			case 2:
 				Accumulate.Rotation = Value * colorSteps * FactorMouse;
+
 				break;
+
 			case 3:
 				Accumulate.Scale = 1 + Value * 0.5 * FactorMouse;
+
 				break;
 		}
 	}
