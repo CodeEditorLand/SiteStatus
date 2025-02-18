@@ -39,7 +39,7 @@ export interface PixelProps {
 
 	Mouse: Accessor<Mouse>;
 
-	Container: DOMRect | undefined;
+	Container: DOMRect;
 
 	CurrentTime: Accessor<number>;
 
