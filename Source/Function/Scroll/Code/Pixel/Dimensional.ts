@@ -13,7 +13,7 @@ export default class {
 		TimeCurrent: number,
 		Seed: number,
 		StateMouse: Mouse,
-		mouseInfluence: number,
+		InfluenceMouse: number,
 	) {
 		this.TimeCurrent = TimeCurrent;
 
@@ -21,7 +21,7 @@ export default class {
 
 		this.StateMouse = StateMouse;
 
-		this.InfluenceMouse = mouseInfluence;
+		this.InfluenceMouse = InfluenceMouse;
 	}
 
 	Calculate(dx: number, dy: number): MovementDimensional {

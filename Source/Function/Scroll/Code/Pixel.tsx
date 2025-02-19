@@ -40,7 +40,7 @@ export default ({
 				1,
 				1,
 			),
-			Mouse: Mouse,
+			Mouse,
 			Spectrum: ALL_COLORS,
 		}).Roll();
 	});

@@ -34,67 +34,6 @@ export default ({
 
 	const [_Text] = createSignal(Text);
 
-	const Move = (e: MouseEvent): void => {
-		const CurrentTime = performance.now();
-
-		_Mouse((prev) => {
-			const dx = e.clientX - prev.X;
-
-			const dy = e.clientY - prev.Y;
-
-			return {
-				XPrevious: prev.X,
-
-				YPrevious: prev.Y,
-
-				X: e.clientX,
-
-				Y: e.clientY,
-
-				Velocity: Math.sqrt(dx * dx + dy * dy),
-
-				Last: CurrentTime,
-
-				Active: true,
-			};
-		});
-	};
-
-	onMount(() => {
-		const _Element = Element();
-
-		if (!_Element) {
-			return;
-		}
-
-		_Element.addEventListener("mousemove", Move);
-
-		_Element.addEventListener("mouseleave", () =>
-			_Mouse((Previous) => ({ ...Previous, Active: false })),
-		);
-
-		const Factor = (): number =>
-			_Count(
-				Math.max(
-					1,
-
-					Math.floor((_Element.offsetWidth ?? 100) / 32),
-				),
-			);
-
-		Factor();
-
-		window.addEventListener("resize", Factor);
-
-		onCleanup(() => {
-			_Element.removeEventListener("mousemove", Move);
-
-			_Element.removeEventListener("mouseleave", () =>
-				_Mouse((Previous) => ({ ...Previous, Active: false })),
-			);
-		});
-	});
-
 	createEffect(() => {
 		let ID: number;
 
