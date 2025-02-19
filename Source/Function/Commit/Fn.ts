@@ -1,7 +1,7 @@
-import { getSecret, type TOKEN_GITHUB_COMMIT } from "astro:env/server";
+import { getSecret, type TOKEN_GITHUB_COMMIT_STATUS_EDITOR_LAND } from "astro:env/server";
 
 const Octokit = new (await import("@octokit/rest")).Octokit({
-	auth: getSecret("TOKEN_GITHUB_COMMIT") as typeof TOKEN_GITHUB_COMMIT,
+	auth: getSecret("TOKEN_GITHUB_COMMIT_STATUS_EDITOR_LAND") as typeof TOKEN_GITHUB_COMMIT_STATUS_EDITOR_LAND,
 });
 
 export const Fn = async (_Owner, _Repository, _SHA) => {

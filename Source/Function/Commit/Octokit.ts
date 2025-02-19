@@ -1,5 +1,5 @@
 import type { Endpoints, RequestParameters, Route } from "@octokit/types";
-import type { TOKEN_GITHUB_COMMIT } from "astro:env/server";
+import type { TOKEN_GITHUB_COMMIT_STATUS_EDITOR_LAND } from "astro:env/server";
 
 export default async <R extends Route>(
 	...[REQUEST, OPTION]: [
@@ -13,8 +13,8 @@ export default async <R extends Route>(
 		return (
 			await new (await import("@octokit/rest")).Octokit({
 				auth: (await import("astro:env/server")).getSecret(
-					"TOKEN_GITHUB_COMMIT",
-				) as typeof TOKEN_GITHUB_COMMIT,
+					"TOKEN_GITHUB_COMMIT_STATUS_EDITOR_LAND",
+				) as typeof TOKEN_GITHUB_COMMIT_STATUS_EDITOR_LAND,
 			}).request(REQUEST, OPTION)
 		).data;
 	} catch (_Error) {

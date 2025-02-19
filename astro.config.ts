@@ -5,7 +5,7 @@ export const On = process.env["NODE_ENV"] === "development";
 export default (await import("astro/config")).defineConfig({
 	env: {
 		schema: {
-			TOKEN_GITHUB_COMMIT: envField.string({
+			TOKEN_GITHUB_COMMIT_STATUS_EDITOR_LAND: envField.string({
 				context: "server",
 				access: "secret",
 				optional: false,
