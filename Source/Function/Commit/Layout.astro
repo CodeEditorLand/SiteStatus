@@ -2,25 +2,33 @@
 import "@Function/Commit/Stylesheet.css";
 import "datatables.net-dt/css/dataTables.dataTables.css";
 
+const { default: Get } = await import("@Function/Commit/Cache/Set/Get/Fn.js");
+
+const { default: Set } = await import("@Function/Commit/Cache/Set/Fn.js");
+
 const { user, repo } = Astro.props;
 
-const Cache = `https://api.github.com/repos/${user}/${repo}/commits?per_page=50`;
-
 let Last =
+	(await Get(`commits-${user}-${repo}`)) ??
 	(await (
-		await import("@Function/Commit/Cache/Set/Get/Fn.js")
-	).default(Cache)) ?? (await (await fetch(Cache)).json());
+		await import("@Function/Commit/Octokit.js")
+	).default("GET /repos/{owner}/{repo}/commits", {
+		owner: user,
+		repo,
+		per_page: 50,
+	}));
 
-(await import("@Function/Commit/Cache/Set/Fn.js")).default(Cache, Last);
+await Set(`commits-${user}-${repo}`, Last);
 
-// @ts-expect-error
-Last = Last.map((Commit) => ({
-	"Author": Commit["commit"]["author"]["name"] ?? "",
-	"Commit Message": Commit["message"] ?? "",
-	"Date": Commit["commit"]["author"]["date"] ?? "",
-	"HREF": Commit["html_url"] ?? "",
-	"SHA": Commit["sha"] ?? "",
-}));
+Last = await Promise.all(
+	Last.map(async (Commit: any) => ({
+		"Author": Commit["commit"]["author"]["name"] ?? "",
+		"Commit Message": Commit["message"] ?? "",
+		"Date": Commit["commit"]["author"]["date"] ?? "",
+		"HREF": Commit["html_url"] ?? "",
+		"SHA": Commit["sha"] ?? "",
+	})),
+);
 
 const UUID = (await import("@Function/UUID/Fn.js")).default();
 ---

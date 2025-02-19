@@ -1,17 +1,19 @@
-export const CACHE_FILE = ".cache/Commit/Cache.json";
+export const CACHE_DIRECTORY = ".cache/Commit/Cache";
 
-export default async (Where: string, _Set: []) => {
+export default async (Where: string, Set: any) => {
 	try {
 		await (
 			await import("fs/promises")
 		).writeFile(
-			(await import("path")).join(process.cwd(), CACHE_FILE),
+			(await import("path")).join(
+				process.cwd(),
+				CACHE_DIRECTORY,
+				encodeURIComponent(Where) + ".json",
+			),
 			JSON.stringify(
 				{
-					...(await (
-						await import("@Function/Commit/Cache/Set/Get/Fn.js")
-					).default(Where)),
-					[Where]: { Set: _Set, TimeStamp: Date.now() },
+					Set,
+					TimeStamp: Date.now(),
 				},
 				null,
 				"\t",
@@ -19,6 +21,6 @@ export default async (Where: string, _Set: []) => {
 			"utf-8",
 		);
 	} catch (_Error) {
-		console.error("Error writing cache:", _Error);
+		console.error("Error writing cache for key:", Where, _Error);
 	}
 };

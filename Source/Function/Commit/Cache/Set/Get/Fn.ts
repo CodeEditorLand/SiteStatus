@@ -7,20 +7,18 @@ export default async (Where: string) => {
 				(await import("path")).join(
 					process.cwd(),
 					(await import("@Function/Commit/Cache/Set/Fn.js"))
-						.CACHE_FILE,
+						.CACHE_DIRECTORY,
+					encodeURIComponent(Where) + ".json",
 				),
 				"utf-8",
 			),
 		);
 
-		if (
-			_Set[Where] &&
-			Date.now() - _Set[Where].TimeStamp < 30 * 60 * 1000
-		) {
-			return _Set[Where]["Set"];
+		if (Date.now() - _Set.TimeStamp < 30 * 60 * 1000) {
+			return _Set.Set;
 		}
 	} catch (_Error) {
-		console.error("Error reading cache:", _Error);
+		console.error(`Cannot ${Where}`, Where, _Error);
 	}
 
 	return undefined;
