@@ -2,23 +2,17 @@
 import "@Function/Commit/Stylesheet.css";
 import "datatables.net-dt/css/dataTables.dataTables.css";
 
-const { default: Get } = await import("@Function/Commit/Cache/Set/Get/Fn.js");
-
-const { default: Set } = await import("@Function/Commit/Cache/Set/Fn.js");
+const { default: Request } = await import(
+	"@Function/Commit/Octokit/Request.js"
+);
 
 const { user, repo } = Astro.props;
 
-let Last =
-	(await Get(`commits-${user}-${repo}`)) ??
-	(await (
-		await import("@Function/Commit/Octokit.js")
-	).default("GET /repos/{owner}/{repo}/commits", {
-		owner: user,
-		repo,
-		per_page: 50,
-	}));
-
-await Set(`commits-${user}-${repo}`, Last);
+let Last = await Request("GET /repos/{owner}/{repo}/commits", {
+	owner: user,
+	repo,
+	per_page: 50,
+});
 
 Last = await Promise.all(
 	Last.map(async (Commit: any) => ({
@@ -27,6 +21,35 @@ Last = await Promise.all(
 		"Date": Commit["commit"]["author"]["date"] ?? "",
 		"HREF": Commit["html_url"] ?? "",
 		"SHA": Commit["sha"] ?? "",
+		"File": await (async (SHA: string) => {
+			const Total = (
+				await Request(
+					"GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+					{
+						owner: user,
+						repo,
+						tree_sha: SHA,
+						recursive: true,
+					},
+				)
+			).tree.length;
+
+			const File = (
+				await Request("GET /repos/{owner}/{repo}/commits/{ref}", {
+					owner: user,
+					repo,
+					ref: SHA,
+				})
+			).files;
+
+			return [
+				new (await import("@Function/Commit/Dot.js")).default({
+					Total,
+				}).Display(File.length),
+				Total,
+				File.length,
+			];
+		})(Commit["sha"]),
 	})),
 );
 
@@ -156,6 +179,14 @@ const UUID = (await import("@Function/UUID/Fn.js")).default();
 							render: (Text) =>
 								`<span class="Text">${new Date(Text).toLocaleDateString()} 📅</span>`,
 							data: (Row) => new Date(Row.Date).getTime(),
+							type: "numeric",
+						},
+						{
+							title: "FILE",
+							render: (_Text, _Type, Row) =>
+								`<span class="text-right Text font-Hack cursor-pointer text-2xl tracking-[-.25em]" title="File: ${Row.File[2]} / ${Row.File[1]}">${Row.File[0]}</span>`,
+							data: (Row) => Row.File[1],
+							type: "numeric",
 						},
 						{
 							title: "COMMIT MESSAGE",

@@ -1,14 +1,14 @@
 import type { Endpoints, RequestParameters, Route } from "@octokit/types";
 import type { TOKEN_GITHUB_COMMIT_STATUS_EDITOR_LAND } from "astro:env/server";
 
-export default async <R extends Route>(
-	...[REQUEST, OPTION]: [
-		keyof Endpoints | R,
-		R extends keyof Endpoints
-			? Endpoints[R]["parameters"] & RequestParameters
-			: RequestParameters,
-	]
-) => {
+export type Parameter<R extends Route = Route> = [
+	keyof Endpoints | R,
+	R extends keyof Endpoints
+		? Endpoints[R]["parameters"] & RequestParameters
+		: RequestParameters,
+];
+
+export default async (...[REQUEST, OPTION]: Parameter) => {
 	try {
 		return (
 			await new (await import("@octokit/rest")).Octokit({
