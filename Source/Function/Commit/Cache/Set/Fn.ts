@@ -1,4 +1,4 @@
-export const CACHE_DIRECTORY = ".cache/Commit/Cache";
+export const CACHE_DIRECTORY = ".cache/Commit";
 
 export default async (Where: string, Set: any) => {
 	try {
