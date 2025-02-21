@@ -17,7 +17,7 @@ export default async (Where: string, Set: any) => {
 				},
 				null,
 				"\t",
-			).replace(/\r\n/g, "\n"),
+			),
 			{
 				encoding: "utf-8",
 			},
