@@ -39,21 +39,17 @@ export default class {
 
 		return Array.from({ length: DIMENSION }).reduce(
 			(Accumulate, _, Index) => {
-				const TimeValue =
-					this.TimeCurrent *
-						(MULTIPLIER_TIME_BASE +
-							Index * MULTIPLIER_TIME_VARIATION) +
-					this.Seed;
-
-				const Value = Layer(TimeValue, Index * 1000);
-
-				const Amplitude = AMPLITUDE_BASE + Index * AMPLITUDE_VARIATION;
-
 				this.Apply(
 					Accumulate as MovementDimensional,
 					Index,
-					Value,
-					Amplitude,
+					Layer(
+						this.TimeCurrent *
+							(MULTIPLIER_TIME_BASE +
+								Index * MULTIPLIER_TIME_VARIATION) +
+							this.Seed,
+						Index * 1000,
+					),
+					AMPLITUDE_BASE + Index * AMPLITUDE_VARIATION,
 					dx,
 					dy,
 					FactorMouse,

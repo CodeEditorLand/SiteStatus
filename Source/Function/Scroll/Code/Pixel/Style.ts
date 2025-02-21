@@ -20,18 +20,6 @@ export default class {
 
 	private readonly Spectrum: string[];
 
-	private readonly Dust: HTMLDivElement[] = [];
-
-	private ParticleSeed: number[] = [];
-
-	private StateParticle: Array<{
-		Start: number;
-
-		Duration: number;
-
-		ID?: number;
-	}> = [];
-
 	constructor(
 		Element: HTMLDivElement,
 
@@ -78,8 +66,6 @@ export default class {
 		this.ZIndex();
 
 		this.Color();
-
-		this.Particle();
 
 		this.Shadow();
 
@@ -196,13 +182,6 @@ export default class {
 
 				this.Influence,
 			)}px ${Color}`;
-
-			this.Dust.forEach(
-				(
-					Particle,
-					Index, // @ts-expect-error
-				) => this.ParticleUpdate(Particle, Index, Color),
-			);
 		});
 	}
 
@@ -224,189 +203,6 @@ export default class {
 				10 +
 			5
 		).toFixed(2)}s`;
-	}
-
-	private ParticleUpdate(
-		Particle: HTMLDivElement,
-		Index: number,
-		Color: string,
-	): void {
-		const State = this.StateParticle[Index];
-
-		const Seed = this.ParticleSeed[Index] ?? 0;
-
-		const Jiggle = (CurrentTime: number) => {
-			// @ts-expect-error
-			const Elapsed = CurrentTime - State.Start;
-
-			// @ts-expect-error
-			const Progress = Math.min(Elapsed / State.Duration, 1);
-
-			const TimeNoise = this.TimeNoise + Progress * Seed;
-
-			// Calculate base properties using noise
-			const Scale = Lerp(
-				0.8,
-				0.2,
-				(Layer(TimeNoise, this.Column + 300) + 1) / 2,
-			);
-
-			const Opacity = Lerp(
-				0.8,
-				0,
-				(Layer(TimeNoise, this.Column + 400) + 1) / 2,
-			);
-
-			// 3D rotations using noise
-			const XRotate = Lerp(
-				0,
-				360,
-				(Layer(TimeNoise, this.Column + 500) + 1) / 2,
-			);
-
-			const YRotate = Lerp(
-				0,
-				360,
-				(Layer(TimeNoise, this.Column + 600) + 1) / 2,
-			);
-
-			const ZRotate = Lerp(
-				0,
-				360,
-				(Layer(TimeNoise, this.Column + 700) + 1) / 2,
-			);
-
-			let Transform: string;
-
-			if (this.Mouse().Active && this.Influence > 0) {
-				// Calculate spiral motion when mouse is active
-				const ProgressSpiral =
-					(Progress + Index / Constant.DUST_PARTICLE_COUNT) % 1;
-
-				// Spiral parameters affected by mouse velocity and influence
-				const HeightSpiral =
-					Constant.SPIRAL_HEIGHT *
-					this.Influence *
-					(1 - ProgressSpiral);
-
-				const RadiusSpiral = Constant.SPIRAL_RADIUS * this.Influence;
-
-				const Angle =
-					ProgressSpiral * Math.PI * 2 * Constant.SPIRAL_ROTATIONS;
-
-				const XSpiral = Math.cos(Angle) * RadiusSpiral * ProgressSpiral;
-
-				const ZSpiral = Math.sin(Angle) * RadiusSpiral * ProgressSpiral;
-
-				const XOffsetVelocity =
-					this.Mouse().Velocity * 20 * this.Influence;
-
-				const YOffsetVelocity =
-					-this.Mouse().Velocity * 15 * this.Influence;
-
-				Transform = `
-                    translate3d(
-                        calc(-50% + ${XSpiral + XOffsetVelocity}px),
-                        ${-HeightSpiral + YOffsetVelocity}px,
-                        ${ZSpiral}px
-                    )
-                    rotateX(${XRotate + this.Mouse().Velocity * 720 * this.Influence}deg)
-                    rotateY(${YRotate + this.Mouse().Velocity * 720 * this.Influence}deg)
-                    rotateZ(${ZRotate + Angle * (180 / Math.PI)}deg)
-                    scale3d(${Scale}, ${Scale}, ${Scale})
-                `;
-			} else {
-				Transform = `
-                    translate3d(
-                        calc(-50% + ${Lerp(
-							-20,
-							20,
-							(Layer(TimeNoise, this.Column + 100) + 1) / 2,
-						)}px),
-                        ${Lerp(
-							0,
-							50,
-							(Layer(TimeNoise, this.Column + 200) + 1) / 2,
-						)}px,
-                        0
-                    )
-                    rotateX(${XRotate}deg)
-                    rotateY(${YRotate}deg)
-                    rotateZ(${ZRotate}deg)
-                    scale3d(${Scale}, ${Scale}, ${Scale})
-                `;
-			}
-
-			Object.assign(Particle.style, {
-				backgroundColor: Color,
-				opacity: Opacity.toString(),
-				transform: Transform,
-			});
-
-			if (Progress >= 1) {
-				// @ts-expect-error
-				State.Start = CurrentTime;
-
-				this.ParticleSeed[Index] = Math.random() * 1000;
-			}
-
-			// @ts-expect-error
-			State.ID = requestAnimationFrame(Jiggle);
-		};
-
-		// @ts-expect-error
-		if (State.ID) {
-			// @ts-expect-error
-			cancelAnimationFrame(State.ID);
-		}
-
-		// @ts-expect-error
-		State.ID = requestAnimationFrame(Jiggle);
-	}
-
-	private Particle(): void {
-		this.Dust.forEach((Particle, index) => {
-			if (this.StateParticle[index]?.ID) {
-				cancelAnimationFrame(this.StateParticle[index].ID!);
-			}
-
-			Particle.remove();
-		});
-
-		this.Dust.length = 0;
-
-		this.StateParticle.length = 0;
-
-		this.ParticleSeed = Array.from(
-			{ length: Constant.DUST_PARTICLE_COUNT },
-			() => Math.random() * 1000,
-		);
-
-		for (let i = 0; i < Constant.DUST_PARTICLE_COUNT; i++) {
-			const Particle = document.createElement("div");
-
-			Particle.className = "Dust";
-
-			Object.assign(Particle.style, {
-				position: "absolute",
-				pointerEvents: "none",
-				width: "2px",
-				height: "2px",
-				borderRadius: "50%",
-				left: "50%",
-				top: "100%",
-				willChange: "transform, opacity",
-			});
-
-			this.Element.appendChild(Particle);
-
-			this.Dust.push(Particle);
-
-			this.StateParticle.push({
-				Start: performance.now(),
-				Duration: 5000000 + Math.random() * 1000,
-			});
-		}
 	}
 }
 

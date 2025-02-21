@@ -57,6 +57,10 @@ const UUID = (await import("@Function/UUID/Fn.js")).default();
 ---
 
 <commit-table data-uuid={UUID} class="Table">
+	<div class="Touch">
+		<div class="Progress"></div>
+	</div>
+
 	<table class="cell-border compact"></table>
 </commit-table>
 
@@ -87,6 +91,34 @@ const UUID = (await import("@Function/UUID/Fn.js")).default();
 		);
 	};
 
+	export const Segment = (Total: number, Element: HTMLDivElement) => {
+		Element.innerHTML = "";
+
+		for (let i = 0; i < Total; i++) {
+			const Segment = document.createElement("div");
+
+			Segment.classList.add("Segment");
+
+			Element.appendChild(Segment);
+		}
+	};
+
+	export const Progress = (
+		Current: number,
+		_Total: number,
+		Element: HTMLDivElement,
+	) => {
+		const _Segment = Element.querySelectorAll(".Segment");
+
+		_Segment.forEach((Segment, Index) =>
+			Index < Current + 1
+				? Segment.classList.add("Completed")
+				: Segment.classList.remove("Completed"),
+		);
+
+		// Element.style.width = ((Current + 1) / Total) * 100 + "%";
+	};
+
 	document.addEventListener("DOMContentLoaded", () => {
 		const Theme = () =>
 			document
@@ -106,7 +138,7 @@ const UUID = (await import("@Function/UUID/Fn.js")).default();
 			connectedCallback() {
 				const UUID = this.dataset["uuid"] ?? "";
 
-				new DataTable(`[data-uuid=${UUID}] table`, {
+				new DataTable(`[data-uuid="${UUID}"] table`, {
 					columns: [
 						{
 							title: "DATE",
@@ -117,7 +149,7 @@ const UUID = (await import("@Function/UUID/Fn.js")).default();
 						},
 						{
 							title: "FILE",
-							render: (_Text, _Type, Row) =>
+							render: (_, __, Row) =>
 								`<span class="Text File" title="File: ${Row.File[2]} / ${Row.File[1]}">${Row.File[0]}</span>`,
 							data: (Row) => Row.File[1],
 							type: "numeric",
@@ -130,11 +162,7 @@ const UUID = (await import("@Function/UUID/Fn.js")).default();
 						},
 						{
 							title: "HREF",
-							render: (
-								_Text,
-								_Type,
-								Row,
-							) => `<a class="Pulse" \
+							render: (_, __, Row) => `<a class="Pulse" \
 									href="${Row.HREF}" \
 									rel="noopener noreferrer" \
 									target="_blank"> \
@@ -157,18 +185,47 @@ const UUID = (await import("@Function/UUID/Fn.js")).default();
 					scrollY: "1000px",
 					processing: true,
 					order: [[2, "desc"]],
-					drawCallback: (Internal) =>
-						Internal["oPreviousSearch"]["search"]
+					drawCallback: (Setting) =>
+						Setting["oPreviousSearch"]["search"]
 							.split("_")
-							.forEach((El: string) =>
+							.forEach((_Element: string) =>
 								document
 									.querySelectorAll<HTMLSpanElement>(
-										`#${Internal["sInstance"]} .Text`,
+										`#${Setting["sInstance"]} .Text`,
 									)
 									.forEach((Element) =>
-										HighLight(Element, El),
+										HighLight(Element, _Element),
 									),
 							),
+					initComplete(Setting) {
+						const Touch = document.querySelector<HTMLDivElement>(
+							`[data-uuid="${UUID}"] .Touch`,
+						);
+
+						const _Progress = Touch?.querySelector<HTMLDivElement>(
+							`.Progress`,
+						) as HTMLDivElement;
+
+						const Api = () => Setting["oInstance"].api();
+
+						const Info = () => Api().page.info();
+
+						Segment(Info().pages, _Progress);
+
+						Progress(Info().page, Info().pages, _Progress);
+
+						Touch?.addEventListener("mousemove", (e) => {
+							const Target = Math.floor(
+								(e.offsetX / Touch.offsetWidth) * Info().pages,
+							);
+
+							if (Target !== Info().page) {
+								Api().page(Target).draw(false);
+
+								Progress(Target, Info().pages, _Progress);
+							}
+						});
+					},
 				});
 			}
 		}
