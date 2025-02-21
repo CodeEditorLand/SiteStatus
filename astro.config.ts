@@ -34,15 +34,8 @@ export default (await import("astro/config")).defineConfig({
 			name: "astro-cache",
 			hooks: {
 				"astro:build:start": async () => {
-					console.log("Running cache cleanup before build...");
-
-					for (const File of await (
-						await import("fast-glob")
-					).default("**/*.json", {
-						cwd: (await import("path")).join(
-							process.cwd(),
-							".cache",
-						),
+					for (const File of await Glob("**/*.json", {
+						cwd: join(process.cwd(), ".cache"),
 						absolute: true,
 						onlyFiles: true,
 					})) {
@@ -50,9 +43,7 @@ export default (await import("astro/config")).defineConfig({
 							if (
 								Date.now() -
 									JSON.parse(
-										await (
-											await import("fs/promises")
-										).readFile(File, {
+										await readFile(File, {
 											encoding: "utf-8",
 										}),
 									).TimeStamp >
@@ -169,4 +160,8 @@ export default (await import("astro/config")).defineConfig({
 	},
 }) as typeof defineConfig;
 
-export const { unlink } = await import("fs/promises");
+export const { unlink, readFile } = await import("fs/promises");
+
+export const { join } = await import("path");
+
+export const { default: Glob } = await import("fast-glob");
