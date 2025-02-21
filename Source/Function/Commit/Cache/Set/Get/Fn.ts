@@ -1,4 +1,13 @@
-export default async (Where: string) => {
+export default async (
+	Where: string,
+): Promise<
+	| {
+			Set: {
+				[key: string]: {};
+			};
+	  }
+	| undefined
+> => {
 	try {
 		const _Set = JSON.parse(
 			await (
@@ -15,7 +24,7 @@ export default async (Where: string) => {
 		);
 
 		if (Date.now() - _Set.TimeStamp < 30 * 60 * 1000) {
-			return _Set.Set;
+			return _Set;
 		}
 	} catch (_Error) {
 		console.log(`Cannot ${Where}`, Where, _Error);
