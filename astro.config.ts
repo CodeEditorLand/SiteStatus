@@ -30,36 +30,38 @@ export default (await import("astro/config")).defineConfig({
 		concurrency: 9999,
 	},
 	integrations: [
-		{
-			name: "astro-cache",
-			hooks: {
-				"astro:build:start": async () => {
-					for (const File of await Glob("**/*.json", {
-						cwd: join(process.cwd(), ".cache"),
-						absolute: true,
-						onlyFiles: true,
-					})) {
-						try {
-							if (
-								Date.now() -
-									JSON.parse(
-										await readFile(File, {
-											encoding: "utf-8",
-										}),
-									).TimeStamp >
-								7 * 24 * 60 * 60 * 1000
-							) {
-								await unlink(File);
-							}
-						} catch (_Error) {
-							console.log(`Cannot ${File}:`, _Error);
+		!On
+			? {
+					name: "Cache",
+					hooks: {
+						"astro:build:start": async () => {
+							for (const File of await Glob("**/*.json", {
+								cwd: join(process.cwd(), ".cache"),
+								absolute: true,
+								onlyFiles: true,
+							})) {
+								try {
+									if (
+										Date.now() -
+											JSON.parse(
+												await readFile(File, {
+													encoding: "utf-8",
+												}),
+											).TimeStamp >
+										7 * 24 * 60 * 60 * 1000
+									) {
+										await unlink(File);
+									}
+								} catch (_Error) {
+									console.log(`Cannot ${File}:`, _Error);
 
-							await unlink(File);
-						}
-					}
-				},
-			},
-		},
+									await unlink(File);
+								}
+							}
+						},
+					},
+				}
+			: null,
 		(await import("@astrojs/solid-js")).default({
 			// @ts-ignore
 			devtools: On,
