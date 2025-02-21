@@ -17,8 +17,10 @@ export default async (Where: string, Set: any) => {
 				},
 				null,
 				"\t",
-			),
-			"utf-8",
+			).replace(/\r\n/g, "\n"),
+			{
+				encoding: "utf-8",
+			},
 		);
 	} catch (_Error) {
 		console.log("Error writing cache for key:", Where, _Error);
