@@ -102,7 +102,7 @@ export default (await import("astro/config")).defineConfig({
 						} catch (_Error) {
 							console.log("Cannot Cache:", _Error);
 						}
-					})(Age);
+					})();
 				},
 			},
 		},
