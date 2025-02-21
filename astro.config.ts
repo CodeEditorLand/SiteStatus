@@ -30,6 +30,45 @@ export default (await import("astro/config")).defineConfig({
 		concurrency: 9999,
 	},
 	integrations: [
+		{
+			name: "astro-cache",
+			hooks: {
+				"astro:build:start": async () => {
+					console.log("Running cache cleanup before build...");
+
+					for (const File of await (
+						await import("fast-glob")
+					).default("**/*.json", {
+						cwd: (await import("path")).join(
+							process.cwd(),
+							".cache",
+						),
+						absolute: true,
+						onlyFiles: true,
+					})) {
+						try {
+							if (
+								Date.now() -
+									JSON.parse(
+										await (
+											await import("fs/promises")
+										).readFile(File, {
+											encoding: "utf-8",
+										}),
+									).TimeStamp >
+								7 * 24 * 60 * 60 * 1000
+							) {
+								await unlink(File);
+							}
+						} catch (_Error) {
+							console.log(`Cannot ${File}:`, _Error);
+
+							await unlink(File);
+						}
+					}
+				},
+			},
+		},
 		(await import("@astrojs/solid-js")).default({
 			// @ts-ignore
 			devtools: On,
@@ -44,71 +83,6 @@ export default (await import("astro/config")).defineConfig({
 		!On
 			? (await import("@playform/compress")).default({ Logger: 1 })
 			: null,
-
-		{
-			name: "Cache",
-			hooks: {
-				"astro:build:start": async () => {
-					console.log("Running cache cleanup before build...");
-
-					await (async (
-						// DAYS_PER_WEEK
-						Age: number = 7 *
-							// HOURS_PER_DAY
-							24 *
-							// MINUTES_PER_HOUR
-							60 *
-							// SECONDS_PER_MINUTE
-							60 *
-							// MILLISECONDS_PER_SECOND
-							1000,
-					) => {
-						try {
-							await Promise.all(
-								await (
-									await import("fast-glob")
-								)
-									.default("**/*.json", {
-										cwd: (await import("path")).join(
-											process.cwd(),
-											".cache",
-										),
-										absolute: true,
-									})
-									.map(async (File) => {
-										try {
-											if (
-												Date.now() -
-													JSON.parse(
-														await (
-															await import(
-																"fs/promises"
-															)
-														).readFile(File, {
-															encoding: "utf-8",
-														}),
-													).TimeStamp >
-												Age
-											) {
-												await unlink(File);
-											}
-										} catch (_Error) {
-											console.log(
-												`Cannot ${File}:`,
-												_Error,
-											);
-
-											await unlink(File);
-										}
-									}),
-							);
-						} catch (_Error) {
-							console.log("Cannot Cache:", _Error);
-						}
-					})();
-				},
-			},
-		},
 	],
 	experimental: {
 		clientPrerender: true,
