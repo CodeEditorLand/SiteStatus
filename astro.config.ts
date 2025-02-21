@@ -69,7 +69,10 @@ export default (await import("astro/config")).defineConfig({
 									await import("fast-glob")
 								)
 									.default("**/*.json", {
-										cwd: join(process.cwd(), ".cache"),
+										cwd: (await import("path")).join(
+											process.cwd(),
+											".cache",
+										),
 										absolute: true,
 									})
 									.map(async (File) => {
