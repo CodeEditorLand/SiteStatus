@@ -18,7 +18,7 @@ export default async (Where: string) => {
 			return _Set.Set;
 		}
 	} catch (_Error) {
-		console.error(`Cannot ${Where}`, Where, _Error);
+		console.log(`Cannot ${Where}`, Where, _Error);
 	}
 
 	return undefined;

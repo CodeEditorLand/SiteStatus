@@ -21,6 +21,6 @@ export default async (Where: string, Set: any) => {
 			"utf-8",
 		);
 	} catch (_Error) {
-		console.error("Error writing cache for key:", Where, _Error);
+		console.log("Error writing cache for key:", Where, _Error);
 	}
 };

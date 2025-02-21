@@ -44,6 +44,68 @@ export default (await import("astro/config")).defineConfig({
 		!On
 			? (await import("@playform/compress")).default({ Logger: 1 })
 			: null,
+
+		{
+			name: "Cache",
+			hooks: {
+				"astro:build:start": async () => {
+					console.log("Running cache cleanup before build...");
+
+					await (async (
+						// DAYS_PER_WEEK
+						Age: number = 7 *
+							// HOURS_PER_DAY
+							24 *
+							// MINUTES_PER_HOUR
+							60 *
+							// SECONDS_PER_MINUTE
+							60 *
+							// MILLISECONDS_PER_SECOND
+							1000,
+					) => {
+						try {
+							await Promise.all(
+								await (
+									await import("fast-glob")
+								)
+									.default("**/*.json", {
+										cwd: join(process.cwd(), ".cache"),
+										absolute: true,
+									})
+									.map(async (File) => {
+										try {
+											if (
+												Date.now() -
+													JSON.parse(
+														await (
+															await import(
+																"fs/promises"
+															)
+														).readFile(File, {
+															encoding: "utf-8",
+														}),
+													).TimeStamp >
+												Age
+											) {
+												await unlink(File);
+											}
+										} catch (_Error) {
+											console.log(
+												`Cannot ${File}:`,
+												_Error,
+											);
+
+											await unlink(File);
+										}
+									}),
+							);
+						} catch (_Error) {
+							console.log("Cannot Cache:", _Error);
+						}
+					})(Age);
+				},
+			},
+		},
 	],
 	experimental: {
 		clientPrerender: true,
@@ -129,3 +191,5 @@ export default (await import("astro/config")).defineConfig({
 		],
 	},
 }) as typeof defineConfig;
+
+export const { unlink } = await import("fs/promises");

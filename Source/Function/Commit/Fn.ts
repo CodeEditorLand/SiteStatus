@@ -8,7 +8,7 @@ export const Fn = async (_Owner, _Repository, _SHA) => {
 	try {
 		return [];
 	} catch (_Error) {
-		console.error("Cannot Commit:", _Error);
+		console.log("Cannot Commit:", _Error);
 
 		return [];
 	}
@@ -60,7 +60,7 @@ export const Fn = async (_Owner, _Repository, _SHA) => {
 	// 			}),
 	// 	);
 	// } catch (error) {
-	// 	console.error("Error fetching submodule commit:", error);
+	// 	console.log("Error fetching submodule commit:", error);
 	// 	// Handle error (e.g., return an empty array or a placeholder)
 	// 	return [];
 	// }

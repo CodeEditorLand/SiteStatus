@@ -18,7 +18,7 @@ export default async (...[REQUEST, OPTION]: Parameter) => {
 			}).request(REQUEST, OPTION)
 		).data;
 	} catch (_Error) {
-		console.error(`Cannot ${REQUEST} with ${OPTION}`, _Error);
+		console.log(`Cannot ${REQUEST} with ${OPTION}`, _Error);
 
 		throw _Error;
 	}
