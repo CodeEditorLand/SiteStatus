@@ -12,11 +12,11 @@ export default async (
 	const Hash = (await import("crypto"))
 		.createHash("md5")
 		.update(
-			JSON.stringify([
-				REQUEST,
-				OPTION,
-				TRANSFORM ? TRANSFORM.toString() : "",
-			]),
+			JSON.stringify(
+				[REQUEST, OPTION, TRANSFORM ? TRANSFORM.toString() : ""],
+				null,
+				"\t",
+			),
 		)
 		.digest("hex");
 
