@@ -1,3 +1,4 @@
+import Cell from "@Function/Commit/Layout/Code/Cell.js";
 import Segment from "@Function/Commit/Layout/Code/Segment.js";
 import DataTable from "datatables.net-dt";
 
@@ -85,12 +86,8 @@ document.addEventListener("DOMContentLoaded", () => {
 					{
 						title: "COMMIT",
 
-						render: (_, __, Row) => `<a class="Pulse" \
-									href="HTTPS://GitHub.Com/${User}/${Repository}/commit/${Row.SHA}" \
-									rel="noopener noreferrer" \
-									target="_blank"> \
-										<span class="Text">@COMMIT_</span><span class="Text SHA">${Row.SHA} 🔗</span> \
-									</a>`,
+						render: (_, __, Row) =>
+							`<a class="Pulse" href="HTTPS://GitHub.Com/${User}/${Repository}/commit/${Row.SHA}" rel="noopener noreferrer" target="_blank"><span class="Text">@COMMIT_</span><span class="Text SHA">${Row.SHA} 🔗</span></a>`,
 
 						data: (Row) => `@COMMIT_${Row.SHA}`,
 					},
@@ -107,7 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 				deferRender: true,
 
-				drawCallback: (Setting) =>
+				drawCallback: (Setting) => {
 					Setting["oPreviousSearch"]["search"]
 						.split("_")
 						.forEach((_Element: string) =>
@@ -152,7 +149,8 @@ document.addEventListener("DOMContentLoaded", () => {
 											);
 									})(Element, _Element),
 								),
-						),
+						);
+				},
 
 				initComplete(Setting) {
 					const Touch = document.querySelector<HTMLDivElement>(
@@ -183,6 +181,16 @@ document.addEventListener("DOMContentLoaded", () => {
 				},
 
 				infoCallback(Setting, _, __, ___, ____, _String) {
+					document
+						.querySelectorAll<HTMLTableElement>(
+							`[data-uuid="${UUID}"] table`,
+						)
+						.forEach((Element) => Cell(Element));
+
+					const Api = () => Setting["oInstance"].api();
+
+					const Info = () => Api().page.info();
+
 					const _Progress = document
 						.querySelector<HTMLDivElement>(
 							`[data-uuid="${UUID}"] .Touch`,
@@ -190,10 +198,6 @@ document.addEventListener("DOMContentLoaded", () => {
 						?.querySelector<HTMLDivElement>(
 							`.Progress`,
 						) as HTMLDivElement;
-
-					const Api = () => Setting["oInstance"].api();
-
-					const Info = () => Api().page.info();
 
 					Segment(Info().pages, _Progress);
 
