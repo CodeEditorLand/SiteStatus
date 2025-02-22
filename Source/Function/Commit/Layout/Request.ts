@@ -9,6 +9,8 @@ export type TRANSFORM = (Data: any) => Promise<any>;
 export default async (
 	...[REQUEST, OPTION, TRANSFORM]: [...PARAMETER, TRANSFORM?]
 ): Promise<any> => {
+	let RETURN = undefined;
+
 	const Hash = (await import("crypto"))
 		.createHash("md5")
 		.update(
@@ -21,8 +23,6 @@ export default async (
 		.digest("hex");
 
 	try {
-		let Request = undefined;
-
 		let Cache = await Get(`${Hash}`);
 
 		if (
@@ -34,25 +34,23 @@ export default async (
 		) {
 			return Cache.Set;
 		} else {
-			Request = await (
+			RETURN = await (
 				await import("@Function/Commit/Layout/Request/Octokit.js")
 			).default(REQUEST, OPTION);
 
 			if (TRANSFORM && typeof TRANSFORM === "function") {
-				Request = await TRANSFORM(Request);
+				RETURN = await TRANSFORM(RETURN);
 			}
 		}
 
-		if (Request === undefined) {
-			Request = (await Get(`${Hash}`))?.Set;
+		if (RETURN === undefined) {
+			RETURN = (await Get(`${Hash}`))?.Set;
 		}
 
 		return await (
 			await import("@Function/Commit/Layout/Request/Set.js")
-		).default(`${Hash}`, Request);
-	} catch (_Error) {
-		console.error(_Error);
+		).default(`${Hash}`, RETURN);
+	} catch (_Error) {}
 
-		return undefined;
-	}
+	return RETURN;
 };
