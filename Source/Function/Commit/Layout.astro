@@ -2,103 +2,124 @@
 import "@Function/Commit/Stylesheet.css";
 import "datatables.net-dt/css/dataTables.dataTables.css";
 
-const { default: Request } = await import("@Function/Commit/Layout/Request.js");
+import type { CF_PAGES_COMMIT_SHA } from "astro:env/server";
+
+const SHA = (await import("astro:env/server")).getSecret(
+	"CF_PAGES_COMMIT_SHA",
+) as typeof CF_PAGES_COMMIT_SHA;
+
+// const { default: Request } = await import("@Function/Commit/Layout/Request.js");
 
 const { User, Repository } = Astro.props;
 
 let Last: any[] = [];
 
-for (let Page = 0; Page < 5; Page++) {
-	try {
-		Last = Last.concat(
-			await Request("GET /repos/{owner}/{repo}/commits", {
-				owner: User,
+// for (let Page = 0; Page < 5; Page++) {
+// 	try {
+// 		Last = Last.concat(
+// 			await Request(
+// 				"GET /repos/{owner}/{repo}/commits",
 
-				repo: Repository,
+// 				{
+// 					owner: User,
 
-				per_page: 100,
+// 					repo: Repository,
 
-				page: Page,
-			}),
-		);
-	} catch (_Error) {
-		console.log(_Error);
-	}
-}
+// 					per_page: 5,
 
-Last = (await import("@Function/Commit/Layout/Unwrap.js")).default(
-	await Promise.allSettled(
-		Last.map(async (Commit: any) => ({
-			"Author": Commit["commit"]["author"]["name"] ?? "",
+// 					page: Page,
+// 				},
 
-			"Message": Commit["message"] ?? "",
+// 				async (Response) =>
+// 					(await import("@Function/Commit/Layout/Unwrap.js")).default(
+// 						await Promise.allSettled(
+// 							Response?.map(async (Commit: any) => ({
+// 								Author: Commit?.commit?.author?.name ?? "",
 
-			"Date": Commit["commit"]["author"]["date"] ?? "",
+// 								Date: Commit?.commit?.author?.date ?? "",
 
-			"SHA": Commit["sha"] ?? "",
+// 								Message: Commit?.message ?? "",
 
-			"File": await (async (SHA: string) => {
-				try {
-					const Total =
-						(
-							await Request(
-								"GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+// 								SHA: Commit?.sha ?? "",
 
-								{
-									owner: User,
+// 								File: await (async (SHA: string) => {
+// 									try {
+// 										const Total = await Request(
+// 											"GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
 
-									repo: Repository,
+// 											{
+// 												owner: User,
 
-									tree_sha: SHA,
+// 												repo: Repository,
 
-									recursive: true,
-								},
-							)
-						)?.tree?.length ?? 0;
+// 												tree_sha: SHA,
 
-					const File =
-						(
-							await Request(
-								"GET /repos/{owner}/{repo}/commits/{ref}",
-								{
-									owner: User,
+// 												recursive: true,
+// 											},
 
-									repo: Repository,
+// 											(Response) =>
+// 												Response?.tree?.length ?? 0,
+// 										);
 
-									ref: SHA,
-								},
-							)
-						)?.files ?? 0;
+// 										const File = await Request(
+// 											"GET /repos/{owner}/{repo}/commits/{ref}",
 
-					return [
-						new (
-							await import("@Function/Commit/Layout/Dot.js")
-						).default({
-							Total,
-						}).Display(File.length),
+// 											{
+// 												owner: User,
 
-						Total,
+// 												repo: Repository,
 
-						File.length,
-					];
-				} catch (_Error) {
-					console.log(_Error);
+// 												ref: SHA,
+// 											},
 
-					return ["", 0, 0];
-				}
-			})(Commit["sha"]),
-		})),
-	),
-) as any[];
+// 											(Response) =>
+// 												Response?.files?.length ?? 0,
+// 										);
+
+// 										return [
+// 											new (
+// 												await import(
+// 													"@Function/Commit/Layout/Dot.js"
+// 												)
+// 											).default({
+// 												Total,
+// 											}).Display(File),
+
+// 											Total,
+
+// 											File,
+// 										];
+// 									} catch (_Error) {
+// 										console.log(_Error);
+
+// 										return ["", 0, 0];
+// 									}
+// 								})(Commit?.sha ?? ""),
+// 							})),
+// 						),
+// 					),
+// 			),
+// 		);
+// 	} catch (_Error) {
+// 		console.log(_Error);
+// 	}
+// }
 
 const UUID = (await import("@Function/Commit/Layout/UUID.js")).default();
+
+const URL = `Cache/Commit/${Repository}-${User}-${SHA}.json`;
+
+await (
+	await import("fs/promises")
+).writeFile(`Public/${URL}`, JSON.stringify(Last));
 ---
 
 <commit-table
 	class="Table"
 	data-repository={Repository}
 	data-user={User}
-	data-uuid={UUID}>
+	data-uuid={UUID}
+	data-url={URL}>
 	<div class="Touch">
 		<div class="Progress"></div>
 	</div>

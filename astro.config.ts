@@ -11,6 +11,12 @@ export default (await import("astro/config")).defineConfig({
 				optional: false,
 				default: "GitHub Token API Stream",
 			}),
+			CF_PAGES_COMMIT_SHA: envField.string({
+				context: "server",
+				access: "secret",
+				optional: true,
+				default: "1"
+			})
 		},
 		validateSecrets: true,
 	},
@@ -36,7 +42,7 @@ export default (await import("astro/config")).defineConfig({
 					hooks: {
 						"astro:build:start": async () => {
 							for (const File of await Glob("**/*.json", {
-								cwd: join(process.cwd(), ".cache"),
+								cwd: join(process.cwd(), "Cache"),
 								absolute: true,
 								onlyFiles: true,
 							})) {

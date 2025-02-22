@@ -1,32 +1,60 @@
-import type { Parameter } from "@Function/Commit/Layout/Request/Octokit.js";
+import type { PARAMETER } from "@Function/Commit/Layout/Request/Octokit.js";
 
-const { default: Get } = await import("@Function/Commit/Layout/Request/Get.js");
+export const { default: Get } = await import(
+	"@Function/Commit/Layout/Request/Get.js"
+);
 
-const { default: Set } = await import("@Function/Commit/Layout/Request/Set.js");
+export type TRANSFORM = (Data: any) => Promise<any>;
 
-export default async (...Parameter: Parameter): Promise<any> => {
+export default async (
+	...[REQUEST, OPTION, TRANSFORM]: [...PARAMETER, TRANSFORM?]
+): Promise<any> => {
 	const Hash = (await import("crypto"))
 		.createHash("md5")
-		.update(JSON.stringify(Parameter))
+		.update(
+			JSON.stringify([
+				REQUEST,
+				OPTION,
+				TRANSFORM ? TRANSFORM.toString() : "",
+			]),
+		)
 		.digest("hex");
 
-	const TTL = await (
-		await import("@Function/Commit/Layout/Request/Get/TTL.js")
-	).default(Parameter);
+	console.log("--------------------------------");
+	console.log(Hash);
 
 	try {
-		let Return =
-			(await Get(`${Hash}`))?.Set ??
-			(await (
+		let Request = undefined;
+
+		let Cache = await Get(`${Hash}`);
+
+		if (
+			Cache?.Set &&
+			Date.now() - Cache.TimeStamp <
+				(
+					await import("@Function/Commit/Layout/Request/Get/TTL.js")
+				).default([REQUEST, OPTION])
+		) {
+			return Cache.Set;
+		} else {
+			Request = await (
 				await import("@Function/Commit/Layout/Request/Octokit.js")
-			).default(Parameter[0], Parameter[1])) ??
-			(await Get(`${Hash}`, true))?.Set;
+			).default(REQUEST, OPTION);
 
-		await Set(`${Hash}`, Return);
+			if (TRANSFORM && typeof TRANSFORM === "function") {
+				Request = await TRANSFORM(Request);
+			}
+		}
 
-		return Return;
+		if (Request === undefined) {
+			Request = (await Get(`${Hash}`))?.Set;
+		}
+
+		return await (
+			await import("@Function/Commit/Layout/Request/Set.js")
+		).default(`${Hash}`, Request);
 	} catch (_Error) {
-		console.log(_Error);
+		console.error(_Error);
 
 		return undefined;
 	}

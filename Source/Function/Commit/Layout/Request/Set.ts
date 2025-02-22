@@ -1,18 +1,20 @@
-export const CACHE_DIRECTORY = ".cache/Commit";
+export const DIRECTORY = "Cache/Commit";
 
 export default async (Where: string, Set: any) => {
+	const Return = Set ?? {};
+
 	try {
 		await (
 			await import("fs/promises")
 		).writeFile(
 			(await import("path")).join(
 				process.cwd(),
-				CACHE_DIRECTORY,
+				DIRECTORY,
 				encodeURIComponent(Where) + ".json",
 			),
 			JSON.stringify(
 				{
-					Set,
+					Set: Return,
 					TimeStamp: Date.now(),
 				},
 				null,
@@ -25,4 +27,6 @@ export default async (Where: string, Set: any) => {
 	} catch (_Error) {
 		console.log("Error writing cache for key:", Where, _Error);
 	}
+
+	return Return;
 };

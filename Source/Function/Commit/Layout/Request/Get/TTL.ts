@@ -1,10 +1,10 @@
-import type { Parameter } from "@Function/Commit/Layout/Request/Octokit.js";
+import type { PARAMETER } from "@Function/Commit/Layout/Request/Octokit.js";
 
 export const MIN_30 = 30 * 60 * 1000;
 
 export const HOUR_24 = 24 * 60 * 60 * 1000;
 
-export default (...[Parameter]: [Parameter]) => {
+export default (...[Parameter]: [PARAMETER]) => {
 	const Option = Parameter[1] || {};
 
 	if (Parameter[0] === "GET /repos/{owner}/{repo}/commits") {
