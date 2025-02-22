@@ -2,6 +2,8 @@ import Cell from "@Function/Commit/Layout/Code/Cell.js";
 import Segment from "@Function/Commit/Layout/Code/Segment.js";
 import DataTable from "datatables.net-dt";
 
+import "@Function/Commit/Stylesheet.css";
+
 export const Progress = (
 	Current: number,
 
@@ -208,13 +210,64 @@ document.addEventListener("DOMContentLoaded", () => {
 
 				lengthMenu: [5, 10, 20, 40, 80, 160, 320],
 
+				layout: {
+					top3: [
+						{
+							div: {
+								html: `<h1 class="text-3xl font-bold text-stone-900 dark:text-white font-sans">${User}/${Repository}</h1>`,
+
+								className: "Title",
+							},
+
+							info: {
+								text: `<h2 class="text-lg text-stone-700 dark:text-stone-400 font-sans">Showing _START_ to _END_ of _TOTAL_ entries<h2>`,
+							},
+						},
+					],
+
+					top2: [
+						{
+							div: {
+								html: `<div class="Progress"></div>`,
+
+								className: "Touch",
+							},
+						},
+					],
+
+					top1: [
+						{
+							pageLength: {},
+						},
+
+						{
+							paging: {
+								type: "full_numbers",
+							},
+						},
+						{
+							search: {
+								processing: false,
+							},
+						},
+					],
+
+					bottomEnd: [],
+
+					bottomStart: null,
+
+					topStart: null,
+
+					topEnd: null,
+				},
+
 				pageLength: 5,
 
 				paging: true,
 
 				pagingType: "full_numbers",
 
-				processing: true,
+				processing: false,
 
 				// @ts-expect-error
 				responsive: true,
