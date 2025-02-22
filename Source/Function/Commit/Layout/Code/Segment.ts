@@ -70,4 +70,6 @@ export default (Total: number, Element: HTMLDivElement) => {
 
 		Element.appendChild(Segment);
 	}
+
+	return true;
 };

@@ -9,9 +9,11 @@ const TimeNoise = 0;
 const NoiseInfluence = 0.5;
 
 export default (Element: HTMLElement) => {
-	const Cell = Element.querySelectorAll<HTMLTableCellElement>("td, th");
+	const Input = Element.querySelectorAll<
+		HTMLInputElement | HTMLSelectElement
+	>(".dt-input, .dt-search input");
 
-	const Total = Cell.length;
+	const Total = Input.length;
 
 	if (!Total) {
 		return;
@@ -19,13 +21,13 @@ export default (Element: HTMLElement) => {
 
 	const Group = Math.ceil(Total / 3);
 
-	Cell.forEach((Element, Index) => {
+	Input.forEach((Element, Index) => {
 		let Low, High, Local, Count, Seed;
 
 		if (Index < Group) {
-			Low = RGB(Color.amber[50]);
+			Low = RGB(Color.cyan[50]);
 
-			High = RGB(Color.amber[950]);
+			High = RGB(Color.cyan[950]);
 
 			Local = Index;
 
@@ -33,9 +35,9 @@ export default (Element: HTMLElement) => {
 
 			Seed = 0;
 		} else if (Index < Group * 2) {
-			Low = RGB(Color.orange[50]);
+			Low = RGB(Color.sky[50]);
 
-			High = RGB(Color.orange[950]);
+			High = RGB(Color.sky[950]);
 
 			Local = Index - Group;
 
@@ -43,9 +45,9 @@ export default (Element: HTMLElement) => {
 
 			Seed = 1;
 		} else {
-			Low = RGB(Color.red[50]);
+			Low = RGB(Color.blue[50]);
 
-			High = RGB(Color.red[950]);
+			High = RGB(Color.blue[950]);
 
 			Local = Index - Group * 2;
 

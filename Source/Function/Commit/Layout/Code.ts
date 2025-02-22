@@ -1,4 +1,5 @@
 import Cell from "@Function/Commit/Layout/Code/Cell.js";
+import Input from "@Function/Commit/Layout/Code/Input.js";
 import Segment from "@Function/Commit/Layout/Code/Segment.js";
 import DataTable from "datatables.net-dt";
 
@@ -108,10 +109,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 				drawCallback: (Setting) => {
 					document
-						.querySelectorAll<HTMLTableElement>(
-							`[data-uuid="${UUID}"] table`,
-						)
-						.forEach((Element) => Cell(Element));
+						.querySelectorAll<HTMLElement>(`[data-uuid="${UUID}"] `)
+						.forEach((Element) => Cell(Element) && Input(Element));
 
 					Setting["oPreviousSearch"]["search"]
 						.split("_")
