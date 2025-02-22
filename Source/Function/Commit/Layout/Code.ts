@@ -37,15 +37,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
 			new DataTable(`[data-uuid="${UUID}"] table`, {
 				ajax: {
-					dataSrc: "",
+					async: true,
 
-					dataType: "json",
+					cache: true,
+
+					contentType: "application/json",
 
 					crossDomain: true,
 
-					async: true,
+					dataSrc: "",
 
-					cache: false,
+					dataType: "json",
 
 					url: AJAX,
 				},
