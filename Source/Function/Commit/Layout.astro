@@ -22,105 +22,68 @@ for (let Page = 0; Page < 5; Page++) {
 	);
 }
 
-Last = await Promise.allSettled(
-	Last.map(async (Commit: any) => ({
-		"Author": Commit["commit"]["author"]["name"] ?? "",
+Last = (await import("@Function/Commit/Layout/Unwrap.js")).default(
+	await Promise.allSettled(
+		Last.map(async (Commit: any) => ({
+			"Author": Commit["commit"]["author"]["name"] ?? "",
 
-		"Commit Message": Commit["message"] ?? "",
+			"Message": Commit["message"] ?? "",
 
-		"Date": Commit["commit"]["author"]["date"] ?? "",
+			"Date": Commit["commit"]["author"]["date"] ?? "",
 
-		"HREF": Commit["html_url"] ?? "",
+			"SHA": Commit["sha"] ?? "",
 
-		"SHA": Commit["sha"] ?? "",
+			"File": await (async (SHA: string) => {
+				const Total = (
+					await Request(
+						"GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
 
-		"File": await (async (SHA: string) => {
-			const Total = (
-				await Request(
-					"GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+						{
+							owner: User,
 
-					{
+							repo: Repository,
+
+							tree_sha: SHA,
+
+							recursive: true,
+						},
+					)
+				).tree.length;
+
+				const File = (
+					await Request("GET /repos/{owner}/{repo}/commits/{ref}", {
 						owner: User,
 
 						repo: Repository,
 
-						tree_sha: SHA,
+						ref: SHA,
+					})
+				).files;
 
-						recursive: true,
-					},
-				)
-			).tree.length;
+				return [
+					new (
+						await import("@Function/Commit/Layout/Dot.js")
+					).default({
+						Total,
+					}).Display(File.length),
 
-			const File = (
-				await Request("GET /repos/{owner}/{repo}/commits/{ref}", {
-					owner: User,
-
-					repo: Repository,
-
-					ref: SHA,
-				})
-			).files;
-
-			return [
-				new (await import("@Function/Commit/Layout/Dot.js")).default({
 					Total,
-				}).Display(File.length),
 
-				Total,
-
-				File.length,
-			];
-		})(Commit["sha"]),
-	})),
-);
+					File.length,
+				];
+			})(Commit["sha"]),
+		})),
+	),
+) as any[];
 
 const UUID = (await import("@Function/Commit/Layout/UUID.js")).default();
-
-interface Props {
-	User?: string;
-
-	Repository?: string;
-}
-
-const Unwrap = (_Array: any[]): any[] | {} => {
-	if (Array.isArray(_Array)) {
-		return _Array.map(Unwrap);
-	}
-
-	if (_Array && typeof _Array === "object") {
-		const Key = Object.keys(_Array);
-
-		if (
-			Key.length === 2 &&
-			Key.includes("status") &&
-			Key.includes("value")
-		) {
-			// @ts-expect-error
-			return Unwrap(_Array.value);
-		}
-
-		const Return = {};
-
-		// @ts-expect-error
-		for (let Key in _Array) {
-			// @ts-expect-error
-			Return[Key] = Unwrap(_Array[Key]);
-		}
-
-		return Return;
-	}
-
-	return _Array;
-};
-
-Last = Unwrap(Last) as any[];
 ---
 
 <commit-table
 	class="Table"
-	data-uuid={UUID}
+	data-repository={Repository}
 	data-user={User}
-	data-repo={Repository}>
+	data-uuid={UUID}>
 	<div class="Touch">
 		<div class="Progress"></div>
 	</div>

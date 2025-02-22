@@ -1,116 +1,5 @@
-import { Layer, Lerp } from "@Function/Commit/Layout/Code/Animation.js";
-import HEX from "@Function/Commit/Layout/Code/HEX.js";
-import Interpolate from "@Function/Commit/Layout/Code/Interpolate.js";
-import RGB from "@Function/Commit/Layout/Code/RGB.js";
+import Segment from "@Function/Commit/Layout/Code/Segment.js";
 import DataTable from "datatables.net-dt";
-
-// stone.50
-const StoneLow = RGB("#faf9f8");
-
-// stone.950
-const StoneHigh = RGB("#9a9a79");
-
-// neutral.50
-const NeutralLow = RGB("#faf9f7");
-
-// neutral.950
-const NeutralHigh = RGB("#9a933f");
-
-// zinc.50
-const ZincLow = RGB("#f8f7f5");
-
-// zinc.950
-const ZincHigh = RGB("#7a7b37");
-
-const TimeNoise = 0;
-
-const NoiseInfluence = 0.5;
-
-export const HighLight = (
-	Container: HTMLElement,
-
-	Search: string,
-
-	HighLight = "HighLight",
-) => {
-	Container.querySelectorAll<HTMLSpanElement>(`span.${HighLight}`).forEach(
-		(Span) => (Span.outerHTML = Span.textContent ?? ""),
-	);
-
-	if (!Container || !Search) {
-		return;
-	}
-
-	Container.innerHTML = Container.innerHTML.replace(
-		new RegExp(Search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"),
-
-		(Match: string) => `<span class="${HighLight}">${Match}</span>`,
-	);
-};
-
-export const Segment = (Total: number, Element: HTMLDivElement) => {
-	Element.innerHTML = "";
-
-	Element.querySelectorAll(".Segment").forEach((Element) => Element.remove());
-
-	for (let Index = 0; Index < Total; Index++) {
-		let Low, High, SegmentGroup, IndexGroup, Seed;
-
-		if (Index < 360) {
-			Low = StoneLow;
-
-			High = StoneHigh;
-
-			SegmentGroup = Total < 360 ? Total : 360;
-
-			IndexGroup = Index;
-
-			Seed = 0;
-		} else if (Index < 720) {
-			Low = NeutralLow;
-
-			High = NeutralHigh;
-
-			SegmentGroup = Math.min(360, Total - 360);
-
-			IndexGroup = Index - 360;
-
-			Seed = 1;
-		} else {
-			Low = ZincLow;
-
-			High = ZincHigh;
-
-			SegmentGroup = Total - 720;
-
-			IndexGroup = Index - 720;
-
-			Seed = 2;
-		}
-
-		const Segment = document.createElement("div");
-
-		Segment.classList.add("Segment");
-
-		Segment.style.backgroundColor = HEX(
-			...Interpolate(
-				Low,
-
-				High,
-
-				Lerp(
-					SegmentGroup > 1 ? IndexGroup / (SegmentGroup - 1) : 0,
-
-					(Layer(TimeNoise + Seed, IndexGroup) + 1) / 2,
-
-					NoiseInfluence,
-				),
-			),
-		);
-
-		Element.appendChild(Segment);
-	}
-};
 
 export const Progress = (
 	Current: number,
@@ -141,6 +30,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	class Commit extends HTMLElement {
 		connectedCallback() {
+			const Repository = this.dataset["repository"] ?? "";
+			const User = this.dataset["user"] ?? "";
 			const UUID = this.dataset["uuid"] ?? "";
 
 			new DataTable(`[data-uuid="${UUID}"] table`, {
@@ -166,19 +57,19 @@ document.addEventListener("DOMContentLoaded", () => {
 					},
 
 					{
-						title: "COMMIT MESSAGE",
+						title: "MESSAGE",
 
-						data: "Commit Message",
+						data: "Message",
 
 						render: (Text) =>
-							`<span class="Text">${Text.trim() === "" || Text.trim().length === 0 ? "No Commit Message 😶" : `${Text.trim()} 🗣️`}</span>`,
+							`<span class="Text">${Text.trim() === "" || Text.trim().length === 0 ? "No Message 😶" : `${Text.trim()} 🗣️`}</span>`,
 					},
 
 					{
-						title: "HREF",
+						title: "COMMIT",
 
 						render: (_, __, Row) => `<a class="Pulse" \
-									href="${Row.HREF}" \
+									href="HTTPS://GitHub.Com/${User}/${Repository}/commit/${Row.SHA}" \
 									rel="noopener noreferrer" \
 									target="_blank"> \
 										<span class="Text">@COMMIT_</span><span class="Text SHA">${Row.SHA} 🔗</span> \
@@ -200,6 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
 				// @ts-expect-error
 				data: window[UUID],
 
+				// @ts-expect-error
 				responsive: true,
 
 				paging: true,
@@ -209,8 +101,6 @@ document.addEventListener("DOMContentLoaded", () => {
 				scrollY: "1000px",
 
 				processing: true,
-
-				// order: [[1, "desc"]],
 
 				pageLength: 5,
 
@@ -227,7 +117,39 @@ document.addEventListener("DOMContentLoaded", () => {
 									`#${Setting["sInstance"]} .Text`,
 								)
 								.forEach((Element) =>
-									HighLight(Element, _Element),
+									((
+										Container: HTMLElement,
+
+										Search: string,
+
+										HighLight = "HighLight",
+									) => {
+										Container.querySelectorAll<HTMLSpanElement>(
+											`span.${HighLight}`,
+										).forEach(
+											(Span) =>
+												(Span.outerHTML =
+													Span.textContent ?? ""),
+										);
+
+										if (!Container || !Search) {
+											return;
+										}
+
+										Container.innerHTML =
+											Container.innerHTML.replace(
+												new RegExp(
+													Search.replace(
+														/[.*+?^${}()|[\]\\]/g,
+														"\\$&",
+													),
+													"gi",
+												),
+
+												(Match: string) =>
+													`<span class="${HighLight}">${Match}</span>`,
+											);
+									})(Element, _Element),
 								),
 						),
 

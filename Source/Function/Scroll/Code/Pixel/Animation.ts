@@ -36,5 +36,5 @@ export const Influence = (
 };
 
 export const { default: Constant } = await import(
-	"@Function/Scroll/Code/Pixel/Animation/Constant.ts"
+	"@Function/Scroll/Code/Pixel/Animation/Constant.js"
 );
