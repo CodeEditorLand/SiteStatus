@@ -38,12 +38,18 @@ document.addEventListener("DOMContentLoaded", () => {
 			new DataTable(`[data-uuid="${UUID}"] table`, {
 				ajax: {
 					dataSrc: "",
+
 					dataType: "json",
+
 					crossDomain: true,
+
 					async: true,
+
 					cache: false,
+
 					url: AJAX,
 				},
+
 				columns: [
 					{
 						title: "DATE",
@@ -97,22 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
 					},
 				],
 
-				// @ts-expect-error
-				responsive: true,
-
-				paging: true,
-
-				scrollCollapse: true,
-
-				scrollY: "1000px",
-
-				processing: true,
-
-				pageLength: 5,
-
-				pagingType: "full_numbers",
-
-				lengthMenu: [5, 10, 20, 40, 80, 160, 320],
+				deferRender: true,
 
 				drawCallback: (Setting) =>
 					Setting["oPreviousSearch"]["search"]
@@ -147,8 +138,10 @@ document.addEventListener("DOMContentLoaded", () => {
 												new RegExp(
 													Search.replace(
 														/[.*+?^${}()|[\]\\]/g,
+
 														"\\$&",
 													),
+
 													"gi",
 												),
 
@@ -206,6 +199,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
 					return _String;
 				},
+
+				lengthMenu: [5, 10, 20, 40, 80, 160, 320],
+
+				pageLength: 5,
+
+				paging: true,
+
+				pagingType: "full_numbers",
+
+				processing: true,
+
+				// @ts-expect-error
+				responsive: true,
+
+				scrollCollapse: true,
+
+				scrollY: "1000px",
 			});
 		}
 	}
