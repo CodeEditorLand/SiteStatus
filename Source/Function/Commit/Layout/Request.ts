@@ -20,9 +20,6 @@ export default async (
 		)
 		.digest("hex");
 
-	console.log("--------------------------------");
-	console.log(Hash);
-
 	try {
 		let Request = undefined;
 

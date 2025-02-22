@@ -5,7 +5,7 @@ export const { MIN_30 } = await import(
 );
 
 export default async (
-	...[Where]: [PARAMETER[0]]
+	...[WHERE]: [PARAMETER[0]]
 ): Promise<
 	| {
 			Set: {
@@ -24,13 +24,13 @@ export default async (
 					process.cwd(),
 					(await import("@Function/Commit/Layout/Request/Set.js"))
 						.DIRECTORY,
-					encodeURIComponent(Where) + ".json",
+					encodeURIComponent(WHERE) + ".json",
 				),
 				"utf-8",
 			),
 		);
 	} catch (_Error) {
-		console.log(`Cannot ${Where}`, Where, _Error);
+		console.log(`Cannot ${WHERE}`, _Error);
 	}
 
 	return undefined;
