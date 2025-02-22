@@ -7,9 +7,7 @@ export const HOUR_24 = 24 * 60 * 60 * 1000;
 export default (...[Parameter]: [Parameter]) => {
 	const Option = Parameter[1] || {};
 
-	// If this is a commit list request:
 	if (Parameter[0] === "GET /repos/{owner}/{repo}/commits") {
-		// Use a shorter TTL for the first page and a longer one for other pages.
 		return Option["page"] === 1 ? MIN_30 : HOUR_24;
 	}
 
