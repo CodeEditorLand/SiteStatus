@@ -33,8 +33,17 @@ document.addEventListener("DOMContentLoaded", () => {
 			const Repository = this.dataset["repository"] ?? "";
 			const User = this.dataset["user"] ?? "";
 			const UUID = this.dataset["uuid"] ?? "";
+			const AJAX = this.dataset["ajax"] ?? "";
 
 			new DataTable(`[data-uuid="${UUID}"] table`, {
+				ajax: {
+					dataSrc: "",
+					dataType: "json",
+					crossDomain: true,
+					async: true,
+					cache: false,
+					url: AJAX,
+				},
 				columns: [
 					{
 						title: "DATE",
@@ -87,9 +96,6 @@ document.addEventListener("DOMContentLoaded", () => {
 							`<span class="Text">${Text} ✍️</span>`,
 					},
 				],
-
-				// @ts-expect-error
-				data: window[UUID],
 
 				// @ts-expect-error
 				responsive: true,
