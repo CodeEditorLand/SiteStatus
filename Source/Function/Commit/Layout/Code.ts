@@ -214,7 +214,17 @@ document.addEventListener("DOMContentLoaded", () => {
 					top3: [
 						{
 							div: {
-								html: `<h1 class="text-3xl font-bold text-stone-900 dark:text-white font-sans">${User}/${Repository}</h1>`,
+								html: `<div class="Progress"></div>`,
+
+								className: "Touch",
+							},
+						},
+					],
+
+					top2: [
+						{
+							div: {
+								html: `<h1 class="text-3xl font-bold text-stone-900 dark:text-white font-sans mb-4">${User}/${Repository}</h1>`,
 
 								className: "Title",
 							},
@@ -224,17 +234,6 @@ document.addEventListener("DOMContentLoaded", () => {
 							},
 						},
 					],
-
-					top2: [
-						{
-							div: {
-								html: `<div class="Progress"></div>`,
-
-								className: "Touch",
-							},
-						},
-					],
-
 					top1: [
 						{
 							pageLength: {},
