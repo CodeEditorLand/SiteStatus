@@ -208,27 +208,21 @@ document.addEventListener("DOMContentLoaded", () => {
 				},
 
 				layout: {
-					top3: [
-						{
-							div: {
-								html: `<div class="Progress"></div>`,
-
-								className: "Touch",
-							},
-						},
-					],
-
 					top2: [
 						{
 							div: {
-								html: `<h1 class="text-3xl font-bold text-stone-900 dark:text-white font-sans mb-4 ">${User}/${Repository}</h1>`,
+								html: `<h1 class="text-3xl font-bold text-stone-900 dark:text-white font-sans mb-4 mr-4">${User}/${Repository}</h1>`,
 
 								className: "Title",
 							},
 						},
 
 						{
-							div: {},
+							div: {
+								html: `<div class="Progress"></div>`,
+
+								className: "Touch",
+							},
 						},
 					],
 
