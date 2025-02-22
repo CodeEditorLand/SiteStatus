@@ -1,6 +1,22 @@
 import type { Mouse } from "@Function/Scroll/Type.js";
+import _Color from "@Function/TailWind/Color.js";
 
 export const Noise = (await import("simplex-noise")).createNoise2D();
+
+export const Flatten = (Color: any): string[] => {
+	const Return: string[] = [];
+
+	for (const [Key, Value] of Object.entries(Color)) {
+		if (typeof Value === "string") {
+			Return.push(Value);
+		} else if (typeof Value === "object") {
+			// @ts-expect-error
+			Return.push(...Object.values(Value));
+		}
+	}
+
+	return Return;
+};
 
 export const Lerp = (
 	APoint: number,
@@ -14,11 +30,20 @@ export const Layer = (
 	Strength = 0.0001,
 ): number => Noise(Time + Offset, 20) + Strength * Noise(Time * 2 + Offset, 30);
 
-export const Spectrum = (Step: number): string[] =>
-	Array.from(
+export const Spectrum = (Step: number): string[] => {
+	// Extract and flatten the colors defined in Tailwind.
+	const Color = Flatten(_Color);
+	const Palette = Color.length;
+
+	if (Step >= Palette) {
+		return Color;
+	}
+
+	return Array.from(
 		{ length: Step },
-		(_, Index) => `hsl(${(Index / Step) * 360}, 100%, 50%)`,
+		(_, Index) => Color[Math.floor((Index * Palette) / Step)],
 	);
+};
 
 export const Influence = (
 	DX: number,
