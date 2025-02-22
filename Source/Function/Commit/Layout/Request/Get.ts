@@ -4,6 +4,7 @@ export const { MIN_30 } = await import(
 
 export default async (
 	Where: string,
+	Force: boolean = false,
 ): Promise<
 	| {
 			Set: {
@@ -27,7 +28,7 @@ export default async (
 			),
 		);
 
-		if (Date.now() - _Set.TimeStamp < MIN_30) {
+		if (Force || Date.now() - _Set.TimeStamp < MIN_30) {
 			return _Set;
 		}
 	} catch (_Error) {

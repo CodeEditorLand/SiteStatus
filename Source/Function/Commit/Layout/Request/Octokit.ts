@@ -20,6 +20,6 @@ export default async (...[REQUEST, OPTION]: Parameter) => {
 	} catch (_Error) {
 		console.log(`Cannot ${REQUEST} with ${OPTION}`, _Error);
 
-		throw _Error;
+		return undefined;
 	}
 };
