@@ -1,8 +1,8 @@
 export type RGB = [number, number, number];
 
-export default ([Red, Green, Blue]: RGB) =>
+export default (...[RGB]: RGB) =>
 	"#" +
-	[Red, Green, Blue]
+	[RGB]
 		.map((String) => {
 			const HEX = String.toString(16);
 

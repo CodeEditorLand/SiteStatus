@@ -15,6 +15,7 @@ export default async (...Parameter: Parameter) => {
 	).default(Parameter);
 
 	try {
+		// TODO: If request fails, force timestamp override and use cache
 		let Return =
 			(await Get(`${Hash}`))?.Set ??
 			(await (
