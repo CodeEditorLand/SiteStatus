@@ -59,8 +59,6 @@ export default (await import("astro/config")).defineConfig({
 										await unlink(File);
 									}
 								} catch (_Error) {
-									console.log(`Cannot ${File}:`, _Error);
-
 									await unlink(File);
 								}
 							}
