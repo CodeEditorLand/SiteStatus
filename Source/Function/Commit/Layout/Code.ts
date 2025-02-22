@@ -105,6 +105,12 @@ document.addEventListener("DOMContentLoaded", () => {
 				deferRender: true,
 
 				drawCallback: (Setting) => {
+					document
+						.querySelectorAll<HTMLTableElement>(
+							`[data-uuid="${UUID}"] table`,
+						)
+						.forEach((Element) => Cell(Element));
+
 					Setting["oPreviousSearch"]["search"]
 						.split("_")
 						.forEach((_Element: string) =>
@@ -181,12 +187,6 @@ document.addEventListener("DOMContentLoaded", () => {
 				},
 
 				infoCallback(Setting, _, __, ___, ____, _String) {
-					document
-						.querySelectorAll<HTMLTableElement>(
-							`[data-uuid="${UUID}"] table`,
-						)
-						.forEach((Element) => Cell(Element));
-
 					const Api = () => Setting["oInstance"].api();
 
 					const Info = () => Api().page.info();

@@ -3,7 +3,7 @@ const __vite__mapDeps = (
 	m = __vite__mapDeps,
 	d = m.f ||
 		(m.f = [
-			"_astro/Pixel.yd1wdmx9.js",
+			"_astro/Pixel.mXUmH9UP.js",
 			"_astro/preload-helper.D21cck6N.js",
 			"_astro/web.CCnzT9kG.js",
 		]),
@@ -98,7 +98,7 @@ const c = ({ Text: e = "", Font: a = 1 }) => {
 	},
 	{ default: u } = await e(
 		async () => {
-			const { default: e } = await import("./Pixel.yd1wdmx9.js");
+			const { default: e } = await import("./Pixel.mXUmH9UP.js");
 			return { default: e };
 		},
 		__vite__mapDeps([0, 1, 2]),

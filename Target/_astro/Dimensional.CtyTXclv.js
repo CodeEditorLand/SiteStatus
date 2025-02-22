@@ -3,8 +3,9 @@ const __vite__mapDeps = (
 	m = __vite__mapDeps,
 	d = m.f ||
 		(m.f = [
-			"_astro/Animation.jUobvWRl.js",
+			"_astro/Animation.TMcDIgyf.js",
 			"_astro/preload-helper.D21cck6N.js",
+			"_astro/Color.zZZKoFZe.js",
 		]),
 ) => i.map((i) => d[i]);
 import { _ as e } from "./preload-helper.D21cck6N.js";
@@ -70,9 +71,9 @@ const { default: a } = await e(async () => {
 	}, []),
 	{ Layer: s } = await e(
 		async () => {
-			const { Layer: e } = await import("./Animation.jUobvWRl.js");
+			const { Layer: e } = await import("./Animation.TMcDIgyf.js");
 			return { Layer: e };
 		},
-		__vite__mapDeps([0, 1]),
+		__vite__mapDeps([0, 1, 2]),
 	);
 export { a as Constant, s as Layer, t as default };
