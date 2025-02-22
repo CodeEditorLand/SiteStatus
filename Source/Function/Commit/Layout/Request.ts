@@ -4,7 +4,7 @@ const { default: Get } = await import("@Function/Commit/Layout/Request/Get.js");
 
 const { default: Set } = await import("@Function/Commit/Layout/Request/Set.js");
 
-export default async (...Parameter: Parameter) => {
+export default async (...Parameter: Parameter): Promise<any> => {
 	const Hash = (await import("crypto"))
 		.createHash("md5")
 		.update(JSON.stringify(Parameter))
@@ -28,6 +28,6 @@ export default async (...Parameter: Parameter) => {
 	} catch (_Error) {
 		console.log(_Error);
 
-		return [];
+		return undefined;
 	}
 };

@@ -9,17 +9,21 @@ const { User, Repository } = Astro.props;
 let Last: any[] = [];
 
 for (let Page = 0; Page < 5; Page++) {
-	Last = Last.concat(
-		await Request("GET /repos/{owner}/{repo}/commits", {
-			owner: User,
+	try {
+		Last = Last.concat(
+			await Request("GET /repos/{owner}/{repo}/commits", {
+				owner: User,
 
-			repo: Repository,
+				repo: Repository,
 
-			per_page: 100,
+				per_page: 100,
 
-			page: Page,
-		}),
-	);
+				page: Page,
+			}),
+		);
+	} catch (_Error) {
+		console.log(_Error);
+	}
 }
 
 Last = (await import("@Function/Commit/Layout/Unwrap.js")).default(
@@ -34,43 +38,54 @@ Last = (await import("@Function/Commit/Layout/Unwrap.js")).default(
 			"SHA": Commit["sha"] ?? "",
 
 			"File": await (async (SHA: string) => {
-				const Total = (
-					await Request(
-						"GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+				try {
+					const Total =
+						(
+							await Request(
+								"GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
 
-						{
-							owner: User,
+								{
+									owner: User,
 
-							repo: Repository,
+									repo: Repository,
 
-							tree_sha: SHA,
+									tree_sha: SHA,
 
-							recursive: true,
-						},
-					)
-				).tree.length;
+									recursive: true,
+								},
+							)
+						)?.tree?.length ?? 0;
 
-				const File = (
-					await Request("GET /repos/{owner}/{repo}/commits/{ref}", {
-						owner: User,
+					const File =
+						(
+							await Request(
+								"GET /repos/{owner}/{repo}/commits/{ref}",
+								{
+									owner: User,
 
-						repo: Repository,
+									repo: Repository,
 
-						ref: SHA,
-					})
-				).files;
+									ref: SHA,
+								},
+							)
+						)?.files ?? 0;
 
-				return [
-					new (
-						await import("@Function/Commit/Layout/Dot.js")
-					).default({
+					return [
+						new (
+							await import("@Function/Commit/Layout/Dot.js")
+						).default({
+							Total,
+						}).Display(File.length),
+
 						Total,
-					}).Display(File.length),
 
-					Total,
+						File.length,
+					];
+				} catch (_Error) {
+					console.log(_Error);
 
-					File.length,
-				];
+					return ["", 0, 0];
+				}
 			})(Commit["sha"]),
 		})),
 	),
