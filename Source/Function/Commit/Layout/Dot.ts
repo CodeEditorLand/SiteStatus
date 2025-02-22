@@ -60,6 +60,7 @@ export default class _Class {
 		return Column.join("");
 	}
 
+	// TODO: USE ▏▎▍▌▋▊▉ maybe?
 	private Braille(Dot: number): string {
 		let Pattern = 0;
 
