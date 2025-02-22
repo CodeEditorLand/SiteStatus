@@ -229,7 +229,7 @@ document.addEventListener("DOMContentLoaded", () => {
 							},
 
 							info: {
-								text: `<h2 class="text-lg text-stone-700 dark:text-stone-400 font-sans">Showing _START_ to _END_ of _TOTAL_ entries<h2>`,
+								text: `<h2 class="text-lg text-stone-700 dark:text-stone-400 font-sans mb-4">Showing _START_ to _END_ of _TOTAL_ entries<h2>`,
 							},
 						},
 					],
