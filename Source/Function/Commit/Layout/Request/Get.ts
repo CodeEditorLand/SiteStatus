@@ -1,3 +1,7 @@
+export const { MIN_30 } = await import(
+	"@Function/Commit/Layout/Request/Get/TTL.js"
+);
+
 export default async (
 	Where: string,
 ): Promise<
@@ -23,7 +27,7 @@ export default async (
 			),
 		);
 
-		if (Date.now() - _Set.TimeStamp < 30 * 60 * 1000) {
+		if (Date.now() - _Set.TimeStamp < MIN_30) {
 			return _Set;
 		}
 	} catch (_Error) {

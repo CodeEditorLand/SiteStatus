@@ -11,7 +11,7 @@ export default async (...Parameter: Parameter) => {
 		.digest("hex");
 
 	const TTL = await (
-		await import("@Function/Commit/Layout/Request/TTL.js")
+		await import("@Function/Commit/Layout/Request/Get/TTL.js")
 	).default(Parameter);
 
 	try {
