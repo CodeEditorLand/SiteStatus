@@ -1,4 +1,4 @@
-import type { Parameter } from "@Function/Commit/Octokit.js";
+import type { Parameter } from "@Function/Commit/Layout/Request/Octokit.js";
 
 export const MIN_30 = 30 * 60 * 1000;
 

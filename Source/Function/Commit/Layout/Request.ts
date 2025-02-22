@@ -1,4 +1,4 @@
-import type { Parameter } from "@Function/Commit/Octokit.js";
+import type { Parameter } from "@Function/Commit/Layout/Request/Octokit.js";
 
 const { default: Get } = await import("@Function/Commit/Cache/Set/Get/Fn.js");
 
@@ -11,7 +11,7 @@ export default async (...Parameter: Parameter) => {
 		.digest("hex");
 
 	const TTL = await (
-		await import("@Function/Commit/Octokit/Request/TTL.js")
+		await import("@Function/Commit/Layout/Request/TTL.js")
 	).default(Parameter);
 
 	try {
@@ -19,7 +19,7 @@ export default async (...Parameter: Parameter) => {
 		let Return =
 			(await Get(`${Hash}`))?.Set ??
 			(await (
-				await import("@Function/Commit/Octokit.js")
+				await import("@Function/Commit/Layout/Request/Octokit.js")
 			).default(Parameter[0], Parameter[1]));
 
 		await Set(`${Hash}`, Return);

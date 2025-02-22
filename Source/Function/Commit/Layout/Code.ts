@@ -1,7 +1,7 @@
-import { Layer, Lerp } from "@Function/Commit/Animation.js";
-import HEX from "@Function/Commit/HEX.js";
-import Interpolate from "@Function/Commit/Interpolate.js";
-import RGB from "@Function/Commit/RGB.js";
+import { Layer, Lerp } from "@Function/Commit/Layout/Code/Animation.js";
+import HEX from "@Function/Commit/Layout/Code/HEX.js";
+import Interpolate from "@Function/Commit/Layout/Code/Interpolate.js";
+import RGB from "@Function/Commit/Layout/Code/RGB.js";
 import DataTable from "datatables.net-dt";
 
 // stone.50

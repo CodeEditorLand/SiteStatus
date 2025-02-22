@@ -1,4 +1,4 @@
-import type { RGB } from "@Function/Commit/HEX.js";
+import type { RGB } from "@Function/Commit/Layout/Code/HEX.js";
 
 export default (...[HEX]: [string]): RGB => {
 	HEX = HEX.replace(/^#/, "");
