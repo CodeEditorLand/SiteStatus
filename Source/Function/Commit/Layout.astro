@@ -2,9 +2,7 @@
 import "@Function/Commit/Stylesheet.css";
 import "datatables.net-dt/css/dataTables.dataTables.css";
 
-const { default: Request } = await import(
-	"@Function/Commit/Layout/Request.js"
-);
+const { default: Request } = await import("@Function/Commit/Layout/Request.js");
 
 const { User, Repository } = Astro.props;
 
@@ -24,7 +22,7 @@ for (let Page = 0; Page < 5; Page++) {
 	);
 }
 
-Last = await Promise.all(
+Last = await Promise.allSettled(
 	Last.map(async (Commit: any) => ({
 		"Author": Commit["commit"]["author"]["name"] ?? "",
 
@@ -80,8 +78,42 @@ const UUID = (await import("@Function/Commit/Layout/UUID.js")).default();
 
 interface Props {
 	User?: string;
+
 	Repository?: string;
 }
+
+const Unwrap = (_Array: any[]): any[] | {} => {
+	if (Array.isArray(_Array)) {
+		return _Array.map(Unwrap);
+	}
+
+	if (_Array && typeof _Array === "object") {
+		const Key = Object.keys(_Array);
+
+		if (
+			Key.length === 2 &&
+			Key.includes("status") &&
+			Key.includes("value")
+		) {
+			// @ts-expect-error
+			return Unwrap(_Array.value);
+		}
+
+		const Return = {};
+
+		// @ts-expect-error
+		for (let Key in _Array) {
+			// @ts-expect-error
+			Return[Key] = Unwrap(_Array[Key]);
+		}
+
+		return Return;
+	}
+
+	return _Array;
+};
+
+Last = Unwrap(Last) as any[];
 ---
 
 <commit-table
