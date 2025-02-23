@@ -15,8 +15,8 @@ export default (await import("astro/config")).defineConfig({
 				context: "server",
 				access: "secret",
 				optional: true,
-				default: "1"
-			})
+				default: "1",
+			}),
 		},
 		validateSecrets: true,
 	},
@@ -164,7 +164,7 @@ export default (await import("astro/config")).defineConfig({
 			},
 		],
 	},
-}) as typeof defineConfig;
+}) as defineConfig;
 
 export const { unlink, readFile } = await import("fs/promises");
 
