@@ -3,7 +3,7 @@ import Input from "@Function/Commit/Layout/Code/Input.js";
 import Segment from "@Function/Commit/Layout/Code/Segment.js";
 import DataTable from "datatables.net-dt";
 
-import "@Function/Commit/Stylesheet.css";
+import "@Function/Commit/Layout/Code/Stylesheet.scss";
 
 export const Progress = (
 	Current: number,
