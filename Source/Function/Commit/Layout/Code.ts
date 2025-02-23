@@ -1,4 +1,6 @@
 import Cell from "@Function/Commit/Layout/Code/Cell.js";
+import Escape from "@Function/Commit/Layout/Code/Escape.js";
+import Format from "@Function/Commit/Layout/Code/Format.js";
 import Input from "@Function/Commit/Layout/Code/Input.js";
 import Segment from "@Function/Commit/Layout/Code/Segment.js";
 import DataTable from "datatables.net-dt";
@@ -83,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
 						data: "Message",
 
 						render: (Text) =>
-							`<span class="Text">${Text.trim() === "" || Text.trim().length === 0 ? "No Message 😶" : `${Text.trim()} 🗣️`}</span>`,
+							`<span class="Text">${Text.trim() === "" || Text.trim().length === 0 ? "No Message 😶" : `${Format(Escape(Text)).trim()} 🗣️`}</span>`,
 					},
 
 					{
@@ -101,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
 						data: "Author",
 
 						render: (Text) =>
-							`<span class="Text">${Text} ✍️</span>`,
+							`<span class="Text">${Format(Escape(Text)).trim()} ✍️</span>`,
 					},
 				],
 
