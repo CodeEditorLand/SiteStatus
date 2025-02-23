@@ -6,7 +6,9 @@ import Color from "@Function/TailWind/Color.js";
 
 const TimeNoise = 0;
 
-const NoiseInfluence = 0.5;
+const NoiseInfluence = 0.9;
+
+const Multiplier = 0.1;
 
 export default (Total: number, Element: HTMLDivElement) => {
 	Element.innerHTML = "";
@@ -52,21 +54,23 @@ export default (Total: number, Element: HTMLDivElement) => {
 
 		Segment.classList.add("Segment");
 
-		Segment.style.backgroundColor = HEX(
-			Interpolate(
-				Low,
-
-				High,
-
-				Lerp(
-					SegmentGroup > 1 ? IndexGroup / (SegmentGroup - 1) : 0,
-
-					(Layer(TimeNoise + Seed, IndexGroup) + 1) / 2,
-
-					NoiseInfluence,
-				),
-			),
+		const Base = Lerp(
+			SegmentGroup > 1 ? IndexGroup / (SegmentGroup - 1) : 0,
+			(Layer(TimeNoise + Seed, IndexGroup) + 1) / 2,
+			NoiseInfluence,
 		);
+
+		Segment.style.backgroundColor = HEX(Interpolate(Low, High, Base));
+
+		const Corner = document.createElement("div");
+
+		Corner.classList.add("Corner");
+
+		Corner.style.backgroundColor = HEX(
+			Interpolate(Low, High, Math.min(1, Base + Multiplier)),
+		);
+
+		Segment.appendChild(Corner);
 
 		Element.appendChild(Segment);
 	}
