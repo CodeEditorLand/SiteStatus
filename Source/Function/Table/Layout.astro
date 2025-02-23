@@ -1,0 +1,272 @@
+---
+import "@Script/Data/datatables.min.css";
+
+import type { CF_PAGES_COMMIT_SHA } from "astro:env/server";
+
+export const On = process.env["NODE_ENV"] === "development";
+
+const SHA = (await import("astro:env/server")).getSecret(
+	"CF_PAGES_COMMIT_SHA",
+) as typeof CF_PAGES_COMMIT_SHA;
+
+const { default: Request } = await import("@Function/Table/Layout/Request.js");
+
+const { User, Repository } = Astro.props;
+
+const Dot = async (Total: number, File: number) =>
+	new (await import("@Function/Table/Layout/Dot.js")).default({
+		Total,
+	}).Display(File);
+
+const Total = async (SHA: string) =>
+	await Request(
+		"GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+
+		{
+			owner: User,
+
+			repo: Repository,
+
+			tree_sha: SHA,
+
+			recursive: true,
+		},
+
+		(RESPONSE) => RESPONSE?.tree?.length ?? 0,
+	);
+
+// TODO: WHEN TAG CHOOSE TAG <-> TAG FILE TOTAL
+const File = async (SHA: string) =>
+	await Request(
+		"GET /repos/{owner}/{repo}/commits/{ref}",
+
+		{
+			owner: User,
+
+			repo: Repository,
+
+			ref: SHA,
+		},
+
+		(RESPONSE) => RESPONSE?.files?.length ?? 0,
+	);
+
+let Tag: any[] = [];
+
+for (let Page = 1; Page <= 5; Page++) {
+	try {
+		Tag = Tag.concat(
+			(
+				await Request(
+					"GET /repos/{owner}/{repo}/tags",
+
+					{
+						owner: User,
+
+						repo: Repository,
+
+						per_page: 100,
+
+						page: Page,
+					},
+
+					async (RESPONSE) =>
+						(
+							await import("@Function/Table/Layout/Unwrap.js")
+						).default(
+							await Promise.allSettled(
+								RESPONSE?.map(async (TAG: any) => ({
+									Author: await (async (SHA: string) => {
+										try {
+											return await Request(
+												"GET /repos/{owner}/{repo}/commits/{ref}",
+
+												{
+													owner: User,
+
+													repo: Repository,
+
+													ref: SHA,
+												},
+
+												(RESPONSE) =>
+													RESPONSE?.commit?.author
+														?.name ?? "",
+											);
+										} catch (_Error) {}
+
+										return "";
+									})(TAG?.commit?.sha),
+
+									Date: await (async (SHA: string) => {
+										try {
+											return await Request(
+												"GET /repos/{owner}/{repo}/commits/{ref}",
+
+												{
+													owner: User,
+
+													repo: Repository,
+
+													ref: SHA,
+												},
+
+												(RESPONSE) =>
+													RESPONSE?.commit?.author
+														?.date ?? "",
+											);
+										} catch (_Error) {}
+
+										return "";
+									})(TAG?.commit?.sha),
+
+									Name: TAG?.name ?? "",
+
+									SHA: TAG?.commit?.sha ?? "",
+
+									Message: await (async (SHA: string) => {
+										try {
+											return await Request(
+												"GET /repos/{owner}/{repo}/commits/{ref}",
+
+												{
+													owner: User,
+
+													repo: Repository,
+
+													ref: SHA,
+												},
+
+												(RESPONSE) =>
+													RESPONSE?.commit?.message ??
+													"",
+											);
+										} catch (_Error) {}
+
+										return "";
+									})(TAG?.commit?.sha),
+
+									File: await (async (SHA: string) => {
+										try {
+											const _Total = await Total(SHA);
+
+											const _File = await File(SHA);
+
+											return [
+												await Dot(_Total, _File),
+
+												_Total,
+
+												_File,
+											];
+										} catch (_Error) {}
+
+										return ["", 0, 0];
+									})(TAG?.commit?.sha),
+								})),
+							),
+						),
+				)
+			).filter((Data: null) => Data !== null),
+		);
+	} catch (_Error) {}
+}
+
+Tag = Array.from(new Map(Tag.map((Tag) => [Tag.SHA, Tag])).values());
+
+const TagURL = `Cache/Tag/${Repository}-${User}-${SHA}.json`;
+
+await (
+	await import("fs/promises")
+).writeFile(
+	`${On ? "Public" : "Target"}/${TagURL}`,
+
+	JSON.stringify(Tag, null, "\t"),
+);
+
+let Commit: any[] = [];
+
+for (let Page = 1; Page <= 5; Page++) {
+	try {
+		Commit = Commit.concat(
+			(
+				await Request(
+					"GET /repos/{owner}/{repo}/commits",
+
+					{
+						owner: User,
+
+						repo: Repository,
+
+						per_page: 100,
+
+						page: Page,
+					},
+
+					async (RESPONSE) =>
+						(
+							await import("@Function/Table/Layout/Unwrap.js")
+						).default(
+							await Promise.allSettled(
+								RESPONSE?.map(async (COMMIT: any) => ({
+									Author: COMMIT?.commit?.author?.name ?? "",
+
+									Date: COMMIT?.commit?.author?.date ?? "",
+
+									Message: COMMIT?.commit?.message ?? "",
+
+									SHA: COMMIT?.sha ?? "",
+
+									File: await (async (SHA: string) => {
+										try {
+											const _Total = await Total(SHA);
+
+											const _File = await File(SHA);
+
+											return [
+												await Dot(_Total, _File),
+
+												_Total,
+
+												_File,
+											];
+										} catch (_Error) {}
+
+										return ["", 0, 0];
+									})(COMMIT?.sha),
+								})),
+							),
+						),
+				)
+			).filter((Data: null) => Data !== null),
+		);
+	} catch (_Error) {}
+}
+
+Commit = Array.from(
+	new Map(Commit.map((Commit) => [Commit.SHA, Commit])).values(),
+);
+
+const CommitURL = `Cache/Commit/${Repository}-${User}-${SHA}.json`;
+
+await (
+	await import("fs/promises")
+).writeFile(
+	`${On ? "Public" : "Target"}/${CommitURL}`,
+
+	JSON.stringify(Commit, null, "\t"),
+);
+---
+
+<status-table
+	data-repository={Repository}
+	data-user={User}
+	data-uuid={(await import("@Function/Table/Layout/UUID.js")).default()}
+	data-tag={TagURL}
+	data-commit={CommitURL}>
+	<table class="cell-border compact"></table>
+</status-table>
+
+<script>
+	import "@Function/Table/Layout/Code.js";
+</script>

@@ -130,6 +130,26 @@ export default (await import("astro/config")).defineConfig({
 					}
 				: {},
 		},
+		optimizeDeps: {
+			exclude: [
+				"jquery",
+				"datatables.net",
+				"datatables.net-buttons-dt",
+				"datatables.net-colreorder-dt",
+				"datatables.net-dt",
+				"datatables.net-fixedcolumns-dt",
+				"datatables.net-fixedheader-dt",
+				"datatables.net-keytable-dt",
+				"datatables.net-responsive-dt",
+				"datatables.net-rowgroup-dt",
+				"datatables.net-rowreorder-dt",
+				"datatables.net-scroller-dt",
+				"datatables.net-searchbuilder-dt",
+				"datatables.net-searchpanes-dt",
+				"datatables.net-select-dt",
+				"datatables.net-staterestore-dt",
+			],
+		},
 		resolve: {
 			preserveSymlinks: true,
 		},
