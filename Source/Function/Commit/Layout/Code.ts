@@ -211,7 +211,7 @@ document.addEventListener("DOMContentLoaded", () => {
 					top2: [
 						{
 							div: {
-								html: `<h1 class="text-3xl font-bold text-stone-900 dark:text-white font-sans mb-4 mr-4">${User}/${Repository}</h1>`,
+								html: `<h1>${User}/${Repository}</h1>`,
 
 								className: "Title",
 							},
