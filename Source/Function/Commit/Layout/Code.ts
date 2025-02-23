@@ -248,7 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
 						{},
 						{
 							info: {
-								text: `<h2 class="text-lg text-stone-700 dark:text-stone-400 mb-4">Showing _START_ to _END_ of _TOTAL_ entries<h2>`,
+								text: `<h2 class="Information">Showing _START_ to _END_ of _TOTAL_ entries<h2>`,
 							},
 						},
 						{},
@@ -265,7 +265,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 				lengthMenu: [5, 10, 20, 40, 80, 160, 320],
 
-				pageLength: 5,
+				pageLength: 40,
 
 				paging: true,
 
@@ -283,5 +283,5 @@ document.addEventListener("DOMContentLoaded", () => {
 		}
 	}
 
-	customElements.define("commit-table", Commit);
+	customElements.define("Commit", Commit);
 });
