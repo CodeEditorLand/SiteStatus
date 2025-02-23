@@ -2,6 +2,8 @@ import type { PARAMETER } from "@Function/Commit/Layout/Request/Octokit.js";
 
 export const MIN_30 = 30 * 60 * 1000;
 
+export const WEEK_1 = 7 * 24 * 60 * 60 * 1000;
+
 export const HOUR_24 = 24 * 60 * 60 * 1000;
 
 export default (...[Parameter]: [PARAMETER]) => {
@@ -21,11 +23,11 @@ export default (...[Parameter]: [PARAMETER]) => {
 		// 	return MIN_30;
 		// }
 
-		return HOUR_24;
+		return WEEK_1;
 	}
 
 	if (Parameter[0] === "GET /repos/{owner}/{repo}/git/trees/{tree_sha}") {
-		return HOUR_24;
+		return WEEK_1;
 	}
 
 	return MIN_30;
