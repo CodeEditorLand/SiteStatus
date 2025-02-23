@@ -283,5 +283,5 @@ document.addEventListener("DOMContentLoaded", () => {
 		}
 	}
 
-	customElements.define("Commit", Commit);
+	customElements.define("commit-table", Commit);
 });
