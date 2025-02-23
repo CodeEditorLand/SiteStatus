@@ -278,7 +278,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 				scrollCollapse: true,
 
-				scrollY: "1000px",
+				scrollY: "350px",
 			});
 		}
 	}
