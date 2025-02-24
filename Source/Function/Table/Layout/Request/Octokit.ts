@@ -17,9 +17,7 @@ export default async (...[REQUEST, OPTION]: PARAMETER) => {
 				) as typeof TOKEN_GITHUB_COMMIT_STATUS_EDITOR_LAND,
 			}).request(REQUEST, OPTION)
 		)?.data;
-	} catch (_Error) {
-		
-	}
+	} catch (_Error) {}
 
 	return undefined;
 };

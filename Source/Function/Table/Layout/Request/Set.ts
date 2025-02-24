@@ -24,9 +24,7 @@ export default async (WHERE: string, Set: any) => {
 				encoding: "utf-8",
 			},
 		);
-	} catch (_Error) {
-		
-	}
+	} catch (_Error) {}
 
 	return RETURN;
 };

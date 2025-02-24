@@ -50,9 +50,7 @@ export default async (
 		return await (
 			await import("@Function/Table/Layout/Request/Set.js")
 		).default(`${Hash}`, RETURN);
-	} catch (_Error) {
-		
-	}
+	} catch (_Error) {}
 
 	return RETURN;
 };
