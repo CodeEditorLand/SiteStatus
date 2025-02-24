@@ -23,7 +23,7 @@ export default (await import("astro/config")).defineConfig({
 	srcDir: "./Source",
 	publicDir: "./Public",
 	outDir: "./Target",
-	site: On ? "HTTP://localhost" : "HTTPS://Status.Editor.Land",
+	site: On ? "HTTP://localhost" : "HTTPS://Status.Code.Editor.Land",
 	compressHTML: !On,
 	prefetch: {
 		defaultStrategy: "hover",
