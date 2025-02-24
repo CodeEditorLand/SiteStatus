@@ -6,7 +6,7 @@ export const WEEK_1 = 7 * 24 * 60 * 60 * 1000;
 
 export const HOUR_24 = 24 * 60 * 60 * 1000;
 
-export default (...[Parameter]: [PARAMETER]): void => {
+export default (...[Parameter]: [PARAMETER]): number => {
 	const Option = Parameter[1] || {};
 
 	if (Parameter[0] === "GET /repos/{owner}/{repo}/commits") {

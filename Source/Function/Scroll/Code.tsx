@@ -58,36 +58,46 @@ export default ({
 			<div class="flex justify-center" aria-hidden="true">
 				{Display()
 					.split("")
-					.map((Visible, Character): void => (
-						<div class="mr-2">
-							{((Position): void => (
-								<div class="Grid">
-									{(
-										Matrix[Position.toUpperCase()] ||
-										Matrix[" "]
-									)?.map((Row, RowIndex): void => (
-										<div class="Row flex">
-											{Row.map((Show, Index): void =>
-												Pixel({
-													Font,
-													Character,
-													Index,
-													Show,
-													Text: Display().length,
-													Mouse,
-													Container:
-														Element()?.getBoundingClientRect() as DOMRect,
-													CurrentTime,
-													Row: RowIndex,
-													Column: Index % 3,
-												}),
-											)}
-										</div>
-									))}
-								</div>
-							))(Visible)}
-						</div>
-					))}
+					.map(
+						(Visible, Character): JSX.Element => (
+							<div class="mr-2">
+								{((Position): JSX.Element => (
+									<div class="Grid">
+										{(
+											Matrix[Position.toUpperCase()] ||
+											Matrix[" "]
+										)?.map(
+											(Row, RowIndex): JSX.Element => (
+												<div class="Row flex">
+													{Row.map(
+														(
+															Show,
+															Index,
+														): JSX.Element =>
+															Pixel({
+																Font,
+																Character,
+																Index,
+																Show,
+																Text: Display()
+																	.length,
+																Mouse,
+																Container:
+																	Element()?.getBoundingClientRect() as DOMRect,
+																CurrentTime,
+																Row: RowIndex,
+																Column:
+																	Index % 3,
+															}),
+													)}
+												</div>
+											),
+										)}
+									</div>
+								))(Visible)}
+							</div>
+						),
+					)}
 			</div>
 		</div>
 	);

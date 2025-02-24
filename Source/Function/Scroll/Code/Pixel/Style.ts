@@ -18,7 +18,7 @@ export default class {
 
 	private readonly Mouse: Accessor<Mouse>;
 
-	private readonly Spectrum: string[];
+	private readonly Spectrum: (string | undefined)[];
 
 	constructor(
 		Element: HTMLDivElement,
@@ -38,7 +38,7 @@ export default class {
 
 			Mouse: Accessor<Mouse>;
 
-			Spectrum: string[];
+			Spectrum: (string | undefined)[];
 		},
 	) {
 		this.Element = Element;

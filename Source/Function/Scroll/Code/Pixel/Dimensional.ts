@@ -38,7 +38,7 @@ export default class {
 			this.InfluenceMouse * Math.min(1, this.StateMouse.Velocity / 100);
 
 		return Array.from({ length: DIMENSION }).reduce(
-			(Accumulate, _, Index): void => {
+			(Accumulate, _, Index): unknown => {
 				this.Apply(
 					Accumulate as MovementDimensional,
 					Index,

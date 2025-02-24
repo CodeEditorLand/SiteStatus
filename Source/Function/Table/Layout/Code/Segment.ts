@@ -10,7 +10,7 @@ const NoiseInfluence = 0.9;
 
 const Multiplier = 0.1;
 
-export default (Total: number, Element: HTMLDivElement): void => {
+export default (Total: number, Element: HTMLDivElement): boolean => {
 	Element.innerHTML = "";
 
 	Element.querySelectorAll(".Segment").forEach((Element): void =>

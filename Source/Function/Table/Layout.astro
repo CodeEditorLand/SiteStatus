@@ -1,6 +1,4 @@
 ---
-import "@Script/Data/datatables.min.css";
-
 import type { CF_PAGES_COMMIT_SHA } from "astro:env/server";
 
 export const On = process.env["NODE_ENV"] === "development";
@@ -13,12 +11,12 @@ const { default: Request } = await import("@Function/Table/Layout/Request.js");
 
 const { User, Repository } = Astro.props;
 
-const Dot = async (Total: number, File: number): void =>
+const Dot = async (Total: number, File: number) =>
 	new (await import("@Function/Table/Layout/Dot.js")).default({
 		Total,
 	}).Display(File);
 
-const Total = async (SHA: string): void =>
+const Total = async (SHA: string) =>
 	await Request(
 		"GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
 
@@ -32,11 +30,11 @@ const Total = async (SHA: string): void =>
 			recursive: true,
 		},
 
-		(RESPONSE): void => RESPONSE?.tree?.length ?? 0,
+		(RESPONSE) => RESPONSE?.tree?.length ?? 0,
 	);
 
 // TODO: WHEN TAG CHOOSE TAG <-> TAG FILE TOTAL
-const File = async (SHA: string): void =>
+const File = async (SHA: string) =>
 	await Request(
 		"GET /repos/{owner}/{repo}/commits/{ref}",
 
@@ -48,7 +46,7 @@ const File = async (SHA: string): void =>
 			ref: SHA,
 		},
 
-		(RESPONSE): void => RESPONSE?.files?.length ?? 0,
+		(RESPONSE) => RESPONSE?.files?.length ?? 0,
 	);
 
 let Tag: any[] = [];
@@ -70,15 +68,13 @@ for (let Page = 1; Page <= 5; Page++) {
 						page: Page,
 					},
 
-					async (RESPONSE): void =>
+					async (RESPONSE): Promise<{} | any[]> =>
 						(
 							await import("@Function/Table/Layout/Unwrap.js")
 						).default(
 							await Promise.allSettled(
-								RESPONSE?.map(async (TAG: any): void => ({
-									Author: await (async (
-										SHA: string,
-									): void => {
+								RESPONSE?.map(async (TAG: any) => ({
+									Author: await (async (SHA: string) => {
 										try {
 											return await Request(
 												"GET /repos/{owner}/{repo}/commits/{ref}",
@@ -91,7 +87,7 @@ for (let Page = 1; Page <= 5; Page++) {
 													ref: SHA,
 												},
 
-												(RESPONSE): void =>
+												(RESPONSE) =>
 													RESPONSE?.commit?.author
 														?.name ?? "",
 											);
@@ -100,7 +96,7 @@ for (let Page = 1; Page <= 5; Page++) {
 										return "";
 									})(TAG?.commit?.sha),
 
-									Date: await (async (SHA: string): void => {
+									Date: await (async (SHA: string) => {
 										try {
 											return await Request(
 												"GET /repos/{owner}/{repo}/commits/{ref}",
@@ -113,7 +109,7 @@ for (let Page = 1; Page <= 5; Page++) {
 													ref: SHA,
 												},
 
-												(RESPONSE): void =>
+												(RESPONSE) =>
 													RESPONSE?.commit?.author
 														?.date ?? "",
 											);
@@ -126,9 +122,7 @@ for (let Page = 1; Page <= 5; Page++) {
 
 									SHA: TAG?.commit?.sha ?? "",
 
-									Message: await (async (
-										SHA: string,
-									): void => {
+									Message: await (async (SHA: string) => {
 										try {
 											return await Request(
 												"GET /repos/{owner}/{repo}/commits/{ref}",
@@ -141,7 +135,7 @@ for (let Page = 1; Page <= 5; Page++) {
 													ref: SHA,
 												},
 
-												(RESPONSE): void =>
+												(RESPONSE) =>
 													RESPONSE?.commit?.message ??
 													"",
 											);
@@ -150,7 +144,7 @@ for (let Page = 1; Page <= 5; Page++) {
 										return "";
 									})(TAG?.commit?.sha),
 
-									File: await (async (SHA: string): void => {
+									File: await (async (SHA: string) => {
 										try {
 											const _Total = await Total(SHA);
 
@@ -171,12 +165,14 @@ for (let Page = 1; Page <= 5; Page++) {
 							),
 						),
 				)
-			).filter((Data: null): void => Data !== null),
+			).filter((Data: null): boolean => Data !== null),
 		);
 	} catch (_Error) {}
 }
 
-Tag = Array.from(new Map(Tag.map((Tag): void => [Tag.SHA, Tag])).values());
+Tag = Array.from(
+	new Map(Tag.map((Tag): [any, any] => [Tag.SHA, Tag])).values(),
+);
 
 const TagURL = `Cache/Tag/${Repository}-${User}-${SHA}.json`;
 
@@ -207,12 +203,12 @@ for (let Page = 1; Page <= 5; Page++) {
 						page: Page,
 					},
 
-					async (RESPONSE): void =>
+					async (RESPONSE) =>
 						(
 							await import("@Function/Table/Layout/Unwrap.js")
 						).default(
 							await Promise.allSettled(
-								RESPONSE?.map(async (COMMIT: any): void => ({
+								RESPONSE?.map(async (COMMIT: any) => ({
 									Author: COMMIT?.commit?.author?.name ?? "",
 
 									Date: COMMIT?.commit?.author?.date ?? "",
@@ -221,7 +217,7 @@ for (let Page = 1; Page <= 5; Page++) {
 
 									SHA: COMMIT?.sha ?? "",
 
-									File: await (async (SHA: string): void => {
+									File: await (async (SHA: string) => {
 										try {
 											const _Total = await Total(SHA);
 
@@ -242,13 +238,13 @@ for (let Page = 1; Page <= 5; Page++) {
 							),
 						),
 				)
-			).filter((Data: null): void => Data !== null),
+			).filter((Data: null) => Data !== null),
 		);
 	} catch (_Error) {}
 }
 
 Commit = Array.from(
-	new Map(Commit.map((Commit): void => [Commit.SHA, Commit])).values(),
+	new Map(Commit.map((Commit) => [Commit.SHA, Commit])).values(),
 );
 
 const CommitURL = `Cache/Commit/${Repository}-${User}-${SHA}.json`;

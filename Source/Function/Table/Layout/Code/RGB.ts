@@ -6,7 +6,7 @@ export default (...[HEX]: [string]): RGB => {
 
 	if (HEX.length === 3) {
 		HEX = HEX.split("")
-			.map((_String): void => _String + _String)
+			.map((_String): string => _String + _String)
 			.join("");
 	}
 

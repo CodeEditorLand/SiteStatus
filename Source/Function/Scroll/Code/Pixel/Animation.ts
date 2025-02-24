@@ -6,7 +6,7 @@ export const Noise = (await import("simplex-noise")).createNoise2D();
 export const Flatten = (Color: any): string[] => {
 	const Return: string[] = [];
 
-	for (const [Key, Value] of Object.entries(Color)) {
+	for (const [_Key, Value] of Object.entries(Color)) {
 		if (typeof Value === "string") {
 			Return.push(Value);
 		} else if (typeof Value === "object") {
@@ -30,8 +30,7 @@ export const Layer = (
 	Strength = 0.0001,
 ): number => Noise(Time + Offset, 20) + Strength * Noise(Time * 2 + Offset, 30);
 
-export const Spectrum = (Step: number): string[] => {
-	// Extract and flatten the colors defined in Tailwind.
+export const Spectrum = (Step: number): (string | undefined)[] => {
 	const Color = Flatten(_Color);
 	const Palette = Color.length;
 
@@ -39,10 +38,10 @@ export const Spectrum = (Step: number): string[] => {
 		return Color;
 	}
 
-	// @ts-expect-error
 	return Array.from(
 		{ length: Step },
-		(_, Index): void => Color[Math.floor((Index * Palette) / Step)],
+		(_, Index): string | undefined =>
+			Color[Math.floor((Index * Palette) / Step)],
 	);
 };
 

@@ -4,8 +4,8 @@ import Format from "@Function/Table/Layout/Code/Format.js";
 import Input from "@Function/Table/Layout/Code/Input.js";
 import Segment from "@Function/Table/Layout/Code/Segment.js";
 
-import "@Script/Data/datatables.min.js";
 import "@Function/Table/Layout/Code/Stylesheet.scss";
+import "@Script/DataTables/datatables.min.js";
 
 export const Progress = (
 	Current: number,
@@ -21,7 +21,7 @@ export const Progress = (
 	);
 
 document.addEventListener("DOMContentLoaded", (): void => {
-	const Theme = (): void =>
+	const Theme = () =>
 		document.querySelector("html")?.classList.toggle(
 			"dark",
 
@@ -63,10 +63,10 @@ document.addEventListener("DOMContentLoaded", (): void => {
 					{
 						title: "DATE",
 
-						render: (Text): void =>
+						render: (Text): string =>
 							`<span class="Text">${Text} 📅</span>`,
 
-						data: (Row): void =>
+						data: (Row): string =>
 							new Date(Row.Date).toLocaleDateString(),
 
 						type: "date",
@@ -77,7 +77,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 					{
 						title: "FILE",
 
-						render: (_, __, Row): void =>
+						render: (_, __, Row): string =>
 							`<span class="Text File" title="File: ${Row.File[2]} / ${Row.File[1]}">${Row.File[0]}</span>`,
 
 						data: (Row): void => Row.File[1],
@@ -90,8 +90,8 @@ document.addEventListener("DOMContentLoaded", (): void => {
 
 						data: "Message",
 
-						render: (Text): void =>
-							`<span class="Text">${Text?.trim() === "" || Text?.trim().length === 0 ? "No Message 😶" : `${Format(Escape(Text)).trim()} 🗣️`}</span>`,
+						render: (Text): string =>
+							`<span class="Text">${Text?.trim() === "" || Text?.trim().length === 0 ? "No Message 😶" : `${Format(Escape(Text))?.trim()} 🗣️`}</span>`,
 
 						defaultContent: "",
 					},
@@ -99,10 +99,10 @@ document.addEventListener("DOMContentLoaded", (): void => {
 					{
 						title: "NAME",
 
-						render: (_, __, Row): void =>
+						render: (_, __, Row): string =>
 							`<a class="Pulse" href="HTTPS://GitHub.Com/${User}/${Repository}/releases/tag/${Row.Name}" rel="noopener noreferrer" target="_blank"><span class="Text">@TAG_</span><span class="Text SHA">${Row.Name} 🔗</span></a>`,
 
-						data: (Row): void => `@TAG_${Row.Name}`,
+						data: (Row): string => `@TAG_${Row.Name}`,
 
 						defaultContent: "",
 					},
@@ -110,10 +110,10 @@ document.addEventListener("DOMContentLoaded", (): void => {
 					{
 						title: "COMMIT",
 
-						render: (_, __, Row): void =>
+						render: (_, __, Row): string =>
 							`<a class="Pulse" href="HTTPS://GitHub.Com/${User}/${Repository}/commit/${Row.SHA}" rel="noopener noreferrer" target="_blank"><span class="Text">@COMMIT_</span><span class="Text SHA">${Row.SHA} 🔗</span></a>`,
 
-						data: (Row): void => `@COMMIT_${Row.SHA}`,
+						data: (Row): string => `@COMMIT_${Row.SHA}`,
 
 						defaultContent: "",
 					},
@@ -123,8 +123,8 @@ document.addEventListener("DOMContentLoaded", (): void => {
 
 						data: "Author",
 
-						render: (Text): void =>
-							`<span class="Text">${Format(Escape(Text)).trim()} ✍️</span>`,
+						render: (Text): string =>
+							`<span class="Text">${Format(Escape(Text))?.trim()} ✍️</span>`,
 
 						defaultContent: "",
 					},
@@ -136,7 +136,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 					document
 						.querySelectorAll<HTMLElement>(`[data-uuid="${UUID}"] `)
 						.forEach(
-							(Element): void =>
+							(Element): boolean =>
 								Cell(Element, Setting) &&
 								Input(Element, Setting),
 						);
@@ -159,7 +159,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 										Container.querySelectorAll<HTMLSpanElement>(
 											`span.${HighLight}`,
 										).forEach(
-											(Span): void =>
+											(Span): string =>
 												(Span.outerHTML =
 													Span.textContent ?? ""),
 										);
@@ -180,7 +180,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 													"gi",
 												),
 
-												(Match: string): void =>
+												(Match: string): string =>
 													`<span class="${HighLight}">${Match}</span>`,
 											);
 									})(Element, _Element),
@@ -197,9 +197,9 @@ document.addEventListener("DOMContentLoaded", (): void => {
 						`.Progress`,
 					) as HTMLDivElement;
 
-					const Api = (): void => Setting["oInstance"].api();
+					const Api = (): any => Setting["oInstance"].api();
 
-					const Info = (): void => Api().page.info();
+					const Info = (): any => Api().page.info();
 
 					Segment(Info().pages, _Progress);
 
@@ -217,9 +217,9 @@ document.addEventListener("DOMContentLoaded", (): void => {
 				},
 
 				infoCallback(Setting, _, __, ___, ____, _String) {
-					const Api = (): void => Setting["oInstance"].api();
+					const Api = (): any => Setting["oInstance"].api();
 
-					const Info = (): void => Api().page.info();
+					const Info = (): any => Api().page.info();
 
 					const _Progress = document
 						.querySelector<HTMLDivElement>(
@@ -235,8 +235,6 @@ document.addEventListener("DOMContentLoaded", (): void => {
 
 					return _String;
 				},
-
-				colReorder: true,
 
 				fixedColumns: true,
 
@@ -343,10 +341,6 @@ document.addEventListener("DOMContentLoaded", (): void => {
 				scrollCollapse: true,
 
 				scrollY: "350px",
-
-				stateRestore: false,
-
-				stateSave: false,
 			});
 		}
 	}
