@@ -1,7 +1,7 @@
 import { Layer, Lerp } from "@Function/Table/Layout/Code/Animation.js";
-import HEX from "@Function/Table/Layout/Code/HEX.js";
+import HEX, { type RGB } from "@Function/Table/Layout/Code/HEX.js";
 import Interpolate from "@Function/Table/Layout/Code/Interpolate.js";
-import RGB from "@Function/Table/Layout/Code/RGB.js";
+import _RGB from "@Function/Table/Layout/Code/RGB.js";
 import Color from "@Function/TailWind/Color.js";
 import type { InternalSettings } from "datatables.net-dt";
 
@@ -23,14 +23,18 @@ export default (Element: HTMLElement, Setting: InternalSettings): boolean => {
 	const URL: string = Setting?.["ajax"]?.url;
 
 	Cell.forEach((Element, Index): void => {
-		let Low, High, Local, Count, Seed;
+		let Low: RGB;
+		let High: RGB;
+		let Local: number;
+		let Count: number;
+		let Seed: number;
 
 		if (Index < Group) {
-			Low = RGB(
+			Low = _RGB(
 				URL.includes("Cache/Tag") ? Color.cyan[50] : Color.amber[50],
 			);
 
-			High = RGB(
+			High = _RGB(
 				URL.includes("Cache/Tag") ? Color.cyan[950] : Color.amber[950],
 			);
 
@@ -40,11 +44,11 @@ export default (Element: HTMLElement, Setting: InternalSettings): boolean => {
 
 			Seed = 0;
 		} else if (Index < Group * 2) {
-			Low = RGB(
+			Low = _RGB(
 				URL.includes("Cache/Tag") ? Color.sky[50] : Color.orange[50],
 			);
 
-			High = RGB(
+			High = _RGB(
 				URL.includes("Cache/Tag") ? Color.sky[950] : Color.orange[950],
 			);
 
@@ -54,11 +58,11 @@ export default (Element: HTMLElement, Setting: InternalSettings): boolean => {
 
 			Seed = 1;
 		} else {
-			Low = RGB(
+			Low = _RGB(
 				URL.includes("Cache/Tag") ? Color.blue[50] : Color.red[50],
 			);
 
-			High = RGB(
+			High = _RGB(
 				URL.includes("Cache/Tag") ? Color.blue[950] : Color.red[950],
 			);
 
