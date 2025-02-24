@@ -1,3 +1,4 @@
-# [Status ⌛ WebSite] 🗾
+# [Status ⌛ Code 💻 WebSite] 🗾
 
-[Status ⌛ WebSite]: HTTPS://Status.Code.Editor.Land
+
+[Status ⌛ Code 💻 WebSite]: HTTPS://Status.Code.Editor.Land
