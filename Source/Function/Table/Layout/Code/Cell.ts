@@ -9,13 +9,13 @@ const TimeNoise = 0;
 
 const NoiseInfluence = 0.5;
 
-export default (Element: HTMLElement, Setting: InternalSettings): void => {
+export default (Element: HTMLElement, Setting: InternalSettings): boolean => {
 	const Cell = Element.querySelectorAll<HTMLTableCellElement>("td, th");
 
 	const Total = Cell.length;
 
 	if (!Total) {
-		return;
+		return false;
 	}
 
 	const Group = Math.ceil(Total / 3);

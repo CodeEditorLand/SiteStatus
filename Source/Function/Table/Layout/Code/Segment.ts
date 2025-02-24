@@ -13,7 +13,9 @@ const Multiplier = 0.1;
 export default (Total: number, Element: HTMLDivElement): void => {
 	Element.innerHTML = "";
 
-	Element.querySelectorAll(".Segment").forEach((Element): void => Element.remove());
+	Element.querySelectorAll(".Segment").forEach((Element): void =>
+		Element.remove(),
+	);
 
 	for (let Index = 0; Index < Total; Index++) {
 		let Low, High, SegmentGroup, IndexGroup, Seed;

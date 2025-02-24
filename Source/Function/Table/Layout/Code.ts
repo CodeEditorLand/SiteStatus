@@ -66,7 +66,8 @@ document.addEventListener("DOMContentLoaded", (): void => {
 						render: (Text): void =>
 							`<span class="Text">${Text} 📅</span>`,
 
-						data: (Row): void => new Date(Row.Date).toLocaleDateString(),
+						data: (Row): void =>
+							new Date(Row.Date).toLocaleDateString(),
 
 						type: "date",
 
