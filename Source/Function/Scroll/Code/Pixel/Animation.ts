@@ -42,7 +42,7 @@ export const Spectrum = (Step: number): string[] => {
 	// @ts-expect-error
 	return Array.from(
 		{ length: Step },
-		(_, Index) => Color[Math.floor((Index * Palette) / Step)],
+		(_, Index): void => Color[Math.floor((Index * Palette) / Step)],
 	);
 };
 

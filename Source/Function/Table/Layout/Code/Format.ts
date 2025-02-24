@@ -1,1 +1,1 @@
-export default (Text: string) => Text?.replace(/\n/g, "<br>");
+export default (Text: string): void => Text?.replace(/\n/g, "<br>");

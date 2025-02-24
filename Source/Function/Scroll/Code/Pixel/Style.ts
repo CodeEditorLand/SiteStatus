@@ -82,7 +82,7 @@ export default class {
 			(180 / Math.PI)
 		}deg) translateX(${this.Radius()}px)`;
 
-		createEffect(() => {
+		createEffect((): void => {
 			this.Element.style.transform = this.Mouse().Active
 				? `${Transform} translate(${this.Offset.X}px, ${this.Offset.Y}px) scale(${this.Offset.Scale})`
 				: Transform;
@@ -126,7 +126,7 @@ export default class {
 	}
 
 	private Color(): void {
-		createEffect(() => {
+		createEffect((): void => {
 			// @ts-expect-error
 			this.Element.style.backgroundColor = this.Mouse().Active
 				? `hsl(${Lerp(
@@ -158,7 +158,7 @@ export default class {
 	}
 
 	private Shadow(): void {
-		createEffect(() => {
+		createEffect((): void => {
 			const Color = this.Mouse().Active
 				? this.Element.style.backgroundColor
 				: this.Spectrum[

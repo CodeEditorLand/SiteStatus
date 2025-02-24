@@ -105978,7 +105978,7 @@ exports.inflateUndermine = inflateUndermine;
 					tag: function tag(t) {
 						return t.customTag || knownTags[t.flags & 0x3f];
 					},
-					// || (() => { throw new Error(`Bad tag: ${flags & 0x3f}`); })(); },
+					// || ((): void => { throw new Error(`Bad tag: ${flags & 0x3f}`); })(); },
 					length: Base128,
 					transformVersion: function transformVersion(t) {
 						return (t.flags >>> 6) & 0x03;
@@ -117913,77 +117913,77 @@ exports.inflateUndermine = inflateUndermine;
 				$parcel$export(
 					module.exports,
 					"getCategory",
-					() => $43d7963e56408b24$export$410364bbb673ddbc,
+					(): void => $43d7963e56408b24$export$410364bbb673ddbc,
 				);
 				$parcel$export(
 					module.exports,
 					"getCombiningClass",
-					() => $43d7963e56408b24$export$c03b919c6651ed55,
+					(): void => $43d7963e56408b24$export$c03b919c6651ed55,
 				);
 				$parcel$export(
 					module.exports,
 					"getScript",
-					() => $43d7963e56408b24$export$941569448d136665,
+					(): void => $43d7963e56408b24$export$941569448d136665,
 				);
 				$parcel$export(
 					module.exports,
 					"getEastAsianWidth",
-					() => $43d7963e56408b24$export$92f6187db8ca6d26,
+					(): void => $43d7963e56408b24$export$92f6187db8ca6d26,
 				);
 				$parcel$export(
 					module.exports,
 					"getNumericValue",
-					() => $43d7963e56408b24$export$7d1258ebb7625a0d,
+					(): void => $43d7963e56408b24$export$7d1258ebb7625a0d,
 				);
 				$parcel$export(
 					module.exports,
 					"isAlphabetic",
-					() => $43d7963e56408b24$export$52c8ea63abd07594,
+					(): void => $43d7963e56408b24$export$52c8ea63abd07594,
 				);
 				$parcel$export(
 					module.exports,
 					"isDigit",
-					() => $43d7963e56408b24$export$727d9dbc4fbb948f,
+					(): void => $43d7963e56408b24$export$727d9dbc4fbb948f,
 				);
 				$parcel$export(
 					module.exports,
 					"isPunctuation",
-					() => $43d7963e56408b24$export$a5b49f4dc6a07d2c,
+					(): void => $43d7963e56408b24$export$a5b49f4dc6a07d2c,
 				);
 				$parcel$export(
 					module.exports,
 					"isLowerCase",
-					() => $43d7963e56408b24$export$7b6804e8df61fcf5,
+					(): void => $43d7963e56408b24$export$7b6804e8df61fcf5,
 				);
 				$parcel$export(
 					module.exports,
 					"isUpperCase",
-					() => $43d7963e56408b24$export$aebd617640818cda,
+					(): void => $43d7963e56408b24$export$aebd617640818cda,
 				);
 				$parcel$export(
 					module.exports,
 					"isTitleCase",
-					() => $43d7963e56408b24$export$de8b4ee23b2cf823,
+					(): void => $43d7963e56408b24$export$de8b4ee23b2cf823,
 				);
 				$parcel$export(
 					module.exports,
 					"isWhiteSpace",
-					() => $43d7963e56408b24$export$3c52dd84024ae72c,
+					(): void => $43d7963e56408b24$export$3c52dd84024ae72c,
 				);
 				$parcel$export(
 					module.exports,
 					"isBaseForm",
-					() => $43d7963e56408b24$export$a11bdcffe109e74b,
+					(): void => $43d7963e56408b24$export$a11bdcffe109e74b,
 				);
 				$parcel$export(
 					module.exports,
 					"isMark",
-					() => $43d7963e56408b24$export$e33ad6871e762338,
+					(): void => $43d7963e56408b24$export$e33ad6871e762338,
 				);
 				$parcel$export(
 					module.exports,
 					"default",
-					() => $43d7963e56408b24$export$2e2bcd8739ae039,
+					(): void => $43d7963e56408b24$export$2e2bcd8739ae039,
 				);
 
 				var $29668e65f2091c2c$exports = {};
@@ -117998,8 +117998,8 @@ exports.inflateUndermine = inflateUndermine;
 					),
 				);
 				const $43d7963e56408b24$var$log2 =
-					Math.log2 || ((n) => Math.log(n) / Math.LN2);
-				const $43d7963e56408b24$var$bits = (n) =>
+					Math.log2 || ((n): void => Math.log(n) / Math.LN2);
+				const $43d7963e56408b24$var$bits = (n): void =>
 					($43d7963e56408b24$var$log2(n) + 1) | 0;
 				// compute the number of bits stored for each field
 				const $43d7963e56408b24$var$CATEGORY_BITS =
@@ -143144,7 +143144,7 @@ this.pdfMake.vfs = {
 			// Header
 			dt.table()
 				.header.structure(visibleColumns)
-				.forEach((row) => {
+				.forEach((row): void => {
 					var cells = row
 						.filter(function (el) {
 							return el ? true : false;
@@ -143216,7 +143216,7 @@ this.pdfMake.vfs = {
 			// Footer
 			dt.table()
 				.footer.structure(visibleColumns)
-				.forEach((row) => {
+				.forEach((row): void => {
 					var cells = row
 						.filter(function (el) {
 							return el ? true : false;

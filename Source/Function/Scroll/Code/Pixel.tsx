@@ -20,7 +20,7 @@ export default ({
 
 	const Seed = Position * 0.1 + Row * 0.05 + Column * 0.02;
 
-	onMount(() => {
+	onMount((): void => {
 		if (!(Show && Element() && Container)) {
 			return;
 		}

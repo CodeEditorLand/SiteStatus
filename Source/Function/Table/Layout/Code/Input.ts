@@ -9,7 +9,7 @@ const TimeNoise = 0;
 
 const NoiseInfluence = 0.5;
 
-export default (Element: HTMLElement, Setting: InternalSettings): boolean => {
+export default (Element: HTMLElement, _Setting: InternalSettings): boolean => {
 	const Input = Element.querySelectorAll<
 		HTMLInputElement | HTMLSelectElement
 	>(".dt-input, .dt-search input, .dt-button");
@@ -22,7 +22,7 @@ export default (Element: HTMLElement, Setting: InternalSettings): boolean => {
 
 	const Group = Math.ceil(Total / 3);
 
-	Input.forEach((Element, Index) => {
+	Input.forEach((Element, Index): void => {
 		const Tag: boolean = Element.classList.contains("Tag");
 
 		let Low: RGB;

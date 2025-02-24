@@ -1,4 +1,4 @@
-export default (Text: string) =>
+export default (Text: string): void =>
 	Text?.replace(/&/g, "&amp;")
 		?.replace(/</g, "&lt;")
 		?.replace(/>/g, "&gt;")

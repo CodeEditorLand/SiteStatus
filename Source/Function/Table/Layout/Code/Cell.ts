@@ -9,7 +9,7 @@ const TimeNoise = 0;
 
 const NoiseInfluence = 0.5;
 
-export default (Element: HTMLElement, Setting: InternalSettings) => {
+export default (Element: HTMLElement, Setting: InternalSettings): void => {
 	const Cell = Element.querySelectorAll<HTMLTableCellElement>("td, th");
 
 	const Total = Cell.length;
@@ -22,7 +22,7 @@ export default (Element: HTMLElement, Setting: InternalSettings) => {
 
 	const URL: string = Setting?.["ajax"]?.url;
 
-	Cell.forEach((Element, Index) => {
+	Cell.forEach((Element, Index): void => {
 		let Low, High, Local, Count, Seed;
 
 		if (Index < Group) {

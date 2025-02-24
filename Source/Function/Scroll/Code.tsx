@@ -34,7 +34,7 @@ export default ({
 
 	const [_Text] = createSignal(Text);
 
-	createEffect(() => {
+	createEffect((): void => {
 		let ID: number;
 
 		const Scroll = (Time: number): void => {
@@ -45,7 +45,7 @@ export default ({
 
 		ID = requestAnimationFrame(Scroll);
 
-		onCleanup(() => cancelAnimationFrame(ID));
+		onCleanup((): void => cancelAnimationFrame(ID));
 	});
 
 	const Display = (): string => {
@@ -58,16 +58,16 @@ export default ({
 			<div class="flex justify-center" aria-hidden="true">
 				{Display()
 					.split("")
-					.map((Visible, Character) => (
+					.map((Visible, Character): void => (
 						<div class="mr-2">
-							{((Position) => (
+							{((Position): void => (
 								<div class="Grid">
 									{(
 										Matrix[Position.toUpperCase()] ||
 										Matrix[" "]
-									)?.map((Row, RowIndex) => (
+									)?.map((Row, RowIndex): void => (
 										<div class="Row flex">
-											{Row.map((Show, Index) =>
+											{Row.map((Show, Index): void =>
 												Pixel({
 													Font,
 													Character,

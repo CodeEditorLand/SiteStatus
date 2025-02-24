@@ -1,6 +1,6 @@
 export const DIRECTORY = "Cache/Table";
 
-export default async (WHERE: string, Set: any) => {
+export default async (WHERE: string, Set: any): void => {
 	const RETURN = Set ?? {};
 
 	try {

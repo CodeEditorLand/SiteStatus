@@ -4,7 +4,7 @@ export const { default: Get } = await import(
 	"@Function/Table/Layout/Request/Get.js"
 );
 
-export type TRANSFORM = (Data: any) => Promise<any>;
+export type TRANSFORM = (Data: any): void => Promise<any>;
 
 export default async (
 	...[REQUEST, OPTION, TRANSFORM]: [...PARAMETER, TRANSFORM?]

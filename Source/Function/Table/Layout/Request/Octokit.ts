@@ -8,7 +8,7 @@ export type PARAMETER<R extends Route = Route> = [
 		: RequestParameters,
 ];
 
-export default async (...[REQUEST, OPTION]: PARAMETER) => {
+export default async (...[REQUEST, OPTION]: PARAMETER): void => {
 	try {
 		return (
 			await new (await import("@octokit/rest")).Octokit({
