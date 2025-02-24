@@ -1,7 +1,7 @@
 import { Layer, Lerp } from "@Function/Table/Layout/Code/Animation.js";
-import HEX from "@Function/Table/Layout/Code/HEX.js";
+import HEX, { type RGB } from "@Function/Table/Layout/Code/HEX.js";
 import Interpolate from "@Function/Table/Layout/Code/Interpolate.js";
-import RGB from "@Function/Table/Layout/Code/RGB.js";
+import _RGB from "@Function/Table/Layout/Code/RGB.js";
 import Color from "@Function/TailWind/Color.js";
 import type { InternalSettings } from "datatables.net-dt";
 
@@ -9,7 +9,7 @@ const TimeNoise = 0;
 
 const NoiseInfluence = 0.5;
 
-export default (Element: HTMLElement, Setting: InternalSettings) => {
+export default (Element: HTMLElement, Setting: InternalSettings): boolean => {
 	const Input = Element.querySelectorAll<
 		HTMLInputElement | HTMLSelectElement
 	>(".dt-input, .dt-search input, .dt-button");
@@ -17,7 +17,7 @@ export default (Element: HTMLElement, Setting: InternalSettings) => {
 	const Total = Input.length;
 
 	if (!Total) {
-		return;
+		return false;
 	}
 
 	const Group = Math.ceil(Total / 3);
@@ -25,12 +25,16 @@ export default (Element: HTMLElement, Setting: InternalSettings) => {
 	Input.forEach((Element, Index) => {
 		const Tag: boolean = Element.classList.contains("Tag");
 
-		let Low, High, Local, Count, Seed;
+		let Low: RGB;
+		let High: RGB;
+		let Local: number;
+		let Count: number;
+		let Seed: number;
 
 		if (Index < Group) {
-			Low = RGB(Tag ? Color.cyan[50] : Color.amber[50]);
+			Low = _RGB(Tag ? Color.cyan[50] : Color.amber[50]);
 
-			High = RGB(Tag ? Color.cyan[950] : Color.amber[950]);
+			High = _RGB(Tag ? Color.cyan[950] : Color.amber[950]);
 
 			Local = Index;
 
@@ -38,9 +42,9 @@ export default (Element: HTMLElement, Setting: InternalSettings) => {
 
 			Seed = 0;
 		} else if (Index < Group * 2) {
-			Low = RGB(Tag ? Color.sky[50] : Color.orange[50]);
+			Low = _RGB(Tag ? Color.sky[50] : Color.orange[50]);
 
-			High = RGB(Tag ? Color.sky[950] : Color.orange[950]);
+			High = _RGB(Tag ? Color.sky[950] : Color.orange[950]);
 
 			Local = Index - Group;
 
@@ -48,9 +52,9 @@ export default (Element: HTMLElement, Setting: InternalSettings) => {
 
 			Seed = 1;
 		} else {
-			Low = RGB(Tag ? Color.blue[50] : Color.red[50]);
+			Low = _RGB(Tag ? Color.blue[50] : Color.red[50]);
 
-			High = RGB(Tag ? Color.blue[950] : Color.red[950]);
+			High = _RGB(Tag ? Color.blue[950] : Color.red[950]);
 
 			Local = Index - Group * 2;
 
@@ -121,17 +125,15 @@ export default (Element: HTMLElement, Setting: InternalSettings) => {
 			)})' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E")`;
 		}
 
-		if (Element.classList.contains("Tag")) {
-			Element.style.color = `rgb(${Interpolate(
-				Low,
-				High,
-				Lerp(
-					Base,
-					(Layer(TimeNoise + Seed + 50, Local) + 1) / 2,
-					NoiseInfluence,
-				),
-			)})`;
-		}
+		Element.style.color = `rgb(${Interpolate(
+			Low,
+			High,
+			Lerp(
+				Base,
+				(Layer(TimeNoise + Seed + 50, Local) + 1) / 2,
+				NoiseInfluence,
+			),
+		)})`;
 
 		Element.style.backgroundColor = `rgb(${Interpolate(
 			Low,
