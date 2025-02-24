@@ -4,6 +4,8 @@ import Format from "@Function/Table/Layout/Code/Format.js";
 import Input from "@Function/Table/Layout/Code/Input.js";
 import Segment from "@Function/Table/Layout/Code/Segment.js";
 
+import type Data from "data"
+
 import "@Function/Table/Layout/Code/Stylesheet.scss";
 import "@Script/DataTables/datatables.min.js";
 
