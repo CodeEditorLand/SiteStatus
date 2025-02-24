@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 /*
  * This combined file was created by the DataTables downloader builder:
  *   https://datatables.net/download
