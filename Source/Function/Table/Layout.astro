@@ -57,10 +57,12 @@ let Tag: any[] = [];
 
 for (let Page = 1; Page <= 5; Page++) {
 	try {
+		const URL = "GET /repos/{owner}/{repo}/tags";
+
 		Tag = Tag.concat(
 			(
 				await Request(
-					"GET /repos/{owner}/{repo}/tags",
+					URL,
 					{
 						owner: User,
 						repo: Repository,
@@ -157,7 +159,7 @@ for (let Page = 1; Page <= 5; Page++) {
 								),
 							),
 						{
-							Key: "RESPONSE.map(Author,Date,Name,SHA,Message,File)",
+							Key: `${URL}.RESPONSE.map(Author,Date,Name,SHA,Message,File)`,
 						},
 					),
 				)
@@ -187,42 +189,51 @@ let Commit: any[] = [];
 
 for (let Page = 1; Page <= 5; Page++) {
 	try {
+		const URL = "GET /repos/{owner}/{repo}/commits";
+
 		Commit = Commit.concat(
 			(
 				await Request(
-					"GET /repos/{owner}/{repo}/commits",
+					URL,
 					{
 						owner: User,
 						repo: Repository,
 						per_page: 1,
 						page: Page,
 					},
-					// biome-ignore lint/suspicious/noExplicitAny:
-					async (RESPONSE: any) =>
-						(
-							await import("@Function/Table/Layout/Unwrap.js")
-						).default(
-							await Promise.allSettled(
-								// biome-ignore lint/suspicious/noExplicitAny:
-								RESPONSE?.map(async (COMMIT: any) => ({
-									Author: COMMIT?.commit?.author?.name ?? "",
-									Date: COMMIT?.commit?.author?.date ?? "",
-									Message: COMMIT?.commit?.message ?? "",
-									SHA: COMMIT?.sha ?? "",
-									File: await (async (SHA: string) => {
-										const _Total = await Total(SHA);
+					Object.assign(
+						// biome-ignore lint/suspicious/noExplicitAny:
+						async (RESPONSE: any) =>
+							(
+								await import("@Function/Table/Layout/Unwrap.js")
+							).default(
+								await Promise.allSettled(
+									// biome-ignore lint/suspicious/noExplicitAny:
+									RESPONSE?.map(async (COMMIT: any) => ({
+										Author:
+											COMMIT?.commit?.author?.name ?? "",
+										Date:
+											COMMIT?.commit?.author?.date ?? "",
+										Message: COMMIT?.commit?.message ?? "",
+										SHA: COMMIT?.sha ?? "",
+										File: await (async (SHA: string) => {
+											const _Total = await Total(SHA);
 
-										const _File = await File(SHA);
+											const _File = await File(SHA);
 
-										return [
-											await Dot(_Total, _File),
-											_Total,
-											_File,
-										];
-									})(COMMIT?.sha),
-								})),
+											return [
+												await Dot(_Total, _File),
+												_Total,
+												_File,
+											];
+										})(COMMIT?.sha),
+									})),
+								),
 							),
-						),
+						{
+							Key: `${URL}.RESPONSE.map(Author,Date,Message,SHA,File)`,
+						},
+					),
 				)
 			).filter((Data: null) => Data !== null),
 		);
