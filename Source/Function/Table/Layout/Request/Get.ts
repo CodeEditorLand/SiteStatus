@@ -9,7 +9,8 @@ export default async (
 ): Promise<
 	| {
 			Set: {
-				[key: string]: {};
+				// biome-ignore lint/suspicious/noExplicitAny:
+				[key: string]: any;
 			};
 			TimeStamp: number;
 	  }
@@ -18,18 +19,20 @@ export default async (
 	try {
 		return JSON.parse(
 			await (
-				await import("fs/promises")
+				await import("node:fs/promises")
 			).readFile(
-				(await import("path")).join(
+				(await import("node:path")).join(
 					process.cwd(),
 					(await import("@Function/Table/Layout/Request/Set.js"))
 						.DIRECTORY,
-					encodeURIComponent(WHERE) + ".json",
+					`${encodeURIComponent(WHERE)}.json`,
 				),
 				"utf-8",
 			),
 		);
-	} catch (_Error) {}
+	} catch (_Error) {
+		console.log(_Error);
+	}
 
 	return undefined;
 };

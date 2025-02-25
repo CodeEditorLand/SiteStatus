@@ -10,6 +10,7 @@ export type PARAMETER<R extends Route = Route> = [
 
 export default async (
 	...[REQUEST, OPTION]: PARAMETER
+	// biome-ignore lint/suspicious/noExplicitAny:
 ): Promise<undefined | any> => {
 	try {
 		return (
@@ -19,7 +20,9 @@ export default async (
 				) as typeof TOKEN_GITHUB_COMMIT_STATUS_EDITOR_LAND,
 			}).request(REQUEST, OPTION)
 		)?.data;
-	} catch (_Error) {}
+	} catch (_Error) {
+		console.log(_Error);
+	}
 
 	return undefined;
 };

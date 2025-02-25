@@ -5,9 +5,9 @@ export default async (WHERE: string, Set: any): Promise<any> => {
 
 	try {
 		await (
-			await import("fs/promises")
+			await import("node:fs/promises")
 		).writeFile(
-			(await import("path")).join(
+			(await import("node:path")).join(
 				process.cwd(),
 				DIRECTORY,
 				encodeURIComponent(WHERE) + ".json",
@@ -24,7 +24,9 @@ export default async (WHERE: string, Set: any): Promise<any> => {
 				encoding: "utf-8",
 			},
 		);
-	} catch (_Error) {}
+	} catch (_Error) {
+console.log(_Error);
+}
 
 	return RETURN;
 };

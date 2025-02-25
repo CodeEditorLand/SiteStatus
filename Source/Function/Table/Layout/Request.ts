@@ -4,18 +4,31 @@ export const { default: Get } = await import(
 	"@Function/Table/Layout/Request/Get.js"
 );
 
-export type TRANSFORM = (Data: any) => Promise<any>;
+// biome-ignore lint/suspicious/noExplicitAny:
+export type TRANSFORM = ((RESPONSE: any) => Promise<any>) & {
+	/**
+	 * Key should describe from what to what
+	 *
+	 */
+	Key?: string;
+};
 
 export default async (
 	...[REQUEST, OPTION, TRANSFORM]: [...PARAMETER, TRANSFORM?]
+	// biome-ignore lint/suspicious/noExplicitAny:
 ): Promise<any> => {
 	let RETURN = undefined;
 
-	const Hash = (await import("crypto"))
+	const Hash = (await import("node:crypto"))
 		.createHash("md5")
 		.update(
 			JSON.stringify(
-				[REQUEST, OPTION, TRANSFORM ? TRANSFORM.toString() : ""],
+				[
+					OPTION,
+					TRANSFORM && typeof TRANSFORM.Key === "string"
+						? TRANSFORM.Key
+						: (TRANSFORM?.toString() ?? ""),
+				],
 				null,
 				"\t",
 			),
@@ -23,7 +36,7 @@ export default async (
 		.digest("hex");
 
 	try {
-		let Cache = await Get(`${Hash}`);
+		const Cache = await Get(`${Hash}`);
 
 		if (
 			Cache?.Set &&
@@ -50,7 +63,9 @@ export default async (
 		return await (
 			await import("@Function/Table/Layout/Request/Set.js")
 		).default(`${Hash}`, RETURN);
-	} catch (_Error) {}
+	} catch (_Error) {
+		console.log(_Error);
+	}
 
 	return RETURN;
 };

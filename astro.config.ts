@@ -167,8 +167,8 @@ export default (await import("astro/config")).defineConfig({
 	},
 }) as defineConfig;
 
-export const { unlink, readFile } = await import("fs/promises");
+export const { unlink, readFile } = await import("node:fs/promises");
 
-export const { join } = await import("path");
+export const { join } = await import("node:path");
 
 export const { default: Glob } = await import("fast-glob");
