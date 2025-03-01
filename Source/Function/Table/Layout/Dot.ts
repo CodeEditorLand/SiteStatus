@@ -19,7 +19,7 @@ export default class _Class {
 		};
 	}
 
-	public Display(File: number = 1): string {
+	public Display(File = 1): string {
 		const Percentage = 100 / this.Configuration.Column;
 
 		const Column: string[] = new Array(this.Configuration.Column).fill("");

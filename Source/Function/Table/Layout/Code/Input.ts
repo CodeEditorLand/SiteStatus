@@ -12,7 +12,7 @@ const NoiseInfluence = 0.5;
 export default (Element: HTMLElement, _Setting: InternalSettings): boolean => {
 	const Input = Element.querySelectorAll<
 		HTMLInputElement | HTMLSelectElement
-	>(".dt-input, .dt-search input, .dt-button");
+	>(".dt-input, .dt-button");
 
 	const Total = Input.length;
 

@@ -14,12 +14,19 @@ import type DataTablesScroller from "datatables.net-scroller-dt";
 import "@Function/Table/Layout/Code/Stylesheet.scss";
 import "@Script/DataTables/datatables.min.js";
 
+// biome-ignore lint/suspicious/noExplicitAny:
 declare const DataTable: DataTables<any> &
+	// biome-ignore lint/suspicious/noExplicitAny:
 	DataTablesButtons<any> &
+	// biome-ignore lint/suspicious/noExplicitAny:
 	DataTablesFixedColumns<any> &
+	// biome-ignore lint/suspicious/noExplicitAny:
 	DataTablesFixedHeader<any> &
+	// biome-ignore lint/suspicious/noExplicitAny:
 	DataTablesResponsive<any> &
+	// biome-ignore lint/suspicious/noExplicitAny:
 	DataTablesRowGroup<any> &
+	// biome-ignore lint/suspicious/noExplicitAny:
 	DataTablesScroller<any>;
 
 export const Progress = (
@@ -175,6 +182,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 											`span.${HighLight}`,
 										).forEach(
 											(Span): string =>
+												// biome-ignore lint/suspicious/noAssignInExpressions:
 												(Span.outerHTML =
 													Span.textContent ?? ""),
 										);
@@ -209,11 +217,13 @@ document.addEventListener("DOMContentLoaded", (): void => {
 					);
 
 					const _Progress = Touch?.querySelector<HTMLDivElement>(
-						`.Progress`,
+						".Progress",
 					) as HTMLDivElement;
 
+					// biome-ignore lint/suspicious/noExplicitAny:
 					const Api = (): any => Setting["oInstance"].api();
 
+					// biome-ignore lint/suspicious/noExplicitAny:
 					const Info = (): any => Api().page.info();
 
 					Segment(Info().pages, _Progress);
@@ -232,8 +242,10 @@ document.addEventListener("DOMContentLoaded", (): void => {
 				},
 
 				infoCallback(Setting, _, __, ___, ____, _String) {
+					// biome-ignore lint/suspicious/noExplicitAny:
 					const Api = (): any => Setting["oInstance"].api();
 
+					// biome-ignore lint/suspicious/noExplicitAny:
 					const Info = (): any => Api().page.info();
 
 					const _Progress = document
@@ -241,7 +253,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 							`[data-uuid="${UUID}"] .Touch`,
 						)
 						?.querySelector<HTMLDivElement>(
-							`.Progress`,
+							".Progress",
 						) as HTMLDivElement;
 
 					Segment(Info().pages, _Progress);
@@ -280,7 +292,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 								{
 									text: "TAG",
 
-									action: function (_, dt, __, ___) {
+									action: (_, dt, __, ___) => {
 										dt.ajax.url(Tag);
 										dt.ajax.reload();
 										dt.column("NAME:title").visible(true);
@@ -292,7 +304,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 								{
 									text: "COMMIT",
 
-									action: function (_, dt, __, ___) {
+									action: (_, dt, __, ___) => {
 										dt.ajax.url(Commit);
 										dt.ajax.reload();
 										dt.column("NAME:title").visible(false);
