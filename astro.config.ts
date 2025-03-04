@@ -54,7 +54,7 @@ export default (await import("astro/config")).defineConfig({
 													encoding: "utf-8",
 												}),
 											).TimeStamp >
-										7 * 24 * 60 * 60 * 1000
+										4 * 7 * 24 * 60 * 60 * 1000
 									) {
 										await unlink(File);
 									}
