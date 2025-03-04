@@ -40,7 +40,7 @@ export default (await import("astro/config")).defineConfig({
 			? {
 					name: "Cache",
 					hooks: {
-						"astro:build:start": async (): void => {
+						"astro:build:start": async (): Promise<void> => {
 							for (const File of await Glob("**/*.json", {
 								cwd: join(process.cwd(), "Cache"),
 								absolute: true,
