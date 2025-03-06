@@ -368,6 +368,14 @@ document.addEventListener("DOMContentLoaded", (): void => {
 				scrollCollapse: true,
 
 				scrollY: "350px",
+
+				rowGroup: {
+					enable: true,
+					// @ts-expect-error
+					dataSrc: (Row) => new Date(Row.Date).toLocaleDateString(),
+					startRender: (Row, Group, _) =>
+						`<span class="Text">${Group} 📅 ${Row.count()} Commit${Row.count() > 1 ? "s" : ""}</span>`,
+				},
 			});
 		}
 	}
