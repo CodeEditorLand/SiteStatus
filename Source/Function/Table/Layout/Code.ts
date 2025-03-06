@@ -271,7 +271,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 					top2: [
 						{
 							div: {
-								html: `<h1>${User}/${Repository}</h1>`,
+								html: `<h1><a href="HTTPS://GitHub.Com/${User}/${Repository}" target="_blank" rel="noopener noreferrer" title=>${User}/${Repository}</a></h1>`,
 
 								className: "Title",
 							},
