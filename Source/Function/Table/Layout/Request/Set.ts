@@ -25,8 +25,8 @@ export default async (WHERE: string, Set: any): Promise<any> => {
 			},
 		);
 	} catch (_Error) {
-console.log(_Error);
-}
+		console.log(_Error);
+	}
 
 	return RETURN;
 };
