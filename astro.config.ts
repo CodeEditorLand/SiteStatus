@@ -2,7 +2,7 @@ import { defineConfig, envField } from "astro/config";
 
 export const On = process.env["NODE_ENV"] === "development";
 
-export default (await import("astro/config")).defineConfig({
+export default defineConfig({
 	env: {
 		schema: {
 			TOKEN: envField.string({
@@ -107,7 +107,7 @@ export default (await import("astro/config")).defineConfig({
 							keep_numbers: true,
 							keep_quoted_props: true,
 							max_line_len: 80,
-							preamble: null,
+							preamble: "",
 							ecma: 5,
 							preserve_annotations: true,
 							quote_keys: false,
@@ -165,7 +165,7 @@ export default (await import("astro/config")).defineConfig({
 			},
 		],
 	},
-}) as defineConfig;
+});
 
 export const { unlink, readFile } = await import("node:fs/promises");
 
