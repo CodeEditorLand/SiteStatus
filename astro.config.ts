@@ -1,6 +1,19 @@
+import { execSync } from "node:child_process";
 import { defineConfig, envField } from "astro/config";
 
 export const On = process.env["NODE_ENV"] === "development";
+
+let Current = process.env["CF_PAGES_COMMIT_SHA"];
+
+if (!Current) {
+	try {
+		Current = execSync("git rev-parse HEAD").toString().trim();
+	} catch (_Error) {}
+}
+
+if (Current && !process.env["CF_PAGES_COMMIT_SHA"]) {
+	process.env["CF_PAGES_COMMIT_SHA"] = Current;
+}
 
 export default defineConfig({
 	env: {
