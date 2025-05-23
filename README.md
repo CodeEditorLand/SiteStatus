@@ -1,4 +1,4 @@
-# [Status ⌛ Code 💻 Editor 🔧 Land 🏞️ WebSite 🗾](HTTPS://Status.Code.Editor.Land)
+# [Status ⌛ Code 💻 Editor 🔧 Land 🏞️ WebSite 🗾](https://Status.Code.Editor.Land)
 
 ## Funding
 

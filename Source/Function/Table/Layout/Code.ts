@@ -122,7 +122,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 						title: "NAME",
 
 						render: (_, __, Row): string =>
-							`<a class="Pulse" href="HTTPS://GitHub.Com/${User}/${Repository}/releases/tag/${Row.Name}" rel="noopener noreferrer" target="_blank"><span class="Text">@TAG_</span><span class="Text SHA">${Row.Name} 🔗</span></a>`,
+							`<a class="Pulse" href="https://GitHub.Com/${User}/${Repository}/releases/tag/${Row.Name}" rel="noopener noreferrer" target="_blank"><span class="Text">@TAG_</span><span class="Text SHA">${Row.Name} 🔗</span></a>`,
 
 						data: (Row): string => `@TAG_${Row.Name}`,
 
@@ -133,7 +133,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 						title: "COMMIT",
 
 						render: (_, __, Row): string =>
-							`<a class="Pulse" href="HTTPS://GitHub.Com/${User}/${Repository}/commit/${Row.SHA}" rel="noopener noreferrer" target="_blank"><span class="Text">@COMMIT_</span><span class="Text SHA">${Row.SHA} 🔗</span></a>`,
+							`<a class="Pulse" href="https://GitHub.Com/${User}/${Repository}/commit/${Row.SHA}" rel="noopener noreferrer" target="_blank"><span class="Text">@COMMIT_</span><span class="Text SHA">${Row.SHA} 🔗</span></a>`,
 
 						data: (Row): string => `@COMMIT_${Row.SHA}`,
 
@@ -271,7 +271,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 					top2: [
 						{
 							div: {
-								html: `<h1><a href="HTTPS://GitHub.Com/${User}/${Repository}" target="_blank" rel="noopener noreferrer" title="GitHub ${User}/${Repository}">${User}/${Repository}</a></h1>`,
+								html: `<h1><a href="https://GitHub.Com/${User}/${Repository}" target="_blank" rel="noopener noreferrer" title="GitHub ${User}/${Repository}">${User}/${Repository}</a></h1>`,
 
 								className: "Title",
 							},
