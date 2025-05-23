@@ -5,25 +5,38 @@ export const On = process.env["NODE_ENV"] === "development";
 
 if (!process.env["CF_PAGES_COMMIT_SHA"]) {
 	try {
-		process.env["CF_PAGES_COMMIT_SHA"] = execSync("git rev-parse HEAD")
+		const currentHeadSha = execSync("git rev-parse HEAD")
 			.toString()
 			.trim();
+		process.env["CF_PAGES_COMMIT_SHA"] = currentHeadSha;
 	} catch (_Error) {}
 }
 
-let Current = process.env["CACHE_VERSION_SHA"];
-
-if (!Current) {
+if (!process.env["CACHE_VERSION_SHA"]) {
+	let localCacheSha = "";
 	try {
-		Current = execSync("git rev-parse HEAD~1").toString().trim();
+		localCacheSha = execSync("git rev-parse HEAD~1")
+			.toString()
+			.trim();
+		console.log(
+			`Astro Config (Dev): CACHE_VERSION_SHA not set, trying Git HEAD~1: ${localCacheSha}`,
+		);
 	} catch (_Error) {
 		try {
-			Current = execSync("git rev-parse HEAD").toString().trim();
-		} catch (_Error) {}
+			localCacheSha = execSync("git rev-parse HEAD")
+				.toString()
+				.trim();
+			console.log(
+				`Astro Config (Dev): CACHE_VERSION_SHA (HEAD~1 failed), using current Git HEAD: ${localCacheSha}`,
+			);
+		} catch (gitHeadError) {
+			console.warn(
+				"Astro Config (Dev): Failed to get any Git SHA for CACHE_VERSION_SHA. Will use schema default or be undefined.",
+			);
+		}
 	}
-
-	if (Current) {
-		process.env["CACHE_VERSION_SHA"] = Current;
+	if (localCacheSha) {
+		process.env["CACHE_VERSION_SHA"] = localCacheSha;
 	}
 }
 
@@ -40,13 +53,13 @@ export default defineConfig({
 				context: "server",
 				access: "secret",
 				optional: true,
-				default: "1",
+				default: "unknown-cf-sha",
 			}),
 			CACHE_VERSION_SHA: envField.string({
 				context: "server",
-				access: "secret",
+				access: "public",
 				optional: true,
-				default: "1",
+				default: "unknown-cache-sha",
 			}),
 		},
 		validateSecrets: true,
@@ -69,10 +82,11 @@ export default defineConfig({
 	integrations: [
 		!On
 			? {
-					name: "Cache",
+					name: "Cache", // This is your existing general cache-clearing integration
 					hooks: {
 						"astro:build:start": async (): Promise<void> => {
 							for (const File of await Glob("**/*.json", {
+								// Path for your general cache files
 								cwd: join(process.cwd(), "Cache"),
 								absolute: true,
 								onlyFiles: true,
@@ -85,8 +99,7 @@ export default defineConfig({
 													encoding: "utf-8",
 												}),
 											).TimeStamp >
-										// 4 weeks
-										4 * 7 * 24 * 60 * 60 * 1000
+										4 * 7 * 24 * 60 * 60 * 1000 // 4 weeks
 									) {
 										await unlink(File);
 									}
@@ -125,7 +138,7 @@ export default defineConfig({
 			cssMinify: On ? false : "esbuild",
 			terserOptions: On
 				? {
-						compress: false,
+						/* your detailed dev terserOptions */ compress: false,
 						ecma: 2020,
 						enclose: false,
 						format: {
@@ -160,7 +173,9 @@ export default defineConfig({
 						module: true,
 						toplevel: true,
 					}
-				: {},
+				: {
+						/* your production terserOptions or empty for defaults */
+					},
 		},
 		resolve: {
 			preserveSymlinks: false,
@@ -179,7 +194,6 @@ export default defineConfig({
 						Identifier.includes(".astro")
 							? `crossorigin=\\"anonymous\\"`
 							: 'crossorigin="anonymous"';
-
 					return Code.replace(/<script/g, `<script ${CrossOrigin}`)
 						.replace(
 							/<link[^>]*(?=.*rel="preload")(?=.*href="[^"]*\.js")(?=.*as="script")[^>]*/g,
@@ -200,7 +214,5 @@ export default defineConfig({
 });
 
 export const { unlink, readFile } = await import("node:fs/promises");
-
 export const { join } = await import("node:path");
-
 export const { default: Glob } = await import("fast-glob");

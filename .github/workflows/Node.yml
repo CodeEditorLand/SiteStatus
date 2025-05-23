@@ -66,15 +66,44 @@ jobs:
               with:
                   fetch-depth: 0
 
-            - run: |
-                  if git rev-parse --verify ${{ github.sha }}~1 >/dev/null 2>&1; then
-                    cache_sha=$(git rev-parse ${{ github.sha }}~1)
+            - shell: bash
+              run: |
+                  determined_sha=""
+                  trigger_commit_sha="${{ github.sha }}"
+                  trigger_commit_message=$(git log -1 --pretty=%B "$trigger_commit_sha")
+
+                  if ! (echo "$trigger_commit_message" | grep -q -E "Auto: Periodic repository sync|Build \[Skip=Node\]"); then
+                    determined_sha=$(git rev-parse "$trigger_commit_sha")
                   else
-                    echo "Warning: Cannot get parent commit. Using current commit for CACHE_VERSION_SHA."
-                    cache_sha=$(git rev-parse ${{ github.sha }})
+                    current_lookup_sha="$trigger_commit_sha" 
+                    max_attempts=10 
+
+                    for i in $(seq 1 $max_attempts); do
+                      if ! git rev-parse --verify "$current_lookup_sha~1" >/dev/null 2>&1; then
+                        break 
+                      fi
+                      parent_sha_full=$(git rev-parse "$current_lookup_sha~1")
+                      parent_sha_short=$(git rev-parse "$parent_sha_full")
+                      parent_message=$(git log -1 --pretty=%B "$parent_sha_full")
+                      
+                      if ! (echo "$parent_message" | grep -q -E "Auto: Periodic repository sync|Build \[Skip=Node\]"); then
+                        determined_sha="$parent_sha_short" 
+                        break
+                      else
+                        current_lookup_sha="$parent_sha_full" 
+                      fi
+                    done
                   fi
-                  echo "Determined CACHE_VERSION_SHA: $cache_sha"
-                  echo "CACHE_VERSION_SHA=$cache_sha" >> $GITHUB_ENV
+
+                  if [ -z "$determined_sha" ]; then
+                    if git rev-parse --verify "$trigger_commit_sha~1" >/dev/null 2>&1; then
+                      determined_sha=$(git rev-parse "$trigger_commit_sha~1")
+                    else
+                      determined_sha=$(git rev-parse "$trigger_commit_sha")
+                    fi
+                  fi
+
+                  echo "CACHE_VERSION_SHA=$determined_sha" >> "$GITHUB_ENV"
 
             - uses: pnpm/action-setup@v4.1.0
               with:
@@ -110,8 +139,6 @@ jobs:
                   git add .
                   if ! git diff --staged --quiet; then
                     git commit -m "Build [Skip=Node]"
-                  else
-                    echo "No build changes to commit."
                   fi
 
             - if: matrix.node-version == '20'
