@@ -3,16 +3,28 @@ import { defineConfig, envField } from "astro/config";
 
 export const On = process.env["NODE_ENV"] === "development";
 
-let Current = process.env["CF_PAGES_COMMIT_SHA"];
-
-if (!Current) {
+if (!process.env["CF_PAGES_COMMIT_SHA"]) {
 	try {
-		Current = execSync("git rev-parse HEAD").toString().trim();
+		process.env["CF_PAGES_COMMIT_SHA"] = execSync("git rev-parse HEAD")
+			.toString()
+			.trim();
 	} catch (_Error) {}
 }
 
-if (Current && !process.env["CF_PAGES_COMMIT_SHA"]) {
-	process.env["CF_PAGES_COMMIT_SHA"] = Current;
+let Current = process.env["CACHE_VERSION_SHA"];
+
+if (!Current) {
+	try {
+		Current = execSync("git rev-parse HEAD~1").toString().trim();
+	} catch (_Error) {
+		try {
+			Current = execSync("git rev-parse HEAD").toString().trim();
+		} catch (_Error) {}
+	}
+
+	if (Current) {
+		process.env["CACHE_VERSION_SHA"] = Current;
+	}
 }
 
 export default defineConfig({
@@ -25,6 +37,12 @@ export default defineConfig({
 				default: "GitHub Token API Stream",
 			}),
 			CF_PAGES_COMMIT_SHA: envField.string({
+				context: "server",
+				access: "secret",
+				optional: true,
+				default: "1",
+			}),
+			CACHE_VERSION_SHA: envField.string({
 				context: "server",
 				access: "secret",
 				optional: true,
@@ -67,6 +85,7 @@ export default defineConfig({
 													encoding: "utf-8",
 												}),
 											).TimeStamp >
+										// 4 weeks
 										4 * 7 * 24 * 60 * 60 * 1000
 									) {
 										await unlink(File);

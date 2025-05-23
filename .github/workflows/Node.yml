@@ -21,9 +21,7 @@ jobs:
     Pre-Publish:
         runs-on: ubuntu-latest
         environment: Deploy
-        if:
-            ${{ !contains(github.event.head_commit.message,
-            '[Skip=Node]') }}
+        if: ${{ !contains(github.event.head_commit.message, '[Skip=Node]') }}
 
         env:
             ADBLOCK: true
@@ -68,6 +66,16 @@ jobs:
               with:
                   fetch-depth: 0
 
+            - run: |
+                  if git rev-parse --verify ${{ github.sha }}~1 >/dev/null 2>&1; then
+                    cache_sha=$(git rev-parse ${{ github.sha }}~1)
+                  else
+                    echo "Warning: Cannot get parent commit. Using current commit for CACHE_VERSION_SHA."
+                    cache_sha=$(git rev-parse ${{ github.sha }})
+                  fi
+                  echo "Determined CACHE_VERSION_SHA: $cache_sha"
+                  echo "CACHE_VERSION_SHA=$cache_sha" >> $GITHUB_ENV
+
             - uses: pnpm/action-setup@v4.1.0
               with:
                   version: 9.3.0
@@ -105,7 +113,7 @@ jobs:
                   else
                     echo "No build changes to commit."
                   fi
-                  
+
             - if: matrix.node-version == '20'
               uses: ad-m/github-push-action@v0.8.0
               with:
