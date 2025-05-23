@@ -20,6 +20,10 @@ on:
 jobs:
     Pre-Publish:
         runs-on: ubuntu-latest
+        environment: Deploy
+        if:
+            ${{ !contains(github.event.head_commit.message,
+            '[skip-node-commit]') }}
 
         env:
             ADBLOCK: true
@@ -53,6 +57,7 @@ jobs:
             TELEMETRY_DISABLED: 1
             TERRAFORM_TELEMETRY: 0
             VCPKG_DISABLE_METRICS: 1
+            CF_PAGES_COMMIT_SHA: ${{ github.sha }}
 
         strategy:
             matrix:
@@ -60,6 +65,8 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4.2.2
+              with:
+                  fetch-depth: 0
 
             - uses: pnpm/action-setup@v4.1.0
               with:
@@ -88,7 +95,25 @@ jobs:
             - run: pnpm run prepublishOnly
               working-directory: .
 
+            - if: matrix.node-version == '20'
+              run: |
+                  git config user.name "Node"
+                  git config user.email "Node@PlayForm.Cloud"
+                  git add .
+                  if ! git diff --staged --quiet; then
+                    git commit -m "Node: Build artifacts (Node ${{ matrix.node-version }}) [skip-node-commit]"
+                  else
+                    echo "Node (Node ${{ matrix.node-version }}): No build changes to commit."
+                  fi
+
+            - if: matrix.node-version == '20'
+              uses: ad-m/github-push-action@v0.8.0
+              with:
+                  github_token: ${{ secrets.GITHUB_TOKEN }}
+                  branch: Current
+
             - uses: actions/upload-artifact@v4.6.2
               with:
                   name: .-Node-${{ matrix.node-version }}-Target
                   path: ./Target
+                  if-no-files-found: warn
