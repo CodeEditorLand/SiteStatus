@@ -9,7 +9,7 @@ const __vite__mapDeps = (
 		]),
 ) => i.map((i) => d[i]);
 import { _ as t } from "./preload-helper.Cat91CNq.js";
-import { createEffect as s } from "./solid.Rql_8v_p.js";
+import { createEffect as s } from "./solid.ChnxnTE8.js";
 class i {
 	Element;
 	TimeNoise;
