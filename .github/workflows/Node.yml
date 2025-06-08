@@ -20,8 +20,6 @@ on:
 jobs:
     Pre-Publish:
         runs-on: ubuntu-latest
-        environment: Deploy
-        if: ${{ !contains(github.event.head_commit.message, '[Skip=Node]') }}
 
         env:
             ADBLOCK: true
@@ -55,7 +53,6 @@ jobs:
             TELEMETRY_DISABLED: 1
             TERRAFORM_TELEMETRY: 0
             VCPKG_DISABLE_METRICS: 1
-            CF_PAGES_COMMIT_SHA: ${{ github.sha }}
 
         strategy:
             matrix:
@@ -63,47 +60,6 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4.2.2
-              with:
-                  fetch-depth: 0
-
-            - shell: bash
-              run: |
-                  determined_sha=""
-                  trigger_commit_sha="${{ github.sha }}"
-                  trigger_commit_message=$(git log -1 --pretty=%B "$trigger_commit_sha")
-
-                  if ! (echo "$trigger_commit_message" | grep -q -E "\[Skip=Node\]"); then
-                    determined_sha=$(git rev-parse "$trigger_commit_sha")
-                  else
-                    current_lookup_sha="$trigger_commit_sha" 
-                    max_attempts=10 
-
-                    for i in $(seq 1 $max_attempts); do
-                      if ! git rev-parse --verify "$current_lookup_sha~1" >/dev/null 2>&1; then
-                        break 
-                      fi
-                      parent_sha_full=$(git rev-parse "$current_lookup_sha~1")
-                      parent_sha_short=$(git rev-parse "$parent_sha_full")
-                      parent_message=$(git log -1 --pretty=%B "$parent_sha_full")
-                      
-                      if ! (echo "$parent_message" | grep -q -E "\[Skip=Node\]"); then
-                        determined_sha="$parent_sha_short" 
-                        break
-                      else
-                        current_lookup_sha="$parent_sha_full" 
-                      fi
-                    done
-                  fi
-
-                  if [ -z "$determined_sha" ]; then
-                    if git rev-parse --verify "$trigger_commit_sha~1" >/dev/null 2>&1; then
-                      determined_sha=$(git rev-parse "$trigger_commit_sha~1")
-                    else
-                      determined_sha=$(git rev-parse "$trigger_commit_sha")
-                    fi
-                  fi
-
-                  echo "CACHE_VERSION_SHA=$determined_sha" >> "$GITHUB_ENV"
 
             - uses: pnpm/action-setup@v4.1.0
               with:
@@ -132,23 +88,7 @@ jobs:
             - run: pnpm run prepublishOnly
               working-directory: .
 
-            - if: matrix.node-version == '20'
-              run: |
-                  git config user.name "Node"
-                  git config user.email "Node@PlayForm.Cloud"
-                  git add .
-                  if ! git diff --staged --quiet; then
-                    git commit -m "[Skip=Node]"
-                  fi
-
-            - if: matrix.node-version == '20'
-              uses: ad-m/github-push-action@v0.8.0
-              with:
-                  github_token: ${{ secrets.GITHUB_TOKEN }}
-                  branch: Current
-
             - uses: actions/upload-artifact@v4.6.2
               with:
                   name: .-Node-${{ matrix.node-version }}-Target
                   path: ./Target
-                  if-no-files-found: warn
