@@ -1,1 +1,0 @@
-import{_ as a}from"./preload-helper.BhLMWRjL.js";await(async()=>(await a(async()=>{const{initializeApp:a}=await import("./index.esm.DY6xL-Vv.js");return{initializeApp:a}},[])).initializeApp({apiKey:"",appId:"",authDomain:"",databaseURL:"",measurementId:"",messagingSenderId:"",projectId:"",storageBucket:""}))();
