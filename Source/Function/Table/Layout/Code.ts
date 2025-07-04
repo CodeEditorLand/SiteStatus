@@ -11,7 +11,6 @@ import type DataTablesResponsive from "datatables.net-responsive-dt";
 import type DataTablesRowGroup from "datatables.net-rowgroup-dt";
 import type DataTablesScroller from "datatables.net-scroller-dt";
 
-import "@Function/Table/Layout/Code/Stylesheet.scss";
 import "@Script/DataTables/datatables.min.js";
 
 // biome-ignore lint/suspicious/noExplicitAny:

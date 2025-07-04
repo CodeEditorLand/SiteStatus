@@ -6,20 +6,24 @@ export const On = process.env["NODE_ENV"] === "development";
 if (!process.env["CF_PAGES_COMMIT_SHA"]) {
 	try {
 		const currentHeadSha = execSync("git rev-parse HEAD").toString().trim();
+
 		process.env["CF_PAGES_COMMIT_SHA"] = currentHeadSha;
 	} catch (_Error) {}
 }
 
 if (!process.env["CACHE_VERSION_SHA"]) {
 	let localCacheSha = "";
+
 	try {
 		localCacheSha = execSync("git rev-parse HEAD~1").toString().trim();
+
 		console.log(
 			`Astro Config (Dev): CACHE_VERSION_SHA not set, trying Git HEAD~1: ${localCacheSha}`,
 		);
 	} catch (_Error) {
 		try {
 			localCacheSha = execSync("git rev-parse HEAD").toString().trim();
+
 			console.log(
 				`Astro Config (Dev): CACHE_VERSION_SHA (HEAD~1 failed), using current Git HEAD: ${localCacheSha}`,
 			);
@@ -188,6 +192,7 @@ export default defineConfig({
 						Identifier.includes(".astro")
 							? `crossorigin=\\"anonymous\\"`
 							: 'crossorigin="anonymous"';
+
 					return Code.replace(/<script/g, `<script ${CrossOrigin}`)
 						.replace(
 							/<link[^>]*(?=.*rel="preload")(?=.*href="[^"]*\.js")(?=.*as="script")[^>]*/g,
@@ -208,5 +213,7 @@ export default defineConfig({
 });
 
 export const { unlink, readFile } = await import("node:fs/promises");
+
 export const { join } = await import("node:path");
+
 export const { default: Glob } = await import("fast-glob");
