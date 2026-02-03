@@ -80,7 +80,8 @@ export default defineConfig({
 	integrations: [
 		!On
 			? {
-					name: "Cache", // This is your existing general cache-clearing integration
+					// This is your existing general cache-clearing integration
+					name: "Cache",
 					hooks: {
 						"astro:build:start": async (): Promise<void> => {
 							for (const File of await Glob("**/*.json", {
@@ -97,7 +98,8 @@ export default defineConfig({
 													encoding: "utf-8",
 												}),
 											).TimeStamp >
-										4 * 7 * 24 * 60 * 60 * 1000 // 4 weeks
+										// 4 weeks
+										4 * 7 * 24 * 60 * 60 * 1000
 									) {
 										await unlink(File);
 									}
