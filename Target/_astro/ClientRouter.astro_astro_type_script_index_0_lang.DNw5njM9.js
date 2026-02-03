@@ -523,7 +523,9 @@ async function transition(direction, from, to, options, historyState) {
         preparationEvent.preventDefault();
         return;
       }
+      const fragment = preparationEvent.to.hash;
       preparationEvent.to = redirectedTo;
+      preparationEvent.to.hash = fragment;
     }
     parser ??= new DOMParser();
     preparationEvent.newDocument = parser.parseFromString(response.html, response.mediaType);
@@ -789,4 +791,4 @@ if (supportsViewTransitions || getFallback() !== "none") {
     init({ prefetchAll: true });
   }
 }
-//# sourceMappingURL=ClientRouter.astro_astro_type_script_index_0_lang.C5M_M3bB.js.map
+//# sourceMappingURL=ClientRouter.astro_astro_type_script_index_0_lang.DNw5njM9.js.map

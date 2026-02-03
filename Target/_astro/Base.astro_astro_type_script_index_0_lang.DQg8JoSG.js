@@ -1,6 +1,6 @@
 import { _ as __vitePreload } from './preload-helper.BC7ZYKCr.js';
 
-await (async () => (await __vitePreload(async () => { const {initializeApp} = await import('./index.esm.Io5fA2Nb.js');return { initializeApp }},true              ?[]:void 0)).initializeApp({
+await (async () => (await __vitePreload(async () => { const {initializeApp} = await import('./index.esm.tyqtCNeg.js');return { initializeApp }},true              ?[]:void 0)).initializeApp({
   apiKey: "",
   // TODO Replace with your API key
   appId: "",
@@ -18,4 +18,4 @@ await (async () => (await __vitePreload(async () => { const {initializeApp} = aw
   storageBucket: ""
   // TODO Replace with your storage bucket
 }))();
-//# sourceMappingURL=Base.astro_astro_type_script_index_0_lang.BOqJFEfe.js.map
+//# sourceMappingURL=Base.astro_astro_type_script_index_0_lang.DQg8JoSG.js.map
