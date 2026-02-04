@@ -97,10 +97,8 @@ export default class {
 }
 
 // Import the same Constant and noise function as your pixel style calculator.
-export const { default: Constant } = await import(
-	"@Function/Scroll/Code/Pixel/Animation/Constant.js"
-);
+export const { default: Constant } =
+	await import("@Function/Scroll/Code/Pixel/Animation/Constant.js");
 
-export const { Layer } = await import(
-	"@Function/Scroll/Code/Pixel/Animation.js"
-);
+export const { Layer } =
+	await import("@Function/Scroll/Code/Pixel/Animation.js");

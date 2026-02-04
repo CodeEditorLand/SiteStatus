@@ -1,8 +1,7 @@
 import type { PARAMETER } from "@Function/Table/Layout/Request/Octokit.js";
 
-export const { MIN_30 } = await import(
-	"@Function/Table/Layout/Request/Get/TTL.js"
-);
+export const { MIN_30 } =
+	await import("@Function/Table/Layout/Request/Get/TTL.js");
 
 export default async (
 	...[WHERE]: [PARAMETER[0]]

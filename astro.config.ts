@@ -121,7 +121,6 @@ export default defineConfig({
 			: null,
 		(await import("@astrojs/sitemap")).default(),
 		!On ? (await import("@playform/inline")).default({ Logger: 1 }) : null,
-		!On ? (await import("@playform/format")).default({ Logger: 1 }) : null,
 		!On
 			? (await import("@playform/compress")).default({ Logger: 1 })
 			: null,

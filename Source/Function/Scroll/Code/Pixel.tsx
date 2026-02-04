@@ -48,20 +48,16 @@ export default ({
 	return <div ref={_Element} class={`h-${Font} w-${Font}`} />;
 };
 
-export const { default: Dimensional } = await import(
-	"@Function/Scroll/Code/Pixel/Dimensional.js"
-);
+export const { default: Dimensional } =
+	await import("@Function/Scroll/Code/Pixel/Dimensional.js");
 
-export const { default: Style } = await import(
-	"@Function/Scroll/Code/Pixel/Style.js"
-);
+export const { default: Style } =
+	await import("@Function/Scroll/Code/Pixel/Style.js");
 
-export const { Influence, Layer, Noise, Spectrum } = await import(
-	"@Function/Scroll/Code/Pixel/Animation.js"
-);
+export const { Influence, Layer, Noise, Spectrum } =
+	await import("@Function/Scroll/Code/Pixel/Animation.js");
 
-export const { default: Constant } = await import(
-	"@Function/Scroll/Code/Pixel/Animation/Constant.js"
-);
+export const { default: Constant } =
+	await import("@Function/Scroll/Code/Pixel/Animation/Constant.js");
 
 export const ALL_COLORS = Spectrum(Constant.COLOR_STEPS);

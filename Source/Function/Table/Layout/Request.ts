@@ -1,8 +1,7 @@
 import type { PARAMETER } from "@Function/Table/Layout/Request/Octokit.js";
 
-export const { default: Get } = await import(
-	"@Function/Table/Layout/Request/Get.js"
-);
+export const { default: Get } =
+	await import("@Function/Table/Layout/Request/Get.js");
 
 // biome-ignore lint/suspicious/noExplicitAny:
 export type TRANSFORM = ((RESPONSE: any) => Promise<any>) & {

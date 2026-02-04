@@ -206,10 +206,8 @@ export default class {
 	}
 }
 
-export const { default: Constant } = await import(
-	"@Function/Scroll/Code/Pixel/Animation/Constant.js"
-);
+export const { default: Constant } =
+	await import("@Function/Scroll/Code/Pixel/Animation/Constant.js");
 
-export const { Layer, Lerp } = await import(
-	"@Function/Scroll/Code/Pixel/Animation.js"
-);
+export const { Layer, Lerp } =
+	await import("@Function/Scroll/Code/Pixel/Animation.js");

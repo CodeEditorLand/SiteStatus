@@ -103,12 +103,10 @@ export default ({
 	);
 };
 
-export const { default: Pixel } = await import(
-	"@Function/Scroll/Code/Pixel.js"
-);
+export const { default: Pixel } =
+	await import("@Function/Scroll/Code/Pixel.js");
 
 export const { default: Matrix } = await import("@Variable/Scroll/Matrix.js");
 
-export const { createEffect, createSignal, onCleanup, onMount } = await import(
-	"solid-js"
-);
+export const { createEffect, createSignal, onCleanup, onMount } =
+	await import("solid-js");
