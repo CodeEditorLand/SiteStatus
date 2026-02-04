@@ -216,15 +216,7 @@ const Input = (Element, _Setting) => {
         )
       )})' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E")`;
     }
-    Element2.style.color = `rgb(${Interpolate(
-      Low,
-      High,
-      Lerp(
-        Base,
-        (Layer(TimeNoise$1 + Seed + 50, Local) + 1) / 2,
-        NoiseInfluence$1
-      )
-    )})`;
+    Element2.style.color = "white";
     Element2.style.backgroundColor = `rgb(${Interpolate(
       Low,
       High,
@@ -17989,4 +17981,4 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   customElements.define("status-table", Commit);
 });
-//# sourceMappingURL=Layout.astro_astro_type_script_index_0_lang.C1Gruc43.js.map
+//# sourceMappingURL=Layout.astro_astro_type_script_index_0_lang.Cloih0uJ.js.map

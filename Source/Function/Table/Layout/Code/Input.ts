@@ -125,15 +125,17 @@ export default (Element: HTMLElement, _Setting: InternalSettings): boolean => {
 			)})' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E")`;
 		}
 
-		Element.style.color = `rgb(${Interpolate(
-			Low,
-			High,
-			Lerp(
-				Base,
-				(Layer(TimeNoise + Seed + 50, Local) + 1) / 2,
-				NoiseInfluence,
-			),
-		)})`;
+		Element.style.color = "white";
+
+		// Element.style.color = `rgb(${Interpolate(
+		// 	Low,
+		// 	High,
+		// 	Lerp(
+		// 		Base,
+		// 		(Layer(TimeNoise + Seed + 50, Local) + 1) / 2,
+		// 		NoiseInfluence,
+		// 	),
+		// )})`;
 
 		Element.style.backgroundColor = `rgb(${Interpolate(
 			Low,
