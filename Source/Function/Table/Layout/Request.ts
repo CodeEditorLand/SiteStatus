@@ -56,13 +56,14 @@ export default async (
 			}
 		}
 
-		if (RETURN === undefined) {
-			RETURN = (await Get(`${Hash}`))?.Set;
+		// Only cache successful responses (RETURN is not undefined)
+		if (RETURN !== undefined) {
+			await (
+				await import("@Function/Table/Layout/Request/Set.js")
+			).default(`${Hash}`, RETURN);
 		}
 
-		return await (
-			await import("@Function/Table/Layout/Request/Set.js")
-		).default(`${Hash}`, RETURN);
+		return RETURN;
 	} catch (_Error) {
 		console.log(_Error);
 	}

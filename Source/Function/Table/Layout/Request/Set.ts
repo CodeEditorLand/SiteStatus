@@ -1,7 +1,12 @@
 export const DIRECTORY = "Cache/Table";
 
 export default async (WHERE: string, Set: any): Promise<any> => {
-	const RETURN = Set ?? {};
+	// Early return if Set is undefined to prevent caching failed responses
+	if (Set === undefined) {
+		return undefined;
+	}
+
+	const RETURN = Set;
 
 	try {
 		await (
