@@ -30,6 +30,13 @@ export default {
 					},
 				},
 			},
+			borderWidth: {
+				DEFAULT: "var(--border-width)",
+			},
+			borderRadius: {
+				DEFAULT: "var(--border-radius)",
+				none: "0",
+			},
 			colors: require("./Source/Function/TailWind/Color.ts"),
 		},
 	},
