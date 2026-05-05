@@ -1,20 +1,13 @@
-import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
-import type { PARAMETER } from "./Octokit.js";
-
 // biome-ignore lint/suspicious/noExplicitAny:
-export default async ([REQUEST, OPTION]: PARAMETER): Promise<undefined | any> => {
-	const Key = createHash("md5")
-		.update(JSON.stringify([REQUEST, OPTION]))
-		.digest("hex");
-
+export default async (hash: string): Promise<undefined | any> => {
 	try {
-		const raw = await readFile(`Cache/Table/${Key}.jsonc`, {
+		const raw = await readFile(`Cache/Table/${hash}.jsonc`, {
 			encoding: "utf-8",
 		});
 
-		// Strip single-line comments before parsing (JSONC → JSON).
+		// Strip single-line // comments (JSONC header) before parsing.
 		const json = raw.replace(/^\s*\/\/.*$/gm, "");
 
 		// biome-ignore lint/suspicious/noExplicitAny:
@@ -30,5 +23,3 @@ export default async ([REQUEST, OPTION]: PARAMETER): Promise<undefined | any> =>
 		return undefined;
 	}
 };
-
-export { Key } from "./Get/Key.js";
