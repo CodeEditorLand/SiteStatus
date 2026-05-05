@@ -39,6 +39,9 @@ if (!process.env["CACHE_VERSION_SHA"]) {
 	}
 }
 
+const commonjs = (await import("@rollup/plugin-commonjs")).default;
+const inject = (await import("@rollup/plugin-inject")).default;
+
 export default defineConfig({
 	env: {
 		schema: {
@@ -208,6 +211,20 @@ export default defineConfig({
 			transformer: "postcss",
 		},
 		plugins: [
+			// Convert CJS require() calls to ESM for the browser bundle
+			commonjs({
+				include: [/node_modules\/firebase/, /node_modules\/pdfmake/, /node_modules\/jszip/],
+				transformMixedEsModules: true,
+			}),
+			// Shim any residual require() that slips through as a no-op
+			inject({
+				require: [
+					(await import("node:url")).fileURLToPath(
+						new URL("Source/Script/Require.js", import.meta.url),
+					),
+					"default",
+				],
+			}),
 			{
 				name: "CrossOrigin",
 				transform(Code, Identifier, _) {
