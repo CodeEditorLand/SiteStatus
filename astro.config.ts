@@ -190,12 +190,9 @@ export default defineConfig({
 			// firebase is client-only (dynamic import in Source/Script/Firebase.ts)
 			// and must NOT be in noExternal — doing so bundles its CJS compat
 			// shims into the browser output, causing `require is not defined`.
-			noExternal: [
-				"datatables.net",
-				"datatables.net-dt",
-				"pdfmake",
-				"jszip",
-			],
+			// datatables.net, pdfmake, and jszip are also client-only and must
+			// NOT be in noExternal for the same reason.
+			noExternal: [],
 		},
 		resolve: {
 			preserveSymlinks: false,
