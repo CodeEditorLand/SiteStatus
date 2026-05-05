@@ -39,9 +39,6 @@ if (!process.env["CACHE_VERSION_SHA"]) {
 	}
 }
 
-const commonjs = (await import("@rollup/plugin-commonjs")).default;
-const inject = (await import("@rollup/plugin-inject")).default;
-
 export default defineConfig({
 	env: {
 		schema: {
@@ -84,12 +81,10 @@ export default defineConfig({
 	integrations: [
 		!On
 			? {
-					// This is your existing general cache-clearing integration
 					name: "Cache",
 					hooks: {
 						"astro:build:start": async (): Promise<void> => {
 							for (const File of await Glob("**/*.json", {
-								// Path for your general cache files
 								cwd: join(process.cwd(), "Cache"),
 								absolute: true,
 								onlyFiles: true,
@@ -102,7 +97,6 @@ export default defineConfig({
 													encoding: "utf-8",
 												}),
 											).TimeStamp >
-										// 4 weeks
 										4 * 7 * 24 * 60 * 60 * 1000
 									) {
 										await unlink(File);
@@ -141,7 +135,7 @@ export default defineConfig({
 			cssMinify: On ? false : "esbuild",
 			terserOptions: On
 				? {
-						/* your detailed dev terserOptions */ compress: false,
+						compress: false,
 						ecma: 2020,
 						enclose: false,
 						format: {
@@ -176,9 +170,7 @@ export default defineConfig({
 						module: true,
 						toplevel: true,
 					}
-				: {
-						/* your production terserOptions or empty for defaults */
-					},
+				: {},
 		},
 		optimizeDeps: {
 			include: [
@@ -195,8 +187,10 @@ export default defineConfig({
 			],
 		},
 		ssr: {
+			// firebase is client-only (dynamic import in Source/Script/Firebase.ts)
+			// and must NOT be in noExternal — doing so bundles its CJS compat
+			// shims into the browser output, causing `require is not defined`.
 			noExternal: [
-				"firebase",
 				"datatables.net",
 				"datatables.net-dt",
 				"pdfmake",
@@ -211,20 +205,6 @@ export default defineConfig({
 			transformer: "postcss",
 		},
 		plugins: [
-			// Convert CJS require() calls to ESM for the browser bundle
-			commonjs({
-				include: [/node_modules\/firebase/, /node_modules\/pdfmake/, /node_modules\/jszip/],
-				transformMixedEsModules: true,
-			}),
-			// Shim any residual require() that slips through as a no-op
-			inject({
-				require: [
-					(await import("node:url")).fileURLToPath(
-						new URL("Source/Script/Require.js", import.meta.url),
-					),
-					"default",
-				],
-			}),
 			{
 				name: "CrossOrigin",
 				transform(Code, Identifier, _) {
