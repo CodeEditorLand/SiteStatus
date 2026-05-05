@@ -42,11 +42,16 @@ if (!process.env["CACHE_VERSION_SHA"]) {
 export default defineConfig({
 	env: {
 		schema: {
-			TOKEN: envField.string({
+			// Comma-separated list of GitHub PATs used by the token pool.
+			// The pool round-robins across them, marking each dead (401) or
+			// temporarily exhausted (403/429) as rate-limits are hit.
+			// Falls back to unauthenticated (60 req/hr) when all are exhausted.
+			// Example: "ghp_aaa111,ghp_bbb222,ghp_ccc333"
+			TOKENS: envField.string({
 				context: "server",
 				access: "secret",
-				optional: false,
-				default: "GitHub Token API Stream",
+				optional: true,
+				default: "",
 			}),
 			CF_PAGES_COMMIT_SHA: envField.string({
 				context: "server",
