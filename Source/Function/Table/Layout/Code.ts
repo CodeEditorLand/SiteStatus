@@ -3,6 +3,10 @@ import Escape from "@Function/Table/Layout/Code/Escape.js";
 import Format from "@Function/Table/Layout/Code/Format.js";
 import Input from "@Function/Table/Layout/Code/Input.js";
 import Segment from "@Function/Table/Layout/Code/Segment.js";
+// Load the vendored UMD bundle as a plain non-module <script> so the UMD
+// factory can call window.jQuery and register DataTable on the global scope
+// without its require() shim ever entering the ESM browser bundle.
+import DataTablesURL from "@Script/DataTables/datatables.min.js?url";
 import type DataTablesButtons from "datatables.net-buttons-dt";
 import type DataTables from "datatables.net-dt";
 import type DataTablesFixedColumns from "datatables.net-fixedcolumns-dt";
@@ -10,11 +14,6 @@ import type DataTablesFixedHeader from "datatables.net-fixedheader-dt";
 import type DataTablesResponsive from "datatables.net-responsive-dt";
 import type DataTablesRowGroup from "datatables.net-rowgroup-dt";
 import type DataTablesScroller from "datatables.net-scroller-dt";
-
-// Load the vendored UMD bundle as a plain non-module <script> so the UMD
-// factory can call window.jQuery and register DataTable on the global scope
-// without its require() shim ever entering the ESM browser bundle.
-import DataTablesURL from "@Script/DataTables/datatables.min.js?url";
 
 await new Promise<void>((resolve, reject) => {
 	if (document.querySelector(`script[src="${DataTablesURL}"]`)) {

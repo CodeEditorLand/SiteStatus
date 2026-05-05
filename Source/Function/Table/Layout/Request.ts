@@ -4,6 +4,13 @@ export const { default: Get } =
 	await import("@Function/Table/Layout/Request/Get.js");
 
 // biome-ignore lint/suspicious/noExplicitAny:
+const Stat: { hits: number; misses: number } = ((
+	globalThis as any
+).__STATUS_REQUEST_STAT ??= { hits: 0, misses: 0 });
+
+export const stat = (): { hits: number; misses: number } => ({ ...Stat });
+
+// biome-ignore lint/suspicious/noExplicitAny:
 export type TRANSFORM = ((RESPONSE: any) => Promise<any>) & {
 	/**
 	 * Key should describe from what to what
@@ -40,7 +47,9 @@ export default async (
 		(OPTION ?? {}) as Record<string, unknown>,
 	)
 		.filter(([, v]) => v !== undefined)
-		.map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v) : v}`);
+		.map(
+			([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v) : v}`,
+		);
 
 	const transformPart =
 		TRANSFORM && typeof TRANSFORM.Key === "string"
@@ -49,10 +58,9 @@ export default async (
 				? ` \u2192 <anonymous transform>`
 				: "";
 
-	const Label = ([REQUEST, ...optionParts].join(" | ") + transformPart).replace(
-		/\r?\n/g,
-		" ",
-	);
+	const Label = (
+		[REQUEST, ...optionParts].join(" | ") + transformPart
+	).replace(/\r?\n/g, " ");
 
 	try {
 		const Cache = await Get(`${Hash}`);
@@ -64,8 +72,12 @@ export default async (
 					await import("@Function/Table/Layout/Request/Get/TTL.js")
 				).default([REQUEST, OPTION])
 		) {
+			Stat.hits++;
+
 			return Cache.Set;
 		} else {
+			Stat.misses++;
+
 			RETURN = await (
 				await import("@Function/Table/Layout/Request/Octokit.js")
 			).default(REQUEST, OPTION);

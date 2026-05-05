@@ -84,6 +84,144 @@ export default defineConfig({
 		concurrency: 9999,
 	},
 	integrations: [
+		{
+			name: "RateLimitReport",
+			hooks: {
+				"astro:build:done": async ({ logger }): Promise<void> => {
+					try {
+						// Stats are mirrored onto globalThis at request time.
+						// Reading from globalThis avoids a dynamic import after
+						// Vite's module runner has closed.
+						// biome-ignore lint/suspicious/noExplicitAny:
+						const Bag: any = globalThis as any;
+
+						const RequestStat = Bag.__STATUS_REQUEST_STAT ?? {
+							hits: 0,
+							misses: 0,
+						};
+
+						const PoolBag = Bag.__STATUS_POOL ?? {
+							slots: [],
+							anonymous: {
+								requests: 0,
+								lastRemaining: -1,
+								lastLimit: -1,
+								lastReset: 0,
+							},
+						};
+
+						const { hits, misses } = RequestStat as {
+							hits: number;
+							misses: number;
+						};
+
+						const total = hits + misses;
+
+						const rate =
+							total > 0
+								? `${Math.round((hits / total) * 100)}%`
+								: "n/a";
+
+						const lines: string[] = [];
+
+						lines.push(
+							`Cache: ${hits.toLocaleString()} hits / ${misses.toLocaleString()} misses (${rate} hit rate)`,
+						);
+
+						const Now = Math.floor(Date.now() / 1_000);
+
+						const Mask = (token: string): string =>
+							token.length <= 10
+								? token
+								: `${token.slice(0, 4)}...${token.slice(-4)}`;
+
+						const Reset = (s: number): string => {
+							if (s < 0) return "";
+
+							if (s < 60) return `${s}s`;
+
+							const m = Math.floor(s / 60);
+
+							const sec = s % 60;
+
+							return sec === 0 ? `${m}m` : `${m}m${sec}s`;
+						};
+
+						// biome-ignore lint/suspicious/noExplicitAny:
+						const slots: any[] = PoolBag.slots ?? [];
+
+						const Live = slots.filter(
+							(s) =>
+								!s.dead &&
+								(s.exhaustedUntil ?? 0) <= Date.now(),
+						).length;
+
+						const Dead = slots.filter((s) => s.dead).length;
+
+						const Exhausted = slots.filter(
+							(s) =>
+								!s.dead && (s.exhaustedUntil ?? 0) > Date.now(),
+						).length;
+
+						lines.push(
+							`Tokens (${Live} active, ${Dead} dead, ${Exhausted} exhausted):`,
+						);
+
+						for (const s of slots) {
+							const flag = s.dead
+								? "DEAD"
+								: (s.exhaustedUntil ?? 0) > Date.now()
+									? "EXHAUSTED"
+									: "OK";
+
+							const used =
+								s.lastLimit > 0 && s.lastRemaining >= 0
+									? `used ${(s.lastLimit - s.lastRemaining).toLocaleString()} / ${s.lastLimit.toLocaleString()}`
+									: `used  ?  /  ?`;
+
+							const reset =
+								s.lastReset > 0
+									? `reset in ${Reset(s.lastReset - Now)}`
+									: "";
+
+							lines.push(
+								`  ${Mask(s.token)}  ${flag.padEnd(9)}  ${(
+									s.requests ?? 0
+								)
+									.toString()
+									.padStart(4)} req   ${used}   ${reset}`,
+							);
+						}
+
+						const a = PoolBag.anonymous;
+
+						if (a && a.requests > 0) {
+							const used =
+								a.lastLimit > 0 && a.lastRemaining >= 0
+									? `used ${(a.lastLimit - a.lastRemaining).toLocaleString()} / ${a.lastLimit.toLocaleString()}`
+									: `used  ?  /  ?`;
+
+							const reset =
+								a.lastReset > 0
+									? `reset in ${Reset(a.lastReset - Now)}`
+									: "";
+
+							lines.push(
+								`  Unauthenticated  ${a.requests
+									.toString()
+									.padStart(4)} req   ${used}   ${reset}`,
+							);
+						}
+
+						logger.info(`\n${lines.join("\n")}\n`);
+					} catch (Error) {
+						logger.warn(
+							`RateLimitReport: ${(Error as Error).message}`,
+						);
+					}
+				},
+			},
+		},
 		!On
 			? {
 					name: "Cache",

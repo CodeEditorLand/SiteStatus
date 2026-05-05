@@ -21,18 +21,25 @@ export default async function OctokitRequest(
 	try {
 		const { Octokit } = await import("@octokit/rest");
 
-		return (
-			await new Octokit({ auth: token }).request(REQUEST, OPTION)
-		)?.data;
+		const response = await new Octokit({ auth: token }).request(
+			REQUEST,
+			OPTION,
+		);
+
+		pool.record(token, response?.headers);
+
+		return response?.data;
 	} catch (_Error: any) {
 		const status: number | undefined = _Error?.status;
 
 		const headers = _Error?.response?.headers ?? {};
 
+		pool.record(token, headers);
+
 		// --- classify the failure and penalise the slot ---
 
 		if (status === 401 && token) {
-			// Invalid or revoked token — skip permanently this build.
+			// Invalid or revoked token - skip permanently this build.
 			pool.markDead(token);
 		} else if ((status === 403 || status === 429) && token) {
 			const reset = Number(headers["x-ratelimit-reset"]);
@@ -40,16 +47,16 @@ export default async function OctokitRequest(
 			const retryAfter = Number(headers["retry-after"]);
 
 			if (reset > 0) {
-				// Primary rate limit — reset is an absolute Unix timestamp.
+				// Primary rate limit - reset is an absolute Unix timestamp.
 				pool.markExhausted(token, reset);
 			} else if (retryAfter > 0) {
-				// Secondary rate limit — reset is a relative seconds delta.
+				// Secondary rate limit - reset is a relative seconds delta.
 				pool.markExhausted(
 					token,
 					Math.floor(Date.now() / 1_000) + retryAfter,
 				);
 			}
-			// Scope / access 403 (no rate-limit headers) — don't penalise.
+			// Scope / access 403 (no rate-limit headers) - don't penalise.
 		}
 
 		// --- retry with the next available token if one exists ---
