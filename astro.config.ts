@@ -191,11 +191,24 @@ export default defineConfig({
 				"firebase/auth",
 				"firebase/firestore",
 				"jquery",
-				"datatables.net",
-				"datatables.net-dt",
 				"pdfmake/build/pdfmake",
 				"pdfmake/build/vfs_fonts",
 				"jszip",
+			],
+			// datatables.net and all its plugins are loaded as a vendored UMD
+			// <script> tag at runtime (see Code.ts `?url` import). Pre-bundling
+			// them pulls their CJS `require()` factory shim into the ESM browser
+			// bundle, causing `require is not defined`. Exclude them entirely so
+			// Vite never touches their CJS internals.
+			exclude: [
+				"datatables.net",
+				"datatables.net-dt",
+				"datatables.net-buttons-dt",
+				"datatables.net-fixedcolumns-dt",
+				"datatables.net-fixedheader-dt",
+				"datatables.net-responsive-dt",
+				"datatables.net-rowgroup-dt",
+				"datatables.net-scroller-dt",
 			],
 		},
 		ssr: {
