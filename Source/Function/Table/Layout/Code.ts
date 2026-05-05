@@ -55,6 +55,89 @@ export const Progress = (
 			: Segment.classList.remove("Completed"),
 	);
 
+/**
+ * datatables.net-fixedheader-dt clones the <thead> into a div appended to
+ * <body>. Cell.ts only paints borders inside the original status-table, so
+ * the clone falls back to flat amber. Re-paint the clone by copying the
+ * inline border colors from whichever source thead currently spans the
+ * viewport's top edge.
+ */
+const SyncFloatingHeader = (): void => {
+	const Floating = document.querySelectorAll<HTMLElement>(
+		".dtfh-floatingparent-head",
+	);
+
+	if (Floating.length === 0) {
+		return;
+	}
+
+	let Source: HTMLElement | null = null;
+
+	for (const Status of document.querySelectorAll<HTMLElement>(
+		"status-table",
+	)) {
+		const Box = Status.getBoundingClientRect();
+
+		if (Box.top <= 0 && Box.bottom > 0) {
+			Source = Status;
+
+			break;
+		}
+	}
+
+	if (!Source) {
+		return;
+	}
+
+	const Map = new globalThis.Map<string, HTMLElement>();
+
+	Source.querySelectorAll<HTMLElement>("thead th, thead td").forEach(
+		(Cell): void => {
+			const Key = Cell.getAttribute("data-dt-column");
+
+			if (Key !== null) {
+				Map.set(Key, Cell);
+			}
+		},
+	);
+
+	Floating.forEach((Parent): void => {
+		Parent.querySelectorAll<HTMLElement>("th, td").forEach(
+			(Target): void => {
+				const Key = Target.getAttribute("data-dt-column");
+
+				if (Key === null) {
+					return;
+				}
+
+				const Origin = Map.get(Key);
+
+				if (!Origin) {
+					return;
+				}
+
+				Target.style.borderTopColor = Origin.style.borderTopColor;
+
+				Target.style.borderRightColor = Origin.style.borderRightColor;
+
+				Target.style.borderBottomColor = Origin.style.borderBottomColor;
+
+				Target.style.borderLeftColor = Origin.style.borderLeftColor;
+			},
+		);
+	});
+};
+
+if (typeof window !== "undefined") {
+	const Observer = new MutationObserver(SyncFloatingHeader);
+
+	Observer.observe(document.body, { childList: true, subtree: true });
+
+	window.addEventListener("scroll", SyncFloatingHeader, { passive: true });
+
+	window.addEventListener("resize", SyncFloatingHeader, { passive: true });
+}
+
 const Init = (): void => {
 	const Theme = () =>
 		document.querySelector("html")?.classList.toggle(
@@ -231,11 +314,12 @@ const Init = (): void => {
 											"gi",
 										);
 
-										const Walker = document.createTreeWalker(
-											Container,
+										const Walker =
+											document.createTreeWalker(
+												Container,
 
-											NodeFilter.SHOW_TEXT,
-										);
+												NodeFilter.SHOW_TEXT,
+											);
 
 										const Targets: Text[] = [];
 
