@@ -205,32 +205,103 @@ const Init = (): void => {
 									): void => {
 										Container.querySelectorAll<HTMLSpanElement>(
 											`span.${HighLight}`,
-										).forEach(
-											(Span): string =>
-												// biome-ignore lint/suspicious/noAssignInExpressions:
-												(Span.outerHTML =
-													Span.textContent ?? ""),
-										);
+										).forEach((Span): void => {
+											const Parent = Span.parentNode;
+
+											Span.replaceWith(
+												document.createTextNode(
+													Span.textContent ?? "",
+												),
+											);
+
+											Parent?.normalize();
+										});
 
 										if (!Container || !Search) {
 											return;
 										}
 
-										Container.innerHTML =
-											Container.innerHTML.replace(
-												new RegExp(
-													Search.replace(
-														/[.*+?^${}()|[\]\\]/g,
+										const Pattern = new RegExp(
+											Search.replace(
+												/[.*+?^${}()|[\]\\]/g,
 
-														"\\$&",
-													),
+												"\\$&",
+											),
 
-													"gi",
-												),
+											"gi",
+										);
 
-												(Match: string): string =>
-													`<span class="${HighLight}">${Match}</span>`,
+										const Walker = document.createTreeWalker(
+											Container,
+
+											NodeFilter.SHOW_TEXT,
+										);
+
+										const Targets: Text[] = [];
+
+										while (Walker.nextNode()) {
+											Targets.push(
+												Walker.currentNode as Text,
 											);
+										}
+
+										for (const Node of Targets) {
+											const Value = Node.nodeValue ?? "";
+
+											Pattern.lastIndex = 0;
+
+											if (!Pattern.test(Value)) {
+												continue;
+											}
+
+											Pattern.lastIndex = 0;
+
+											const Fragment =
+												document.createDocumentFragment();
+
+											let Last = 0;
+
+											let Match: RegExpExecArray | null;
+
+											while (
+												// biome-ignore lint/suspicious/noAssignInExpressions:
+												(Match = Pattern.exec(Value))
+											) {
+												if (Match.index > Last) {
+													Fragment.append(
+														document.createTextNode(
+															Value.slice(
+																Last,
+																Match.index,
+															),
+														),
+													);
+												}
+
+												const Span =
+													document.createElement(
+														"span",
+													);
+
+												Span.className = HighLight;
+
+												Span.textContent = Match[0];
+
+												Fragment.append(Span);
+
+												Last = Pattern.lastIndex;
+											}
+
+											if (Last < Value.length) {
+												Fragment.append(
+													document.createTextNode(
+														Value.slice(Last),
+													),
+												);
+											}
+
+											Node.replaceWith(Fragment);
+										}
 									})(Element, _Element),
 								),
 						);
