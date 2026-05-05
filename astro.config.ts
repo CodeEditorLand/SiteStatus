@@ -186,21 +186,24 @@ export default defineConfig({
 		},
 		optimizeDeps: {
 			include: [
-				"firebase/app",
-				"firebase/analytics",
-				"firebase/auth",
-				"firebase/firestore",
 				"jquery",
 				"pdfmake/build/pdfmake",
 				"pdfmake/build/vfs_fonts",
 				"jszip",
 			],
-			// datatables.net and all its plugins are loaded as a vendored UMD
-			// <script> tag at runtime (see Code.ts `?url` import). Pre-bundling
-			// them pulls their CJS `require()` factory shim into the ESM browser
-			// bundle, causing `require is not defined`. Exclude them entirely so
-			// Vite never touches their CJS internals.
+			// All packages below use dynamic import() in source code, or are
+			// loaded as vendored UMD <script> tags at runtime. Pre-bundling any
+			// of them pulls their CJS require() factory shim into the ESM
+			// browser output, causing `require is not defined` at runtime.
+			// Exclude them so Vite never touches their CJS internals.
 			exclude: [
+				// Firebase: dynamically imported inside Firebase.ts
+				// (Base.astro's <script> → @Script/Firebase → await import("firebase/app"))
+				"firebase/app",
+				"firebase/analytics",
+				"firebase/auth",
+				"firebase/firestore",
+				// DataTables: loaded as vendored UMD via ?url import in Code.ts
 				"datatables.net",
 				"datatables.net-dt",
 				"datatables.net-buttons-dt",
@@ -212,11 +215,9 @@ export default defineConfig({
 			],
 		},
 		ssr: {
-			// firebase is client-only (dynamic import in Source/Script/Firebase.ts)
-			// and must NOT be in noExternal — doing so bundles its CJS compat
-			// shims into the browser output, causing `require is not defined`.
-			// datatables.net, pdfmake, and jszip are also client-only and must
-			// NOT be in noExternal for the same reason.
+			// All client-only packages must stay out of noExternal.
+			// Putting CJS packages here bundles their require() shims into
+			// the browser output, causing `require is not defined`.
 			noExternal: [],
 		},
 		resolve: {
