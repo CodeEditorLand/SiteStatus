@@ -1,7 +1,7 @@
 /**
  * Process-level singleton token pool.
  *
- * Tokens are read once at module load from the TOKENS env var (comma-separated
+ * Tokens are read once at module load from the TOKEN env var (comma-separated
  * GitHub PATs). The module is cached by Node's require/import machinery so the
  * same slots array is shared across every parallel build worker in the process.
  *
@@ -31,7 +31,7 @@ let cursor = 0;
 // Initialise once
 // ---------------------------------------------------------------------------
 
-const raw: string = getSecret("TOKENS") ?? "";
+const raw: string = getSecret("TOKEN") ?? "";
 
 for (const part of raw.split(",")) {
 	const token = part.trim();

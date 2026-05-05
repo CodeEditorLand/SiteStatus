@@ -47,7 +47,7 @@ export default defineConfig({
 			// temporarily exhausted (403/429) as rate-limits are hit.
 			// Falls back to unauthenticated (60 req/hr) when all are exhausted.
 			// Example: "ghp_aaa111,ghp_bbb222,ghp_ccc333"
-			TOKENS: envField.string({
+			TOKEN: envField.string({
 				context: "server",
 				access: "secret",
 				optional: true,
