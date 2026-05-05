@@ -18,7 +18,7 @@ export default async (hash: string): Promise<undefined | any> => {
 			return undefined;
 		}
 
-		return Value;
+		return { Set: Value, TimeStamp };
 	} catch (_Error) {
 		return undefined;
 	}
