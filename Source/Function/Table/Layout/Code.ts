@@ -11,7 +11,22 @@ import type DataTablesResponsive from "datatables.net-responsive-dt";
 import type DataTablesRowGroup from "datatables.net-rowgroup-dt";
 import type DataTablesScroller from "datatables.net-scroller-dt";
 
-import "@Script/DataTables/datatables.min.js";
+// Load the vendored UMD bundle as a plain non-module <script> so the UMD
+// factory can call window.jQuery and register DataTable on the global scope
+// without its require() shim ever entering the ESM browser bundle.
+import DataTablesURL from "@Script/DataTables/datatables.min.js?url";
+
+await new Promise<void>((resolve, reject) => {
+	if (document.querySelector(`script[src="${DataTablesURL}"]`)) {
+		resolve();
+		return;
+	}
+	const s = document.createElement("script");
+	s.src = DataTablesURL;
+	s.onload = () => resolve();
+	s.onerror = () => reject(new Error(`Failed to load ${DataTablesURL}`));
+	document.head.appendChild(s);
+});
 
 // biome-ignore lint/suspicious/noExplicitAny:
 declare const DataTable: DataTables<any> &
