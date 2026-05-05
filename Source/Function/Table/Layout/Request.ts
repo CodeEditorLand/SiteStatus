@@ -34,6 +34,26 @@ export default async (
 		)
 		.digest("hex");
 
+	// Build a human-readable label for the .jsonc cache file header so it is
+	// self-documenting when opened in an editor.
+	const optionParts = Object.entries(
+		(OPTION ?? {}) as Record<string, unknown>,
+	)
+		.filter(([, v]) => v !== undefined)
+		.map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v) : v}`);
+
+	const transformPart =
+		TRANSFORM && typeof TRANSFORM.Key === "string"
+			? ` \u2192 ${TRANSFORM.Key}`
+			: TRANSFORM
+				? ` \u2192 <anonymous transform>`
+				: "";
+
+	const Label = ([REQUEST, ...optionParts].join(" | ") + transformPart).replace(
+		/\r?\n/g,
+		" ",
+	);
+
 	try {
 		const Cache = await Get(`${Hash}`);
 
@@ -59,7 +79,7 @@ export default async (
 		if (RETURN !== undefined) {
 			await (
 				await import("@Function/Table/Layout/Request/Set.js")
-			).default(`${Hash}`, RETURN);
+			).default(`${Hash}`, RETURN, Label);
 		}
 
 		return RETURN;
