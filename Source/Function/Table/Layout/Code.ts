@@ -56,7 +56,7 @@ export const Progress = (
 			: Segment.classList.remove("Completed"),
 	);
 
-document.addEventListener("astro:page-load", (): void => {
+const Init = (): void => {
 	const Theme = () =>
 		document.querySelector("html")?.classList.toggle(
 			"dark",
@@ -394,5 +394,10 @@ document.addEventListener("astro:page-load", (): void => {
 		}
 	}
 
-	customElements.define("status-table", Commit);
-});
+	if (!customElements.get("status-table")) {
+		customElements.define("status-table", Commit);
+	}
+};
+
+Init();
+document.addEventListener("astro:page-load", Init);
