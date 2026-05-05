@@ -89,19 +89,26 @@ export default defineConfig({
 					name: "Cache",
 					hooks: {
 						"astro:build:start": async (): Promise<void> => {
-							for (const File of await Glob("**/*.json", {
+							// Glob both .json (legacy) and .jsonc (current) so
+							// old files are evicted during the transition period.
+							for (const File of await Glob("**/*.json{,c}", {
 								cwd: join(process.cwd(), "Cache"),
 								absolute: true,
 								onlyFiles: true,
 							})) {
 								try {
+									const raw = await readFile(File, {
+										encoding: "utf-8",
+									});
+
+									// Strip // comments before parsing .jsonc files.
+									const json = File.endsWith(".jsonc")
+										? raw.replace(/^\s*\/\/.*$/gm, "")
+										: raw;
+
 									if (
 										Date.now() -
-											JSON.parse(
-												await readFile(File, {
-													encoding: "utf-8",
-												}),
-											).TimeStamp >
+											JSON.parse(json).TimeStamp >
 										4 * 7 * 24 * 60 * 60 * 1000
 									) {
 										await unlink(File);
