@@ -107,6 +107,8 @@ const Init = (): void => {
 						type: "date",
 
 						defaultContent: "",
+
+						responsivePriority: 4,
 					},
 
 					{
@@ -118,6 +120,8 @@ const Init = (): void => {
 						data: (Row): void => Row.File[1],
 
 						defaultContent: "",
+
+						responsivePriority: 6,
 					},
 
 					{
@@ -129,6 +133,8 @@ const Init = (): void => {
 							`<span class="Text">${Text?.trim() === "" || Text?.trim().length === 0 ? "No Message 😶" : `${Format(Escape(Text))?.trim()} 🗣️`}</span>`,
 
 						defaultContent: "",
+
+						responsivePriority: 1,
 					},
 
 					{
@@ -140,6 +146,8 @@ const Init = (): void => {
 						data: (Row): string => `@TAG_${Row.Name}`,
 
 						defaultContent: "",
+
+						responsivePriority: 5,
 					},
 
 					{
@@ -151,6 +159,8 @@ const Init = (): void => {
 						data: (Row): string => `@COMMIT_${Row.SHA}`,
 
 						defaultContent: "",
+
+						responsivePriority: 3,
 					},
 
 					{
@@ -162,6 +172,8 @@ const Init = (): void => {
 							`<span class="Text">${Format(Escape(Text))?.trim()} ✍️</span>`,
 
 						defaultContent: "",
+
+						responsivePriority: 2,
 					},
 				],
 
@@ -380,7 +392,7 @@ const Init = (): void => {
 
 				scrollCollapse: true,
 
-				scrollY: "350px",
+				scrollY: "640px",
 
 				rowGroup: {
 					enable: true,
