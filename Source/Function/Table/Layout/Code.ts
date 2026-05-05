@@ -41,7 +41,7 @@ export const Progress = (
 			: Segment.classList.remove("Completed"),
 	);
 
-document.addEventListener("DOMContentLoaded", (): void => {
+document.addEventListener("astro:page-load", (): void => {
 	const Theme = () =>
 		document.querySelector("html")?.classList.toggle(
 			"dark",
@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 						title: "DATE",
 
 						render: (Text): string =>
-							`<span class="Text">${Text} 📅</span>`,
+							`<span class="Text">${Text} 📅</span>`,
 
 						data: (Row): string =>
 							new Date(Row.Date).toLocaleDateString(),
@@ -112,7 +112,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 						data: "Message",
 
 						render: (Text): string =>
-							`<span class="Text">${Text?.trim() === "" || Text?.trim().length === 0 ? "No Message 😶" : `${Format(Escape(Text))?.trim()} 🗣️`}</span>`,
+							`<span class="Text">${Text?.trim() === "" || Text?.trim().length === 0 ? "No Message 😶" : `${Format(Escape(Text))?.trim()} 🗣️`}</span>`,
 
 						defaultContent: "",
 					},
@@ -121,7 +121,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 						title: "NAME",
 
 						render: (_, __, Row): string =>
-							`<a class="Pulse" href="https://GitHub.Com/${User}/${Repository}/releases/tag/${Row.Name}" rel="noopener noreferrer" target="_blank"><span class="Text">@TAG_</span><span class="Text SHA">${Row.Name} 🔗</span></a>`,
+							`<a class="Pulse" href="https://GitHub.Com/${User}/${Repository}/releases/tag/${Row.Name}" rel="noopener noreferrer" target="_blank"><span class="Text">@TAG_</span><span class="Text SHA">${Row.Name} 🔗</span></a>`,
 
 						data: (Row): string => `@TAG_${Row.Name}`,
 
@@ -132,7 +132,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 						title: "COMMIT",
 
 						render: (_, __, Row): string =>
-							`<a class="Pulse" href="https://GitHub.Com/${User}/${Repository}/commit/${Row.SHA}" rel="noopener noreferrer" target="_blank"><span class="Text">@COMMIT_</span><span class="Text SHA">${Row.SHA} 🔗</span></a>`,
+							`<a class="Pulse" href="https://GitHub.Com/${User}/${Repository}/commit/${Row.SHA}" rel="noopener noreferrer" target="_blank"><span class="Text">@COMMIT_</span><span class="Text SHA">${Row.SHA} 🔗</span></a>`,
 
 						data: (Row): string => `@COMMIT_${Row.SHA}`,
 
@@ -145,7 +145,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 						data: "Author",
 
 						render: (Text): string =>
-							`<span class="Text">${Format(Escape(Text))?.trim()} ✍️</span>`,
+							`<span class="Text">${Format(Escape(Text))?.trim()} ✍️</span>`,
 
 						defaultContent: "",
 					},
@@ -336,7 +336,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 
 						{
 							info: {
-								text: `<h2 class="Information">Showing _START_ to _END_ of _TOTAL_ entries<h2>`,
+								text: `<h2 class="Information">Showing _START_ to _END_ of _TOTAL_ entries</h2>`,
 							},
 						},
 
@@ -373,7 +373,7 @@ document.addEventListener("DOMContentLoaded", (): void => {
 					// @ts-expect-error
 					dataSrc: (Row) => new Date(Row.Date).toLocaleDateString(),
 					startRender: (Row, Group, _) =>
-						`<span class="Text">${Group} 📅 ${Row.count()} Commit${Row.count() > 1 ? "s" : ""}</span>`,
+						`<span class="Text">${Group} 📅 ${Row.count()} Commit${Row.count() > 1 ? "s" : ""}</span>`,
 				},
 			});
 		}
