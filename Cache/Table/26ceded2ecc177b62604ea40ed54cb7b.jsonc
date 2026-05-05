@@ -1,0 +1,61 @@
+// CACHE: GET /repos/{owner}/{repo}/commits | owner=CodeEditorLand | repo=Element | per_page=5 | page=20 → GET /repos/{owner}/{repo}/commits.RESPONSE.map(Author,Date,File,Message,SHA)
+{
+	"Set": [
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T22:56:08Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "feat(Project): Add DisableUnusedServices transform and sync dependencies across submodules\n\nCross-cutting submodule sync with functional and dependency updates:\n\n1. Output: Add DisableUnusedServices ESBuild transform\n   - Replaces upstream VS Code contribution barrels for features Land doesn't back (auto-update, issue reporter, MS account/sync, process explorer) with inert stubs\n   - Removes broken UI surfaces and silences \"service not registered\" warnings\n   - Shortens boot time by avoiding initialization of unused services\n\n2. Output: Fix ExtensionScannerIPC path matching\n   - Now matches BOTH electron-browser AND browser variants of extensionsScannerService.js\n   - Previously only matched electron-browser, but desktop.main.js loads the browser variant\n   - Both paths now correctly route to Mountain for extension scanning\n\n3. Sky: Sync dependency updates\n   - @xterm/xterm: 6.1.0-beta.202 → 6.1.0-beta.203\n   - @astrojs/compiler-rs: 0.1.9 → 0.1.10\n   - pozil/auto-assign-issue: 2.2.0 → 3.0.0\n\n4. SideCar: Update pozil/auto-assign-issue from 2.2.0 to 3.0.0\n\nImpact: Extension scanning now works correctly for desktop profile. Unused VS Code services are stubbed out, reducing boot noise and improving startup time.",
+			"SHA": "bccc66895e279c66baa1bb34d5d9703067f18193"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T22:36:03Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				28,
+				2
+			],
+			"Message": "refactor(Output): Replace runtime require() with static ES imports in workbench accessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of both web.main.js and desktop.main.js instead of using runtime require() calls. This eliminates AMD require() resolution that could fail in the WKWebView context.\n\nChanges:\n- Anchor on stable import markers ('mark' from performance.js for web, 'localize' from nls.js for desktop)\n- Add IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports\n- Extract shared imports into SharedImportLines to avoid duplication between profiles\n- Add cel:services-ready DOM event dispatch on successful population\n- Add Mountain diagnostic logging for success/failure tracking\n- Add guard check for import marker to avoid matching unrelated files\n\nImpact: __CEL_SERVICES__ is now populated synchronously before the microtask queue drains, ensuring services are available for both web and Electron/Desktop profiles at runtime.",
+			"SHA": "055c5c94f6b7f3de102f98906b05603d30148f0a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T21:47:54Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "feat(Project): Bridge VS Code binary IPC to Mountain backend\n\nCross-cutting submodule sync enabling real file explorer, search, settings, and storage persistence:\n\n1. Mountain: Add VS Code IPC command aliases in WindServiceHandlers to bridge binary IPC protocol to native Effect-TS layer. Configuration: `configuration:getValue`/`updateValue` → `configuration:get`/`update`. File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`. Add stub handlers for `file:watch`/`file:unwatch` and `configuration:onDidChange` returning Null to prevent promise leaks.\n\n2. Output: Route VS Code binary IPC channels (25+ including localFilesystem, storage, configuration, search, terminal) to Mountain via MountainIPCInvoke instead of returning stub responses. Previously these channels returned FileNotFound, empty arrays, and empty objects.\n\n3. Cocoon: Enhance stderr filtering to suppress follow-up stack frames from extension errors.\n\nImpact: File explorer, search results, settings editor, and workspace storage now persist data to the real filesystem and backend instead of operating on in-memory stubs.",
+			"SHA": "edac4ec11f545cf3816d3a6cbb8db965aeff42eb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T21:25:45Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				28,
+				2
+			],
+			"Message": "feat(Project): Implement workspaceContains activation and reduce stderr noise\n\nCross-cutting submodule sync across Mountain and Cocoon:\n\n1. Mountain: Fire workspaceContains and onStartupFinished extension activation\n   - Implement VS Code-style startup activation with three bursts: `*`, `workspaceContains:<pattern>`, and `onStartupFinished` (2s delay)\n   - Add FindMatchingWorkspaceContainsPatterns for glob matching against workspace folders (depth 3, 4096 entries max)\n   - Filter benign stderr noise (macOS codesign, Node.js deprecation warnings) to cocoon-stderr-verbose channel\n   - Upgrade Rust edition from 2021 to 2024\n\n2. Cocoon: Reduce stderr spam from extension handler errors\n   - Downgrade $provide*, $resolve*, $get* handler errors from console.error to console.warn\n   - Prevents extension code failures from flooding stderr with full stack traces\n\nImpact: Extensions gated on workspaceContains:package.json and onStartupFinished now activate correctly. Default stderr is cleaner while preserving actionable error visibility.",
+			"SHA": "1cfc2cc882f651b1876ff69fedeadc0a8a61b77d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T20:52:42Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "refactor(Project): Reduce logging noise across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
+			"SHA": "786efde99dc3922147183375645841751ecd3fc2"
+		}
+	],
+	"TimeStamp": 1777987667247
+}

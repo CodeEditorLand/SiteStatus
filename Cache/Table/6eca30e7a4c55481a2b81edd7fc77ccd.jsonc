@@ -1,0 +1,61 @@
+// CACHE: GET /repos/{owner}/{repo}/commits | owner=CodeEditorLand | repo=Element | per_page=5 | page=25 → GET /repos/{owner}/{repo}/commits.RESPONSE.map(Author,Date,File,Message,SHA)
+{
+	"Set": [
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T17:01:08Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				28,
+				5
+			],
+			"Message": "feat(Project): Coordinate performance optimization and diagnostic instrumentation\n\nThree coordinated changes eliminate ~156 unnecessary Tauri IPC round-trips per editor boot and add comprehensive diagnostic capabilities:\n\n- **Performance (Wind/Output):** Add no-op IPC stubs for telemetryAppender (155 calls/boot) and mcpGalleryManifest (1 call/boot). These channels were falling through to Rust invoke with undefined handlers, adding latency to every editor startup. Stubs short-circuit in the TypeScript layer.\n\n- **Diagnostics (Mountain):** Add Git service handlers implementing the full localGit channel (clone, pull, checkout, revParse, fetch, etc.). Add SkyEmit instrumentation logging all Mountain→Wind/Sky emits under the sky-emit tag. Expand provider registration from 8 to 34+ types with scheme extraction.\n\n- **Diagnostics (Sky):** Track cel:* CustomEvent listener registration via document.addEventListener patching. Log consumer-present flag on every dispatch to identify orphan events (Mountain emits but no workbench listener). These are F1.1 indicators where features silently fail.\n\nImpact: Editor startup latency reduced by eliminating ~156 IPC round-trips. Developers can now audit SkyEmit traffic via LAND_DEV_LOG=sky-emit and identify dead event routes via cel-dispatch consumer-present=false.",
+			"SHA": "0e69949349f5d303288bef0ea1eac5a5970bc2cf"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:57:54Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "feat(Project): Add unified dev-log forwarding from Wind/Sky/Cocoon to Mountain\n\nCoordinate logging infrastructure across Mountain, Output, and Wind to enable filtered dev logging in a single file. Three related changes:\n\n- **Mountain**: Add `RenderDevLog` Tauri command that bridges TypeScript-side tagged logs into Mountain's `dev_log!` file sink. Also add five diagnostic tags (`notif-drop`, `provider-register`, `channel-stub`, `git`, `tree-view`) to isolate architectural gaps during debugging.\n\n- **Output**: Add `_DevLogForward` helper to TauriMainProcessService that mirrors IPC channel routing decisions into Mountain's dev-log. Logs channel name, command, route prefix, and hit/miss status in three code paths: fire-and-forget, stub hits, and misses.\n\n- **Wind**: Add `_DevLogForward` helper mirroring tagged log lines via `RenderDevLog` command, integrated into TauriChannel's three code paths.\n\nThis enables `LAND_DEV_LOG=<tag> tail -f Mountain.dev.log` to capture both TypeScript and Rust logs together, providing complete visibility into extension host integration issues.\n\nImpact: Developers can now filter by subsystem (e.g., `LAND_DEV_LOG=git,tree-view`) and see the full picture of a session in one file rather than cross-referencing browser console and log file.",
+			"SHA": "3ea53ff0555b7a38ed28c6af82980f1b66d7e2a8"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:35:36Z",
+			"File": [
+				"⣿⣿⠀⠀⠀",
+				28,
+				11
+			],
+			"Message": "refactor(Project): Standardize IPC event channel naming to kebab-case\n\nCoordinate refactoring across Common, Mountain, Sky, and Wind to unify IPC event channel naming:\n- Standardize all `sky://` event channels to consistent kebab-case format (status-bar → statusbar)\n- Remove duplicate/forked channels: StatusBarMessage, TreeViewRegister, WebviewPostMessageCamelCase, WebviewSetHTMLCamelCase\n- Add test comparing Rust enum wire strings against TypeScript mirror to prevent future drift\n- Emit TreeViewCreate events after TreeDataProvider registration so renderer wires up data providers\n- Add diagnostics stub methods in Wind/Output for getWorkspaceFileExtensions to prevent language detection crashes\n\nAlso updates various dev dependencies:\n- Bumps @effect/platform (0.96.0 → 0.96.1) in Cocoon/Wind\n- Bumps effect (3.21.1 → 3.21.2) in Cocoon/Wind\n- Bumps @cloudflare/workers-types (4.20260422.1 → 4.20260423.1) in Common/Echo\n\nImpact: Extension tree views now render correctly, language detection runs without crashes, and IPC channel naming is consistent across the Rust/TypeScript boundary.",
+			"SHA": "5863abdef967d6e882adcdaa557928f0f048a795"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T01:47:01Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "fix(Project): Coordinate submodule updates for extension host reliability\n\nFour submodule updates improve extension activation and webview compatibility:\n\n- **Mountain**: Treat view registry commands (<viewId>.focus, .resetViewLocation, .removeView) as silent no-ops to eliminate GitLens error spam. Also preserve VSIX executable bits (0o755) during extraction so extensions with native binaries (codex, language servers) can spawn correctly.\n\n- **Output**: Add StripWebviewIframeSandbox transform plugin to remove sandbox attribute from VS Code's webview iframe. WKWebView blocks custom protocol loads (vscode-webview://, land://) from sandboxed iframes, breaking extension webview panels.\n\n- **Echo**: Submodule sync for task scheduler alignment.\n\n- **Cocoon**: Submodule sync for extension host alignment.\n\nImpact: Extensions with native binaries now activate correctly, extension webview panels load in Tauri, and spurious error logs are eliminated.",
+			"SHA": "16d2489435802c024a25ce8b6d3e0963f1fb4cce"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T01:28:50Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				28,
+				1
+			],
+			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, not the flat structure the scanner was expecting. This caused all extensions to appear as 'unknown' with empty names/publishers.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures @builtin/@installed extension split works correctly in the sidebar.",
+			"SHA": "0a994328767963658121b9a37c38ca896ef7819a"
+		}
+	],
+	"TimeStamp": 1777988125370
+}
