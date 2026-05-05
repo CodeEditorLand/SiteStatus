@@ -1,5 +1,11 @@
 import type { PARAMETER } from "@Function/Table/Layout/Request/Octokit.js";
 
+// Eager import so Pool.ts initialises (and mirrors slot state to globalThis)
+// even on builds with 100% cache hits, where Octokit.ts would otherwise
+// never load. Without this the RateLimitReport hook in astro.config.ts has
+// no slots to display.
+await import("@Function/Table/Layout/Request/Pool.js");
+
 export const { default: Get } =
 	await import("@Function/Table/Layout/Request/Get.js");
 

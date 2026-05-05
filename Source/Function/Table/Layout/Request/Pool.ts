@@ -142,6 +142,22 @@ export const markExhausted = (token: string, resetAt: number): void => {
 export const size = (): number => slots.length;
 
 /**
+ * True when every slot in a non-empty pool is currently unusable - either
+ * permanently dead (401) or temporarily exhausted (403/429 reset still in
+ * the future). Callers use this to skip HTTP entirely once the pool is
+ * spent for the build.
+ */
+export const allExhausted = (): boolean => {
+	if (slots.length === 0) {
+		return false;
+	}
+
+	const now = Date.now();
+
+	return slots.every((s) => s.dead || s.exhaustedUntil > now);
+};
+
+/**
  * Record a request issued with `token` and update its rate-limit snapshot
  * from the response headers. Pass `undefined` for the unauthenticated bucket.
  */

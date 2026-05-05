@@ -16,6 +16,14 @@ export default async function OctokitRequest(
 ): Promise<undefined | any> {
 	const retryCount = _retryCount ?? 0;
 
+	// Short-circuit when the pool exists but every slot is dead/exhausted.
+	// Without this guard, every subsequent caller would still fire a real
+	// HTTP request (with token === undefined → unauthenticated 60/hr,
+	// which is also gone in seconds), each producing a 403 retry-storm.
+	if (pool.size() > 0 && pool.allExhausted()) {
+		return undefined;
+	}
+
 	const token = pool.next(); // undefined → unauthenticated
 
 	try {
@@ -42,11 +50,13 @@ export default async function OctokitRequest(
 			// Invalid or revoked token - skip permanently this build.
 			pool.markDead(token);
 		} else if ((status === 403 || status === 429) && token) {
+			const remaining = Number(headers["x-ratelimit-remaining"]);
+
 			const reset = Number(headers["x-ratelimit-reset"]);
 
 			const retryAfter = Number(headers["retry-after"]);
 
-			if (reset > 0) {
+			if (Number.isFinite(remaining) && remaining === 0 && reset > 0) {
 				// Primary rate limit - reset is an absolute Unix timestamp.
 				pool.markExhausted(token, reset);
 			} else if (retryAfter > 0) {
@@ -55,18 +65,29 @@ export default async function OctokitRequest(
 					token,
 					Math.floor(Date.now() / 1_000) + retryAfter,
 				);
+			} else if (reset > 0) {
+				// Fallback when remaining header is missing but reset is set.
+				pool.markExhausted(token, reset);
 			}
 			// Scope / access 403 (no rate-limit headers) - don't penalise.
 		}
 
-		// --- retry with the next available token if one exists ---
+		// --- retry only if a *different real* token is available ---
+		//
+		// The previous logic retried with `nextToken !== token`, which is
+		// true when the next slot is `undefined` (unauthenticated). That
+		// turned a single 403 from one exhausted token into a cascade
+		// across every other token + an unauthenticated final attempt -
+		// each one a separate HTTP call against the same secondary rate
+		// limit. We now require a real, non-undefined alternate token.
 
 		const nextToken = pool.next();
 
 		const shouldRetry =
 			retryCount < pool.size() &&
 			(status === 401 || status === 403 || status === 429) &&
-			nextToken !== token; // a different token is available
+			nextToken !== undefined &&
+			nextToken !== token;
 
 		if (shouldRetry) {
 			return OctokitRequest(REQUEST, OPTION, retryCount + 1);

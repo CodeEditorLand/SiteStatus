@@ -70,144 +70,161 @@ const PageCount = 70;
 // biome-ignore lint/suspicious/noExplicitAny:
 let Tag: any[] = [];
 
+const PER_PAGE = 5;
+
 for (let Page = 1; Page <= PageCount; Page++) {
+	const URL = "GET /repos/{owner}/{repo}/tags";
+
+	// biome-ignore lint/suspicious/noExplicitAny:
+	let Batch: any = undefined;
+
 	try {
-		const URL = "GET /repos/{owner}/{repo}/tags";
+		Batch = await Request(
+			URL,
 
-		Tag = Tag.concat(
-			(
-				await Request(
-					URL,
+			{
+				owner: User,
 
-					{
-						owner: User,
+				repo: Repository,
 
-						repo: Repository,
+				per_page: PER_PAGE,
 
-						per_page: 5,
+				page: Page,
+			},
 
-						page: Page,
-					},
+			Object.assign(
+				// biome-ignore lint/suspicious/noExplicitAny:
+				// biome-ignore lint/complexity/noBannedTypes:
+				async (RESPONSE: any): Promise<{} | any[]> =>
+					(await import("@Function/Table/Layout/Unwrap.js")).default(
+						await Promise.allSettled(
+							// biome-ignore lint/suspicious/noExplicitAny:
+							RESPONSE?.map(async (TAG: any) => {
+								const SHA_COMMIT_TAG = TAG?.commit?.sha;
 
-					Object.assign(
-						// biome-ignore lint/suspicious/noExplicitAny:
-						// biome-ignore lint/complexity/noBannedTypes:
-						async (RESPONSE: any): Promise<{} | any[]> =>
-							(
-								await import("@Function/Table/Layout/Unwrap.js")
-							).default(
-								await Promise.allSettled(
-									// biome-ignore lint/suspicious/noExplicitAny:
-									RESPONSE?.map(async (TAG: any) => {
-										const SHA_COMMIT_TAG = TAG?.commit?.sha;
+								if (!SHA_COMMIT_TAG) {
+									return null;
+								}
 
-										if (!SHA_COMMIT_TAG) {
-											return null;
-										}
+								return {
+									Author: await Request(
+										"GET /repos/{owner}/{repo}/commits/{ref}",
 
-										return {
-											Author: await Request(
-												"GET /repos/{owner}/{repo}/commits/{ref}",
+										{
+											owner: User,
 
-												{
-													owner: User,
+											repo: Repository,
 
-													repo: Repository,
+											ref: SHA_COMMIT_TAG,
+										},
 
-													ref: SHA_COMMIT_TAG,
-												},
+										Object.assign(
+											// biome-ignore lint/suspicious/noExplicitAny:
+											(RESPONSE: any) =>
+												RESPONSE?.commit?.author
+													?.name ?? "",
 
-												Object.assign(
-													// biome-ignore lint/suspicious/noExplicitAny:
-													(RESPONSE: any) =>
-														RESPONSE?.commit?.author
-															?.name ?? "",
+											{
+												Key: `commit.author.name.${SHA_COMMIT_TAG}`,
+											},
+										),
+									),
 
-													{
-														Key: `commit.author.name.${SHA_COMMIT_TAG}`,
-													},
-												),
-											),
+									Date: await Request(
+										"GET /repos/{owner}/{repo}/commits/{ref}",
 
-											Date: await Request(
-												"GET /repos/{owner}/{repo}/commits/{ref}",
+										{
+											owner: User,
 
-												{
-													owner: User,
+											repo: Repository,
 
-													repo: Repository,
+											ref: SHA_COMMIT_TAG,
+										},
 
-													ref: SHA_COMMIT_TAG,
-												},
+										Object.assign(
+											// biome-ignore lint/suspicious/noExplicitAny:
+											(RESPONSE: any) =>
+												RESPONSE?.commit?.author
+													?.date ?? "",
 
-												Object.assign(
-													// biome-ignore lint/suspicious/noExplicitAny:
-													(RESPONSE: any) =>
-														RESPONSE?.commit?.author
-															?.date ?? "",
+											{
+												Key: `${URL}.RESPONSE.commit.author.date`,
+											},
+										),
+									),
 
-													{
-														Key: `${URL}.RESPONSE.commit.author.date`,
-													},
-												),
-											),
+									File: await (async (SHA: string) => {
+										const _Total = await Total(SHA);
 
-											File: await (async (
-												SHA: string,
-											) => {
-												const _Total = await Total(SHA);
+										const _File = await File(SHA);
 
-												const _File = await File(SHA);
+										return [
+											await Dot(_Total, _File),
 
-												return [
-													await Dot(_Total, _File),
+											_Total,
 
-													_Total,
+											_File,
+										];
+									})(SHA_COMMIT_TAG),
 
-													_File,
-												];
-											})(SHA_COMMIT_TAG),
+									Message: await Request(
+										"GET /repos/{owner}/{repo}/commits/{ref}",
 
-											Message: await Request(
-												"GET /repos/{owner}/{repo}/commits/{ref}",
+										{
+											owner: User,
 
-												{
-													owner: User,
+											repo: Repository,
 
-													repo: Repository,
+											ref: SHA_COMMIT_TAG,
+										},
 
-													ref: SHA_COMMIT_TAG,
-												},
+										Object.assign(
+											// biome-ignore lint/suspicious/noExplicitAny:
+											(RESPONSE: any) =>
+												RESPONSE?.commit?.message ?? "",
 
-												Object.assign(
-													// biome-ignore lint/suspicious/noExplicitAny:
-													(RESPONSE: any) =>
-														RESPONSE?.commit
-															?.message ?? "",
+											{
+												Key: `${URL}.RESPONSE.commit.message`,
+											},
+										),
+									),
 
-													{
-														Key: `${URL}.RESPONSE.commit.message`,
-													},
-												),
-											),
+									Name: TAG?.name ?? "",
 
-											Name: TAG?.name ?? "",
-
-											SHA: SHA_COMMIT_TAG,
-										};
-									}) ?? [],
-								),
-							),
-
-						{
-							Key: `${URL}.RESPONSE.map(Author,Date,File,Message,Name,SHA)`,
-						},
+									SHA: SHA_COMMIT_TAG,
+								};
+							}) ?? [],
+						),
 					),
-				)
-			).filter((Data: null | object): boolean => Data !== null),
+
+				{
+					Key: `${URL}.RESPONSE.map(Author,Date,File,Message,Name,SHA)`,
+				},
+			),
 		);
 	} catch (_Error) {
 		console.error(`Error fetching tags page ${Page}:`, _Error);
+
+		break;
+	}
+
+	// Request returned undefined → upstream failure (rate limit, network).
+	// Don't keep hammering - abort the page sweep.
+	if (Batch === undefined) {
+		break;
+	}
+
+	const Filtered: object[] = (Array.isArray(Batch) ? Batch : []).filter(
+		(Data: null | object): boolean => Data !== null,
+	) as object[];
+
+	Tag = Tag.concat(Filtered);
+
+	// Last page: any short page (including empty) means GitHub has no more
+	// items - pagination contract is satisfied. Stop here so we don't fire
+	// requests past the end of the data.
+	if (Filtered.length < PER_PAGE) {
+		break;
 	}
 }
 
@@ -234,69 +251,80 @@ try {
 let Commit: any[] = [];
 
 for (let Page = 1; Page <= PageCount; Page++) {
+	const URL = "GET /repos/{owner}/{repo}/commits";
+
+	// biome-ignore lint/suspicious/noExplicitAny:
+	let Batch: any = undefined;
+
 	try {
-		const URL = "GET /repos/{owner}/{repo}/commits";
+		Batch = await Request(
+			URL,
 
-		Commit = Commit.concat(
-			(
-				await Request(
-					URL,
+			{
+				owner: User,
 
-					{
-						owner: User,
+				repo: Repository,
 
-						repo: Repository,
+				per_page: PER_PAGE,
 
-						per_page: 5,
+				page: Page,
+			},
 
-						page: Page,
-					},
+			Object.assign(
+				// biome-ignore lint/suspicious/noExplicitAny:
+				async (RESPONSE: any) =>
+					(await import("@Function/Table/Layout/Unwrap.js")).default(
+						await Promise.allSettled(
+							// biome-ignore lint/suspicious/noExplicitAny:
+							RESPONSE?.map(async (COMMIT: any) => ({
+								Author: COMMIT?.commit?.author?.name ?? "",
 
-					Object.assign(
-						// biome-ignore lint/suspicious/noExplicitAny:
-						async (RESPONSE: any) =>
-							(
-								await import("@Function/Table/Layout/Unwrap.js")
-							).default(
-								await Promise.allSettled(
-									// biome-ignore lint/suspicious/noExplicitAny:
-									RESPONSE?.map(async (COMMIT: any) => ({
-										Author:
-											COMMIT?.commit?.author?.name ?? "",
+								Date: COMMIT?.commit?.author?.date ?? "",
 
-										Date:
-											COMMIT?.commit?.author?.date ?? "",
+								File: await (async (SHA: string) => {
+									const _Total = await Total(SHA);
 
-										File: await (async (SHA: string) => {
-											const _Total = await Total(SHA);
+									const _File = await File(SHA);
 
-											const _File = await File(SHA);
+									return [
+										await Dot(_Total, _File),
 
-											return [
-												await Dot(_Total, _File),
+										_Total,
 
-												_Total,
+										_File,
+									];
+								})(COMMIT?.sha),
 
-												_File,
-											];
-										})(COMMIT?.sha),
+								Message: COMMIT?.commit?.message ?? "",
 
-										Message: COMMIT?.commit?.message ?? "",
-
-										SHA: COMMIT?.sha ?? "",
-									})) ?? [],
-								),
-							),
-
-						{
-							Key: `${URL}.RESPONSE.map(Author,Date,File,Message,SHA)`,
-						},
+								SHA: COMMIT?.sha ?? "",
+							})) ?? [],
+						),
 					),
-				)
-			).filter((Data: null | object) => Data !== null),
+
+				{
+					Key: `${URL}.RESPONSE.map(Author,Date,File,Message,SHA)`,
+				},
+			),
 		);
 	} catch (_Error) {
 		console.error(`Error fetching commits page ${Page}:`, _Error);
+
+		break;
+	}
+
+	if (Batch === undefined) {
+		break;
+	}
+
+	const Filtered: object[] = (Array.isArray(Batch) ? Batch : []).filter(
+		(Data: null | object) => Data !== null,
+	) as object[];
+
+	Commit = Commit.concat(Filtered);
+
+	if (Filtered.length < PER_PAGE) {
+		break;
 	}
 }
 
