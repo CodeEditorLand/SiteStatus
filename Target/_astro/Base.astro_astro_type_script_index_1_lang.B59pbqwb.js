@@ -1,0 +1,1 @@
+import{_ as i}from"./preload-helper.CVfkMyKi.js";await(async()=>(await i(async()=>{const{initializeApp:i}=await import("./index.esm.Bj8gNUPx.js");return{initializeApp:i}},[])).initializeApp({apiKey:"",appId:"",authDomain:"",databaseURL:"",measurementId:"",messagingSenderId:"",projectId:"",storageBucket:""}))();

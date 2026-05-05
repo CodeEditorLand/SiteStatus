@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+
 import { defineConfig, envField } from "astro/config";
 
 export const On = process.env["NODE_ENV"] === "development";
