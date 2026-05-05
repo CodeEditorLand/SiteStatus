@@ -177,6 +177,29 @@ export default defineConfig({
 						/* your production terserOptions or empty for defaults */
 					},
 		},
+		optimizeDeps: {
+			include: [
+				"firebase/app",
+				"firebase/analytics",
+				"firebase/auth",
+				"firebase/firestore",
+				"jquery",
+				"datatables.net",
+				"datatables.net-dt",
+				"pdfmake/build/pdfmake",
+				"pdfmake/build/vfs_fonts",
+				"jszip",
+			],
+		},
+		ssr: {
+			noExternal: [
+				"firebase",
+				"datatables.net",
+				"datatables.net-dt",
+				"pdfmake",
+				"jszip",
+			],
+		},
 		resolve: {
 			preserveSymlinks: false,
 		},
@@ -192,7 +215,7 @@ export default defineConfig({
 						Identifier.includes(".mjs") ||
 						Identifier.includes(".js") ||
 						Identifier.includes(".astro")
-							? `crossorigin=\\"anonymous\\"`
+							? `crossorigin=\\\"anonymous\\\"`
 							: 'crossorigin="anonymous"';
 
 					return Code.replace(/<script/g, `<script ${CrossOrigin}`)
