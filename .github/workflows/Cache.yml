@@ -1,0 +1,77 @@
+name: Cache
+
+concurrency:
+    group: Cache-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: write
+
+on:
+    workflow_dispatch:
+    schedule:
+        # Daily at 12:00 UTC, offset from Auto.yml (00:00 UTC) so the two
+        # never race for the branch tip.
+        - cron: "0 12 * * *"
+    workflow_call:
+
+jobs:
+    Refresh:
+        runs-on: ubuntu-latest
+
+        env:
+            ADBLOCK: true
+            ASTRO_TELEMETRY_DISABLED: 1
+            DO_NOT_TRACK: 1
+            NODE_ENV: production
+            TOKEN: ${{ secrets.TOKEN }}
+
+        steps:
+            - uses: actions/checkout@v6.0.1
+              with:
+                  ref: Current
+                  fetch-depth: 0
+
+            - uses: pnpm/action-setup@v4.2.0
+              with:
+                  version: 9.3.0
+                  run_install: |
+                      - recursive: true
+                        args: [
+                          --link-workspace-packages=true,
+                          --lockfile-only,
+                          --prefer-frozen-lockfile=false,
+                          --shamefully-hoist=false,
+                          --shared-workspace-lockfile=true,
+                          --strict-peer-dependencies=false,
+                          --unsafe-perm=true
+                        ]
+
+            - uses: actions/setup-node@v6.1.0
+              with:
+                  node-version: 22
+                  cache: "pnpm"
+                  cache-dependency-path: ./pnpm-lock.yaml
+
+            - run: pnpm install
+              working-directory: .
+
+            - name: Build (refresh GitHub API cache)
+              run: pnpm run prepublishOnly
+              working-directory: .
+
+            - name: Commit refreshed cache
+              run: |
+                  git config user.name "Auto"
+                  git config user.email "Commit@PlayForm.Cloud"
+                  git add Cache/Table Public/Cache Target
+                  if ! git diff --staged --quiet; then
+                    git commit -m "Cache: Refresh GitHub API cache ($(date -u +%Y-%m-%dT%H:%MZ))"
+                  else
+                    echo "Cache: No changes to commit."
+                  fi
+
+            - uses: ad-m/github-push-action@v0.8.0
+              with:
+                  github_token: ${{ secrets.GITHUB_TOKEN }}
+                  branch: Current
