@@ -1,37 +1,34 @@
-import type { PARAMETER } from "@Function/Table/Layout/Request/Octokit.js";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 
-export const { MIN_30 } =
-	await import("@Function/Table/Layout/Request/Get/TTL.js");
+import type { PARAMETER } from "./Octokit.js";
 
-export default async (
-	...[WHERE]: [PARAMETER[0]]
-): Promise<
-	| {
-			Set: {
-				// biome-ignore lint/suspicious/noExplicitAny:
-				[key: string]: any;
-			};
-			TimeStamp: number;
-	  }
-	| undefined
-> => {
+// biome-ignore lint/suspicious/noExplicitAny:
+export default async ([REQUEST, OPTION]: PARAMETER): Promise<undefined | any> => {
+	const Key = createHash("md5")
+		.update(JSON.stringify([REQUEST, OPTION]))
+		.digest("hex");
+
 	try {
-		return JSON.parse(
-			await (
-				await import("node:fs/promises")
-			).readFile(
-				(await import("node:path")).join(
-					process.cwd(),
-					(await import("@Function/Table/Layout/Request/Set.js"))
-						.DIRECTORY,
-					`${encodeURIComponent(WHERE)}.json`,
-				),
-				"utf-8",
-			),
-		);
-	} catch (_Error) {
-		console.log(_Error);
-	}
+		const raw = await readFile(`Cache/Table/${Key}.jsonc`, {
+			encoding: "utf-8",
+		});
 
-	return undefined;
+		// Strip single-line comments before parsing (JSONC → JSON).
+		const json = raw.replace(/^\s*\/\/.*$/gm, "");
+
+		// biome-ignore lint/suspicious/noExplicitAny:
+		const { Set: Value, TimeStamp }: { Set: any; TimeStamp: number } =
+			JSON.parse(json);
+
+		if (Date.now() - TimeStamp > 4 * 7 * 24 * 60 * 60 * 1000) {
+			return undefined;
+		}
+
+		return Value;
+	} catch (_Error) {
+		return undefined;
+	}
 };
+
+export { Key } from "./Get/Key.js";
