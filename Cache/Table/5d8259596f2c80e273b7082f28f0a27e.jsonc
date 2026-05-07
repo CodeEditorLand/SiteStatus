@@ -1,0 +1,61 @@
+// CACHE: GET /repos/{owner}/{repo}/commits | owner=CodeEditorLand | repo=Mountain | per_page=5 | page=56 → GET /repos/{owner}/{repo}/commits.RESPONSE.map(Author,Date,File,Message,SHA)
+{
+	"Set": [
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T00:21:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				1
+			],
+			"Message": "feat(Mountain): Implement FindFilesInWorkspace with ignore-aware parallel walking\n\nReplace the stub implementation that returned empty results with a complete `WorkspaceProvider::FindFilesInWorkspace` using:\n- `ignore::WalkBuilder::build_parallel()` for OS-thread-parallel directory traversal respecting `.gitignore` / `.ignore` / `.git/info/exclude`\n- `globset::GlobBuilder` for include/exclude pattern matching\n- Support for VS Code's RelativePattern shape (`{ base, pattern }`) to restrict walks to subfolders\n- Thread-safe result collection via `Arc<Mutex<Vec<Url>>>` capped at MaxResults (default 10,000)\n- Proper hidden-directory handling and symlink follow control\n\nThis complements the recent wiring of search IPC handlers to trait implementations, completing the file search path from Wind → Mountain → WorkspaceProvider::FindFilesInWorkspace for quick file open, symbol search, and fuzzy file matching features.",
+			"SHA": "044fdb7c156598f3081093012d5e5ac21cf8395b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:39:12Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				8
+			],
+			"Message": "refactor(Mountain): Wire Cocoon RPC handlers to trait implementations for state tracking\n\nReplace direct Sky event emissions with proper trait implementations across SCM, StatusBar, Webview, and Search handlers:\n\n1. **SCM**: RegisterScmProvider and UpdateScmGroup now use SourceControlManagementProvider trait to materialize state in ApplicationState::SourceControl. Previously the direct Sky emit bypassed state tracking, so SCM providers (gitlens, svn) never appeared in Sky's SCM view until UpdateScmGroup - and the header row never materialized.\n\n2. **StatusBar**: CreateStatusBarItem and SetStatusBarText now use StatusBarProvider::SetStatusBarEntry to store entries in ActiveStatusBarItems. Without registration, the workbench had no memory of entries and set_status_bar_text calls leaked state.\n\n3. **Webview**: CreateWebviewPanel and SetWebviewHtml now use WebviewProvider trait to register panels in ApplicationState::WebviewState. Previously the extension got a handle but Mountain never knew about the panel - DisposeWebviewPanel failed with \"unknown handle\" and webviews leaked DOM.\n\n4. **Search**: findFiles delegates to WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker); findTextInFiles delegates to SearchProvider::TextSearch. This replaces naive inline fs-walk implementations that lacked .gitignore support, regex engine, parallel walks, and proper Url construction.\n\nAll handlers retain fallback to direct Sky emit on trait failure to preserve existing behavior for callers that don't depend on state tracking.",
+			"SHA": "f8de3e0f52def4658f2be37feceb8ce43e035bca"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:15:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				1
+			],
+			"Message": "feat(Mountain): Implement regex and multiline search options in TextSearchQuery\n\nAdd missing `isRegExp` and `isMultiline` fields to TextSearchQuery, mirroring VS Code's `ITextSearchQuery` interface. When `isRegExp` is false (the default), escape the search pattern via `regex::escape()` to prevent literal searches for strings containing regex metacharacters (`.`, `(`, `[`, `*`, `?`, etc.) from crashing the regex compiler or silently matching incorrectly. Add `.multi_line()` support for multiline regex searches.\n\nThis fixes the Search view's plain-text mode which was broken for queries containing characters like `obj.method(` or `file[1].txt`.",
+			"SHA": "d0117a0eb6379a9473082566dec2a8775df35577"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:05:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				2
+			],
+			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to the properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those - the \"dead code that needs to be connected\" the user flagged.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.",
+			"SHA": "5f23bca601cb496e0c86114e0aaf8db93c22cde4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T21:47:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				4
+			],
+			"Message": "feat(Mountain): Add VS Code IPC command aliases and stub handlers\n\nAdd command aliases in WindServiceHandlers to bridge Mountain's native Effect-TS IPC layer with VS Code's binary IPC bridge (DiskFileSystemProviderClient, ConfigurationService):\n- Configuration: `configuration:getValue` / `configuration:updateValue` → `configuration:get` / `configuration:update`\n- File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`\n- Add stub handlers for `file:watch` / `file:unwatch` that return Null to prevent channel promise leaks\n- Add `configuration:onDidChange` handler that acks the channel listener with Null\n\nAlso enhance Cocoon stderr filtering to suppress follow-up stack frames from extension errors (EntryNotFound, FileNotFound) that Node.js prints across multiple stderr lines. This keeps the main cocoon channel clean while routing benign extension path-probing to verbose.",
+			"SHA": "661fe2405f2f71c5710b1b1e6dfb59272896fd30"
+		}
+	],
+	"TimeStamp": 1778161169304
+}

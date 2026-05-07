@@ -1,0 +1,61 @@
+// CACHE: GET /repos/{owner}/{repo}/commits | owner=CodeEditorLand | repo=Mountain | per_page=5 | page=59 → GET /repos/{owner}/{repo}/commits.RESPONSE.map(Author,Date,File,Message,SHA)
+{
+	"Set": [
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T00:09:28Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				2
+			],
+			"Message": "feat(Mountain): Add child-exit detection to Cocoon gRPC and activation-race command handling\n\nTwo related reliability improvements for Mountain-to-Cocoon communication:\n\n1. **CommandProvider.rs**: Handle TOCTOU race where TypeScript extension's post-activation pipeline invokes `_typescript.configurePlugin` within the same event-loop tick as its own `registerCommand`. The intervening executeCommand finds no handler and emits alarming red errors. Add early return with null for internal-underscore-prefixed commands (`_typescript.*`, `_extensionHost.*`, `_workbench.registerWebview*`) that the extension expects to be safely droppable if the registry hasn't caught up yet. The extension's own try/catch takes the expected \"not yet available\" path.\n\n2. **CocoonManagement.rs**: Add child-exit detection during the gRPC connection loop. Before each retry, poll `ChildProcess.try_wait()` to detect if Node has already died. If exited, abandon the loop immediately with the exit status embedded in the error (1 = unhandled exception, 13 = invalid module) instead of continuing to retry against a dead process. Also add explicit error messages that point developers at the real failure (missing bundle, ESM/CJS import drift) rather than abstract \"connection refused\" messages.\n\nThese changes complete the exponential backoff work from the previous commit by ensuring Mountain fails fast with actionable diagnostics when Cocoon spawns but immediately exits.",
+			"SHA": "26891b3039a723a3a410e073c4d00ec4064b8834"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T00:09:11Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				2
+			],
+			"Message": "refactor(Mountain): Implement exponential backoff for Cocoon gRPC handshake\n\nReplace the fixed 1-second retry poll in Mountain-to-Cocoon gRPC connection with exponential backoff (50ms initial, 2s ceiling, 20s budget). The previous approach wasted 18 seconds waiting after Cocoon's ~200ms bind completion on successful startups, while still taking a full 20s to detect genuine failures.\n\nAlso add comprehensive documentation for the `dual-track` tag in DevLog.rs, which logs progressive Rust migration dispatch decisions (mountain, node-fallback, unavailable, error) to surface the VS Code API coverage gap as a searchable TODO list.\n\nAdd a pre-flight bundle probe constant to fail fast with an actionable error when the Cocoon bundle is missing (esbuild failure, incomplete checkout) instead of spawning Node into a dying require() chain.\n\nImpact: Healthy spawns now connect in ~400ms (attempts 3-5) vs previous ~20s; failure detection still triggers at the 20s budget.",
+			"SHA": "115a48df9dbdbad30a28fa4a99d27c0557565ee4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T22:39:48Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				6
+			],
+			"Message": "feat(Mountain): Implement hidden-until-ready window pattern\n\nEliminate the visual flash on startup by creating the main window with\n.visible(false) and revealing it only when Sky reports phase 3 (Restored).\nThe previous approach allowed Tauri's default immediate visibility, causing\na four-repaint cascade: native chrome → #1e1e1e inline background → VS Code\ntheme CSS → workbench DOM, observed as \"purple/dark flash\" and panel-pop\nflicker over ~200ms.\n\nChanges:\n- WindowBuild.rs: Add .visible(false) to WebviewWindowBuilder chain\n- AppLifecycle.rs: Add 3s safety timer to force-reveal if Sky crashes\n  before phase 3 (matches observed cold-boot p95 timing)\n- WindServiceHandlers/mod.rs: Show window on phase 3 + set_focus()\n- CommandProvider.rs: Handle missing workbench commands as silent no-ops\n  (getTelemetrySenderObject, testing.clearTestResults)\n- DevLog.rs: Document Batch 4 fs-route/cmd-route diagnostic tags\n- CocoonManagement.rs: Forward LAND_* env vars to Cocoon (fixes PostHog\n  bridge fallback)\n\nThe 3s safety timer guarantees the window appears even if Sky crashes before\nsignalling phase 3, preventing invisible-window lockup while rarely firing\non a healthy startup path.",
+			"SHA": "993a69a785aedb36bfd1501e52960eccc08ab288"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T21:18:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				6
+			],
+			"Message": "refactor(Mountain): Simplify binary names and remove PostHog API keys\n\nRevert binary and library names from the verbose development profile format back to 'Mountain' in Cargo.toml and tauri.conf.json, continuing the simplification from recent commits.\n\nAlso remove the PostHog API key from build.rs and scripts/cocoon/bootstrap-fork.js by replacing with empty strings for development safety. Clean up tauri.conf.json identifier from the long verbose format to 'land.editor.binary' and productName to 'Mountain'.\n\nDelete obsolete Cargo.toml.Backup and tauri.conf.json.Backup files. Remove duplicate externalBin entry for Binary/node in tauri.conf.json.\n\nThese changes consolidate the naming simplification and remove sensitive API keys from the repository.",
+			"SHA": "5140a38948860dee4209069e3d0110001474a9e9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T21:18:15Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				874,
+				27
+			],
+			"Message": "refactor(Mountain): Decompose Utilities module into explicit submodules\n\nSplit the monolithic Utilities.rs into 7 domain-specific modules under WindServiceHandlers/Utilities/: ApplicationRoot, ChannelPriority, JsonValueHelpers, MetadataEncoding, PathExtraction, RecentlyOpened, and UserdataDir. Update all call sites in FileSystem/Native handlers, Scheme.rs, WindowBuild.rs, and AppLifecycle.rs to use explicit module paths (e.g., `Utilities::PathExtraction::extract_path_from_arg`) instead of flat imports.\n\nThis continues the module decomposition pattern from recent commits, replacing the catch-all Utilities module with granular domain-specific handlers. The explicit reverse-hierarchical paths make dependency relationships clear at every call site, consistent with CLAUDE.md requirements.\n\nAlso reverts binary/lib names in Cargo.toml and tauri.conf.json to the verbose development profile format, matching the pre-simplification state.",
+			"SHA": "8cba79c0ae380c97ef1709c4a1c12df9e87017aa"
+		}
+	],
+	"TimeStamp": 1778161173415
+}

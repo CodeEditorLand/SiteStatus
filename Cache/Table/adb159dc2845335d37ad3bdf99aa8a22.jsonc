@@ -1,0 +1,61 @@
+// CACHE: GET /repos/{owner}/{repo}/commits | owner=CodeEditorLand | repo=Mountain | per_page=5 | page=52 → GET /repos/{owner}/{repo}/commits.RESPONSE.map(Author,Date,File,Message,SHA)
+{
+	"Set": [
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-27T14:48:29Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				859,
+				21
+			],
+			"Message": "fix(Mountain): Align event payloads to Sky listener wire shapes and fix silent event drops\n\nThis commit addresses multiple issues where Mountain was emitting events that never reached Sky because of mismatched channel names or payload keys.\n\n**Event Channel Corrections (5 files)**\n- Terminal: `sky://terminal/opened` → `sky://terminal/create`, `sky://terminal/closed` → `sky://terminal/exit` (Sky listens on the new names at SkyBridge.ts:1736,1752)\n- Debug: `sky://debug/stop` → `sky://debug/sessionEnd` (SkyBridge.ts:2234)\n- StatusBar: `sky://statusbar/create` → `sky://statusbar/set-entry` (SkyBridge.ts:744 has no create listener)\n- Webview message: `sky://webview/message` → `sky://webview/post-message` (matches SkyBridge.ts:2344)\n- Progress: `sky://progress/report` → `sky://notification/progress-update` (aligns with notification namespace)\n\n**Payload Key Casing (8 files)**\n- OutputProvider: PascalCase keys (`Id`, `AppendedText`, `Name`, `LanguageId`) → camelCase (`channel`, `text`, `name`, `languageId`)\n- StatusBarProvider: Align all keys to camelCase\n- TreeViewProvider: `ViewIdentifier` → `viewId`, `ElementHandle` → `elementHandle`, `IsExpanded` → `expanded`\n- UserInterfaceProvider: `Severity`, `Message`, `Items` → `severity`, `message`, `items`\n- Window: `panelId` key alignment\n\n**Parameter Key Fallback (4 files)**\n- RegisterCommand/Provider: Probe camelCase first (`languageSelector`, `extensionId`) then snake_case for transitional compatibility\n- RegisterScmProvider/ResourceGroup: Probe camelCase (`scmHandle`, `rootUri`) then legacy snake_case\n\n**SCM RootUri Fix (RegisterScmProvider.rs)**\n- Previous extraction read only `path` component from UriComponents, producing relative URLs that failed to parse\n- Now reconstructs full `<scheme>://<authority><path>` triple from scheme/authority/path/query/fragment components\n- Falls back to `file://` prefix for bare paths, never emits relative URLs\n\n**Command Registry Sync (RegisterCommand.rs, UnregisterCommand.rs)**\n- Add emissions to `sky://command/register` and `sky://command/unregister` so Sky's workbench command palette sees extension-contributed commands\n\nWithout these fixes, terminal panes, tree views, status bar entries, and command palette entries were silently failing to render despite Mountain processing the underlying requests.",
+			"SHA": "ba479c6a5ea13640cdd3164452f55f429472915f"
+		},
+		{
+			"Author": "github-actions[bot]",
+			"Date": "2026-04-27T08:29:12Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				1
+			],
+			"Message": "Merge pull request #43 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-3.0.0\n\nchore(deps): Bump pozil/auto-assign-issue from 2.2.1 to 3.0.0",
+			"SHA": "324e09923027abb8313f0caea1c8ac037429a3d5"
+		},
+		{
+			"Author": "dependabot[bot]",
+			"Date": "2026-04-27T08:29:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				1
+			],
+			"Message": "chore(deps): Bump pozil/auto-assign-issue from 2.2.1 to 3.0.0\n\nBumps [pozil/auto-assign-issue](https://github.com/pozil/auto-assign-issue) from 2.2.1 to 3.0.0.\n- [Release notes](https://github.com/pozil/auto-assign-issue/releases)\n- [Commits](https://github.com/pozil/auto-assign-issue/compare/v2.2.1...v3.0.0)\n\n---\nupdated-dependencies:\n- dependency-name: pozil/auto-assign-issue\n  dependency-version: 3.0.0\n  dependency-type: direct:production\n  update-type: version-update:semver-major\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "9fe3d8afd59f66617841ca32138e08aa1e67be22"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-27T02:26:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				1
+			],
+			"Message": "",
+			"SHA": "04334da80f061bf13ae0b41ae45315fc16139e24"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T22:45:26Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				859,
+				39
+			],
+			"Message": "refactor(Mountain): Align DTO serialization to camelCase and fix SCM provider field mapping\n\nThis commit standardizes JSON serialization across all DTO structs from PascalCase to camelCase to match the wire format expected by Wind/Sky. Additionally fixes the SCM provider registration which was silently failing due to field name mismatches.\n\n**DTO Serialization Migration (13 files)**\n- Change `#[serde(rename_all = \"PascalCase\")]` to `#[serde(rename_all = \"camelCase\")]` across CustomDocumentStateDTO, DocumentStateDTO, MarkerDataDTO, MergedConfigurationStateDTO, OutputChannelStateDTO, ProviderRegistrationDTO, RPCModelContentChangeDTO, RPCRangeDTO, WebviewStateDTO, WindowStateDTO, WorkspaceFolderStateDTO\n- Add explicit `#[serde(rename = \"uri\")]` for URL fields and `#[serde(rename = \"eol\")]` for EOL field\n\n**SCM Provider Fixes (2 files)**\n- RegisterScmProvider: Change PascalCase keys (\"ID\", \"Label\", \"RootUri\") to camelCase (\"id\", \"label\", \"rootUri\") to match SourceControlCreateDTO's wire shape\n- RegisterScmResourceGroup: Add missing \"providerHandle\" field and use camelCase keys (\"providerHandle\", \"groupId\", \"label\") matching SourceControlGroupUpdateDTO\n\n**Code Cleanup**\n- Add #[allow(dead_code)] to 15 structs/functions used only in specific build configs\n- Make 7 structs public (WatcherEntry, TestControllerState, TestRunStatus, TestResult, TestRun, ConnectionHealthChecker, EncryptionKey) for testing\n- Change result-discarding calls from `Self::Method(...)` to `let _ = Self::Method(...)` for clarity\n- Remove unused IPC handlers: file:readFile/writeFile/rename/watch/unwatch, workspaces:getWorkspaceIdentifier/enterWorkspace\n- Set MACOSX_DEPLOYMENT_TARGET=10.13 in Cargo config for broader compatibility",
+			"SHA": "11b3c822ee8a556e47c07a9821fdc8f028c8bad4"
+		}
+	],
+	"TimeStamp": 1778161163111
+}

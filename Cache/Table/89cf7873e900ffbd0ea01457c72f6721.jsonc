@@ -1,0 +1,61 @@
+// CACHE: GET /repos/{owner}/{repo}/commits | owner=CodeEditorLand | repo=Mountain | per_page=5 | page=33 → GET /repos/{owner}/{repo}/commits.RESPONSE.map(Author,Date,File,Message,SHA)
+{
+	"Set": [
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:44:28Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1003,
+				8
+			],
+			"Message": "refactor(Mountain): Decompose Terminal RPC handlers into file-per-struct modules\n\nExtract all gRPC entry points within `Source/RPC/CocoonService/Terminal` into dedicated PascalCase modules to align with the project-wide architectural convention. New modules cover the full terminal lifecycle: `OpenTerminal` (spawning PTY via `TerminalProvider::CreateTerminal`), `CloseTerminal` (disposing via `DisposeTerminal`), `TerminalInput` (forwarding bytes to the master writer), `ResizeTerminal` (emitting dimensions to Sky), and notifications for `AcceptTerminalOpened`, `AcceptTerminalClosed`, `AcceptTerminalProcessData`, and `AcceptTerminalProcessId`.\n\nEach handler implements the `Fn` signature required for Tauri's `generate_handler!` macro and bridges the `Vine` gRPC protocol to the `Sky` UI layer. Notifications are emitted via Tauri events (`sky://terminal/create`, `/exit`, `/data`, `/processId`, `/resize`) using lossy UTF-8 decoding for stream data. This completes the decomposition of the `CocoonService` namespace, ensuring consistent symbol resolution and maintainability across the terminal subsystem.",
+			"SHA": "1a89bda0e090338927fd29676be62533ef50ca16"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:43:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				994,
+				4
+			],
+			"Message": "feat(Mountain): Decompose TreeView RPC handlers into file-per-struct modules\n\nExtract the `TreeView` gRPC entry points within `Source/RPC/CocoonService` into dedicated PascalCase modules (`EnqueueTreeViewEmit`, `GetTreeChildren`, `RegisterTreeViewProvider`, `ViewIdHandle`) to align with the project-wide architectural convention.\n\nThe `EnqueueTreeViewEmit` module implements a static batcher that coalesces 30+ `tree-view/create` events from boot into single 16 ms window payloads, utilizing `AtomicBool` locking and `tokio::spawn` for non-blocking emission to the `Sky` UI layer. `GetTreeChildren` bridges the `Vine` gRPC protocol to the `Cocoon` extension host, performing a 5-second timeout-protected round-trip to `$provideTreeChildren` and returning empty lists on provider registration failures. `RegisterTreeViewProvider` registers tree data providers in `ApplicationState` using a consistent 31-based string hash for handle generation and triggers the batched emit. `ViewIdHandle` centralizes the hash logic for provider lookup.\n\nAll handlers are exposed as `Fn` functions for invocation via `Tauri::generate_handler!`, completing the refactoring of the `CocoonService` RPC namespace.",
+			"SHA": "39923726563a05fc656a7c3766fa7bd4f9232528"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:42:40Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				989,
+				16
+			],
+			"Message": "feat(Mountain): Decompose Window RPC handlers into file-per-struct modules\n\nExtract all gRPC entry points within the `Source/RPC/CocoonService/Window` namespace into dedicated PascalCase modules. This completes the architectural refactor initiated in previous commits for Workspace, Command, and Configuration, ensuring the monolithic `mod.rs` no longer contains inline handler logic.\n\nNew modules include handlers for window management (CreateWebviewPanel, DisposeWebviewPanel, SetWebviewHtml), status bar operations (CreateStatusBarItem, SetStatusBarText), and user interface interactions (ShowErrorMessage, ShowInformationMessage, ShowWarningMessage, ShowInputBox, ShowQuickPick, ShowTextDocument). Additional handlers cover progress reporting (ShowProgress, ReportProgress) and webview messaging (OnDidReceiveMessage, PostWebviewMessage).\n\nEach handler implements the `Fn` signature required by Tauri's `generate_handler!` macro and bridges the `Vine` gRPC protocol to the `Sky` UI layer. The implementations utilize the `CommonLibrary` traits (`StatusBarProvider`, `WebviewProvider`, `UserInterfaceProvider`) for state registration and stateful operations. Fallback mechanisms via direct `sky://` Tauri events are preserved for trait failures to prevent state leaks in webview and status bar components.",
+			"SHA": "adfab9f41833191c1652fc00fb0b0d91aa16054d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:37:42Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				972,
+				5
+			],
+			"Message": "refactor(Mountain): Decompose Workspace RPC handlers into file-per-struct modules\n\nDecompose the `Source/RPC/CocoonService/Workspace` module to align with the project-wide PascalCase file-per-struct convention. Extract the handler logic for `ApplyEdit`, `OpenDocument`, `SaveAll`, `UpdateConfiguration`, and `UpdateWorkspaceFolders` into dedicated submodules.\n\nEach handler is exposed as a public async function `Fn` within its own file, invoked via fully qualified paths in the parent `mod.rs`. The implementations bridge the gRPC `Vine` protocol to the frontend: `ApplyEdit`, `OpenDocument`, `SaveAll`, and `UpdateConfiguration` emit specific Tauri events to the `Sky` UI layer, while `UpdateWorkspaceFolders` performs direct mutation of the `ApplicationState.Workspace` DTOs and triggers the standard notification mechanism. This preserves all existing logic for text editing ranges, untitled file handling, and folder index stability, ensuring consistent symbol resolution for Tauri's `generate_handler!` macro.",
+			"SHA": "3ad7df3dc9d9447ced7b2baf5725e63fb4752381"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:37:15Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				966,
+				16
+			],
+			"Message": "refactor(Mountain): Decompose CocoonService RPC handlers into file-per-struct modules\n\nDecompose the monolithic `Source/RPC/CocoonService` modules to align with the project-wide PascalCase file-per-struct convention. Extract the handler logic for every gRPC entry point across Auth, Command, Debug, Extension, FileSystem, Initialization, Output, Provider, SCM, Secret, Task, Terminal, TreeView, Window, and Workspace into dedicated submodules (e.g., `Command/RegisterCommand.rs`, `FileSystem/ReadFile.rs`, `Window/ShowTextDocument.rs`).\n\nEach handler is now exposed as a function within its own module and invoked via the fully qualified path `Module::Function::Fn` in the main `mod.rs` implementation. This mirrors the architectural pattern established in recent `Workspace`, `Echo`, and `Telemetry` refactors. The changes preserve all existing logic, including the TreeView emission batching, SCM state tracking, and webview panel lifecycle management, while ensuring correct symbol resolution for Tauri's `generate_handler!` macro and gRPC wire protocol generation.",
+			"SHA": "ef96dfe524b73c7c862a7a1c74bf8088065d5b35"
+		}
+	],
+	"TimeStamp": 1778161137300
+}
