@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:59:02Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "fix(Project): Sync Sky and Cocoon submodules to fix search result handling\n\nRoutine submodule synchronization bringing in critical bug fixes:\n\n1. Sky (a3139802):\n   - Fix text search result mapping to use Mountain's actual response format: `Hit.resource` instead of `Hit.uri`, and `Hit.matches[]` array (with `preview` and `line_number`) instead of flat hit shape\n   - Add backwards-compat support for old flat `{uri, lineNumber, preview}` format\n   - Fix search:findFiles IPC call to include required null exclude parameter - previously MaxResults shifted into wrong slot, causing glob extractor to ignore max and default to 10000\n   - This resolves empty search results where previous code produced resource=MakeFileUri(\"\") with empty results array\n\n2. Cocoon (f0ec9445):\n   - Submodule sync to latest extension host changes\n\nImpact: Text search and file search now return correct results using Mountain's response format.",
-			"SHA": "1f8f64703111851166eb2f25a6cca43aa177640a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:50:32Z",
+			"Date": "2026-04-27T15:55:13Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
 				28,
 				4
 			],
-			"Message": "fix(Project): Resolve URI object construction inconsistencies across editor services\n\nSubmodule synchronization completing the URI handling fix across multiple layers:\n\n1. Mountain (2120ad5e): Use DebugOnce instead of dev_log! for unregistered view-action and workbench-internal commands to reduce log noise from repeated invocations\n2. Output (3db8e24c): Add missing URI class import to ExposeWorkbenchAccessor transform, enabling SkyBridge to construct resource objects the workbench accepts directly\n3. Sky (18f9fb7f): Add BuildOpenArg helper that produces real URI instances when URI service is available, falling back to POJO only for code paths that call revive\n\nThis completes the fix from the previous commit for search results deduplication by ensuring open commands (vscode.open, OpenFile) also use proper URI construction rather than manual `{ $mid: 1, path, scheme }` objects that fail when consumers call uri.with() or uri.toString() directly.\n\nImpact: Consistent URI handling across search results and file open commands, eliminating \"uri.with is not a function\" errors and improving workbench result deduplication.",
-			"SHA": "f5bf511b04b9b847de673bae8f23e70d9e6317b4"
+			"Message": "fix(Project): Align SCM provider handles between Mountain and Cocoon\n\nSubmodule synchronization addressing two critical issues:\n\n1. SCM Provider Handle Alignment (Common + Mountain + Cocoon):\n   - Common adds optional Handle field to SourceControlCreateDTO enabling Cocoon to supply its sequential allocator handle\n   - Mountain now honors caller-supplied Handle in CreateSourceControl rather than allocating via DJB hash\n   - Previously, group updates from Cocoon used sequential handles while Mountain keyed marker maps with DJB hash, causing \"Received group update for unknown provider handle\" warnings and empty SCM viewlet\n\n2. Recently-Opened Workspace Fallback (Mountain):\n   - Fixes boot seeding to probe RecentlyOpened.json (same source as webview's BuildInitialUrl) between env/CLI and CWD walk-up\n   - Resolves webview title showing \"Mountain\" while Cocoon payload shipped \"Land\"\n   - Fixes vscode.git scanning wrong root and SCM panel showing zeros despite untracked changes\n\n3. Dependency Updates:\n   - Mountain, Worker: Bump pozil/auto-assign-issue from 2.2.x to 3.0.0\n\nRefs: 3cfc021e (DTO serialization), 4c472e3 (event payload fixes)",
+			"SHA": "072ef07cf9596928526c3330aedccd96136239b6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:29:42Z",
+			"Date": "2026-04-27T14:48:57Z",
 			"File": [
 				"⣿⡟⠀⠀⠀",
 				28,
 				10
 			],
-			"Message": "",
-			"SHA": "c7ea59e959a19c7c90a762253d39a7278da9784d"
+			"Message": "fix(Project): Synchronize submodules with Mountain event fixes and Sky webview bridge\n\nSubmodule synchronization bringing critical fixes and a new feature:\n\n1. Mountain (ba479c6a) - Event Payload Alignment Fixes:\n   - Fix event channel names: terminal `opened`→`create`, `closed`→`exit`, debug `stop`→`sessionEnd`, statusbar `create`→`set-entry`, webview `message`→`post-message`, progress→`notification/progress-update`\n   - Correct payload keys to camelCase: OutputProvider, StatusBarProvider, TreeViewProvider, UserInterfaceProvider, Window\n   - Add parameter key fallback: probe camelCase first then snake_case for backward compatibility\n   - Fix SCM RootUri: reconstruct full URI from scheme/authority/path instead of emitting relative URLs\n   - Add command registry emissions for Sky's workbench command palette\n\n2. Sky (f0fabc61) - New Webview Post-Message Bridge:\n   - Add handler for `sky://webview/post-message` to dispatch `cel:webview:post-message` events to renderer\n   - Bridges extension `postMessage` path from Cocoon with `{handle, message}` shape distinct from workbench-RPC `{panelId, method, params}`\n\n3. Dependency Updates:\n   - Cocoon, Echo, Rest: pozil/auto-assign-issue 2.2.0→3.0.0\n   - Echo: @cloudflare/workers-types, miniflare, wrangler updates\n\n4. Common (c773b79d): Document deprecated aliases UIShowInputBoxRequest and UIShowQuickPickRequest\n\nImpact: Terminal panes, tree views, status bar entries, and command palette entries now render correctly. Extensions can communicate back to Sky UI via the new webview post-message bridge.",
+			"SHA": "4c472e3680de51383c1c86ce92ea34c31705db2c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:29:42Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "fix(Sky): Fix URI object construction for workbench search result deduplication\n\nThe previous manual resource object construction (`{ $mid: 1, path, scheme }`) fails when the workbench attempts result deduplication via `uri.with({...})` because it's a POJO without methods, causing \"uri.with is not a function\" errors.\n\nThis commit adds `CelUriCtor` and `CelUri` interfaces to type VS Code's URI class, then creates `MakeFileUri` that uses the actual `Ctor.file()` method when `__CEL_SERVICES__.URI` is available. The lookup is re-resolved on each result construction to handle the event-rescue path where SkyBridge registers before the URI patch binds.\n\nUpdates both `MatchFromHit` (text search results) and file search result mapping to use `MakeFileUri` instead of manual object construction. Includes a last-resort POJO fallback for edge cases.\n\nAlso updates Output submodule to expose the URI class from vscode-uri to the workbench accessor exports, providing the full prototype chain (`.with()`, `.fsPath`, `.toString()`) needed by SkyBridge's search provider.\n\nImpact: Search results now properly deduplicate in the workbench, eliminating duplicate file entries in quick open and search views.",
-			"SHA": "c32ec836f94f03bf6fcaf88edd6a837e5c06fd9a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:00:53Z",
+			"Date": "2026-04-26T22:46:51Z",
 			"File": [
 				"⡿⠀⠀⠀⠀",
 				28,
 				5
 			],
-			"Message": "chore(Project): Sync Cocoon, Output, Sky, Wind, and Worker submodules\n\nRoutine submodule synchronization bringing in latest changes across the application stack:\n\n1. Sky (70de1fdb):\n   - Extract worker script imports into dedicated WorkerBundleImports.astro component to fix Astro compiler hoisting issue in JSX conditionals\n   - Add comprehensive RenderDevLog diagnostics for search operations\n   - Replace single-shot workbench-ready retry with three parallel rescue paths for search provider registration\n   - Add SearchRegistered flag to prevent duplicate registration attempts\n\n2. Worker (e8bdbb87):\n   - Expand minified ESBuild config files with source maps\n   - Reverse minification (cc40eef) to aid debugging ESBuild pipeline issues while preserving configuration logic\n\n3. Cocoon (ca5878fa), Output (6b389ee0), Wind (56a0603f):\n   - Submodule sync to latest changes\n\nThe Sky refactor resolves bundle-mode build failures where Astro's script processing couldn't handle conditional rendering, while improving search functionality resilience.",
-			"SHA": "99a19decd5ce52a75b94ffb1186c8b8fe358d4b9"
+			"Message": "refactor(Project): Standardize DTO serialization to camelCase and fix SCM provider registration\n\nSubmodule synchronization across multiple components:\n\n1. Mountain (11b3c822):\n   - Migrate DTO serialization from PascalCase to camelCase across 13 files (CustomDocumentStateDTO, DocumentStateDTO, MarkerDataDTO, etc.) to match the wire format expected by Wind/Sky\n   - Fix SCM provider registration: change PascalCase keys (\"ID\", \"Label\", \"RootUri\") to camelCase (\"id\", \"label\", \"rootUri\") in RegisterScmProvider and add missing \"providerHandle\" field in RegisterScmResourceGroup\n   - Add #[allow(dead_code)] to 15 structs used only in specific build configs\n   - Set MACOSX_DEPLOYMENT_TARGET=10.13 for broader compatibility\n\n2. Mist (94e88d14): Add #![allow(non_snake_case)] lint to permit PascalCase naming conventions consistent with the rest of CodeEditorLand\n\n3. Rest (cf44ea79): Switch binary entry point from Library.rs to Main.rs with proper async tokio runtime\n\nImpact: Wind/Sky now receive correctly formatted DTOs with camelCase keys, SCM source control providers properly register, and the Rest bundler has correct binary structure.",
+			"SHA": "3cfc021ed28fb28f64d06171469713f00c88bf0b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T20:30:20Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				28,
+				2
+			],
+			"Message": "feat(Project): Add workspace trust handlers for vscode.git and mute vscode-api-gap logs\n\nSubmodule synchronization bringing two Mountain changes:\n\n1. Workspace Trust Handlers (bd4aed14):\n   - Implement `Workspace.RequestResourceTrust` and `Workspace.IsResourceTrusted` handlers in Mountain\n   - These route through Mountain instead of falling back to Cocoon's permissive heuristic\n   - vscode.git's `Model.openRepository` calls these before constructing the Repository\n   - Enables `GenerateRouteManifest.sh` to auto-switch Cocoon from heuristic-default to gRPC-routed on next manifest regeneration\n   - Future rounds can replace trust-by-default `true` with real per-OS trust queries (Gatekeeper/SmartScreen/xattrs)\n\n2. Log Noise Reduction:\n   - Mute `vscode-api-gap` dev logs in short mode\n   - These log when extensions use unshimmed vscode API methods - useful for API gap audits but noisy in default dev runs\n   - Enable via `LAND_DEV_LOG=all` or `LAND_DEV_LOG=vscode-api-gap` when needed\n\nImpact: vscode.git extension now properly routes through Mountain's trust handlers with future extensibility for real OS-level trust queries.",
+			"SHA": "585327dad2c81eff668676e9412bf4f27fca3b8f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T20:10:40Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "",
+			"SHA": "b62b2bbcf5a71e9b2f90b4b5656bda4f196ab1b5"
 		}
 	],
-	"TimeStamp": 1778077979290
+	"TimeStamp": 1778164508942
 }

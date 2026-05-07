@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:56:08Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				28,
-				4
-			],
-			"Message": "feat(Project): Add DisableUnusedServices transform and sync dependencies across submodules\n\nCross-cutting submodule sync with functional and dependency updates:\n\n1. Output: Add DisableUnusedServices ESBuild transform\n   - Replaces upstream VS Code contribution barrels for features Land doesn't back (auto-update, issue reporter, MS account/sync, process explorer) with inert stubs\n   - Removes broken UI surfaces and silences \"service not registered\" warnings\n   - Shortens boot time by avoiding initialization of unused services\n\n2. Output: Fix ExtensionScannerIPC path matching\n   - Now matches BOTH electron-browser AND browser variants of extensionsScannerService.js\n   - Previously only matched electron-browser, but desktop.main.js loads the browser variant\n   - Both paths now correctly route to Mountain for extension scanning\n\n3. Sky: Sync dependency updates\n   - @xterm/xterm: 6.1.0-beta.202 → 6.1.0-beta.203\n   - @astrojs/compiler-rs: 0.1.9 → 0.1.10\n   - pozil/auto-assign-issue: 2.2.0 → 3.0.0\n\n4. SideCar: Update pozil/auto-assign-issue from 2.2.0 to 3.0.0\n\nImpact: Extension scanning now works correctly for desktop profile. Unused VS Code services are stubbed out, reducing boot noise and improving startup time.",
-			"SHA": "bccc66895e279c66baa1bb34d5d9703067f18193"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:36:03Z",
+			"Date": "2026-04-25T00:07:35Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				28,
 				2
 			],
-			"Message": "refactor(Output): Replace runtime require() with static ES imports in workbench accessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of both web.main.js and desktop.main.js instead of using runtime require() calls. This eliminates AMD require() resolution that could fail in the WKWebView context.\n\nChanges:\n- Anchor on stable import markers ('mark' from performance.js for web, 'localize' from nls.js for desktop)\n- Add IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports\n- Extract shared imports into SharedImportLines to avoid duplication between profiles\n- Add cel:services-ready DOM event dispatch on successful population\n- Add Mountain diagnostic logging for success/failure tracking\n- Add guard check for import marker to avoid matching unrelated files\n\nImpact: __CEL_SERVICES__ is now populated synchronously before the microtask queue drains, ensuring services are available for both web and Electron/Desktop profiles at runtime.",
-			"SHA": "055c5c94f6b7f3de102f98906b05603d30148f0a"
+			"Message": "feat(Cocoon): Hydrate URI results and use Mountain for glob-based extension activation\n\nTwo related improvements to the workspace namespace and extension activation flow:\n\n1. URI Result Hydration: Add HydrateUriResults helper that converts string URLs returned from Mountain's findFiles effect into proper vscode.Uri objects. Extensions expect result[i].fsPath / .scheme / .toString() to work, but Mountain returns raw strings. Uses Stock VS Code's URI.parse() to create fully-functional URI instances.\n\n2. Mountain-Backed Glob Activation: Add FolderContainsGlobViaMountain that calls findFiles(glob, {maxResults:1}) via gRPC. The activation logic now:\n   - Uses native stat for literal filenames (package.json, Cargo.toml)\n   - Uses Mountain's parallel ignore::WalkBuilder for glob patterns\n   - Falls back to local Node walker on Mountain miss/IPC failure\n\n3. Output: Remove Configuration directory (ESBuild, Plugin, Polyfill, Service configs and tsconfig files) from the Output element.\n\nImpact: Extensions now receive proper Uri objects with full fsPath/scheme/toString() support. Glob-based activation leverages Mountain's OS-threaded, gitignore-aware walker with early-exit for faster activation on large repos.",
+			"SHA": "6a4ea12074ce46f5dd1efe0d69dd48e9e067f57a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:47:54Z",
+			"Date": "2026-04-24T23:42:49Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				28,
+				1
+			],
+			"Message": "chore(Cocoon): Sync Cocoon submodule to latest commit\n\nUpdate the Cocoon submodule (extension host sidecar) from cbaf44f1 to 6ac5b208.\n\nThis routine sync brings in the latest changes from the extension host implementation, which interfaces with Mountain via gRPC to run VS Code extensions through the Effect-TS service layer.",
+			"SHA": "b9df80b17062e2722981126614ed8cc89fa90b38"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:39:56Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				28,
+				1
+			],
+			"Message": "chore(Output): Sync Output submodule to latest bundled artifacts\n\nUpdate the Output submodule (compiled JS bundles from Rest) from 1060f224 to de62ac1e.\n\nThe Output submodule contains bundled JavaScript artifacts consumed by Cocoon at runtime. This routine sync brings in the latest built artifacts from the Rest bundler.",
+			"SHA": "c181cb1fb55f7a4654938b157c335c09bf249c64"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:39:30Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
 				28,
 				3
 			],
-			"Message": "feat(Project): Bridge VS Code binary IPC to Mountain backend\n\nCross-cutting submodule sync enabling real file explorer, search, settings, and storage persistence:\n\n1. Mountain: Add VS Code IPC command aliases in WindServiceHandlers to bridge binary IPC protocol to native Effect-TS layer. Configuration: `configuration:getValue`/`updateValue` → `configuration:get`/`update`. File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`. Add stub handlers for `file:watch`/`file:unwatch` and `configuration:onDidChange` returning Null to prevent promise leaks.\n\n2. Output: Route VS Code binary IPC channels (25+ including localFilesystem, storage, configuration, search, terminal) to Mountain via MountainIPCInvoke instead of returning stub responses. Previously these channels returned FileNotFound, empty arrays, and empty objects.\n\n3. Cocoon: Enhance stderr filtering to suppress follow-up stack frames from extension errors.\n\nImpact: File explorer, search results, settings editor, and workspace storage now persist data to the real filesystem and backend instead of operating on in-memory stubs.",
-			"SHA": "edac4ec11f545cf3816d3a6cbb8db965aeff42eb"
+			"Message": "refactor(Project): Wire Cocoon RPC handlers to trait implementations for state tracking\n\nCross-cutting submodule sync with Mountain refactor and Output cleanup:\n\n1. Mountain: Replace direct Sky event emissions with proper trait implementations across SCM, StatusBar, Webview, and Search handlers:\n   - SCM: RegisterScmProvider and UpdateScmGroup now use SourceControlManagementProvider trait to materialize state in ApplicationState::SourceControl\n   - StatusBar: CreateStatusBarItem and SetStatusBarText now use StatusBarProvider::SetStatusBarEntry to store entries in ActiveStatusBarItems\n   - Webview: CreateWebviewPanel and SetWebviewHtml now use WebviewProvider trait to register panels in ApplicationState::WebviewState\n   - Search: findFiles delegates to WorkspaceProvider::FindFilesInWorkspace; findTextInFiles delegates to SearchProvider::TextSearch\n\n2. Output: Remove Configuration directory (ESBuild, Plugin, Polyfill, Service configs and tsconfig files)\n\n3. Cocoon: Submodule sync to cbaf44f1\n\nImpact: SCM providers, status bar items, and webview panels now properly persist in Mountain's ApplicationState. File and text search now use ignore-aware glob walking and proper trait implementations.",
+			"SHA": "5691989860608841ff65a2f7c25c102d27f039a1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:25:45Z",
+			"Date": "2026-04-24T23:16:19Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				28,
 				2
 			],
-			"Message": "feat(Project): Implement workspaceContains activation and reduce stderr noise\n\nCross-cutting submodule sync across Mountain and Cocoon:\n\n1. Mountain: Fire workspaceContains and onStartupFinished extension activation\n   - Implement VS Code-style startup activation with three bursts: `*`, `workspaceContains:<pattern>`, and `onStartupFinished` (2s delay)\n   - Add FindMatchingWorkspaceContainsPatterns for glob matching against workspace folders (depth 3, 4096 entries max)\n   - Filter benign stderr noise (macOS codesign, Node.js deprecation warnings) to cocoon-stderr-verbose channel\n   - Upgrade Rust edition from 2021 to 2024\n\n2. Cocoon: Reduce stderr spam from extension handler errors\n   - Downgrade $provide*, $resolve*, $get* handler errors from console.error to console.warn\n   - Prevents extension code failures from flooding stderr with full stack traces\n\nImpact: Extensions gated on workspaceContains:package.json and onStartupFinished now activate correctly. Default stderr is cleaner while preserving actionable error visibility.",
-			"SHA": "1cfc2cc882f651b1876ff69fedeadc0a8a61b77d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:52:42Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "refactor(Project): Reduce logging noise across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
-			"SHA": "786efde99dc3922147183375645841751ecd3fc2"
+			"Message": "feat(Project): Sync Mountain and Cocoon submodules\n\nMountain: Add regex and multiline search options to TextSearchQuery\n- Add `isRegExp` and `isMultiline` fields mirroring VS Code's ITextSearchQuery\n- Escape plain-text search patterns via regex::escape() to prevent crashes on metacharacters like `.`, `(`, `[`, `*`, `?`\n- Add .multi_line() support for multiline regex searches\n- Fixes Search view plain-text mode broken for queries containing `obj.method(` or `file[1].txt`\n\nCocoon: Updated to d4763554\n\nImpact: Plain-text search now works correctly for queries containing regex metacharacters without crashing the regex compiler.",
+			"SHA": "ea16cc733978b6e27920c190adaa149e9f1c0475"
 		}
 	],
-	"TimeStamp": 1778077980622
+	"TimeStamp": 1778164510136
 }

@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T20:56:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				266,
+				1
+			],
+			"Message": "refactor(Output): Update RewriteStaticBlockSelfRef to auto-detect affected files and remove manual whitelist\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "4fab2bb7a34e298cf9ea9c00697fedeedbacb2ac"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T20:48:41Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				266,
+				16
+			],
+			"Message": "feat(Output): Add HoistFunctionDeclarations and RewriteStaticBlockSelfRef transforms\n\nAdd two new build transforms to Output's ApplyPipeline that fix TDZ errors in bundled VS Code:\n\n1. HoistFunctionDeclarations: Moves top-level `function NAME(...) {...}` declarations and ESBuild helper vars (`__defProp`, `__name`, `__decorate`, `__param`) to the top of each file, before any calls. After Rollup concatenation converts function declarations to `let NAME; NAME = function(){...}`, calls before the assignment hit a TDZ. Pre-hoisting preserves the unbundled semantics.\n\n2. RewriteStaticBlockSelfRef: Rewrites class-name self-references (`ClassName.member`) inside `static {...}` blocks to `this.member`. After bundling, `class X {...}` becomes `let X; X = class{...}` so static block self-references resolve to undefined. Inside a static block, `this` IS the class.\n\nAlso update InjectNameShim to add 'unsafe-inline' to the iframe's CSP - the name shim injection invalidates the SHA256 hash. Update RewriteWorkbenchBaseURL to use a literal import string instead of runtime-computed URL, enabling Vite/Rollup to follow the module graph for bundling.\n\nThese transforms enable the bundled workbench to boot correctly after Output's tree shake + bundle pass.",
+			"SHA": "3c4cbf07803c8b20cfceed4186ca2dd24682c052"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T05:26:09Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				260,
+				1
+			],
+			"Message": "refactor(Output): Exclude StaticToDynamicImport and CSS transforms from ApplyPipeline\n\nRemove CSSStrategy (InlineCSSImport/StripCSSImport) and StaticToDynamicImport from Output's ApplyPipeline. These transforms rewrite static imports into runtime forms (`await import(...)` for JS, `_LOAD_CSS_WORKER(...)` for CSS) which suit the `/Static/Application/` path where files are individually loaded via the Worker SW.\n\nFor Output's bundled tree where Vite walks Target, we WANT static imports so Rollup can follow the module graph and emit a single hashed chunk. CSS is handled by Vite's native pipeline which extracts and hashes CSS assets into `_astro/`, with `cssCodeSplit: false` in astro.config.ts to fold every CSS module into one file.\n\nSky's `astro:build:done` hook still runs the full BuildPipeline (including these transforms) over Sky/Target/Static/Application/, so the existing path maintains its runtime-load behavior. The two output trees diverge intentionally.",
+			"SHA": "5b9e387695fc9812e24274d0b447d42550613243"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T04:53:25Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				260,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
+			"SHA": "ae22fae83e8e83ac908e8af3a3159e2340b00435"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-28T04:53:22Z",
 			"File": [
 				"⡿⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "feat: Implement ApplyPipeline for output-side transforms\n\n- Added ApplyPipeline.ts to run transform plugins after building VS Code.\n- Copied TauriMainProcessService.js to Output's Target for correct imports.\n- Introduced new transform plugins: InjectWebViewPolyfills, RewriteWorkerURLs, and RewriteWorkbenchBaseURL.\n- Updated existing plugins to ensure compatibility with new output structure.\n- Adjusted paths in Polyfill and Service modules to point to the new Target structure.\n- Modified prepublishOnly.sh to include the ApplyPipeline execution step.\n- Removed outdated exports and typesVersions from package.json.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
 			"SHA": "405c62842baa1e3d74c9403c903f299308f6bcb8"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-28T03:42:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				236,
-				1
-			],
-			"Message": "",
-			"SHA": "111546dff13aad48b458ee6f709e5b8f31365cd9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T00:03:52Z",
-			"File": [
-				"⣿⠇⠀⠀⠀",
-				236,
-				62
-			],
-			"Message": "Refactor and add InlineCSSImport transform\n\n- Cleaned up code formatting across multiple files for consistency.\n- Introduced a new transform plugin, InlineCSSImport, to inline CSS imports directly into the JS bundle, enhancing build performance and eliminating runtime fetch dependencies.\n- Updated existing transform plugins to improve readability and maintainability.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "0a699cb032ad65438c5f1fd6daa2a961ee14b2af"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T21:26:58Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				233,
-				6
-			],
-			"Message": "feat(Output): Add PatchLocalTerminalBackend transform + expose IWebviewViewService\n\nAdd the PatchLocalTerminalBackend transform plugin to the build pipeline, which patches LocalTerminalBackend._connectToDirectProxy to bypass Electron's acquirePort('vscode:createPtyHostMessageChannel') that never resolves under Tauri/WKWebView. The patch routes all pty operations through the existing _localPtyService channel proxy (mainProcessService.getChannel('localPty') → Mountain's localPty:* handlers), forwarding process events into pty instances.\n\nAlso expand ExposeWorkbenchAccessor to expose IWebviewViewService on globalThis.__CEL_SERVICES__.WebviewViews, enabling SkyBridge's sky://webview/registerView listener to register resolvers for extension sidebar/panel webviews. When the user reveals an extension panel, the workbench invokes the resolver, which fires reverse-RPC into Cocoon to invoke the extension's resolveWebviewView callback.\n\nWithout these patches, terminal createProcess/attachToProcess calls hang forever (no PTY spawns) and extension webview panels fail to render.",
-			"SHA": "e78dcecd6741fbbb33b45d431e7ac46a542e9527"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T20:52:55Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				231,
-				3
-			],
-			"Message": "feat(Output): Add terminal PTY patch + expose WebviewViewService\n\nAdd PatchLocalTerminalBackend transform to fix terminal creation under\nTauri. The upstream uses `acquirePort('vscode:createPtyHostMessageChannel')`\nwhich never resolves without Electron's utility-process MessagePort. The\npatch replaces `_connectToDirectProxy()` to route through the existing\n_localPtyService channel proxy (mainProcessService.getChannel('localPty')\n→ Mountain's localPty:* handlers), forwarding all process events from the\nservice into pty instances. Without this, every createTerminal/attachToProcess\ncall hangs forever and the terminal panel sits empty.\n\nAlso expand ExposeWorkbenchAccessor to export IWebviewViewService for\nSkyBridge's `sky://webview/registerView` listener, enabling the workbench\nto resolve extension sidebar/panel webviews through the extension host.",
-			"SHA": "dda0ddb6e62a1d8731e0e1449d2d7c4b08d4c1c4"
 		}
 	],
-	"TimeStamp": 1778077978878
+	"TimeStamp": 1778164506968
 }
