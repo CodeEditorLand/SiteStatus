@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T01:19:28Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				215,
+				3
+			],
+			"Message": "feat(Output): Separate system and user extension scanning in IPC shim\n\nThe ExtensionScannerIPC transform plugin now distinguishes between system and user extensions by calling the appropriate Mountain IPC methods:\n- `extensions:scanSystemExtensions` for built-in extensions (ForceBuiltin=true)\n- `extensions:scanUserExtensions` for user-installed extensions (ForceBuiltin=false)\n\nPreviously the scanner hardcoded `type: 0` and `isBuiltin: true` for all extensions, causing all extensions to appear under @builtin in the sidebar. Now it honours Mountain's ILocalExtension envelope values (type, isBuiltin, source) with ForceBuiltin as fallback for older envelopes.\n\nAlso implements the previously stubbed `scanUserExtensions()` method which was returning an empty array, and makes `scanAllUserExtensions()` delegate to it.",
+			"SHA": "a7b92b8faec7cf334dc5f572fd889561f4703166"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T00:28:30Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				215,
+				6
+			],
+			"Message": "fix(Output): Fix regex for minified code and correct userDataSync channel name\n\nTwo fixes for the Output build pipeline:\n\n1. CatchOutputFolderRejection regex now matches both `() => undefined` and `() => void 0` (the minified form esbuild produces). The appended catch handler also uses `void 0` for consistency with minified output.\n\n2. TauriMainProcessService channel stub keys corrected: `userDataSyncService` → `userDataSync` and `userDataSync` → `userDataSyncAccount`. VS Code registers the channel as `userDataSync` (not `userDataSyncService`), so the stub was unreachable causing sync to fail silently.\n\nRefs: The channel name discovery was confirmed by grepping the VS Code source at `workbench/services/userDataSync/electron-browser/userDataSyncService.ts:13`.",
+			"SHA": "bf9bfcd67bfb89f90fac75177e7465d81f209b0e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T00:02:00Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				215,
+				3
+			],
+			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object\nargs ({ path, encoding: \"utf8\" }) and the response was assumed to be\na string. Mountain actually returns raw bytes as { buffer: number[] } and\nignores the encoding param entirely.\n\nWhen VS Code loaded binary files (WASM, fonts, images), the response\nbody became \"[object Object]\" which corrupted the data. This broke\nTextMate syntax highlighting with:\n  \"WebAssembly.Module doesn't parse at byte 0: module doesn't start\n   with '\\0asm'\"\n\nFix by:\n1. Invoking file:read with positional array args [path] as expected\n   by MountainIPCInvoke\n2. Adding UnwrapReadResult() to unwrap { buffer: number[] } into\n   Uint8Array for binary-safe Response bodies\n3. Updating content type to Uint8Array | string | Blob | null\n\nAll three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler,\nFileHandler) now use the binary-safe pattern.",
+			"SHA": "2f14553fa6611e381918643364ca6e0c65155a9c"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-22T23:44:07Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "fix(Output): Add IPC stubs for extension tips, MCP, sync, and language detection\n\nAdd missing stub handlers to TauriMainProcessService to prevent renderer crashes when VS Code code calls these services without Mountain handlers:\n\n- IExtensionTipsService: exeBasedRecommendations.ts calls .forEach() on the result, requiring array stubs (empty = no recommendations)\n- IMcpManagementService / IMcpWorkbenchManagement: mcpManagementIpc.ts calls .map() on server arrays, requiring array stubs\n- IUserDataSyncService: userDataSyncServiceIpc.ts destructures a [status, conflicts, lastSyncTime] tuple, requiring tuple stub\n- ILanguageDetectionService: iterates fileExtensions.extensions, requiring object stub with nested empty extensions array\n\nThese stubs return safe empty values that VS Code's workbench code can gracefully handle, preventing TypeError crashes in the renderer.",
 			"SHA": "1452db402083b54d42dd76a6ab8ea6a45111f087"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T19:42:06Z",
-			"File": [
-				"⣿⣿⠇⠀⠀",
-				212,
-				100
-			],
-			"Message": "",
-			"SHA": "28c2f0b65dd0165f695a314b9bd6d1dd76dce039"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:45:48Z",
-			"File": [
-				"⣿⣿⣿⣿⣿",
-				95,
-				101
-			],
-			"Message": "build(Output): Remove compiled JavaScript configuration artifacts\n\nDelete all compiled .js and .js.map files from the Configuration directory. These represent the transpiled output of TypeScript build configuration sources that have been moved to or consolidated under a different source location.\n\nThe removed files include ESBuild configurations (CodeEditorLand, Microsoft/VSCode, Exclude modules), plugin modules (Apply, Copy, Transform, Type), polyfills (ChildProcess, FileProtocol, FileSystem, IPCRenderer, NativeModule, Process, SharedProcess), services (DevLog, TauriMainProcess, Trace), and tsconfig JSON files.\n\nThis cleanup eliminates redundant build artifacts from the Output element, leaving only the TypeScript source files for the configuration system.",
-			"SHA": "461fcef32466f6afee5de65bf15049c0971506ec"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:19:24Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				213,
-				37
-			],
-			"Message": "docs(Output): Document CopyNodeModules-StripDanglingSourceMap pairing rationale\n\nAdd rationale to Plugin/Index.ts explaining why the node_modules copy\nand sourcemap strip are expressed as separate plugins with role-scoped\nmatching rather than using the CopyPlugin.AfterCopy hook.\n\nStripDanglingSourceMap's Match is scoped to Role === \"app\" and\nCopyNodeModules writes into the app root, so the transform pass\nnaturally covers every file the copy emits. Leaving AfterCopy unused\nkeeps it available for future siblings (e.g., a copy that produces\nfiles outside the app root and still needs strip).\n\nThis clarifies the architectural decision made in the previous\nextraction commit.",
-			"SHA": "fbdf5352b1da3752cc680b5e44fe11c9d3b4a7f2"
 		}
 	],
-	"TimeStamp": 1778164510881
+	"TimeStamp": 1778254819160
 }

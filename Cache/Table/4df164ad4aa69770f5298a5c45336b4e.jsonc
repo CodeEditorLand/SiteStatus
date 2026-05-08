@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:16:30Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				5214,
+				1
+			],
+			"Message": "feat(Project): Add regex and multiline search to TextSearchQuery\n\nSync Mountain and Cocoon submodules with new search capabilities:\n- Mountain: Add `isRegExp` and `isMultiline` fields mirroring VS Code's ITextSearchQuery\n- Escape plain-text search patterns via regex::escape() to prevent crashes on metacharacters like `.`, `(`, `[`, `*`, `?`\n- Add .multi_line() support for multiline regex searches\n- Fixes Search view plain-text mode broken for queries containing `obj.method(` or `file[1].txt`\n- Cocoon: Update to d4763554\n\nImpact: Plain-text search now works correctly for queries containing regex metacharacters without crashing the regex compiler.",
+			"SHA": "955a8545bf99cedb0b1db11ad25ed773a5c4d2b3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:05:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				5214,
+				1
+			],
+			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to properly-implemented trait methods on MountainEnvironment:\n- handle_search_find_in_files → SearchProvider::TextSearch (grep-searcher + ignore::WalkBuilder with parallel walking)\n- handle_search_find_files → WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive starts_with('.') hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus format!(\"file://{}\") URI constructor, and single-threaded walkers. The trait implementations were reachable only through Environment.Require<dyn SearchProvider>() calls and no IPC handler ever issued those.\n\nAlso change FileReaddirNative.rs log level from vfs-verbose to vfs since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.\n\nImpact: File search and find-files now use proper ignore rules, parallel walking, and regex support instead of naive single-threaded implementations.",
+			"SHA": "ab81979739d237da5c6179b32dcdf7437a7a83ae"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-24T22:56:21Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Project): Bridge VS Code binary IPC to Mountain backend\n\nCross-cutting submodule sync enabling real file explorer, search, settings, and storage persistence:\n\n1. Mountain: Add VS Code IPC command aliases in WindServiceHandlers to bridge binary IPC protocol to native Effect-TS layer. Configuration: `configuration:getValue`/`updateValue` → `configuration:get`/`update`. File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`. Add stub handlers for `file:watch`/`file:unwatch` and `configuration:onDidChange` returning Null to prevent promise leaks.\n\n2. Output: Route VS Code binary IPC channels (25+ including localFilesystem, storage, configuration, search, terminal) to Mountain via MountainIPCInvoke instead of returning stub responses. Previously these channels returned FileNotFound, empty arrays, and empty objects.\n\n3. Cocoon: Enhance stderr filtering to suppress follow-up stack frames from extension errors.\n\nImpact: File explorer, search results, settings editor, and workspace storage now persist data to the real filesystem and backend instead of operating on in-memory stubs.",
 			"SHA": "846bf6296b9f994c5d60c3f5e1bced701332f8fb"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:25:57Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				5214,
-				2
-			],
-			"Message": "feat(Project): Implement workspaceContains activation and improve route manifest script\n\nElement submodule sync bringing two complementary improvements:\n\n1. **Extension Activation (Mountain/Cocoon)**: Implement VS Code-style workspaceContains and onStartupFinished activation. Mountain now fires three activation bursts: `*`, `workspaceContains:<pattern>` (glob matching against workspace folders, depth 3, 4096 entries max), and `onStartupFinished` (2s delay). Add FindMatchingWorkspaceContainsPatterns for glob matching. Filter benign stderr noise (macOS codesign, Node.js deprecation warnings) to cocoon-stderr-verbose channel. Upgrade Rust edition from 2021 to 2024.\n\n2. **Route Manifest Script (Maintain)**: Reformat pipe chains in GenerateRouteManifest.sh to use `|` at line ends consistently instead of trailing backslashes. Fix variable redirections to remove spaces after `<` (e.g., `< \"$file\"` → <\"$file\").\n\nImpact: Extensions gated on workspaceContains:package.json and workspaceContains:**/now activate correctly. Default stderr is cleaner while preserving error visibility. Route manifest generation script follows consistent shell style.",
-			"SHA": "1353aed19c582c4cb1a6ff9ac69462e69032705b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:52:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				5214,
-				1
-			],
-			"Message": "refactor(Project): Continue logging noise reduction across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
-			"SHA": "1271d7fded155a605359db1131df59c7eaf6be5f"
 		}
 	],
-	"TimeStamp": 1778164509701
+	"TimeStamp": 1778254818058
 }

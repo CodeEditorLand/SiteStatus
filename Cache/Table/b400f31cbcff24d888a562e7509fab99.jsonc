@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:57:08Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				218,
+				3
+			],
+			"Message": "feat(Output): Add DevLogForward to mirror IPC channel traffic to Mountain\n\nAdd a _DevLogForward helper function to TauriMainProcessService that mirrors IPC channel routing decisions into Mountain's dev-log file sink. This enables developers to trace TS-originated IPC traffic alongside Rust dev_log! output using LAND_DEV_LOG=channel-stub tail -f Mountain.dev.log.\n\nThe helper is invoked in three code paths: fire-and-forget channels (logger, output), stub hits (channel has a handler), and misses (no route, no stub). Each invocation logs the channel name, command, route prefix, and hit/miss status.\n\nThis is a fire-and-forget mechanism that never awaits or throws, matching the existing _Trace helper. It's a mirror of the helper already present in Wind's TauriMainProcessService.",
+			"SHA": "618100a9bddfce70247a0abee72adcbc42a5e133"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:33:12Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				218,
+				3
+			],
+			"Message": "fix(Output): Add missing diagnostics stub methods\n\nAdd `getWorkspaceFileExtensions` and fix `reportWorkspaceStats` stub shapes in TauriMainProcessService diagnostics channel.\n\nThe `languageDetectionWorker ServiceImpl.resolveWorkspaceLanguageIds` iterates `fileExtensions.extensions` directly and throws without this stub, causing renderer crashes when language detection runs. Also fixes `reportWorkspaceStats` from `undefined` to a proper object shape with configFiles, fileTypes, and launchConfigFiles arrays.\n\nThis ensures the diagnostics IPC channel returns valid shapes that VS Code's services expect.",
+			"SHA": "8131d76472e855192ba38169571d6c956eddc6b4"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-23T03:23:58Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				218,
+				1
+			],
+			"Message": "",
+			"SHA": "1000c0465fcaa11d972f4f9fc0af24698d9cc6e4"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T01:45:59Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, not the flat structure the scanner was expecting. This caused all extensions to appear as 'unknown' with empty names/publishers.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility with older backend envelopes. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures @builtin/@installed extension split works correctly in the sidebar.",
 			"SHA": "b95789339ceca34e67c990698cbbae249e435711"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:19:28Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				215,
-				3
-			],
-			"Message": "feat(Output): Separate system and user extension scanning in IPC shim\n\nThe ExtensionScannerIPC transform plugin now distinguishes between system and user extensions by calling the appropriate Mountain IPC methods:\n- `extensions:scanSystemExtensions` for built-in extensions (ForceBuiltin=true)\n- `extensions:scanUserExtensions` for user-installed extensions (ForceBuiltin=false)\n\nPreviously the scanner hardcoded `type: 0` and `isBuiltin: true` for all extensions, causing all extensions to appear under @builtin in the sidebar. Now it honours Mountain's ILocalExtension envelope values (type, isBuiltin, source) with ForceBuiltin as fallback for older envelopes.\n\nAlso implements the previously stubbed `scanUserExtensions()` method which was returning an empty array, and makes `scanAllUserExtensions()` delegate to it.",
-			"SHA": "a7b92b8faec7cf334dc5f572fd889561f4703166"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:28:30Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				215,
-				6
-			],
-			"Message": "fix(Output): Fix regex for minified code and correct userDataSync channel name\n\nTwo fixes for the Output build pipeline:\n\n1. CatchOutputFolderRejection regex now matches both `() => undefined` and `() => void 0` (the minified form esbuild produces). The appended catch handler also uses `void 0` for consistency with minified output.\n\n2. TauriMainProcessService channel stub keys corrected: `userDataSyncService` → `userDataSync` and `userDataSync` → `userDataSyncAccount`. VS Code registers the channel as `userDataSync` (not `userDataSyncService`), so the stub was unreachable causing sync to fail silently.\n\nRefs: The channel name discovery was confirmed by grepping the VS Code source at `workbench/services/userDataSync/electron-browser/userDataSyncService.ts:13`.",
-			"SHA": "bf9bfcd67bfb89f90fac75177e7465d81f209b0e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:02:00Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				215,
-				3
-			],
-			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object\nargs ({ path, encoding: \"utf8\" }) and the response was assumed to be\na string. Mountain actually returns raw bytes as { buffer: number[] } and\nignores the encoding param entirely.\n\nWhen VS Code loaded binary files (WASM, fonts, images), the response\nbody became \"[object Object]\" which corrupted the data. This broke\nTextMate syntax highlighting with:\n  \"WebAssembly.Module doesn't parse at byte 0: module doesn't start\n   with '\\0asm'\"\n\nFix by:\n1. Invoking file:read with positional array args [path] as expected\n   by MountainIPCInvoke\n2. Adding UnwrapReadResult() to unwrap { buffer: number[] } into\n   Uint8Array for binary-safe Response bodies\n3. Updating content type to Uint8Array | string | Blob | null\n\nAll three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler,\nFileHandler) now use the binary-safe pattern.",
-			"SHA": "2f14553fa6611e381918643364ca6e0c65155a9c"
 		}
 	],
-	"TimeStamp": 1778164510580
+	"TimeStamp": 1778254818762
 }

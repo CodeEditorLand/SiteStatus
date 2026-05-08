@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T02:20:26Z",
+			"File": [
+				"⣿⠀⠀⠀⠀",
+				341,
+				64
+			],
+			"Message": "refactor(Output): Extract polyfill bodies to type-checked modules, add service stub transforms\n\nMove the inline polyfill IIFE bodies from Transform/*.ts to new Polyfill/*.ts\nmodules. Each polyfill is now a real TypeScript function that gets compiled\nand recovered via `.toString()` at transform time. This enables compile-time\ntype-checking, tree-shaking, and earlier bug detection - previously typos\nonly surfaced at runtime.\n\nKey changes:\n- Extract 6 polyfills to Source/Plugin/Polyfill/: DisableLazyPaint,\n  EagerExtensionActivation, EagerIdleValue, EagerLifecyclePhase,\n  StripBackgroundPolling, TelemetryConsentOff (moved from Transform),\n  WorkbenchInteractivityCSS (moved from Transform), WorkbenchPaintPrime\n  (moved from Transform)\n- Add 4 new Inject* transforms that import from Polyfill/ and use\n  `.toString()` to recover the prepend body\n- Add 3 new Replace* transforms: ReplaceTelemetryService,\n  ReplaceUpdateService, ReplaceExtensionGalleryService replace VS Code\n  service bodies with no-op stubs so static imports resolve while runtime\n  behavior is neutralized\n- Comment out the ESBuild Exclude/{Telemetry,Network,ChromiumIPC}.js lists:\n  the bundled-Vite walk follows static imports inside workbench.*.main.js;\n  excluding the files breaks the build. Body-rewrite via Replace* transforms\n  achieves the same effect while keeping imports intact.\n- Update prepublishOnly.sh to always use `out/` (unminified) for Microsoft/VSCode\n  instead of `out-build/` (gulp release). This ensures Output's transforms\n  operate on readable identifiers; Vite/Rollup re-mangles for bundled profiles.\n\nNew boot-time behavior:\n- InjectStripBackgroundPolling: stack-trace deny-match strips setInterval\n  timers from telemetry/update/sync services\n- InjectEagerLifecyclePhase: advances ILifecycleService.phase from Starting\n  to Eventually immediately, unblocking extension activations\n- InjectEagerExtensionActivation: fires activateByEvent onStartupFinished/*\n  at workbench-loaded so extension panels populate instantly\n- InjectEagerIdleValue: collapses requestIdleCallback to setTimeout(0) so\n  IdleValue<T> lazy-init resolves eagerly\n- ReplaceTelemetryService: body-rewrite to NullTelemetryService (no-op)\n- ReplaceUpdateService: body-rewrite to NullUpdateService (State.Idle forever)\n- ReplaceExtensionGalleryService: body-rewrite to offline stub (empty queries)",
+			"SHA": "c97cc8b17b24fa5a0afa9aac46d948340a371b32"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T01:23:46Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				294,
+				28
+			],
+			"Message": "feat(Output): Add Network/ChromiumIPC excludes, WKWebView lazy-paint fixes\n\nAdd three ESBuild exclude lists to strip dead code from the bundle:\n- Network.ts excludes external endpoints (update service, marketplace,\n  telemetry appenders, Live Share, experiments, surveys)\n- ChromiumIPC.ts excludes Electron IPC/MessagePort/sandbox modules that\n  never run in our non-Electron environment\n- Telemetry.ts was already present but commented out; now enabled\n\nAdd four new workbench transforms to fix WKWebView rendering issues:\n- InjectDisableLazyPaint: Replace requestAnimationFrame with coalesced\n  setTimeout(0) queue, stub IntersectionObserver to fire-on-observe,\n  strip content-visibility/contain:paint from CSS\n- InjectWorkbenchInteractivityCSS: Force pointer-events:auto, visibility,\n  opacity on workbench parts, zero transition durations\n- InjectWorkbenchPaintPrime: Force compositor layout commit via\n  offsetHeight reads on each workbench part\n- InjectTelemetryConsentOff: Pre-bake telemetry.telemetryLevel=off into\n  workbench bootstrap so even straggler consumers take disabled branches\n\nAlso fix InjectEditorGPULayerCSS and InjectTerminalGPULayerCSS: scope\ncontain:paint to canvas only, not row containers (view-lines, xterm-viewport)\nto prevent glyph clipping from paint boundaries in WKWebView. Adds\nimage-rendering hints for nearest-neighbor rasterization.\n\nBundle size impact: ~25 KB net reduction from Network/ChromiumIPC excludes.\nRuntime impact: Zero network pings, panels render immediately on show.",
+			"SHA": "13d8a561c773f0b047f323594af80a5b06565258"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T22:36:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				276,
+				2
+			],
+			"Message": "fix(Output): Fix GPU layer CSS clipping glyph rows in WKWebView\n\nBoth InjectEditorGPULayerCSS and InjectTerminalGPULayerCSS transforms incorrectly applied `contain: paint` to row containers (view-lines, lines-content, xterm-viewport, xterm-screen). Under macOS WKWebView, this creates a paint boundary at the layer edge; combined with `translateZ(0)` and subpixel row offsets, glyph pixels near the boundary get clipped — users see characters sliced in half.\n\nThe fix scopes GPU promotion (will-change, translateZ(0), backface-visibility) to host elements and canvas only, while restricting `contain: paint` to self-contained pixel grids (canvas elements) that don't have descendant content crossing the boundary. Also adds image-rendering hints (pixelated, crisp-edges) to force nearest-neighbor rasterization so subpixel row edges don't blend across the layer boundary.\n\nThis resolves the reported rendering glitches where editor and terminal text appeared sliced or half-clipped.",
+			"SHA": "24f95fc8e387142666faa67ed464a52020940817"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-29T22:17:52Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "fix(Output): Correct ViewContainersRegistry registry ID in ViewRegistrySnapshot\n\nThe ViewRegistrySnapshot diagnostic function was reporting containers=0\nbecause it used a guessed registry ID 'workbench.view.containersRegistry'\nwhich returned null from Registry.as(). The correct stock VS Code registry\nID (documented in vs/workbench/common/views.ts:35) is\n'workbench.registry.view.containers'. This fixes SkyBridge's diagnostic\nprobe so it now correctly reports the actual container and view counts\nfor extension manifests (Roo, Claude, gitlens, ...) reaching the workbench.",
 			"SHA": "1f47ba960742d3e508694b6d695fb5174466af89"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T18:37:59Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				270,
-				1
-			],
-			"Message": "",
-			"SHA": "8990969b75a5f51a932dca0721304cf14a075ac9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T18:37:58Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				270,
-				5
-			],
-			"Message": "refactor(Output): Disable PatchTerminalGpuAcceleration, add ViewRegistrySnapshot\n\nTwo changes to the Output build pipeline:\n\n1. Remove PatchTerminalGpuAcceleration from BuildPipeline default order.\n   The transform fixed WebGL atlas font glitches (Menlo loading race) but\n   introduced a \"black shadow over text\" artifact from xterm's DOM-renderer\n   cursor/accessibility layer in WKWebView. Keeping the transform file on\n   disk for potential re-enablement after the input race fix lands.\n\n2. Add ViewRegistrySnapshot() to __CEL_SERVICES__ facade. This diagnostic\n   function queries the workbench's ViewContainersRegistry and ViewsRegistry\n   to return container/view counts + sample IDs. SkyBridge uses this to\n   verify extension manifests (Roo, Claude, gitlens) reached\n   viewsExtensionPoint's setHandler - the most common cause of silent\n   extension panel failures is contributions never flowing through\n   IExtensionService to the registry.",
-			"SHA": "325a4de7ad74ebc36c42725572c9f36d4d7b8c3f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:42:41Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				270,
-				6
-			],
-			"Message": "feat(Output): Add PatchTerminalGpuAcceleration transform for WKWebView terminal\n\nAdd a new transform plugin that patches the terminal configuration schema to default `terminal.integrated.gpuAcceleration` to `'off'` instead of stock VS Code's `'auto'`. Under WKWebView, xterm.js's WebGL renderer builds its texture atlas before the Menlo font resolves, causing wrong cell widths and rendering glitches (overlapping characters, double-width glyph gaps, halos around anti-aliased edges due to texImage2D premultiplication differences).\n\nThe transform is currently NOT wired into the BuildPipeline by default. It was disabled after enabling revealed a \"black shadow over text\" artifact from xterm's DOM-renderer cursor/accessibility layer in WKWebView. The transform exists on disk so it can be re-enabled if the original WebGL atlas font drift issue resurfaces after the deferred-create race fix lands.\n\nUsers can still opt into WebGL by setting `terminal.integrated.gpuAcceleration: \"on\"` in settings.json — the schema enum is unchanged.",
-			"SHA": "8d7a19d0e4241a66065c7e53257283843fae4c27"
 		}
 	],
-	"TimeStamp": 1778164505950
+	"TimeStamp": 1778254814070
 }

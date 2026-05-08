@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-27T21:26:58Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				233,
+				6
+			],
+			"Message": "feat(Output): Add PatchLocalTerminalBackend transform + expose IWebviewViewService\n\nAdd the PatchLocalTerminalBackend transform plugin to the build pipeline, which patches LocalTerminalBackend._connectToDirectProxy to bypass Electron's acquirePort('vscode:createPtyHostMessageChannel') that never resolves under Tauri/WKWebView. The patch routes all pty operations through the existing _localPtyService channel proxy (mainProcessService.getChannel('localPty') → Mountain's localPty:* handlers), forwarding process events into pty instances.\n\nAlso expand ExposeWorkbenchAccessor to expose IWebviewViewService on globalThis.__CEL_SERVICES__.WebviewViews, enabling SkyBridge's sky://webview/registerView listener to register resolvers for extension sidebar/panel webviews. When the user reveals an extension panel, the workbench invokes the resolver, which fires reverse-RPC into Cocoon to invoke the extension's resolveWebviewView callback.\n\nWithout these patches, terminal createProcess/attachToProcess calls hang forever (no PTY spawns) and extension webview panels fail to render.",
+			"SHA": "e78dcecd6741fbbb33b45d431e7ac46a542e9527"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-27T20:52:55Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				231,
+				3
+			],
+			"Message": "feat(Output): Add terminal PTY patch + expose WebviewViewService\n\nAdd PatchLocalTerminalBackend transform to fix terminal creation under\nTauri. The upstream uses `acquirePort('vscode:createPtyHostMessageChannel')`\nwhich never resolves without Electron's utility-process MessagePort. The\npatch replaces `_connectToDirectProxy()` to route through the existing\n_localPtyService channel proxy (mainProcessService.getChannel('localPty')\n→ Mountain's localPty:* handlers), forwarding all process events from the\nservice into pty instances. Without this, every createTerminal/attachToProcess\ncall hangs forever and the terminal panel sits empty.\n\nAlso expand ExposeWorkbenchAccessor to export IWebviewViewService for\nSkyBridge's `sky://webview/registerView` listener, enabling the workbench\nto resolve extension sidebar/panel webviews through the extension host.",
+			"SHA": "dda0ddb6e62a1d8731e0e1449d2d7c4b08d4c1c4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-27T20:18:22Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				230,
+				2
+			],
+			"Message": "fix(Output): Add DI decorator metadata to ReplaceSearchService transform\n\nThe ReplaceSearchService transform was missing the TypeScript-compiled decorator helpers (__decorate, __param) that VS Code's DI container requires to resolve constructor parameters by their @IService decorator types. Without these, IInstantiationService bound parameters positionally with no type knowledge, causing all dependencies to arrive as undefined and crashing on this.uriIdentityService.extUri.\n\nThis commit adds: the __decorate/__param runtime helpers mirrored from VS Code's compiled output, the IInstantiationService import, the instantiationService parameter storage, and the __decorate([__param(...)]) call that binds each constructor slot to its service token (IModelService, IEditorService, ITelemetryService, ILogService, IExtensionService, IFileService, IInstantiationService, IUriIdentityService). Also changed class export from `export class` to `let` + named export to match TypeScript's parameter-decorator emit shape.\n\nThe search panel now properly delegates to Mountain's search:findFiles/search:findInFiles handlers via Tauri IPC.",
+			"SHA": "46eceea1004c74e6073d68561b04e3ee7694ef49"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-27T19:53:53Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "",
 			"SHA": "b15b23fcc0bb6abe76c9a5368f90a6c924b6c1f0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:05:00Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				227,
-				5
-			],
-			"Message": "feat(Output): Add InstrumentVscodeGit transform plugin\n\nAdd the InstrumentVscodeGit transform to the build pipeline, which\ninjects `process.stdout.write('[GIT-MARK-X] ...')` diagnostic markers\ninto the bundled vscode.git extension's main.js and model.js at\nstrategic activation-pipeline points.\n\nThe markers bypass Cocoon's outputChannel routing (which is muted in\nLAND_DEV_LOG=short) to provide unambiguous progress signals during\nthe F6 diagnostic workflow. Each marker has a distinct prefix that can\nbe grepped to identify exactly where vscode.git's activation silently\nbails out, leaving the SCM viewlet empty despite the extension\nactivating within 2814-4173ms.\n\nThe transform is self-idempotent — it skips injection if the marker\nis already present, allowing safe re-runs of the build pipeline.",
-			"SHA": "d70e115fe483bffb3f7391d3692c590b5e525ad6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:04:45Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				225,
-				5
-			],
-			"Message": "feat(Output): Expand workbench service exports + add git instrumentation\n\nExpand the ExposeWorkbenchAccessor transform to export additional\nservices and classes needed by SkyBridge's in-process providers:\n\n- SCM, Debug, CustomEditor service decorators - allow SkyBridge to\n  register providers that mirror Cocoon's extension-host registrations\n  (sky://scm/*, sky://debug/*, sky://customEditor/* events)\n- Emitter, Disposable, toDisposable - required for SCM provider shim's\n  event interface (ISCMService expects onDidChange* events matching\n  vs/base/common/event.js::Emitter's shape)\n- IModelService + ILanguageService - needed to construct real ITextModel\n  for the SCM inputBox (MainThreadSCMProvider rejects null inputBox)\n- ResourceTree + IUriIdentityService - for grouped SCM repository rendering\n\nAlso add InstrumentVscodeGit, a new diagnostic transform that injects\nprocess.stdout.write('[GIT-MARK-X] ...') markers into the bundled\nvscode.git extension's main.js and model.js. This bypasses Cocoon's\noutputChannel routing (muted in LAND_DEV_LOG=short) to diagnose why\nthe SCM viewlet stays empty despite vscode.git activating within\n2814-4173ms. The last visible marker identifies the exact bail point.",
-			"SHA": "a349f4ae1e12e98b33334504832d802cdbf6d3b4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:50:00Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				224,
-				2
-			],
-			"Message": "feat(Output): Add URI import to ExposeWorkbenchAccessor transform\n\nComplete the workbench accessor patch by statically importing the `URI` class alongside the existing service decorators. The previous commit exposed the URI via the `__CEL_SERVICES__` object, but the import statement was missing from the transform's header injection.\n\nThis fix ensures the transform plugin injects the necessary import for `URI` when patching `web.main.js` and `desktop.main.js`, allowing SkyBridge's search provider to construct resource objects the workbench accepts directly without a `URI.revive` round-trip.",
-			"SHA": "3db8e24cd143fa7887d7395c6a0a2fbf53ac02f4"
 		}
 	],
-	"TimeStamp": 1778164507657
+	"TimeStamp": 1778254815726
 }

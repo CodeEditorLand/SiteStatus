@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T22:18:03Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				100,
+				1
+			],
+			"Message": "fix(Mountain): Add shutdown guard and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings.\n\nExtend static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader resolves asset URLs relative to the current document, which strips the leading slash before reaching the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.\n\nThis prevents spurious shutdown warnings, fixes TextMate grammar loading, and reduces log noise.",
+			"SHA": "bd38c344b6e75841edd53fa141b61eb9cb6a257b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T20:26:48Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				100,
+				1
+			],
+			"Message": "build(Project): Coordinate Element submodule updates across 2 components\n\nSynchronize Mountain and Sky submodules with the following changes:\n- **Mountain:** Simplify binary naming from verbose development profile identifier to just 'Mountain'. Update Tauri identifier to 'land.editor.binary'. Remove externalBin reference to Binary/node since Node.js sidecar is now handled differently. Add vscode-file and vscode-file://vscode-app to img-src Content Security Policy for VS Code file protocol support. Delete temporary backup files (Cargo.toml.Backup, tauri.conf.json.Backup).\n- **Sky:** Add exception signature throttling to PostHog bridge — exceptions share the `$exception` event-name slot in posthog-js, so a burst of CSP refusals/console.error/unhandledrejection callbacks during workbench boot would blow through the 10/10s rate limit. Add a secondary throttle layer keyed by the first 200 chars of the error message. Both regular and exception drop counts are now reported in the `land:sky:throttle-dropped` event for visibility.\n\nThis coordinated update delivers build configuration simplification and PostHog rate limit protection while maintaining identical runtime behavior.",
+			"SHA": "ddf6e4aed3c5d003a92613262637479678a4a5f7"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-22T19:45:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "refactor(Mountain): Centralize UriComponents construction with $mid marker\n\nAdd a shared UriComponents helper module ensuring every URI payload sent to the VS Code renderer carries the required `$mid: 1` marshalling marker. Without it, VS Code's IPC reviver leaves URIs as plain objects where `.fsPath` and `.with` are undefined, causing the sidebar and icon loader to silently fail.\n\nIntroduce FromFilePath, FromUrl, StampMidUri, and Normalize helpers that are now used consistently in handle_extensions_install (Extension.rs), handle_file_realpath (WindServiceHandler and WindServiceHandlers FileSystem.rs), and any other IPC handlers returning URI-shaped payloads. This prevents regression of the earlier extension location URI fix — inline json! builders elsewhere risked the same silent break in the renderer's URI revival chain.",
 			"SHA": "954067a89bea76bac0cdeadc44dc0f80237a635a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:24:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				100,
-				1
-			],
-			"Message": "build(Project): Coordinate Element submodule updates across 4 components\n\nSynchronize Mountain, Output, Sky, and Wind submodules with the following changes:\n- Mountain: Fix extension location URI marshalling for VS Code renderer — VS Code's URI revival ignores objects without `$mid === 1` marker. Add Normalize_Location_To_UriComponents, Stamp_Mid_Uri, and Parse_File_Url_To_UriComponents functions. Extend BuildInitialUrl to recognize Mountain's `{uri:\"file://…\"}` format alongside VS Code's historical folderUri/workspace.configPath for backward compatibility.\n- Output: Document CopyNodeModules-StripDanglingSourceMap pairing rationale explaining why they're expressed as separate plugins with role-scoped matching.\n- Sky: Delegate build pipeline to Output plugins (Steps 1-7, 10-12, 14) via reusable plugin system. Move phase advancement from Astro script block into workbench.js to prevent chunk hoisting from delaying phases past Mountain's fallback timers. Remove ext-registry-probe as it's noisy. Gate missing browser bundle warnings behind LAND_WARN_MISSING_BROWSER_BUNDLES env var.\n- Wind: Complete polyfill re-export migration — Target/Polyfills/* files are now minimal re-export proxies delegating to @codeeditorland/output/Polyfill/* implementations.\n\nThis coordinated update delivers extension sidebar location resolution, build pipeline modularity, and polyfill consolidation while maintaining identical runtime behavior.",
-			"SHA": "9cb4ed02baa8e78b5d031e934c3cc00804e0c569"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:26:22Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				100,
-				1
-			],
-			"Message": "refactor(Project): Consolidate polyfill implementations into Output module\n\nSynchronize Element submodule to dccf43ce bringing a coordinated architectural refactor:\n- Output: Add Plugin module with CopyVSOutput, CopyVSRootFiles, SupplementFromDependency, CopyWorker, CopyNodeModules, StubUnpublishedAddons, CopyTauriMainProcessService copy plugins and StripCSSImport, InjectNameShim, ReplaceElectronIPCService, ReplaceSharedProcess, StaticToDynamicImport, ExtensionScannerIPC transform plugins\n- Sky: Update polyfill imports from @codeeditorland/wind/Target/Polyfills/* to @codeeditorland/output/Polyfill/*\n- Wind: Replace polyfill implementations with thin re-exports pointing to Output (ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill, IPCRendererShim, NativeModulePolyfill, ProcessPolyfill, SharedProcessProxy)\n\nThis eliminates duplicate code across the monorepo — polyfill fixes now only need to be made in Output to propagate to all consumers (Sky, Wind, Cocoon, and any future desktop shells).",
-			"SHA": "9c28721e0d99588f2ee04793ce61415d61ab2e07"
 		}
 	],
-	"TimeStamp": 1778164512280
+	"TimeStamp": 1778254820722
 }
