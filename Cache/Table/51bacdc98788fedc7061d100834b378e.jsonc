@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T01:46:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				2
+			],
+			"Message": "fix(Mountain): Treat view registry commands as no-ops and preserve VSIX executable bits\n\nTwo unrelated bug fixes bundled for convenience:\n\n1. **View registry commands** (`CommandProvider.rs`): VS Code auto-generates `<viewId>.focus`, `<viewId>.resetViewLocation`, and `<viewId>.removeView` commands when views are registered. Land's webview.registerView bypasses that registry and emits Tauri events directly, so these commands never get inserted. Extensions like GitLens call these commands on user gesture; the Cocoon try/catch swallows the error, but the red `error:` log noise is misleading. Treat these well-known suffixes as silent no-ops that return `null`.\n\n2. **VSIX executable preservation** (`VsixInstaller.rs`): Extensions shipping platform-native binaries (openai.chatgpt's `codex`, language-server launchers) rely on the `0o755` mode stored in the VSIX zip. Without this change, extracted files get the default `0o644` mode, causing `spawn()` inside extensions to fail with `EACCES`. Use `PermissionsExt::unix_mode()` to preserve the executable bit on Unix systems.\n\nImpact: GitLens no longer spams error logs, and extensions with native binaries activate correctly.",
+			"SHA": "87eeff42e66bdbfd73e3c8463268004b3b67aa68"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T01:20:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				1
+			],
+			"Message": "fix(Mountain): Strip file:// scheme from paths in FileSystem effect handlers\n\nCocoon sends full URIs like `file:///Users/nikola/.land/extensions/...` through FileSystem.ReadFile/WriteFile/ReadDirectory RPC calls. Creating a PathBuf from such strings treats the scheme literally, causing every file operation to 404.\n\nAdd `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes before constructing PathBuf. Apply to all 8 FileSystem operations: ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, and Copy.\n\nThis fixes the redhat.java extension activation failure (and any other extension that reads its own package.json via the gRPC fs.readFile path) with \"Resource not found: file:///...\".",
+			"SHA": "16b040316eaf284a4d8530a59dee5b4516699c9e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T00:28:39Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				3
+			],
+			"Message": "fix(Mountain): Return Cocoon PID for debug adapter and register walkthrough commands\n\nTwo related changes to improve extension host integration:\n\n1. **Cocoon PID for debug adapters** (`WindServiceHandlers/mod.rs`, `CocoonManagement.rs`): The `extensionHostStarter:start` IPC handler was incorrectly returning Mountain's own PID. The renderer uses this PID to correlate extension-host-side debug adapters with the actual Node.js process. Now we return the Cocoon child process PID via a new `GetCocoonPid()` function that reads from an atomic static, avoiding the need to take the async `COCOON_STATE` mutex.\n\n2. **Walkthrough command no-ops** (`Bootstrap.rs`): The `claude-code` extension invokes `workbench.action.openWalkthrough` and `claude-vscode.openWalkthrough` at activation. Land has no walkthrough/welcome UI yet. Register both commands as native no-ops that return `null` to prevent \"command not found\" errors during extension activation.\n\nImpact: Debug adapters now attach to the correct Node.js process (Cocoon), and the claude-code extension activates without errors.",
+			"SHA": "66283f9f83e5fc58ea01a4849fc350dec962e327"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T00:04:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "docs(Mountain): expand CHANGELOG with April 16 entries",
 			"SHA": "192142ecc1c9ea07a13a62e818d51de3895feebb"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:33:36Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				1
-			],
-			"Message": "docs(Mountain): Expand v2.1 changelog with April 17–22 commits",
-			"SHA": "20b00590a313b3e80ebed5d20934344012e107de"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:24:49Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				1
-			],
-			"Message": "fix(Mountain): Distinguish user vs built-in extension paths during scan\n\nAdd `IsUserExtensionScanPath()` helper to detect whether a scan directory represents the user-writable `~/.land/extensions` root (or `LAND_USER_EXTENSION_DIRECTORY` override) versus bundled paths like `Resources/extensions` and VS Code's submodule.\n\nPreviously every extension was marked `IsBuiltin = true` regardless of source, causing user-installed VSIXes to appear under \"Built-in\" in the Extensions sidebar and leaving `@installed` (which filters for User-scope) empty. Now the scanner checks the canonical scan path upfront and sets `Description.IsBuiltin = !IsUserPath` accordingly.\n\nThis complements the sidebar handler fix in the previous commit by ensuring the underlying scan data is correctly classified at the source.",
-			"SHA": "5eb660dd59f7081898bfa210a94a3c5d39252f8a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T22:54:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				3
-			],
-			"Message": "fix(Mountain): Implement extension type filtering and post-install activation\n\nThree related fixes address the \"install succeeded but nothing happened\" symptom:\n\n1. **Extension type filtering** (`Extensions.rs`): VS Code's `getInstalled(type?)` IPC passes an optional `ExtensionType` filter (0=System, 1=User). Previously this filter was silently dropped and every call returned the full list as `type: 0, isBuiltin: true`. Now the handler respects the filter and properly distinguishes VSIX-installed extensions from built-ins based on the scanner's `isBuiltin` field.\n\n2. **Post-install activation burst** (`Extension.rs`): After `$deltaExtensions` adds an extension to Cocoon's registry, we now fire `onStartupFinished` activation events. Without this burst, extensions with `onStartupFinished` (like `Anthropic.claude-code`) register but never activate - their sidebar contributions and commands silently no-op until the next full workbench restart.\n\n3. **Sidebar scan handlers** (`mod.rs`): Forward `extensions:scanSystemExtensions` → `getInstalled(type=0)` and `extensions:scanUserExtensions` → `getInstalled(type=1)`. The VS Code channel client doesn't always pass explicit type filters, so the override ensures User extensions appear under \"Installed\" with an Uninstall action.\n\nImpact: VSIX extensions now show under \"Installed\" with Uninstall, activate immediately after install without reload, and the Extensions sidebar refresh works correctly.",
-			"SHA": "48be85495f9e1cdde53da0b2027e8a0e414ab991"
 		}
 	],
-	"TimeStamp": 1778161180317
+	"TimeStamp": 1778249216379
 }

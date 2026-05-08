@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T22:39:48Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				6
+			],
+			"Message": "feat(Mountain): Implement hidden-until-ready window pattern\n\nEliminate the visual flash on startup by creating the main window with\n.visible(false) and revealing it only when Sky reports phase 3 (Restored).\nThe previous approach allowed Tauri's default immediate visibility, causing\na four-repaint cascade: native chrome → #1e1e1e inline background → VS Code\ntheme CSS → workbench DOM, observed as \"purple/dark flash\" and panel-pop\nflicker over ~200ms.\n\nChanges:\n- WindowBuild.rs: Add .visible(false) to WebviewWindowBuilder chain\n- AppLifecycle.rs: Add 3s safety timer to force-reveal if Sky crashes\n  before phase 3 (matches observed cold-boot p95 timing)\n- WindServiceHandlers/mod.rs: Show window on phase 3 + set_focus()\n- CommandProvider.rs: Handle missing workbench commands as silent no-ops\n  (getTelemetrySenderObject, testing.clearTestResults)\n- DevLog.rs: Document Batch 4 fs-route/cmd-route diagnostic tags\n- CocoonManagement.rs: Forward LAND_* env vars to Cocoon (fixes PostHog\n  bridge fallback)\n\nThe 3s safety timer guarantees the window appears even if Sky crashes before\nsignalling phase 3, preventing invisible-window lockup while rarely firing\non a healthy startup path.",
+			"SHA": "993a69a785aedb36bfd1501e52960eccc08ab288"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T21:18:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				6
+			],
+			"Message": "refactor(Mountain): Simplify binary names and remove PostHog API keys\n\nRevert binary and library names from the verbose development profile format back to 'Mountain' in Cargo.toml and tauri.conf.json, continuing the simplification from recent commits.\n\nAlso remove the PostHog API key from build.rs and scripts/cocoon/bootstrap-fork.js by replacing with empty strings for development safety. Clean up tauri.conf.json identifier from the long verbose format to 'land.editor.binary' and productName to 'Mountain'.\n\nDelete obsolete Cargo.toml.Backup and tauri.conf.json.Backup files. Remove duplicate externalBin entry for Binary/node in tauri.conf.json.\n\nThese changes consolidate the naming simplification and remove sensitive API keys from the repository.",
+			"SHA": "5140a38948860dee4209069e3d0110001474a9e9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T21:18:15Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				874,
+				27
+			],
+			"Message": "refactor(Mountain): Decompose Utilities module into explicit submodules\n\nSplit the monolithic Utilities.rs into 7 domain-specific modules under WindServiceHandlers/Utilities/: ApplicationRoot, ChannelPriority, JsonValueHelpers, MetadataEncoding, PathExtraction, RecentlyOpened, and UserdataDir. Update all call sites in FileSystem/Native handlers, Scheme.rs, WindowBuild.rs, and AppLifecycle.rs to use explicit module paths (e.g., `Utilities::PathExtraction::extract_path_from_arg`) instead of flat imports.\n\nThis continues the module decomposition pattern from recent commits, replacing the catch-all Utilities module with granular domain-specific handlers. The explicit reverse-hierarchical paths make dependency relationships clear at every call site, consistent with CLAUDE.md requirements.\n\nAlso reverts binary/lib names in Cargo.toml and tauri.conf.json to the verbose development profile format, matching the pre-simplification state.",
+			"SHA": "8cba79c0ae380c97ef1709c4a1c12df9e87017aa"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T20:54:21Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "refactor(Mountain): Simplify binary names and split monolithic IPC handlers\n\nRename the Cargo binary and lib from the verbose development profile name to simply 'Mountain', matching the tauri.conf.json productName simplification. Concurrently, decompose the monolithic NativeHost.rs into 10 domain-specific handler files under WindServiceHandlers/NativeHost/ (FindFreePort, GetColorScheme, IsFullscreen, IsMaximized, OpenExternal, OSProperties, OSStatistics, PickFolder, ShowItemInFolder, ShowOpenDialog).\n\nAlso introduce a new FileSystem module split into Managed (trait-based) and Native (tokio::fs) tiers, each with their own atom handlers. Update mod.rs to replace the NativeHost glob import with explicit submodule paths, consistent with the reverse-hierarchical path pattern enforced in recent commits.",
 			"SHA": "fb4a24fd951420127e59e433b3a268432fbcf6da"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:11:54Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				829,
-				4
-			],
-			"Message": "refactor(Mountain): Complete explicit module path migration in state and IPC\n\nContinue the refactoring from commit 10feb14ec to eliminate implicit module namespace reliance by fully qualifying internal paths:\n\n- Add explicit `TextProcessing` segment in DocumentStateDTO import for `AnalyzeTextLinesAndEOL`\n- Prefix ConfigurationState, UIState, and WorkspaceState type paths with their module name (e.g., `UIState::UIState::State`)\n- Update WorkspaceDelta function signatures with full `WorkspaceState::WorkspaceState::State` paths\n- Migrate AppLifecycle call site from `WindServiceHandlers::set_static_application_root` to `WindServiceHandlers::Utilities::set_static_application_root`\n\nThis ensures all internal references use the reverse-hierarchical path pattern that makes dependency relationships explicit in every call site, consistent with the CLAUDE.md module path requirements.",
-			"SHA": "e3135b994ecc9c8cbedf24de93c125e810437122"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:05:06Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				829,
-				14
-			],
-			"Message": "refactor(Mountain): Enforce explicit module paths, eliminate pub use re-exports\n\nPer CLAUDE.md requirements, replace `pub use` glob re-exports with local `use` statements throughout Mountain's IPC and state modules. This enforces that callers spell full qualified paths like `WindServiceHandlers::Utilities::get_static_application_root()` rather than relying on flattened namespace imports.\n\nChanges:\n- Remove `pub use *` from WindServiceHandlers/mod.rs, UI/mod.rs, and ApplicationState modules\n- Convert to local `use X::*` scoped to the dispatcher file only\n- Update call sites in Scheme.rs, AppLifecycle.rs, and Search.rs to use explicit paths\n- Reorganize module declaration order in FeatureState and Internal modules\n\nThe reverse-hierarchical path is load-bearing - it tells the reader which file owns the handler. This change prevents accidental namespace pollution and makes dependency relationships explicit in every call site.\n\nAlso updates tauri.conf.json to include externalBin for node binary.",
-			"SHA": "10feb14ec590c0361e9a0038e0833bf752bf447e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:04:49Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				827,
-				11
-			],
-			"Message": "refactor(Mountain): Split monolithic UI.rs into domain-specific modules\n\nExtract the 32 handlers from the single `UI.rs` (~670 LoC) into 9 separate domain modules under `WindServiceHandlers/UI/`:\n- `Decoration.rs` - URI badge/tooltip/colour providers\n- `Keybinding.rs` - dynamic runtime keybinding registry\n- `Lifecycle.rs` - app phase get/wait/shutdown\n- `Notification.rs` - toast messages and notification-scoped progress\n- `Progress.rs` - window/status-bar progress indicators\n- `QuickInput.rs` - QuickPick and InputBox dialogs\n- `Theme.rs` - colour theme get/list/set\n- `Workspace.rs` - workspace folder lifecycle\n- `WorkingCopy.rs` - dirty-state tracking\n\nEach file contains focused handlers for one UI concern, improving discoverability with `grep pub async fn`. The `mod.rs` re-exports all handlers flat to preserve the existing dispatcher call sites.\n\nThis follows the same pattern as recent Batch 15/16 notification atom migrations, further decomposing Mountain's IPC surface for better maintainability.",
-			"SHA": "285e8d1e67f19bb8f8c520665197d620d792cb5a"
 		}
 	],
-	"TimeStamp": 1778161174916
+	"TimeStamp": 1778249215039
 }

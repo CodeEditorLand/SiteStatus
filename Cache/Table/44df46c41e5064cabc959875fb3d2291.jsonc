@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:06:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1191,
+				3
+			],
+			"Message": "feat(Common): Introduce health monitoring data models and score logic\n\nDefine the core data structures for the editor's health monitoring subsystem within `Source/IPC/Common/HealthStatus`. This commit adds `SeverityLevel::Enum` to classify issue criticality, `HealthIssue::Enum` as a tagged union for specific failure modes (e.g., MemoryPressure, ConnectionLoss), and `HealthMonitor::Struct` to aggregate state.\n\nThe `HealthMonitor` calculates a dynamic `HealthScore` (0-100) based on a deterministic penalty system derived from issue severities (Low: -5, Medium: -15, High: -25, Critical: -40). It provides methods for adding/removing issues, filtering by severity, and determining overall system health status (`IsHealthy`, `IsCritical`). All types derive `Serialize`/`Deserialize` to enable transmission over the gRPC (Vine) and Tauri IPC channels for real-time status propagation to the Wind and Sky layers.\n\nThese models lay the foundation for the backend to expose service liveness metrics to the frontend without blocking the main thread.",
+			"SHA": "23d6eddefce6d663ef87fdd01e468309c773f80d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:06:39Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1187,
+				6
+			],
+			"Message": "feat(Mountain): Implement LSP command stubs for code intelligence\n\nIntroduce a suite of new Tauri commands under `Source/Command/LanguageFeature` to expose core language server protocol capabilities to the Wind service layer. These commands act as the IPC bridge for code actions, completions, go-to-definition, document highlights, hover information, and reference finding.\n\nEach command (`MountainProvideCodeActions`, `MountainProvideCompletions`, `MountainProvideDefinition`, `MountainProvideDocumentHighlights`, `MountainProvideHover`, `MountainProvideReferences`) adheres to the project's PascalCase naming convention and delegates execution to the corresponding concrete implementation within `Command::LanguageFeature::<Feature>::provide_<feature>_impl`. The functions accept document URIs, cursor positions, and context payloads as JSON `Value` types, deferring strict deserialization to the downstream implementation logic to ensure a flexible interface during early development.\n\nThis commit expands the backend's LSP surface area, enabling the frontend to request and render intelligent coding assistance features without blocking the main thread.",
+			"SHA": "17c441b85904b7aac47fecdcfd0150b57ac56ca0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:06:25Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1181,
+				5
+			],
+			"Message": "feat(Mountain): Define hover command data models and DTOs\n\nIntroduce the foundational data structures for the Hover subsystem within `Source/Command/Hover/Interface`. This commit establishes the contract for LSP-compatible hover requests and responses, adhering to the project's strict PascalCase naming conventions.\n\nThe implementation adds:\n- `Position::Struct`: Zero-based line and character offset.\n- `Range::Struct`: Inclusive range bounded by start/end positions.\n- `HoverRequest::Struct`: Inbound DTO capturing document URI and cursor position.\n- `HoverContent::Enum`: Tagged union for plain text, markdown, and markup with language hints.\n- `HoverResponse::Struct`: Outbound DTO containing an ordered list of content items and an optional range.\n\nAll types derive `Serialize` and `Deserialize` to enable JSON transmission over the Tauri IPC event bus. These models prepare the `Wind` service layer to request and render code documentation overlays without blocking the main thread.",
+			"SHA": "8c97e9610fb18bcb7c930ab071089290d80aab28"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-02T09:06:19Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "feat(Mountain): Introduce stub health probe commands for backend services\n\nAdd a new suite of Tauri commands under `Source/Binary/IPC/HealthCommand` to expose readiness states for internal and sidecar services to the Wind frontend. This includes `cocoon_debug_service_health`, `cocoon_extension_host_health`, and `cocoon_search_service_health` for the extension host subsystem, alongside a generic `shared_process_service_health` dispatcher.\n\nThe implementation follows the project's PascalCase naming conventions for command registration while intentionally retaining snake_case function names to align with the `SharedProcessProxy` invoker in the Wind service layer. `cocoon_search_service_health` and `shared_process_service_health` currently return `true` to signal filesystem readiness or known service availability, whereas DAP and extension host probes return `false` as stubs pending the actual gRPC wire-up with Cocoon.\n\nThis establishes the initial IPC interface for service liveness monitoring, allowing the frontend to conditionally enable features based on backend component status without blocking the main thread.",
 			"SHA": "ba9d963cc9fe42079f53c1ca6177d9ad57ae0ca8"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1164,
-				6
-			],
-			"Message": "feat(Mountain): Implement cross-platform process introspection commands\n\nAdd a suite of new Tauri commands within `Binary/IPC/ProcessCommand` to expose essential runtime environment data to the Wind frontend. These commands include `ProcessGetArch`, `ProcessGetPlatform`, `ProcessGetPid`, `ProcessGetExecPath`, `ProcessGetShellEnv`, and `ProcessGetMemoryInfo`.\n\nThe implementation bridges the gap between Rust's native system calls and VS Code's Node-style expectations. `ProcessGetPlatform` normalizes OS names (e.g., mapping `macos` to `darwin`), while `ProcessGetMemoryInfo` executes platform-specific probes (`ps` on macOS, `tasklist` on Windows, `/proc/self/statm` on Linux) to calculate private, shared, and resident set memory in bytes. All commands return results as `Result` types with graceful fallbacks (zeroed values or empty maps) if underlying system queries fail, ensuring the renderer remains stable even during environment anomalies.\n\nThis establishes the foundational IPC layer for the `ProcessPolyfill` service, allowing the editor to correctly identify the host architecture, platform, and resource constraints without relying on external Node.js shims.",
-			"SHA": "e1803d15dcd25dea32c474b7aa749ec60a9954da"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1157,
-				8
-			],
-			"Message": "feat(Mountain): Introduce modular PostHog telemetry plugin\n\nAtomize the PostHog telemetry integration into a dedicated plugin structure within `Binary/Build/PostHogPlugin`. This introduces a strict separation of concerns: `CaptureAllowed` acts as a compile-time and env-var gate to disable telemetry in non-debug builds; `Initialize` bootstraps the singleton `Client` instance and emits the session start event; `CaptureEvent` handles the core logic of stamping standard metadata (`$app`, `$component`) before dispatching; and specific wrappers (`CaptureError`, `CaptureIPC`) provide typed instrumentation for error logging and gRPC method tracing.\n\nThe implementation adheres to project naming conventions with dedicated `Fn::Fn` modules and uses `env!` macros to bake credentials (`Authorize`, `Beam`, `Report`) from `.env.Land.PostHog` at compile time, ensuring a clean checkout builds without runtime dependency on external secrets. This lays the foundation for observability within the Mountain backend without blocking the primary IPC or UI loops.",
-			"SHA": "20a80336a80f6ead98f874736b87a6cc20ecfdf6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1148,
-				2
-			],
-			"Message": "feat(Mountain): Introduce webview lifecycle state and message envelope types\n\nDefine the `WebviewLifecycleState::Enum` and `WebviewMessage::Struct` within the `Environment/WebviewProvider` module to establish the core data contracts for Tauri webview management.\n\nThe `WebviewLifecycleState::Enum` mirrors the VS Code webview state machine, explicitly defining the lifecycle transitions from `Unloaded` through `Loading`, `Loaded`, `Visible`, `Hidden`, to `Disposed`. The `WebviewMessage::Struct` serves as the serialization envelope for host-to-webview communication, encapsulating the `MessageIdentifier`, `MessageType` tag, `Payload`, and optional `Source` context.\n\nBoth types adhere to the project's strict PascalCase naming conventions and are configured with `Serialize` and `Deserialize` traits to support JSON transmission over the Tauri event bus, laying the groundwork for the `Wind` frontend service layer to manage native webview panel lifecycles.",
-			"SHA": "c10618c8025d32eac34106831406614f1f7eb38a"
 		}
 	],
-	"TimeStamp": 1778161117935
+	"TimeStamp": 1778249201190
 }

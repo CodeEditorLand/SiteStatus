@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T19:11:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				829,
+				4
+			],
+			"Message": "refactor(Mountain): Complete explicit module path migration in state and IPC\n\nContinue the refactoring from commit 10feb14ec to eliminate implicit module namespace reliance by fully qualifying internal paths:\n\n- Add explicit `TextProcessing` segment in DocumentStateDTO import for `AnalyzeTextLinesAndEOL`\n- Prefix ConfigurationState, UIState, and WorkspaceState type paths with their module name (e.g., `UIState::UIState::State`)\n- Update WorkspaceDelta function signatures with full `WorkspaceState::WorkspaceState::State` paths\n- Migrate AppLifecycle call site from `WindServiceHandlers::set_static_application_root` to `WindServiceHandlers::Utilities::set_static_application_root`\n\nThis ensures all internal references use the reverse-hierarchical path pattern that makes dependency relationships explicit in every call site, consistent with the CLAUDE.md module path requirements.",
+			"SHA": "e3135b994ecc9c8cbedf24de93c125e810437122"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T19:05:06Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				829,
+				14
+			],
+			"Message": "refactor(Mountain): Enforce explicit module paths, eliminate pub use re-exports\n\nPer CLAUDE.md requirements, replace `pub use` glob re-exports with local `use` statements throughout Mountain's IPC and state modules. This enforces that callers spell full qualified paths like `WindServiceHandlers::Utilities::get_static_application_root()` rather than relying on flattened namespace imports.\n\nChanges:\n- Remove `pub use *` from WindServiceHandlers/mod.rs, UI/mod.rs, and ApplicationState modules\n- Convert to local `use X::*` scoped to the dispatcher file only\n- Update call sites in Scheme.rs, AppLifecycle.rs, and Search.rs to use explicit paths\n- Reorganize module declaration order in FeatureState and Internal modules\n\nThe reverse-hierarchical path is load-bearing - it tells the reader which file owns the handler. This change prevents accidental namespace pollution and makes dependency relationships explicit in every call site.\n\nAlso updates tauri.conf.json to include externalBin for node binary.",
+			"SHA": "10feb14ec590c0361e9a0038e0833bf752bf447e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T19:04:49Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				827,
+				11
+			],
+			"Message": "refactor(Mountain): Split monolithic UI.rs into domain-specific modules\n\nExtract the 32 handlers from the single `UI.rs` (~670 LoC) into 9 separate domain modules under `WindServiceHandlers/UI/`:\n- `Decoration.rs` - URI badge/tooltip/colour providers\n- `Keybinding.rs` - dynamic runtime keybinding registry\n- `Lifecycle.rs` - app phase get/wait/shutdown\n- `Notification.rs` - toast messages and notification-scoped progress\n- `Progress.rs` - window/status-bar progress indicators\n- `QuickInput.rs` - QuickPick and InputBox dialogs\n- `Theme.rs` - colour theme get/list/set\n- `Workspace.rs` - workspace folder lifecycle\n- `WorkingCopy.rs` - dirty-state tracking\n\nEach file contains focused handlers for one UI concern, improving discoverability with `grep pub async fn`. The `mod.rs` re-exports all handlers flat to preserve the existing dispatcher call sites.\n\nThis follows the same pattern as recent Batch 15/16 notification atom migrations, further decomposing Mountain's IPC surface for better maintainability.",
+			"SHA": "285e8d1e67f19bb8f8c520665197d620d792cb5a"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T18:52:25Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "refactor(Mountain): Migrate remaining notification handlers to Batch 15 atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to the Batch 15 atom functions in `Vine::Server::Notification::*`. The migrated handlers include:\n- extensionHostMessage → ExtensionHostMessage\n- ExtensionActivated/ExtensionDeactivated → ExtensionActivated/ExtensionDeactivated\n- WebviewReady → WebviewReady\n- progress.start/report/end → ProgressStart/ProgressReport/ProgressEnd\n- languages.setDocumentLanguage → LanguagesSetDocumentLanguage\n- workspace.applyEdit → WorkspaceApplyEdit\n- window.showTextDocument → WindowShowTextDocument (new atom file)\n\nAlso removes the dead handler bodies at the bottom of the match arm that were unreachable after Rust selected the first matching arm for each wire name. This consolidates all notification dispatch to the atom layer, keeping MountainVinegRPCService thin with one-line delegations.",
 			"SHA": "c834d103d4fc2f2002a1e55093df536bf58031c1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:46:55Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				806,
-				1
-			],
-			"Message": "",
-			"SHA": "6dfa4be105691b49a93eb4e42a2bef8eb772ee4d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:46:55Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				806,
-				47
-			],
-			"Message": "refactor(Mountain): Consolidate WindServiceHandler to WindServiceHandlers atoms\n\nMerge the deprecated singular `WindServiceHandler` module into the plural `WindServiceHandlers` atoms:\n- Delete 24 files from `WindServiceHandler/` (21 were dead duplicates)\n- Re-implement 3 live handlers as atoms: `extensions:install`, `extensions:uninstall`, `nativeHost.showOpenDialog`\n- Move extension handlers to `WindServiceHandlers/Extension/` (Install, Uninstall, NotifyCocoonDeltaExtensions, UserExtensionDirectory, VsixPathFromArgs)\n- Move dialog handlers to `WindServiceHandlers/NativeDialog/` (ShowOpenDialog, ParseDialogFilters, DialogFilter)\n- Add 9 new notification atoms: ExtensionActivated, ExtensionDeactivated, ExtensionHostMessage, LanguagesSetDocumentLanguage, ProgressStart, ProgressReport, ProgressEnd, WebviewReady, WorkspaceApplyEdit\n- Update MountainVinegRPCService to dispatch notifications via atoms (note: outputChannel.* already dispatched from Batch 9)\n\nThe consolidation eliminates code duplication and centralizes all IPC dispatch in the plural module. New notification atoms enable Wind/Sky to receive extension lifecycle events and progress updates from Cocoon.",
-			"SHA": "c8bfb37b939a9d0745929edef864c331c9c8f56e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:46:37Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				810,
-				35
-			],
-			"Message": "feat(Mountain): Add notification atom handlers and Cocoon log tag extraction\n\nAdd 25 new notification handlers in `Vine::Server::Notification` to bridge the remaining VS Code API surface from Cocoon to Mountain:\n\n- Output channel lifecycle: create, append, appendLine, clear, dispose, replace, show (both `output.*` and `outputChannel.*` wire names)\n- Status bar text updates: setStatusBarText, disposeStatusBarItem\n- Progress lifecycle: progress.update, progress.complete (routes to existing `sky://progress/*` channels)\n- Webview reverse messaging: webview.postMessage, webview.dispose\n- Provider unregistration: authentication, debug_adapter, file_system, scm, task, uri_handler handlers + updateScmGroup\n- Misc: openExternal (uses `opener` crate), security.incident, set_language_configuration\n\nEach atom is a dedicated file with a single handler, keeping the dispatcher in `MountainVinegRPCService` thin. The atoms access `ApplicationHandle` and `RunTime` via new accessors on the service struct.\n\nAlso add `ExtractDevTag` module to parse Cocoon stdout lines prefixed with `[DEV:<TAG>]` and re-emit them under Mountain's matching tag (e.g., `bootstrap-stage`, `ext-activate`, `config-prime`, `breaker`). This enables `LAND_DEV_LOG=bootstrap-stage` on Mountain's side to surface Cocoon's bootstrap diagnostics without enabling the broad `cocoon` tag.\n\nImpact: Extension output channels, status bar messages, progress indicators, and webview messaging now flow through Mountain to the renderer. Cocoon bootstrap and extension activation logs are tag-filterable end-to-end.",
-			"SHA": "27652fa62ef39c7f187b96f73e086e5a4580cc50"
 		}
 	],
-	"TimeStamp": 1778161176360
+	"TimeStamp": 1778249215325
 }

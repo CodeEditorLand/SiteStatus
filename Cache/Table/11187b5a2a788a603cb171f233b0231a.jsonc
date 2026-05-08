@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T18:46:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				806,
+				1
+			],
+			"Message": "",
+			"SHA": "6dfa4be105691b49a93eb4e42a2bef8eb772ee4d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T18:46:55Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				806,
+				47
+			],
+			"Message": "refactor(Mountain): Consolidate WindServiceHandler to WindServiceHandlers atoms\n\nMerge the deprecated singular `WindServiceHandler` module into the plural `WindServiceHandlers` atoms:\n- Delete 24 files from `WindServiceHandler/` (21 were dead duplicates)\n- Re-implement 3 live handlers as atoms: `extensions:install`, `extensions:uninstall`, `nativeHost.showOpenDialog`\n- Move extension handlers to `WindServiceHandlers/Extension/` (Install, Uninstall, NotifyCocoonDeltaExtensions, UserExtensionDirectory, VsixPathFromArgs)\n- Move dialog handlers to `WindServiceHandlers/NativeDialog/` (ShowOpenDialog, ParseDialogFilters, DialogFilter)\n- Add 9 new notification atoms: ExtensionActivated, ExtensionDeactivated, ExtensionHostMessage, LanguagesSetDocumentLanguage, ProgressStart, ProgressReport, ProgressEnd, WebviewReady, WorkspaceApplyEdit\n- Update MountainVinegRPCService to dispatch notifications via atoms (note: outputChannel.* already dispatched from Batch 9)\n\nThe consolidation eliminates code duplication and centralizes all IPC dispatch in the plural module. New notification atoms enable Wind/Sky to receive extension lifecycle events and progress updates from Cocoon.",
+			"SHA": "c8bfb37b939a9d0745929edef864c331c9c8f56e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T18:46:37Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				810,
+				35
+			],
+			"Message": "feat(Mountain): Add notification atom handlers and Cocoon log tag extraction\n\nAdd 25 new notification handlers in `Vine::Server::Notification` to bridge the remaining VS Code API surface from Cocoon to Mountain:\n\n- Output channel lifecycle: create, append, appendLine, clear, dispose, replace, show (both `output.*` and `outputChannel.*` wire names)\n- Status bar text updates: setStatusBarText, disposeStatusBarItem\n- Progress lifecycle: progress.update, progress.complete (routes to existing `sky://progress/*` channels)\n- Webview reverse messaging: webview.postMessage, webview.dispose\n- Provider unregistration: authentication, debug_adapter, file_system, scm, task, uri_handler handlers + updateScmGroup\n- Misc: openExternal (uses `opener` crate), security.incident, set_language_configuration\n\nEach atom is a dedicated file with a single handler, keeping the dispatcher in `MountainVinegRPCService` thin. The atoms access `ApplicationHandle` and `RunTime` via new accessors on the service struct.\n\nAlso add `ExtractDevTag` module to parse Cocoon stdout lines prefixed with `[DEV:<TAG>]` and re-emit them under Mountain's matching tag (e.g., `bootstrap-stage`, `ext-activate`, `config-prime`, `breaker`). This enables `LAND_DEV_LOG=bootstrap-stage` on Mountain's side to surface Cocoon's bootstrap diagnostics without enabling the broad `cocoon` tag.\n\nImpact: Extension output channels, status bar messages, progress indicators, and webview messaging now flow through Mountain to the renderer. Cocoon bootstrap and extension activation logs are tag-filterable end-to-end.",
+			"SHA": "27652fa62ef39c7f187b96f73e086e5a4580cc50"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T17:59:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "feat(Mountain): Wire tree-view children to extension host and add diagnostic tags\n\nImplement the full round-trip for tree-view data providers:\n1. Add `tree:getChildren` invoke handler in WindServiceHandlers - allows Wind/Sky UI to request tree children directly without waiting for Cocoon to ask first\n2. Wire GetTreeChildren gRPC in TreeView.rs to forward requests to the `$provideTreeChildren` handler in Cocoon, returning actual TreeItem data instead of empty stub\n3. Add viewId→handle hashing to match RegisterTreeViewProvider's provider lookup\n\nAlso add two new diagnostic tags per the Batch 3 logging spec in DevLog.rs:\n- `scheme-assets`: logs vscode-file:// request routing, MIME type, byte size\n- `ext-scan`: logs extension scanner accept/skip decisions with is_builtin flag and skip reasons\n\nThese tags catch the subsystems new traffic passes through so regressions surface as silent tag counts going to zero. Extension tree views (GitLens, SCM, debug, tasks) now render with data from providers instead of appearing empty.",
 			"SHA": "b71ab93f22e526a1a9cc961706c66040fd2a9be6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:00:37Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				778,
-				2
-			],
-			"Message": "",
-			"SHA": "0d061de2fe103d84efa38c8c494c45d1fffaf853"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:00:37Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				778,
-				7
-			],
-			"Message": "feat(Mountain): Add Git service handlers and expand diagnostic instrumentation\n\nThree major additions to Mountain's diagnostic and service capabilities:\n\n1. **Git service handlers** (`WindServiceHandlers/Git.rs`): Implement the full `localGit` channel mirroring VS Code's `ILocalGitService` API - clone, pull, checkout, revParse, fetch, revListCount, cancel, exec, and isAvailable. Uses process PIDs for cancellation (SIGTERM on Unix, taskkill on Windows) and logs all operations under the existing `git` tag.\n\n2. **SkyEmit instrumentation** (`SkyEmit.rs`): New `LogSkyEmit` wrapper around `tauri::Emitter::emit` that logs every Mountain→Wind/Sky emit under the `sky-emit` tag. Records channel name, payload bytes, and ok/fail status. Enables traffic-volume auditing via `LAND_DEV_LOG=sky-emit`.\n\n3. **Provider registration expansion** (`MountainVinegRPCService.rs`): Extend the register_* notification handler from 8 to 34+ provider types - debug_configuration, text_document_content, folding_range, document_link, code_lens, selection_range, document_range_formatting, debug_adapter, rename, file_system, uri_handler, document_paste_edit, task, signature_help, semantic_tokens, document_highlight, workspace_symbol, on_type_formatting, inlay_hints, document_drop_edit, color, type_hierarchy, type_definition, notebook_serializer, linked_editing_range, implementation, terminal_profile, terminal_link, inline_values, inline_completion_item, file_decoration, external_uri_opener, declaration, call_hierarchy. Also extracts and logs the scheme for scheme-bound providers, and includes options in the DTO.\n\nPlus: Flexible `RenderDevLog` command now accepts both PascalCase (Tag/Message) and snake_case (tag/message) params, supporting any JS caller convention.",
-			"SHA": "de6e0f842ce46f14a18508dc143e2a456644f76f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:57:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				776,
-				8
-			],
-			"Message": "feat(Mountain): Add RenderDevLog command and diagnostic logging tags\n\nAdd a new Tauri command `RenderDevLog` that bridges TypeScript-side tagged logs (Wind/Sky/Cocoon) into Mountain's `dev_log!` file sink. This enables a single `Mountain.dev.log` to carry the complete tag-filterable picture of a session, rather than requiring cross-referencing between browser console and log file.\n\nAlso add five new diagnostic tags to isolate architectural gaps during debugging:\n- `notif-drop`: Notifications hitting the default arm (no handler)\n- `provider-register`: Accepted register_*_provider notifications with extension IDs\n- `channel-stub`: Wind/Output TauriMainProcessService.call stub hits vs route vs miss\n- `git`: localGit channel, GitExec RPC, SCM provider group updates\n- `tree-view`: tree.register, GetTreeChildren, sky://tree-view/create events\n\nApply tags across SCM.rs, TreeView.rs, CreateEffectForRequest/TreeView.rs, and MountainVinegRPCService.rs to provide visibility into extension host integration issues.\n\nImpact: Developers can now filter `LAND_DEV_LOG=git,tree-view` to isolate specific subsystem issues, and TS-originated logs appear in the same file with `[RenderDevLog]` prefix for grep separation.",
-			"SHA": "f7625f320666cca6bfe3d74fb87c4fc09444ddb3"
 		}
 	],
-	"TimeStamp": 1778161177764
+	"TimeStamp": 1778249215657
 }

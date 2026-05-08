@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:17:52Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1415,
+				14
+			],
+			"Message": "feat(Mountain): Implement Wind service adapter bridge and DTOs\n\nIntroduce a comprehensive adapter layer under `Source/IPC/WindServiceAdapters/` to bridge the Mountain Rust backend with the Wind TypeScript UI service contracts. This module serializes Mountain's sandbox configuration into the `WindDesktopConfiguration` structure expected by Sky during boot, and provides concrete implementations for Wind's core service interfaces (File, Storage, Configuration, Environment) using the `CommonLibrary` trait definitions.\n\nKey additions include:\n- **DTOs:** `MountainSandboxConfiguration`, `WindDesktopConfiguration`, and file-specific structures (`FileToDiff`, `FilesToWait`) to serialize launch parameters and state.\n- **Service Wrappers:** `WindFileService`, `WindStorageService`, `WindConfigurationService`, and `WindEnvironmentService` that inject `CommonLibrary` providers (FileSystemReader/Writer, StorageProvider) to satisfy Wind's async service requirements.\n- **Adapter Logic:** `WindServiceAdapter` which transforms raw JSON sandbox configs into the typed `WindDesktopConfiguration` and instantiates service instances with the current `ApplicationRunTime` context.\n\nThis enables the Wind frontend to operate on native Rust services via the Tauri IPC layer, decoupling UI service logic from the underlying OS implementation.\n\nRefs: Land Element Architecture, IPC Bridge",
+			"SHA": "1dd8948da9ad46dd9e6188992b3288afae914b16"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:17:45Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1400,
+				1
+			],
+			"Message": "refactor(Mountain): Remove empty Permission validation stub\n\nDelete the `ValidatePermission.rs` file which was present as an empty placeholder with no implementation. This cleanup removes dead code artifacts from the `Source/IPC/Permission/Validate` directory, streamlining the permission handling module structure.\n\nThe removal ensures the codebase reflects the current architectural state where specific permission validation logic is either implemented inline with IPC handlers or managed by the Common trait definitions, avoiding confusion from orphaned stub files.",
+			"SHA": "0158bbcdd21075e4419f77fedc6a76253be574af"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:17:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1401,
+				10
+			],
+			"Message": "feat(Mountain): Implement TLS certificate management IPC command suite\n\nIntroduce a comprehensive set of Tauri commands under `Source/Binary/Build/TlsCommands/` to expose the `CertificateManager` to the Wind/Sky frontend for local TLS/HTTPS provisioning.\n\nThe implementation adheres to PascalCase naming and the project's modular architecture, adding:\n- **DTOs:** `CertificateGenerationResult` and `CertificateStatus` to structure payload responses including expiry timelines and renewal flags.\n- **Lifecycle:** `tls_initialize` loads or generates the root CA; `tls_generate_cert` issues or retrieves server certificates for specific hostnames.\n- **Monitoring:** `tls_check_cert_status` calculates days until expiry and flags renewal needs based on the configured threshold.\n- **Inspection:** `tls_get_all_certs`, `tls_get_server_cert_info`, and `tls_get_ca_cert` provide diagnostic data for the security panel.\n- **Maintenance:** `tls_renew_certificate` and `tls_delete_cert` (currently aliased to renewal) allow manual certificate rotation.\n\nThese commands gate access via the `CertificateManager` state mutex, enabling secure, asynchronous certificate lifecycle operations from the editor UI.\n\nNote: `tls_delete_cert` currently regenerates the certificate as a placeholder until a dedicated deletion logic is implemented in `CertificateManager`.",
+			"SHA": "8e396fbf31d1bb878c5a4609f59a4e823f0f2871"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-03T08:17:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "feat(Mountain): Standardize PostHog telemetry namespace and add handler instrumentation\n\nRefactor the PostHog telemetry plugin to adopt the unified `land:<component>:<event>` naming convention, replacing the previous `mountain:` prefix with `land:mountain:` to align with the global telemetry schema used by Cocoon and Sky. This enables consistent aggregation in the Errors & Reliability dashboard via a single `event LIKE 'land:%:error'` query.\n\nKey changes:\n- **Namespace Unification:** Update `CaptureError`, `CaptureIPC`, and `Initialize` to emit events under the `land:mountain:` prefix. Append system metadata (PID, OS, Arch) to session start events.\n- **Handler Instrumentation:** Introduce `CaptureHandler` to emit `land:mountain:handler:complete` events. This tracks `Feature` (IPC route key), `DurationMs`, and success status, enabling the Feature Parity dashboard to compare latency between migrated Mountain (Rust) and Cocoon (Node) handlers.\n- **Configuration Hardening:** Extend `Constants` with OTLP-specific build flags (`OTLPEndpoint`, `OTLPEnabled`) and a master `Capture` kill switch that gates both PostHog and OTLP pipelines. Distinct from the `Disable` flag which controls polyfills.\n- **Runtime Hydration:** Add `HydrateRuntimeEnvironment` to inject build-time telemetry constants into the runtime environment. This ensures child processes (Cocoon, Sky webview) inherit consistent config even when running bare binaries without sourcing `.env` files, while remaining idempotent to allow CI overrides.\n\nThese changes ensure telemetry data is correctly scoped, aggregated, and available for debugging IPC performance and error rates across the entire editor stack.",
 			"SHA": "fa1f78af8f15df86681a6a8307fdf13e12d649bc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:23Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1373,
-				10
-			],
-			"Message": "feat(Mountain): Implement native Git IPC service handlers\n\nIntroduce a complete suite of Tauri command handlers under `Source/IPC/WindServiceHandlers/Git` to bridge the Mountain backend with the Wind/Sky frontend for version control operations. This implementation fulfills the `localGit` service contract required for the editor's SCM integration.\n\nThe commit adds:\n- **Shared Runtime (`Shared.rs`):** A `RunningProcesses` map to track PIDs per `OperationId`, enabling cross-invocation cancellation. `RunGit` handles spawning `git` with `kill_on_drop`, logging, and result parsing.\n- **Lifecycle & Discovery:** `HandleIsAvailable` (cached `git --version` check), `HandleClone` (with optional branch), and `HandleCheckout` (supporting detached heads).\n- **Remote Operations:** `HandleFetch` and `HandlePull` (enforcing `--ff-only` with HEAD diff validation).\n- **Inspection:** `HandleRevParse` and `HandleRevListCount` for commit history and ahead/behind badges.\n- **Execution & Control:** `HandleExec` for arbitrary Git CLI arguments and `HandleCancel` (SIGTERM/TaskKill) to terminate in-flight processes.\n\nAll handlers adhere to PascalCase naming, strict error handling, and the project's modular architecture, ensuring reliable asynchronous Git operations from the native backend.",
-			"SHA": "2152034f2d8c2f3973951b61c59bcda758010e53"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:15Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1362,
-				7
-			],
-			"Message": "feat(Mountain): Implement enhanced IPC connection pool with health monitoring\n\nIntroduce a robust, bounded connection pool subsystem under `Source/IPC/Enhanced/ConnectionPool` to manage IPC backend resources efficiently. This module replaces ad-hoc connection handling with a scalable architecture featuring automatic lifecycle management, health scoring, and statistical telemetry.\n\nThe implementation adheres to the project's PascalCase naming and 'one struct per file' architecture:\n- `ConnectionHandle::Struct`: Tracks per-connection metadata including UUID, timestamps, error counts, and a dynamic health score that decays on failures and recovers on success.\n- `ConnectionHealth::Enum`: Defines states (`Healthy`, `Unhealthy`, `Degraded`) for precise resource filtering.\n- `HealthChecker::Struct`: Implements asynchronous health probes with configurable timeouts to validate connection viability.\n- `Pool::Struct`: The core aggregator managing a bounded semaphore, a wait queue for contention handling, and background Tokio tasks for periodic health monitoring and stale connection cleanup.\n- `PoolConfig::Struct` & `PoolStats::Struct`: Provide serialization support for tunable parameters (timeouts, bounds) and runtime telemetry (error rates, active counts).\n\nThis enhancement ensures the Mountain backend can sustain high-throughput IPC operations with automatic failover and resource recycling, crucial for the editor's stability during heavy extension host activity.",
-			"SHA": "abce84b95074b8849ebd1542814a776d4541f0d5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:08Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1354,
-				8
-			],
-			"Message": "feat(Mountain): Implement Tauri command handlers for text model lifecycle and file I/O\n\nIntroduce a comprehensive suite of Wind IPC service handlers under `Source/IPC/WindServiceHandlers/Model/` to bridge the Mountain backend with the editor's document registry and filesystem operations. These handlers fulfill the contract required by Wind's text model service to manage the full lifecycle of open files.\n\nThe implementation covers the core CRUD operations for in-memory document models and raw file access:\n- **Model Lifecycle:** `ModelOpen` reads content from disk, infers language ID from extensions, and registers a `DocumentStateDTO` in `ApplicationState.Feature.Documents` with correct EOL handling. `ModelClose` removes entries idempotently.\n- **Model State:** `ModelGet` and `ModelGetAll` return snapshots of open documents (content, version, language ID) for UI restoration and cache hydration. `ModelUpdateContent` applies edits, increments version numbers, and marks documents as dirty.\n- **File I/O:** `TextfileRead` and `TextfileWrite` provide direct verbatim file access for tooling and resolvers without polluting the document registry. `TextfileSave` acts as a save-intent hint to clear dirty markers and log traces.\n\nAll handlers adhere to PascalCase naming, strict error handling, and the project's modular architecture, ensuring the native backend can reliably synchronize state with the Wind/Sky frontend.",
-			"SHA": "4f13441eff41ba8384cc274c2eca1a8d0377bac7"
 		}
 	],
-	"TimeStamp": 1778161105549
+	"TimeStamp": 1778249198073
 }

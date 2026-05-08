@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T17:00:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				778,
+				2
+			],
+			"Message": "",
+			"SHA": "0d061de2fe103d84efa38c8c494c45d1fffaf853"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T17:00:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				778,
+				7
+			],
+			"Message": "feat(Mountain): Add Git service handlers and expand diagnostic instrumentation\n\nThree major additions to Mountain's diagnostic and service capabilities:\n\n1. **Git service handlers** (`WindServiceHandlers/Git.rs`): Implement the full `localGit` channel mirroring VS Code's `ILocalGitService` API - clone, pull, checkout, revParse, fetch, revListCount, cancel, exec, and isAvailable. Uses process PIDs for cancellation (SIGTERM on Unix, taskkill on Windows) and logs all operations under the existing `git` tag.\n\n2. **SkyEmit instrumentation** (`SkyEmit.rs`): New `LogSkyEmit` wrapper around `tauri::Emitter::emit` that logs every Mountain→Wind/Sky emit under the `sky-emit` tag. Records channel name, payload bytes, and ok/fail status. Enables traffic-volume auditing via `LAND_DEV_LOG=sky-emit`.\n\n3. **Provider registration expansion** (`MountainVinegRPCService.rs`): Extend the register_* notification handler from 8 to 34+ provider types - debug_configuration, text_document_content, folding_range, document_link, code_lens, selection_range, document_range_formatting, debug_adapter, rename, file_system, uri_handler, document_paste_edit, task, signature_help, semantic_tokens, document_highlight, workspace_symbol, on_type_formatting, inlay_hints, document_drop_edit, color, type_hierarchy, type_definition, notebook_serializer, linked_editing_range, implementation, terminal_profile, terminal_link, inline_values, inline_completion_item, file_decoration, external_uri_opener, declaration, call_hierarchy. Also extracts and logs the scheme for scheme-bound providers, and includes options in the DTO.\n\nPlus: Flexible `RenderDevLog` command now accepts both PascalCase (Tag/Message) and snake_case (tag/message) params, supporting any JS caller convention.",
+			"SHA": "de6e0f842ce46f14a18508dc143e2a456644f76f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:57:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				776,
+				8
+			],
+			"Message": "feat(Mountain): Add RenderDevLog command and diagnostic logging tags\n\nAdd a new Tauri command `RenderDevLog` that bridges TypeScript-side tagged logs (Wind/Sky/Cocoon) into Mountain's `dev_log!` file sink. This enables a single `Mountain.dev.log` to carry the complete tag-filterable picture of a session, rather than requiring cross-referencing between browser console and log file.\n\nAlso add five new diagnostic tags to isolate architectural gaps during debugging:\n- `notif-drop`: Notifications hitting the default arm (no handler)\n- `provider-register`: Accepted register_*_provider notifications with extension IDs\n- `channel-stub`: Wind/Output TauriMainProcessService.call stub hits vs route vs miss\n- `git`: localGit channel, GitExec RPC, SCM provider group updates\n- `tree-view`: tree.register, GetTreeChildren, sky://tree-view/create events\n\nApply tags across SCM.rs, TreeView.rs, CreateEffectForRequest/TreeView.rs, and MountainVinegRPCService.rs to provide visibility into extension host integration issues.\n\nImpact: Developers can now filter `LAND_DEV_LOG=git,tree-view` to isolate specific subsystem issues, and TS-originated logs appear in the same file with `[RenderDevLog]` prefix for grep separation.",
+			"SHA": "f7625f320666cca6bfe3d74fb87c4fc09444ddb3"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T15:33:55Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "",
 			"SHA": "4531024429c05b7c8ad1209cc562acb2d956bde3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:46:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				2
-			],
-			"Message": "fix(Mountain): Treat view registry commands as no-ops and preserve VSIX executable bits\n\nTwo unrelated bug fixes bundled for convenience:\n\n1. **View registry commands** (`CommandProvider.rs`): VS Code auto-generates `<viewId>.focus`, `<viewId>.resetViewLocation`, and `<viewId>.removeView` commands when views are registered. Land's webview.registerView bypasses that registry and emits Tauri events directly, so these commands never get inserted. Extensions like GitLens call these commands on user gesture; the Cocoon try/catch swallows the error, but the red `error:` log noise is misleading. Treat these well-known suffixes as silent no-ops that return `null`.\n\n2. **VSIX executable preservation** (`VsixInstaller.rs`): Extensions shipping platform-native binaries (openai.chatgpt's `codex`, language-server launchers) rely on the `0o755` mode stored in the VSIX zip. Without this change, extracted files get the default `0o644` mode, causing `spawn()` inside extensions to fail with `EACCES`. Use `PermissionsExt::unix_mode()` to preserve the executable bit on Unix systems.\n\nImpact: GitLens no longer spams error logs, and extensions with native binaries activate correctly.",
-			"SHA": "87eeff42e66bdbfd73e3c8463268004b3b67aa68"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:20:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				1
-			],
-			"Message": "fix(Mountain): Strip file:// scheme from paths in FileSystem effect handlers\n\nCocoon sends full URIs like `file:///Users/nikola/.land/extensions/...` through FileSystem.ReadFile/WriteFile/ReadDirectory RPC calls. Creating a PathBuf from such strings treats the scheme literally, causing every file operation to 404.\n\nAdd `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes before constructing PathBuf. Apply to all 8 FileSystem operations: ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, and Copy.\n\nThis fixes the redhat.java extension activation failure (and any other extension that reads its own package.json via the gRPC fs.readFile path) with \"Resource not found: file:///...\".",
-			"SHA": "16b040316eaf284a4d8530a59dee5b4516699c9e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:28:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				3
-			],
-			"Message": "fix(Mountain): Return Cocoon PID for debug adapter and register walkthrough commands\n\nTwo related changes to improve extension host integration:\n\n1. **Cocoon PID for debug adapters** (`WindServiceHandlers/mod.rs`, `CocoonManagement.rs`): The `extensionHostStarter:start` IPC handler was incorrectly returning Mountain's own PID. The renderer uses this PID to correlate extension-host-side debug adapters with the actual Node.js process. Now we return the Cocoon child process PID via a new `GetCocoonPid()` function that reads from an atomic static, avoiding the need to take the async `COCOON_STATE` mutex.\n\n2. **Walkthrough command no-ops** (`Bootstrap.rs`): The `claude-code` extension invokes `workbench.action.openWalkthrough` and `claude-vscode.openWalkthrough` at activation. Land has no walkthrough/welcome UI yet. Register both commands as native no-ops that return `null` to prevent \"command not found\" errors during extension activation.\n\nImpact: Debug adapters now attach to the correct Node.js process (Cocoon), and the claude-code extension activates without errors.",
-			"SHA": "66283f9f83e5fc58ea01a4849fc350dec962e327"
 		}
 	],
-	"TimeStamp": 1778161178989
+	"TimeStamp": 1778249215964
 }

@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T22:36:34Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				3
+			],
+			"Message": "fix(Mountain): Extend extensions poll timeout and add gRPC shutdown guard\n\nIncrease the polling timeout in `extensions:getInstalled` from 3s to 5s because cold-cache runs over 113 extensions across 6 paths regularly hit ~2950ms, poisoning the workbench's `IExtensionService` cache with empty results.\n\nAdd a process-wide shutdown flag to the Vine gRPC client that gets marked before SIGKILL of Cocoon. Background tasks (PTY reader, file watchers, diagnostics emitter) that fire `SendNotification` after the sidecar is dead now short-circuit silently instead of logging false-positive `Connection refused` errors during shutdown. `SendRequest` returns an error immediately while `SendNotification` returns `Ok(())` to allow natural unwinding of background tasks.\n\nThis prevents the shutdown tail from being flooded with spurious gRPC errors while keeping the worst-case visible boot delay bounded at 5 seconds.",
+			"SHA": "06be111688dffce33846936c513b1b67504248a5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T22:18:02Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				859,
+				11
+			],
+			"Message": "refactor(Mountain): Centralize sky event emissions via LogSkyEmit and add defensive guards\n\nThis commit consolidates all Tauri event emissions through `LogSkyEmit` for histogram visibility in the `[DEV:SKY-EMIT]` tracking channel, and adds defensive error handling throughout the provider layer.\n\n**LogSkyEmit migration (7 files):**\n- LifecyclePhaseState, WorkspaceDelta, DiagnosticProvider, OpenDocument, TerminalProvider, RegisterCommand, RegisterScmProvider\n- Previously each file imported `tauri::Emitter` directly; now routes through LogSkyEmit so diagnostic/command/workspace event volume is visible in the histogram for debugging \"panel shows count but no items\" issues.\n\n**Defensive URI handling (DiagnosticProvider):**\n- Batch now tolerates malformed URIs per entry rather than failing the entire batch (mirrors VS Code's `MarkerService._toMarker` returning undefined instead of throwing)\n- Skips entries with empty URI strings with a warning log\n\n**Defensive path guards:**\n- PathSecurity.rs: Reject empty paths upfront to prevent empty-string path from bypassing workspace gating (`Path::starts_with(\"\")` returns true)\n- FileSystem.rs (CreateEffect): Add empty-path guards for ReadFile and StatFile, returning FileNotFound per VS Code's FileSystemProvider contract\n\n**Terminal resilience (WindServiceHandlers):**\n- localPty:createProcess now returns explicit error when id is 0/invalid instead of silently returning 0 (prevents keystrokes being swallowed)\n- localPty:resize clamps cols/rows to minimum of 1 (portable-pty crashes on 0×0 during pane drag-storms)\n- Resize on disposed terminal now logs warn and returns Null instead of error (common race during shutdown)\n- Tree-view data shape check: force `{items: []}` for non-conforming shapes to prevent TypeError in renderer\n\n**Documentation:**\n- MarkerDataDTO: Clarify coordinates are 1-based (matching workbench IMarkerData), noting Cocoon's LanguagesNamespace.ts adds the +1 offset from vscode.Position 0-based convention",
+			"SHA": "51f75f11010ab398a1f34525834f36b792dfbbfd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T18:51:36Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				2
+			],
+			"Message": "fix(Mountain): Fix boot-time extensions race and add missing getLatency\n\nAdd polling to extensions:getInstalled to resolve boot-time race condition where workbench caches empty extension list before ExtensionPopulate completes its scan (~250-500ms). Poll the ScannedExtensions map for up to 3 seconds before returning empty, ensuring 113+ extension contributions appear in the activity bar.\n\nAlso add localPty:getLatency handler returning empty array per VS Code's IPtyHostLatencyMeasurement[] contract. Without this, every poll cycle logged \"Unknown IPC command: localPty:getLatency\" and a failed TauriInvoke.",
+			"SHA": "2b89f60a78bc0322f8e68c9ae88d722fd369416f"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-29T18:38:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "fix(Mountain): Defer sky://terminal/create event to fix race condition\n\nThe terminal workbench's `LocalTerminalBackend.createProcess` flow has a timing vulnerability: when `sky://terminal/create` emits synchronously during step 1 (RPC in-flight), the Tauri event arrives before step 3 (`_ptys.set(id, pty)`) completes. This causes `_ptys.get(id)` to return `undefined`, skipping `handleReady` and preventing `processManager._onProcessReady` from firing. Since `ptyProcessReady` never resolves, every subsequent `processManager.write(data)` call hangs indefinitely—users see the terminal panel but all keystrokes are silently dropped.\n\nFix by emitting on a deferred tokio task with a 120ms delay, giving the RPC response roundtrip + `_ptys.set` sufficient headroom. Also switch to `LogSkyEmit` for visibility under `[DEV:SKY-EMIT]` histogram tracking.\n\nThis complements the existing `AppendTerminalOutput` replay buffer for data (added in c99ccbe), completing the terminal race-condition fix for both create and data events.",
 			"SHA": "c2d0beca968f600d76ac4d85a436931124cfdf07"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:20:13Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				1
-			],
-			"Message": "fix(Mountain): Return integer id from localPty:createProcess\n\nThe VS Code terminal workbench expects `IPtyService.createProcess` to return a `Promise<number>` (the integer terminal id). However, Mountain was returning the full `{id, name, pid}` object. The workbench then keys its internal `_ptys` map by that object, so every `_ptys.get(<integer>)` lookup from `onProcessData`/`onProcessReady` returns `undefined`. This causes xterm to receive zero bytes even though Mountain's PTY reader emits data continuously—resulting in blank terminal panels.\n\nSplit the terminal handler into three distinct paths:\n- `localPty:spawn`: Preserves full response for Cocoon's Sky bridge\n- `localPty:createProcess`: Returns only the integer id per VS Code contract\n- `localPty:start`: No-op for eager-spawn pattern (shell already started during createProcess)\n\nThis fixes the terminal rendering while maintaining backward compatibility with existing spawn callers.",
-			"SHA": "c99ccbe7715342838206eb2c54509fa3a97f513f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T16:59:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				2
-			],
-			"Message": "refactor(Mountain): Simplify binary and product names\n\nRename the Mountain binary, library, and default-run targets from the verbose development profile name to simply \"Mountain\". This follows the project's PascalCase naming convention and removes the debug build artifact naming.\n\nIn tauri.conf.json, simplify the identifier from the lengthy development-specific string to \"land.editor.binary\" and the productName from the long debug name to \"Mountain\". Also remove the duplicate \"Binary/node\" entry from externalBin.\n\nThese changes clean up the build configuration for proper release builds while maintaining the same functionality.",
-			"SHA": "db5f0f7bc58c4108ea4f51ec3ac0d30bb008def3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T16:55:25Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				3
-			],
-			"Message": "",
-			"SHA": "f2b5c349377b143b33dab188478a947d77522a46"
 		}
 	],
-	"TimeStamp": 1778161155604
+	"TimeStamp": 1778249210484
 }

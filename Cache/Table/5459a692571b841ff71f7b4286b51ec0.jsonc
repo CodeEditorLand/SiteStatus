@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T23:34:46Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				2
+			],
+			"Message": "feat(Mountain): Add Disable env var and fix first-click focus issue\n\nTwo unrelated but complementary fixes:\n\n1. **accept_first_mouse(true)**: Fix the \"I clicked, I'm typing, nothing's happening\" bug where WKWebView swallows the first click on an unfocused window as a \"make me key\" no-op. The user had to click twice - first to focus the NSWindow, second to focus the Monaco textarea. This change flips the responder chain so the first click already reaches WKWebView's content.\n\n2. **Disable environment variable**: Add master \"disable Land customisations\" gate via `Disable=true` env var. When enabled, Mountain skips: WindowEvent::CloseRequested intercept (Cmd+W routes natively), Cocoon/Air sidecar spawn, and Wind/SkyBridge registration. This is useful for bisecting whether typing-input regressions originate in the extension host or upstream/Tauri/WKWebView. Also rename DevTools auto-open from LAND_OPEN_DEVTOOLS to `Inspect=1` to follow Land's PascalCase env var convention.",
+			"SHA": "14b86efb22e841a2d2fa91ea12ba33c37b6cec33"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T20:27:26Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				2
+			],
+			"Message": "fix(Mountain): Add vscode-webview URI scheme handler for extension webviews\n\nImplement the missing vscode-webview:// URI scheme handler to enable VS Code extension webviews (Roo Code, Claude, GitLens, custom editors) to render in the Tauri WKWebView environment.\n\nVS Code's WebviewElement wraps every extension webview in an iframe with src=vscode-webview://<authority>/index.html?... Without this handler, the iframe stays blank and any extension using webviewView/WebviewPanel/CustomEditor is non-functional.\n\nThe handler serves the three-file pre/ directory (index.html, service-worker.js, fake.html) from the embedded asset resolver or filesystem fallback. Extension HTML itself arrives via the workbench's swMessage postMessage channel after index.html boots.\n\nThis completes the extension webview infrastructure alongside the extension_root allowlist added in commit 320e57a, enabling sideloaded extensions to render their UI properly.",
+			"SHA": "54650acd31bb34c764095c9160eedb19e9a18916"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T20:27:20Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				3
+			],
+			"Message": "fix(Mountain): Fix boot race and close handling for macOS\n\nTwo unrelated but impactful bugs fixed:\n\n1. **Boot race guard for Cocoon IPC**: The renderer dispatches tree:getChildren and cocoon:request (e.g. webview.resolveView) ~700 log lines before Cocoon's gRPC handshake completes. Without a wait, the first call returns ClientNotConnected, the workbench caches an empty result, and the user sees an empty Explorer until manual refresh. Add IsClientConnected() and WaitForClientConnection() to poll the connection pool before dispatching, with a 1500ms budget to keep UI responsive.\n\n2. **Cmd+W intercept for macOS**: Tauri 2.x maps Cmd+W to NSWindow.performClose: which wins the responder chain over the webview's keydown handler. The result: hitting Cmd+W to close a tab nukes the entire editor. Intercept CloseRequested, emit sky://window/close-requested to the webview, and use destroy() instead of close() in nativeHost:closeWindow to avoid re-entering the intercept.\n\n3. **DevTools focus theft**: DevTools auto-opening in debug builds steals macOS keyboard focus the moment it appears, preventing the main webview from becoming first responder. Make auto-open opt-in via LAND_OPEN_DEVTOOLS=1. Cmd+Alt+I and right-click Inspect still work.\n\nThese fixes resolve the \"I can't type or keybind\" issue and the empty Explorer on first launch.",
+			"SHA": "fb254aded503fa1e8ee2e0047bcfca44729e4c67"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-30T18:59:32Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "build(Mountain): Rename binary and library to verbose production profile name\n\nUpdate Cargo.toml binary, library, and default-run targets to use the full production environment profile string (ProductionNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Compile_ElectronProfile_EsbuildCompiler_Mountain) to distinguish this build variant from development builds.\n\nAlso update tauri.conf.json productName and identifier to match the verbose naming scheme, and add duplicate \"Binary/node\" entry to externalBin for the production node path.\n\nThis configuration supports the multi-profile build pipeline for distinguishing between development and production environment builds.",
 			"SHA": "3f0b690818017b0b8daee59e7f1127a68ac4c329"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:15:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
-				4
-			],
-			"Message": "build(Mountain): Revert production profile names to simple Mountain identifier\n\nComplete the reversion of verbose production build profile names back to simplified \"Mountain\" naming. Update Cargo.toml binary, library, and default-run targets to use \"Mountain\" instead of the full production profile string. Update tauri.conf.json productName and identifier to match, and remove the duplicate \"Binary/node\" entry from externalBin. Also delete the now-redundant Cargo.toml.Backup and tauri.conf.json.Backup files.\n\nThis aligns with the simplified naming scheme for both development and production builds, reducing configuration complexity while maintaining the multi-profile build pipeline functionality.",
-			"SHA": "20b936312a943ce8be8f0a2837225f346b5715af"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:07:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				870,
-				4
-			],
-			"Message": "build(Mountain): Update binary/lib names and Tauri config for production build profile\n\nRename the Mountain binary and library to include the full production environment profile string (ProductionNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Compile_ElectronProfile_EsbuildCompiler_Mountain) to distinguish this build variant from development builds. Update tauri.conf.json productName and identifier to match, and add Binary/node to externalBin for the production node path.\n\nThis configuration supports the multi-profile build pipeline for distinguishing between development and production environment builds.",
-			"SHA": "16bcfef9901bc9c03390b960918014975f74e4aa"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T04:54:35Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
-				1
-			],
-			"Message": "fix(Mountain): Add explicit font MIME type mappings for WKWebView\n\nWKWebView is strict about font MIME types - when the asset resolver falls back to `application/octet-stream` for `.ttf` files (which `infer` does on some macOS versions because TrueType has no magic header), the browser silently refuses to use the font. The workbench then renders icons as blank squares with no console error.\n\nAdd explicit MIME type mappings for TTF, OTF, WOFF, WOFF2, and EOT extensions in LocalhostPlugin::MimeFromUrl. This ensures the codicon font and extension assets under `/Static/Application/extensions/...` (KaTeX, Seti) render correctly in the workbench.",
-			"SHA": "27cc378d013ac38b2c2ca0f9c8dc5fd75759a3c8"
 		}
 	],
-	"TimeStamp": 1778161151306
+	"TimeStamp": 1778249209459
 }
