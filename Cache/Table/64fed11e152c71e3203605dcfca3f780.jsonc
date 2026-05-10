@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T22:00:38Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				4
-			],
-			"Message": "refactor: simplify project naming in Cargo.toml and tauri.conf.json\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "7ecd2c78579c71c6c6dbbbb509d52c63b1e771ad"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T21:54:13Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				861,
-				6
-			],
-			"Message": "fix(Mountain): Resolve 404s for extension webview assets and reduce logging noise\n\nTwo bug fixes in Mountain's build modules:\n\n1. **Scheme.rs**: Extend vscode-file URI handling to support arbitrary authorities beyond \"vscode-app\". The original code only handled `vscode-file://vscode-app/<path>` but `WebviewImplementation::asWebviewUri` rewrites local resource URIs to use the extension's identifier as authority (e.g., `vscode-file://vscode.git/...`). This caused every extension-supplied webview asset (icons, scripts, stylesheets, fonts) to return 404. Added a generic fallback that extracts the path after any authority.\n\n2. **LoggingPlugin.rs**: Cap noisy extension-scanner log targets (\"ignore\", \"ignore::walk\", \"ignore::gitignore\", \"globset\") to Warn level. These crates emit DEBUG lines per `.gitignore` opened, per glob compiled, and per file whitelisted—tens of thousands during a single boot, drowning out extension activation signals.\n\nAlso updates binary/lib names and tauri productName to include build configuration identifiers for development builds.",
-			"SHA": "bbbdab26d47fbd3bca35342c224431194c519eb7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:56:13Z",
+			"Date": "2026-04-29T05:16:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				859,
 				1
 			],
-			"Message": "fix: correct wording in changelog for clarity and consistency\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "fc4f4ed5042663818a32ac3024397cff72f0a794"
+			"Message": "docs(Mountain): Rework CHANGELOG to prose format, add v2.2 section\n\nRestructure the Mountain CHANGELOG from itemized bullet points to narrative prose paragraphs, improving readability while preserving all historical content. Add new v2.2 section documenting bundled-electron correctness pass including: JSON-RPC -32004 for benign 404s, deferred-no-op file watching, canonical-path comparison for Volumes mounts, Identifier field on SCM provider DTO, sky:replay-events handler, 64KB terminal ring buffer, and tree:getChildren timeout reduction.\n\nThe new format emphasizes user-facing impact over file references, making it more useful for release notes and external communication.",
+			"SHA": "9515b2f72adf9866c58023f42f52630759ffa3da"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:53:01Z",
+			"Date": "2026-04-29T04:21:45Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				859,
-				4
+				2
 			],
-			"Message": "feat: add support for multiple windows in app and window permissions\n\n- Updated default permissions for the app plugin to include `allow-supports-multiple-windows`.\n- Added new permissions for enabling and denying `supports_multiple_windows` command.\n- Enhanced window plugin permissions to include `allow-activity-name` and `allow-scene-identifier`.\n- Added corresponding deny permissions for `activity_name` and `scene_identifier` commands.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "c7c748bb0dce25923e80d5c6b1573c08e05b421e"
+			"Message": "feat(Mountain): Buffer terminal output for late-listener replay\n\nAdd per-terminal output buffering to solve the same race condition that\nwas fixed for tree-views and SCM in 1599d766. The PTY reader task and\nSkyBridge's `listen(\"sky://terminal/*\")` installation race: in the\nbundled-electron profile, the shell's first prompt fires ~50ms after\n`spawn_command` while Sky's bundle still parses for ~1500ms. Without a\nbuffer, zsh MOTD, direnv exports, fish greetings are silently dropped\nand the user sees an empty pane until they type.\n\nThe implementation adds:\n- `AppendTerminalOutput()`: capture PTY bytes into a 64KB bounded buffer\n  (keeps most recent suffix to preserve the prompt)\n- `DrainTerminalOutputBuffer()`: retrieve all buffered terminal data\n- `RemoveTerminalOutputBuffer()`: clean up on terminal exit\n- Extended `sky:replay-events` to emit `sky://terminal/create` for each\n  active terminal AND replay any buffered `sky://terminal/data` bytes\n\nThis completes the replay system for all three major feature areas:\ntree-views, SCM providers, and terminals.",
+			"SHA": "2fee91e5d72c7b86eb194a55de12d4d33f8aac92"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:52:52Z",
+			"Date": "2026-04-29T04:01:25Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⠀⠀⠀⠀⠀",
 				859,
-				20
+				2
 			],
-			"Message": "Refactor environment variable names for consistency and clarity\n\n- Replaced occurrences of LAND_* environment variables with more descriptive PascalCase names such as `Skip`, `Ship`, `Lodge`, `Extend`, `Probe`, `Pick`, `Require`, `Spawn`, and `Trace`.\n- Updated related comments and documentation to reflect the new environment variable names.\n- Ensured that all references to the previous LAND_* variables are replaced throughout the codebase, including in logging and configuration functions.\n- Adjusted the logic in various modules to accommodate the new environment variable names while maintaining existing functionality.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "ce8f07da8643093964f0b944ac8d1009092af34b"
+			"Message": "refactor(Mountain): Use actual SCM provider identifier in replay, add command replay, reduce tree timeout\n\nThree improvements to Sky event replay:\n\n1. **SCM Provider Identifier**: The `ProviderState` DTO now carries the original `Identifier` field from `ProviderData.ID`. SCM replay uses this instead of hardcoded \"git\", enabling multi-SCM support (github, hg, etc.). Pre-existing DTOs default to \"git\" for backward compatibility.\n\n2. **Command Registration Replay**: Add replay for extension-registered commands (`vscode.commands.registerCommand`). Native Rust handlers are excluded since they're not exposed via the Vine notification channel. This ensures `ICommandService` knows about extension commands after bridge install.\n\n3. **Tree-View Timeout**: Reduce `$provideTreeChildren` timeout from 5000ms to 1500ms. User-interactive RPCs should show a spinner and fail gracefully — real workloads (gitlens, rust-analyzer) finish in <500ms. Slow producers fall through to empty-array and retry on scroll.\n\nExtends the sky:replay-events handler added in 1599d766.",
+			"SHA": "1f93b7ef93262b34e18e1109e24268a36e2caf07"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T03:40:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
+			],
+			"Message": "fix(Mountain): Replay Sky events on listener registration to fix empty sidebar\n\nSkyBridge calls this after installing every `sky://*` Tauri listener because Mountain → Sky `app.emit()` events are NOT buffered — any emit fired before the listener was installed is silently dropped.\n\nIn the bundled-electron profile, extension activation (which triggers `register_scm_provider` and `$tree:register` notifications through Cocoon) starts ~580 log lines before the Sky bundle finishes booting (~1995 lines). Without this replay, all tree-view + SCM register events are lost and the Activity Bar / sidebar comes up empty even though state-side everything registered correctly.\n\nThe new `sky:replay-events` handler iterates through active TreeViews and SCM providers in application state, re-emitting the `sky://tree-view/create` and `sky://scm/register` events that were previously dropped. This restores the sidebar contents on boot.",
+			"SHA": "1599d766f64f50d04aa4b0d73cb193243bbc43b2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T02:54:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "a934e37a6c3c3ad8a6fc4e118fb8d20ff7bdfe50"
 		}
 	],
-	"TimeStamp": 1778249211829
+	"TimeStamp": 1778420683176
 }

@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-04-29T02:33:55Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T18:38:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				2
+			],
+			"Message": "fix(Mountain): Remove duplicate DevTools window in debug builds\n\nWindowBuild.rs was calling `MainWindow.open_devtools()` independently\nfrom AppLifecycle.rs, causing two DevTools windows to open on every\ndebug launch. Remove the redundant call and document that DevTools\nauto-open lives in AppLifecycle (line 174), gated on debug_assertions\nwith a matching log line.\n\ndocs(Mountain): Clarify diagnostic coordinates are 1-based\n\nUpdate DiagnosticProvider.rs docstring to specify that\nStartLineNumber/StartColumn and EndLineNumber/EndColumn use 1-based\nindexing, matching workbench IMarkerData. Add note explaining that\nCocoon's LanguagesNamespace.ts NormaliseDiagnostic adds the +1 offset\nfrom vscode.Position 0-based convention before sending to Mountain.",
+			"SHA": "c661d669a5f51174397956c2ab363d240e270059"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T17:42:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				859,
 				1
+			],
+			"Message": "fix(Mountain): Defer sky://terminal/create event to fix race condition\n\nThe terminal workbench's `LocalTerminalBackend.createProcess` flow has a timing vulnerability: when `sky://terminal/create` emits synchronously during step 1 (RPC in-flight), the Tauri event arrives before step 3 (`_ptys.set(id, pty)`) completes. This causes `_ptys.get(id)` to return `undefined`, skipping `handleReady` and preventing `processManager._onProcessReady` from firing. Since `ptyProcessReady` never resolves, every subsequent `processManager.write(data)` call hangs indefinitely—users see the terminal panel but all keystrokes are silently dropped.\n\nFix by emitting on a deferred tokio task with a 120ms delay, giving the RPC response roundtrip + `_ptys.set` sufficient headroom. Also switch to `LogSkyEmit` for visibility under `[DEV:SKY-EMIT]` histogram tracking.\n\nThis complements the existing `AppendTerminalOutput` replay buffer for data (added in c99ccbe), completing the terminal race-condition fix for both create and data events.",
+			"SHA": "c2d0beca968f600d76ac4d85a436931124cfdf07"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T17:20:13Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
+			],
+			"Message": "fix(Mountain): Return integer id from localPty:createProcess\n\nThe VS Code terminal workbench expects `IPtyService.createProcess` to return a `Promise<number>` (the integer terminal id). However, Mountain was returning the full `{id, name, pid}` object. The workbench then keys its internal `_ptys` map by that object, so every `_ptys.get(<integer>)` lookup from `onProcessData`/`onProcessReady` returns `undefined`. This causes xterm to receive zero bytes even though Mountain's PTY reader emits data continuously—resulting in blank terminal panels.\n\nSplit the terminal handler into three distinct paths:\n- `localPty:spawn`: Preserves full response for Cocoon's Sky bridge\n- `localPty:createProcess`: Returns only the integer id per VS Code contract\n- `localPty:start`: No-op for eager-spawn pattern (shell already started during createProcess)\n\nThis fixes the terminal rendering while maintaining backward compatibility with existing spawn callers.",
+			"SHA": "c99ccbe7715342838206eb2c54509fa3a97f513f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T16:59:58Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				2
+			],
+			"Message": "refactor(Mountain): Simplify binary and product names\n\nRename the Mountain binary, library, and default-run targets from the verbose development profile name to simply \"Mountain\". This follows the project's PascalCase naming convention and removes the debug build artifact naming.\n\nIn tauri.conf.json, simplify the identifier from the lengthy development-specific string to \"land.editor.binary\" and the productName from the long debug name to \"Mountain\". Also remove the duplicate \"Binary/node\" entry from externalBin.\n\nThese changes clean up the build configuration for proper release builds while maintaining the same functionality.",
+			"SHA": "db5f0f7bc58c4108ea4f51ec3ac0d30bb008def3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T16:55:25Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				3
 			],
 			"Message": "",
-			"SHA": "cce2516555660983de4287c47ab94daaa710b02a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:08:42Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				2
-			],
-			"Message": "fix(Mountain): Accept absent paths in FileWatcher and varied URI shapes\n\nTwo changes that prevent false circuit breaker trips in Mountain's gRPC service:\n\n1. **FileWatcherProvider.rs**: Extensions frequently register watchers on optional paths (`~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't yet exist. Previously, `notify::Watcher::watch()` failure triggered a gRPC error that counted against Cocoon's circuit breaker — 5 probes at boot trips it open and cascades into 60s of rejected reads. Now Mountain catches benign \"path not found\" errors, records a \"deferred\" entry without a live OS watcher, and still allows Unregister to clean up the handle.\n\n2. **UriParsing.rs**: Cocoon sends URIs in three different shapes — plain strings (e.g., `Diagnostic.Set`), objects with `external` field (VS Code's `URI.toJSON()`), and legacy objects with just `scheme` + `path`. The original code only accepted the `external` field, causing `Diagnostic.Set` from `vscode.languages.createDiagnosticCollection().set` to trip the breaker after 5 publishes, silencing all linters across language extensions. Now all three formats are accepted.\n\nBoth fixes maintain backward compatibility while eliminating spurious error cascades.",
-			"SHA": "9c10fbe92d916db112eb377dcd9f1ab9130c8821"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:40:26Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				2
-			],
-			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nTwo changes in Mountain's gRPC service layer:\n\n1. **FileWatcher.rs**: Cocoon's `NextProviderHandle()` returns a number, but older callers pass a string. Handle both shapes in `RegisterWatcher` and `UnregisterWatcher` instead of silently converting numbers to empty string.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without a string-regex round-trip, while `-32000` remains the catch-all for genuine failures.",
-			"SHA": "160b5a4251133f31e4ce99898a02a8d63f8ca19b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:03:45Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				1
-			],
-			"Message": "docs(Mountain): Update build.rs comments to document PascalCase naming\n\nClarify the build script comments to document the PascalCase environment variable naming convention introduced in the 2026-04-29 migration. The comments now specify that `Profile`, `Pack`, `Bundle`, and `Compiler` (PascalCase) are the current env var names, replacing the legacy `LAND_*` names that were retired. This ensures clarity for developers debugging build configuration resolution at runtime.",
-			"SHA": "de696659a367b81cdc5404e3055fa6837bd94fa7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T23:06:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				2
-			],
-			"Message": "feat(Mountain): Add per-URI marker payloads to diagnostics events and cap keyring logging\n\nTwo changes in Mountain's diagnostic system:\n\n1. **DiagnosticProvider.rs**: Extend the `DiagnosticsChanged` event payload with a new `changedURIs` field containing per-URI marker data alongside the existing `Uris` string array. This enables SkyBridge's `cel:diagnostics:changed` listener to call `IMarkerService.changeOne(owner, uri, markers)` directly without an extra IPC round-trip per diagnostic change. Also adds lowercase `owner` field for consistency. Maintains backward compatibility with listeners expecting the original format.\n\n2. **LoggingPlugin.rs**: Cap the `keyring` crate to Warn level. This dependency (used by Mountain's secret-storage path for license data lookups) emits a 3-line DEBUG block per `get_password` call that fires indefinitely after the workbench paints, similar to the previous `ignore` and `globset` mutes.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "5b111b189f5566e92bce268a48be289d73ef6735"
+			"SHA": "f2b5c349377b143b33dab188478a947d77522a46"
 		}
 	],
-	"TimeStamp": 1778249211530
+	"TimeStamp": 1778420682911
 }

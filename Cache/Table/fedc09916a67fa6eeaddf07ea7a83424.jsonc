@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:11:54Z",
+			"Date": "2026-04-24T15:07:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				829,
-				4
-			],
-			"Message": "refactor(Mountain): Complete explicit module path migration in state and IPC\n\nContinue the refactoring from commit 10feb14ec to eliminate implicit module namespace reliance by fully qualifying internal paths:\n\n- Add explicit `TextProcessing` segment in DocumentStateDTO import for `AnalyzeTextLinesAndEOL`\n- Prefix ConfigurationState, UIState, and WorkspaceState type paths with their module name (e.g., `UIState::UIState::State`)\n- Update WorkspaceDelta function signatures with full `WorkspaceState::WorkspaceState::State` paths\n- Migrate AppLifecycle call site from `WindServiceHandlers::set_static_application_root` to `WindServiceHandlers::Utilities::set_static_application_root`\n\nThis ensures all internal references use the reverse-hierarchical path pattern that makes dependency relationships explicit in every call site, consistent with the CLAUDE.md module path requirements.",
-			"SHA": "e3135b994ecc9c8cbedf24de93c125e810437122"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:05:06Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				829,
-				14
-			],
-			"Message": "refactor(Mountain): Enforce explicit module paths, eliminate pub use re-exports\n\nPer CLAUDE.md requirements, replace `pub use` glob re-exports with local `use` statements throughout Mountain's IPC and state modules. This enforces that callers spell full qualified paths like `WindServiceHandlers::Utilities::get_static_application_root()` rather than relying on flattened namespace imports.\n\nChanges:\n- Remove `pub use *` from WindServiceHandlers/mod.rs, UI/mod.rs, and ApplicationState modules\n- Convert to local `use X::*` scoped to the dispatcher file only\n- Update call sites in Scheme.rs, AppLifecycle.rs, and Search.rs to use explicit paths\n- Reorganize module declaration order in FeatureState and Internal modules\n\nThe reverse-hierarchical path is load-bearing - it tells the reader which file owns the handler. This change prevents accidental namespace pollution and makes dependency relationships explicit in every call site.\n\nAlso updates tauri.conf.json to include externalBin for node binary.",
-			"SHA": "10feb14ec590c0361e9a0038e0833bf752bf447e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:04:49Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				827,
-				11
-			],
-			"Message": "refactor(Mountain): Split monolithic UI.rs into domain-specific modules\n\nExtract the 32 handlers from the single `UI.rs` (~670 LoC) into 9 separate domain modules under `WindServiceHandlers/UI/`:\n- `Decoration.rs` - URI badge/tooltip/colour providers\n- `Keybinding.rs` - dynamic runtime keybinding registry\n- `Lifecycle.rs` - app phase get/wait/shutdown\n- `Notification.rs` - toast messages and notification-scoped progress\n- `Progress.rs` - window/status-bar progress indicators\n- `QuickInput.rs` - QuickPick and InputBox dialogs\n- `Theme.rs` - colour theme get/list/set\n- `Workspace.rs` - workspace folder lifecycle\n- `WorkingCopy.rs` - dirty-state tracking\n\nEach file contains focused handlers for one UI concern, improving discoverability with `grep pub async fn`. The `mod.rs` re-exports all handlers flat to preserve the existing dispatcher call sites.\n\nThis follows the same pattern as recent Batch 15/16 notification atom migrations, further decomposing Mountain's IPC surface for better maintainability.",
-			"SHA": "285e8d1e67f19bb8f8c520665197d620d792cb5a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:52:25Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				817,
-				12
-			],
-			"Message": "refactor(Mountain): Migrate Batch 16 notification handlers to atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to 10 new atom functions in `Vine::Server::Notification::*`:\n\n- webview lifecycle (setTitle, setIconPath, setHtml) → WebviewLifecycle\n- window.createTerminal → WindowCreateTerminal\n- terminal lifecycle (sendText, show, hide, dispose) → TerminalLifecycle\n- decoration lifecycle (createTextEditorDecorationType, disposeTextEditorDecorationType) → DecorationTypeLifecycle\n- debug lifecycle (addBreakpoints, removeBreakpoints, consoleAppend) → DebugLifecycle\n- statusBar lifecycle (update, dispose) → StatusBarLifecycle\n- statusBar.message → StatusBarMessage\n- window.showMessage → WindowShowMessage\n- registerCommand → RegisterCommand\n- unregisterCommand → UnregisterCommand\n\nTerminalLifecycle is a \"group atom\" covering 4 wire methods that share both the `sky://terminal/*` relay and provider-side PTY drive. StatusBarLifecycle similarly groups 2 methods. This keeps MountainVinegRPCService thin with one-line delegations.",
-			"SHA": "1699cfca4a8e3c70bcf0b1d355097788d7a0068b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:52:16Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				807,
+				872,
 				2
 			],
-			"Message": "refactor(Mountain): Migrate remaining notification handlers to Batch 15 atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to the Batch 15 atom functions in `Vine::Server::Notification::*`. The migrated handlers include:\n- extensionHostMessage → ExtensionHostMessage\n- ExtensionActivated/ExtensionDeactivated → ExtensionActivated/ExtensionDeactivated\n- WebviewReady → WebviewReady\n- progress.start/report/end → ProgressStart/ProgressReport/ProgressEnd\n- languages.setDocumentLanguage → LanguagesSetDocumentLanguage\n- workspace.applyEdit → WorkspaceApplyEdit\n- window.showTextDocument → WindowShowTextDocument (new atom file)\n\nAlso removes the dead handler bodies at the bottom of the match arm that were unreachable after Rust selected the first matching arm for each wire name. This consolidates all notification dispatch to the atom layer, keeping MountainVinegRPCService thin with one-line delegations.",
-			"SHA": "c834d103d4fc2f2002a1e55093df536bf58031c1"
+			"Message": "feat(Mountain): Add trusted system paths bypass and idempotent VSIX installs\n\nImplement two related extension-management improvements:\n\n1. **Trusted system paths** (`PathSecurity.rs`): Add `IsTrustedSystemPath` that defines directories Land owns (`.land/`, Application Support, bundled extension roots, TMPDIR) which bypass the workspace-folder sandbox check. Without this, the extension scanner's read of `~/.land/extensions` was rejected as \"outside workspace\" - user-installed VSIXes never reached the Extensions sidebar.\n\n2. **Idempotent VSIX reinstalls** (`VsixInstaller.rs`): Remove `AlreadyInstalled` error and instead treat re-installs as no-op when the target already exists with a readable manifest. Matches VS Code's semantics and prevents the renderer crash where `ExtensionsWorkbenchService` dereferences a null result. Corrupt/partial installs are wiped and re-extracted.\n\nBoth changes unblock the extension loading pipeline.",
+			"SHA": "e49563563641f0491ec4cb23c2ea1809d455feea"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T14:49:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				2
+			],
+			"Message": "chore(Mountain): Add payload preview to notif-drop logging and register benign ENOENT paths\n\nTwo logging improvements for Mountain's developer diagnostics:\n\n1. **Notif-drop payload preview**: When a notification falls through to the Cocoon event handler, include a truncated payload preview (160 bytes max) in the dev log. This helps diagnose which new upstream notifications are reaching the catch-all without needing a second debug run.\n\n2. **Benign ENOENT paths**: Register additional file paths that commonly return ENOENT but aren't errors:\n   - MCP config files (.vscode/mcp.json, .mcp.json)\n   - User snippets and keybindings (/User/snippets, /User/keybindings.json)\n   - AI-generated workspace storage (aiGeneratedWorkspaces.json)\n   - Git config for non-repo folders (/.git/config)\n\nThese paths reduce noise in dev logs while preserving signal for genuine file-access issues.",
+			"SHA": "f1de83d594ad1a3f7c893f0ecbf92581f8029abb"
+		},
+		{
+			"Author": "github-actions[bot]",
+			"Date": "2026-04-24T07:53:45Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				1
+			],
+			"Message": "Merge pull request #42 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-2.2.1\n\nchore(deps): Bump pozil/auto-assign-issue from 2.2.0 to 2.2.1",
+			"SHA": "77025119a1c3843e843bcaa42b0a31fabcad5bb7"
+		},
+		{
+			"Author": "dependabot[bot]",
+			"Date": "2026-04-24T07:53:34Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				1
+			],
+			"Message": "chore(deps): Bump pozil/auto-assign-issue from 2.2.0 to 2.2.1\n\nBumps [pozil/auto-assign-issue](https://github.com/pozil/auto-assign-issue) from 2.2.0 to 2.2.1.\n- [Release notes](https://github.com/pozil/auto-assign-issue/releases)\n- [Commits](https://github.com/pozil/auto-assign-issue/compare/v2.2.0...v2.2.1)\n\n---\nupdated-dependencies:\n- dependency-name: pozil/auto-assign-issue\n  dependency-version: 2.2.1\n  dependency-type: direct:production\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "7ac71734f23f84b929347fa75ffc0bda336b807a"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-24T02:11:52Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				1
+			],
+			"Message": "",
+			"SHA": "846264d9781eb7abfa4379461493984a3045cf6f"
 		}
 	],
-	"TimeStamp": 1778249215325
+	"TimeStamp": 1778420685970
 }

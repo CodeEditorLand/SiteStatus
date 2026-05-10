@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-01-31T03:15:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				530,
+				1
+			],
+			"Message": "feat(Cocoon/WebViewPanel): Implement Effect-TS state management service\n\nThis commit introduces the core state persistence layer for WebView panels within the Cocoon extension host sidecar, fulfilling a critical requirement for session restoration across editor sessions. It establishes a declarative state management system using Effect-TS that enables panels to capture, validate, and restore their complete runtime state—including position, view configuration, and content—for seamless session continuity.\n\nKey Components:\n- **State Contracts**: Define complete `PanelState`, `PanelPosition`, `PanelViewState`, and `PanelOptions` interfaces following Land's strict DTO patterns.\n- **Effect-TS Service**: Implement `StateService` using Effect's `Service` pattern with an in-memory cache (`Map`) as the initial storage layer, with clear abstraction points for future IPC integration.\n- **Validation System**: Provide comprehensive validation (`ValidateState`) ensuring all restored state matches the current schema version, preventing data corruption.\n- **State Creation**: Offer `CreatePanelState` helper for constructing correctly versioned state objects with metadata timestamps.\n\nArchitectural Connections:\n- **Integration Point**: Provides clean interfaces (`StateManager`) for future integration with Mountain's persistence layer via IPC.\n- **Multi-element Coordination**: The state is designed to be serialized into Mountain's DTO format (via existing SerializerService) for backend storage, then restored to drive panel recreation in the Factory, UI rendering in Sky via Wind's state synchronization, and Mountain's session management.\n- **Validation First**: Emphasizes defensive validation to maintain state integrity across the IPC boundary between Cocoon and Mountain.\n\nThis completes another foundational layer of the WebView panel infrastructure, enabling the declarative state management required for Mountain's session persistence TODOs while maintaining strict separation between Cocoon's extension host responsibilities and Mountain's backend storage.",
+			"SHA": "7e58d32cc99e07d17eb42ea323c40161b0c010b6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-01-31T03:12:16Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				529,
+				1
+			],
+			"Message": "feat(Cocoon/WebViewPanel): Add state serializer for Mountain DTO conversion\n\nThis commit introduces the critical DTO serialization layer for WebView panel state persistence within the Cocoon extension host sidecar. The SerializerService establishes bidirectional conversion between Cocoon's internal PanelState format and Mountain's DTO storage format, enabling complete session restoration via the Mountain backend.\n\nThe implementation defines the `MountainDTO` interface representing the exact contract expected by Mountain's persistence layer, and provides `SerializeToDTO`, `DeserializeFromDTO`, and `ValidateDTO` methods using Effect-TS's Service pattern. The serializer includes comprehensive validation of all DTO fields, ensuring type safety and data integrity during IPC transmission. This completes the data adaptation layer required for Mountain's IPC notification system referenced in earlier panel lifecycle implementations.\n\nThis serializer forms the bridge between Cocoon's declarative panel management system and Mountain's backend storage, enabling proper state persistence across editor sessions while maintaining architectural separation. The DTO versioning system establishes a foundation for future schema migration and compatibility management.",
+			"SHA": "90bf13df8f8913c90ff2672319a0656045142269"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-01-31T03:10:22Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				528,
+				1
+			],
+			"Message": "feat(Cocoon/WebViewPanel): Implement core Panel class with full lifecycle management\n\nThis commit introduces the central `Panel` class that implements the complete VSCode `WebviewPanel` interface for the Cocoon extension host sidecar, establishing the individual panel management layer that integrates with the previously built Factory and Message systems.\n\nThe `Panel` class provides comprehensive lifecycle management (create, show, hide, dispose) and state tracking (active, visible, viewColumn) with defensive checks to prevent operations after disposal. It integrates with the `WebViewImplementation` for content hosting, uses `EventStream`-based event emitters for Effect-TS compatible event handling, and coordinates with Mountain via IPC for state synchronization using the established `IPC` service interface. The implementation follows VSCode's patterns while adapting them to Land's declarative architecture, with the `reveal()`, `title`/`iconPath` setters, and `dispose()` methods all triggering appropriate IPC notifications to Mountain for session persistence.\n\nThis completes the core WebView panel implementation in Cocoon, enabling extensions to create and manage individual panels through the VSCode API while maintaining proper integration with Land's multi-element architecture (Sky for UI rendering, Wind for content serving, and Mountain for backend state).",
+			"SHA": "0d41f96c747d08f35a8828330f5f49c4eb80c1bf"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-01-31T03:08:02Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "feat(Cocoon/WebViewPanel): Implement Effect-TS based factory for WebView panel lifecycle management\n\nThis commit introduces the core panel creation and management system for the Cocoon extension host sidecar, establishing a critical component of the webview infrastructure that enables VS Code extension compatibility. Following the VSCode extHostWebview.ts factory pattern, the implementation provides centralized panel creation, lifecycle tracking, and cleanup through a declarative Effect-TS service layer.\n\nThe FactoryService implements a PanelRegistry using Effect's Ref-based concurrency primitives to safely track active panels by their unique UUID handles. The service provides methods for creating panels (CreatePanel), retrieving specific panels (GetPanel), listing all active panels (GetAllPanels), and managing disposal (DisposePanel, DisposeAllPanels). Each panel creation establishes proper integration with Mountain's IPC layer for state persistence and coordinates with the Sky UI components for rendering WebView iframe content via Wind's resource serving capabilities.\n\nThis factory completes the foundational webview management system within Cocoon, enabling extension authors to create and manage WebView panels through the vscode API while ensuring proper resource cleanup and integration with Land's multi-element architecture. The design prioritizes thread safety through atomic Ref operations and follows the Effects-based pattern established across the Land ecosystem.",
 			"SHA": "cf08bc655321019685dc1bad9bdf937f87b782f3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-01-31T03:04:07Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				525,
-				1
-			],
-			"Message": "feat(Cocoon/Platform): Add unified module index for Platform exports\n\nThis commit introduces a comprehensive index file that centralizes and organizes all exports from Cocoon's Platform module, including OS, Environment, Process, TypeConverter, and Service. It provides a clean, single-point import for consumers, enabling easier integration with Wind's Effect-TS services and other parts of the Land ecosystem.\n\nThe index file re-exports all members from each submodule, grouped by module, and provides direct convenience exports for common operations. This follows the modular architecture established in previous commits and ensures that all platform functionality is accessible through type-safe, declarative imports. The extensive documentation included in the index clarifies module responsibilities, usage patterns, and connections to other elements (Mountain, Wind, etc.).\n\nThis unified export completes the Platform module's public API, streamlining development and setting the foundation for upcoming Vine gRPC integration by ensuring all necessary DTO conversion functions and platform abstractions are readily available.",
-			"SHA": "534c2789fe82aeff9eccab4bbe24497381e9c6e8"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-01-31T03:00:30Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				524,
-				1
-			],
-			"Message": "feat(Cocoon/Platform): Add comprehensive DTO converter for Mountain IPC communication\n\nThis commit introduces the critical TypeScript-side data translation layer for the Cocoon extension host platform services. The `TypeConverter` module establishes bidirectional conversion between Cocoon's internal Platform types (`OSInfo`, `EnvironmentInfo`, `ProcessInfo`) and Mountain's DTO format, enabling structured IPC communication via Tauri commands and the planned Vine gRPC protocol.\n\nThe implementation provides conversion functions for all previously built Platform modules, including OS detection, environment variables, and process management. Each converter handles validation, sanitization, and serialization with security-conscious design (detecting sensitive environment variables, validating platform enums). The module exports placeholder Mountain DTO interfaces that will be updated to match exact Mountain backend definitions, establishing a clear protocol contract between Cocoon and Mountain.\n\nThis converter serves as the data adaptation layer between Cocoon's declarative Effect-TS service architecture and Mountain's native Rust backend, enabling Wind's services to consume platform functionality through type-safe DTOs. It completes the Cocoon platform abstraction by adding the IPC translation layer necessary for the Vine gRPC communication system.",
-			"SHA": "63637c977722fff50342aa08e5540b74b1a1c40a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-01-31T02:59:25Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				523,
-				1
-			],
-			"Message": "feat(Cocoon/Platform): Unify platform modules into comprehensive Effect-TS service layer\n\nThis commit establishes the central integration layer for Cocoon's platform abstraction modules (`OS`, `Environment`, `Process`, `TypeConverter`) by introducing a comprehensive `PlatformService`. The service follows Land's declarative effects-based architecture, providing dependency injection, lifecycle management, and performance optimization for all platform operations within the TypeScript extension host sidecar.\n\nThe implementation creates an `IPlatformService` interface with corresponding `PlatformService` class that orchestrates platform operations with caching, health monitoring, and proper error handling. Key architectural features include: Effect-TS context and layer definitions (`PlatformServiceTag`, `PlatformServiceLayer`) for dependency injection; performance optimization through TTL-based caching; integrated DTO conversion functions that prepare data for synchronization with Mountain via the forthcoming Vine gRPC protocol; and complete service lifecycle management with initialization and disposal.\n\nThis service layer serves as the critical integration point between Cocoon's platform modules and Wind's Effect-TS services, enabling Wind components to consume platform functionality through declarative effects while maintaining the architectural separation between Mountain's native backend and Cocoon's extension host. It completes the platform abstraction layer begun in previous commits, establishing the foundation for platform-aware extension services and coordinated native operations across the Land ecosystem.",
-			"SHA": "362c026ebebc5ab06e85fb880c14a81aeaccd15a"
 		}
 	],
-	"TimeStamp": 1778254865590
+	"TimeStamp": 1778420695784
 }

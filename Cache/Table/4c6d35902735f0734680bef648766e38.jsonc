@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:08:42Z",
+			"Date": "2026-05-02T05:44:28Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1003,
+				8
+			],
+			"Message": "refactor(Mountain): Decompose Terminal RPC handlers into file-per-struct modules\n\nExtract all gRPC entry points within `Source/RPC/CocoonService/Terminal` into dedicated PascalCase modules to align with the project-wide architectural convention. New modules cover the full terminal lifecycle: `OpenTerminal` (spawning PTY via `TerminalProvider::CreateTerminal`), `CloseTerminal` (disposing via `DisposeTerminal`), `TerminalInput` (forwarding bytes to the master writer), `ResizeTerminal` (emitting dimensions to Sky), and notifications for `AcceptTerminalOpened`, `AcceptTerminalClosed`, `AcceptTerminalProcessData`, and `AcceptTerminalProcessId`.\n\nEach handler implements the `Fn` signature required for Tauri's `generate_handler!` macro and bridges the `Vine` gRPC protocol to the `Sky` UI layer. Notifications are emitted via Tauri events (`sky://terminal/create`, `/exit`, `/data`, `/processId`, `/resize`) using lossy UTF-8 decoding for stream data. This completes the decomposition of the `CocoonService` namespace, ensuring consistent symbol resolution and maintainability across the terminal subsystem.",
+			"SHA": "1a89bda0e090338927fd29676be62533ef50ca16"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:43:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				994,
+				4
+			],
+			"Message": "feat(Mountain): Decompose TreeView RPC handlers into file-per-struct modules\n\nExtract the `TreeView` gRPC entry points within `Source/RPC/CocoonService` into dedicated PascalCase modules (`EnqueueTreeViewEmit`, `GetTreeChildren`, `RegisterTreeViewProvider`, `ViewIdHandle`) to align with the project-wide architectural convention.\n\nThe `EnqueueTreeViewEmit` module implements a static batcher that coalesces 30+ `tree-view/create` events from boot into single 16 ms window payloads, utilizing `AtomicBool` locking and `tokio::spawn` for non-blocking emission to the `Sky` UI layer. `GetTreeChildren` bridges the `Vine` gRPC protocol to the `Cocoon` extension host, performing a 5-second timeout-protected round-trip to `$provideTreeChildren` and returning empty lists on provider registration failures. `RegisterTreeViewProvider` registers tree data providers in `ApplicationState` using a consistent 31-based string hash for handle generation and triggers the batched emit. `ViewIdHandle` centralizes the hash logic for provider lookup.\n\nAll handlers are exposed as `Fn` functions for invocation via `Tauri::generate_handler!`, completing the refactoring of the `CocoonService` RPC namespace.",
+			"SHA": "39923726563a05fc656a7c3766fa7bd4f9232528"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:42:40Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				939,
-				12
+				989,
+				16
 			],
-			"Message": "refactor(Mountain): Decompose RPC modules into file-per-struct submodules\n\nRefactor all `Source/RPC/*.rs` files to align with the project-wide PascalCase module path convention enforced in recent `Track` and `RunTime` refactors. Replace inline struct definitions and `pub use` re-exports with explicit `pub mod` declarations that delegate to sibling files (e.g., `CommandService.rs`, `EchoActionServer.rs`).\n\nThis change ensures that every struct and implementation resides in a file matching its PascalCase name, allowing Tauri's `generate_handler!` macro to correctly resolve `__cmd__` symbols via the full module path. Placeholder services (Debug, Processes, SCM, Terminals, Windows) are updated to use the `Struct` naming pattern within their feature gates, while active services (Commands, Configuration, EchoAction, Telemetry, Workspace, Types, Vine) are split into their constituent DTOs and service handles. The `EchoAction` module retains its complex logic but now delegates to dedicated sub-files for `EchoActionServer`, `ExtensionHostRegistry`, `ExtensionRouter`, and priority resolution.\n\nThis establishes a consistent architectural pattern across the entire RPC layer, eliminating flat imports and ensuring strict path resolution for IPC generation.",
-			"SHA": "6816476bd1c4c5f0047725acc343bcdfe592a750"
+			"Message": "feat(Mountain): Decompose Window RPC handlers into file-per-struct modules\n\nExtract all gRPC entry points within the `Source/RPC/CocoonService/Window` namespace into dedicated PascalCase modules. This completes the architectural refactor initiated in previous commits for Workspace, Command, and Configuration, ensuring the monolithic `mod.rs` no longer contains inline handler logic.\n\nNew modules include handlers for window management (CreateWebviewPanel, DisposeWebviewPanel, SetWebviewHtml), status bar operations (CreateStatusBarItem, SetStatusBarText), and user interface interactions (ShowErrorMessage, ShowInformationMessage, ShowWarningMessage, ShowInputBox, ShowQuickPick, ShowTextDocument). Additional handlers cover progress reporting (ShowProgress, ReportProgress) and webview messaging (OnDidReceiveMessage, PostWebviewMessage).\n\nEach handler implements the `Fn` signature required by Tauri's `generate_handler!` macro and bridges the `Vine` gRPC protocol to the `Sky` UI layer. The implementations utilize the `CommonLibrary` traits (`StatusBarProvider`, `WebviewProvider`, `UserInterfaceProvider`) for state registration and stateful operations. Fallback mechanisms via direct `sky://` Tauri events are preserved for trait failures to prevent state leaks in webview and status bar components.",
+			"SHA": "adfab9f41833191c1652fc00fb0b0d91aa16054d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:05:17Z",
+			"Date": "2026-05-02T05:37:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				939,
-				2
-			],
-			"Message": "refactor(Mountain): Collapse ApplicationRunTime struct into mod.rs\n\nRemove the `RuntimeStruct.rs` submodule and the associated `pub use` re-export pattern in `ApplicationRunTime/mod.rs`. Inline the `ApplicationRunTime` struct definition and its `HasEnvironment` and `Environment` trait implementations directly into `mod.rs`.\n\nThis change eliminates unnecessary indirection for the core runtime struct, ensuring callers must reference the full path `RunTime::ApplicationRunTime::ApplicationRunTime`. This aligns with the project-wide enforcement of PascalCase module paths required for `tauri::generate_handler!` symbol resolution and consistency across the Mountain crate. The struct now resides directly in the module file alongside its constructor, while method implementations remain delegated to sibling modules (`Execute`, `Shutdown`) as per architectural design.",
-			"SHA": "5e3eaaba2130f3e48c04d41f12106b25ddea322c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:00:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				940,
-				3
-			],
-			"Message": "refactor(Mountain): Condense error construction in RunTime execution module\n\nRefactor `RunWithRetry` and `RunWithTimeout` in the `Source/RunTime/Execute` module to align with project style guidelines for error handling. Condense multi-line `CommonError::Unknown` constructions into single-line constructs for `Description` fields, improving readability and reducing vertical spacing. Additionally, format the import statements in `Run.rs`, `RunWithRetry.rs`, and `RunWithTimeout.rs` to remove unnecessary line breaks within the `CommonLibrary` import block.\n\nThis ensures consistent code style across the runtime execution logic and maintains parity with recent refactoring efforts in the shutdown and tracking modules.",
-			"SHA": "9435437a93f0a8d813df0081e95393d9e6023ad2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T04:58:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				940,
-				3
-			],
-			"Message": "refactor(Mountain): Consolidate shutdown logic formatting and correct Vine client call\n\nRefactor the shutdown sequence in `SaveApplicationState`, `ShutdownCocoonWithRetry`, and `ShutdownWithRecovery` to align with project style guidelines. Condense multi-line error mapping chains in `SaveApplicationState` and `ShutdownCocoonWithRetry` into single-line constructs for improved readability. Simplify the `dev_log!` macro invocation in `ShutdownWithRecovery` by removing unnecessary line breaks.\n\nCrucially, correct the invocation of the Vine client's shutdown marker in `ShutdownCocoonWithRetry`. Update the call from `MarkShutdown()` to `MarkShutdown::Fn()` to strictly adhere to the enforced PascalCase module path resolution pattern required by the Tauri command macros and the project's strict naming convention.\n\nThis ensures consistent code style across the runtime shutdown module and resolves the symbol resolution for the shutdown lifecycle hook.",
-			"SHA": "cbc65d5f77fe835108f17fc251e6ecd6308c7c0e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T04:56:23Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				940,
+				972,
 				5
 			],
-			"Message": "refactor(Mountain): Enforce PascalCase paths in Effect module tree\n\nUpdate the `Track::Effect` module to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `CreateEffectForRequest/mod.rs`, rename the exported function from `CreateEffectForRequest` to `Fn` to match the import pattern used in `DispatchFrontendCommand` and other callers. In `mod.rs`, remove legacy `pub use` re-exports and the `pub mod` exposure pattern that allowed flat imports. Replace them with an explicit `#![allow(non_snake_case)]` directive and documentation comments.\n\nThis enforces that callers must spell out the full double-segment paths (e.g., `Track::Effect::CreateEffectForRequest::Fn`). This structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names, ensuring consistency across the Mountain crate and resolving potential symbol resolution issues in the IPC layer.\n\nAdditionally, format function signatures in `Keybinding.rs` and `NativeHost.rs` to single lines and expand comments in `Webview.rs` for clarity.",
-			"SHA": "79ccc6e73929c310801a2bb948723eeeb689f471"
+			"Message": "refactor(Mountain): Decompose Workspace RPC handlers into file-per-struct modules\n\nDecompose the `Source/RPC/CocoonService/Workspace` module to align with the project-wide PascalCase file-per-struct convention. Extract the handler logic for `ApplyEdit`, `OpenDocument`, `SaveAll`, `UpdateConfiguration`, and `UpdateWorkspaceFolders` into dedicated submodules.\n\nEach handler is exposed as a public async function `Fn` within its own file, invoked via fully qualified paths in the parent `mod.rs`. The implementations bridge the gRPC `Vine` protocol to the frontend: `ApplyEdit`, `OpenDocument`, `SaveAll`, and `UpdateConfiguration` emit specific Tauri events to the `Sky` UI layer, while `UpdateWorkspaceFolders` performs direct mutation of the `ApplicationState.Workspace` DTOs and triggers the standard notification mechanism. This preserves all existing logic for text editing ranges, untitled file handling, and folder index stability, ensuring consistent symbol resolution for Tauri's `generate_handler!` macro.",
+			"SHA": "3ad7df3dc9d9447ced7b2baf5725e63fb4752381"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:37:15Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				966,
+				16
+			],
+			"Message": "refactor(Mountain): Decompose CocoonService RPC handlers into file-per-struct modules\n\nDecompose the monolithic `Source/RPC/CocoonService` modules to align with the project-wide PascalCase file-per-struct convention. Extract the handler logic for every gRPC entry point across Auth, Command, Debug, Extension, FileSystem, Initialization, Output, Provider, SCM, Secret, Task, Terminal, TreeView, Window, and Workspace into dedicated submodules (e.g., `Command/RegisterCommand.rs`, `FileSystem/ReadFile.rs`, `Window/ShowTextDocument.rs`).\n\nEach handler is now exposed as a function within its own module and invoked via the fully qualified path `Module::Function::Fn` in the main `mod.rs` implementation. This mirrors the architectural pattern established in recent `Workspace`, `Echo`, and `Telemetry` refactors. The changes preserve all existing logic, including the TreeView emission batching, SCM state tracking, and webview panel lifecycle management, while ensuring correct symbol resolution for Tauri's `generate_handler!` macro and gRPC wire protocol generation.",
+			"SHA": "ef96dfe524b73c7c862a7a1c74bf8088065d5b35"
 		}
 	],
-	"TimeStamp": 1778249207116
+	"TimeStamp": 1778420679760
 }

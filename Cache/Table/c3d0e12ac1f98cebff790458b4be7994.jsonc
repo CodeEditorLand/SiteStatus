@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T02:27:02Z",
+			"Date": "2026-05-01T01:17:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				868,
-				4
+				2
 			],
-			"Message": "build(Mountain): Revert binary/library names to simplified \"Mountain\" identifier\n\nRevert the verbose development profile string (DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler_Mountain) back to the simple \"Mountain\" name for binary, library, and default-run targets.\n\nThis simplifies the Tauri configuration by reverting productName and identifier to concise values (\"Mountain\" and \"land.editor.binary\" respectively). Also removes the duplicate \"Binary/node\" entry from externalBin in tauri.conf.json.\n\nBackup files (Cargo.toml.Backup, tauri.conf.json.Backup) are deleted as they are no longer needed.\n\nThe build pipeline continues to function correctly with the simplified naming scheme.",
-			"SHA": "b490dcadccb30eb16c390a365632383d5aa1bcff"
+			"Message": "perf(Mountain): Batch command registration emits to reduce IPC saturation\n\nDuring extension boot, 1000+ `registerCommand` notifications fire in a tight burst (113 extensions × ~10 commands each). Each notification was emitting a separate Tauri event, saturating the shared WKWebView IPC channel that also carries keystroke delivery. Users could type for a split second before the burst hit, then nothing.\n\nAdd a `CommandEmitBatch` struct that buffers commands and flushes after 16ms (one frame), reducing 1000+ individual emits to a single batched `{ commands: [...] }` emit. SkyBridge's listener already accepts both shapes (single `{ id, commandId, kind }` or batch `{ commands: [...] }`), so no Sky changes required.\n\nThis keeps the IPC channel free for keystrokes during extension boot when the renderer is most busy.",
+			"SHA": "f304bd408f391d1848c357b909b09e5f5906ae99"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T02:20:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				870,
-				4
-			],
-			"Message": "build(Mountain): Update binary/lib names and Tauri config for development build profile\n\nRename the Mountain binary and library to include the full development environment profile string (DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler_Mountain) to distinguish this build variant from production builds.\n\nUpdate tauri.conf.json productName and identifier to match, and add Binary/node to externalBin for the development node path.\n\nThis configuration supports the multi-profile build pipeline for debugging different environment configurations.",
-			"SHA": "0a0e22ba2ddbef0b3b89c87ac9618f621f993889"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T01:34:27Z",
+			"Date": "2026-05-01T00:15:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				868,
 				1
 			],
-			"Message": "",
-			"SHA": "e72ff81c94321b324cc469810fac9029bee1428c"
+			"Message": "perf(Mountain): Gate sync/performance emits behind env vars and add subscriber fast-path\n\nTwo optimizations to reduce IPC channel contention:\n\n1. **Env var gating**: The `mountain_sync_status_update` and `mountain_performance_update` events were emitting on every tick even though Sky has no subscriber. Every emit now waits behind keystrokes on the shared Tauri IPC pipe. Gate both behind `LAND_SYNC_STATUS_EMIT=1` and `LAND_PERF_EMIT=1` respectively for debugging or future Sky consumers.\n\n2. **Subscriber fast-path**: The 100ms real-time updates tick was acquiring the lock and draining pending updates even with zero subscribers. Add an early check to skip the entire lock-and-drain path when `Subscribers.is_empty()`, making the tick a true no-op until a subscriber registers.\n\nTogether these keep the shared IPC channel free for keystrokes during extension boot when the renderer is most busy.",
+			"SHA": "75d2f1dbe4d77d92e1f679c84aa4885ce355a12d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T01:34:26Z",
+			"Date": "2026-04-30T23:34:46Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				868,
-				4
+				2
 			],
-			"Message": "feat(Mountain): Add Vine notification subscription for Sky/Wind and streaming multiplexer fallback\n\nAdd `VineSubscribeCommand` Tauri command surface that exposes the process-wide Vine notification broadcast to Sky/Wind via a `Channel<NotificationFramePayload>`. This enables the frontend to subscribe to notifications from Cocoon with the same ordering and drop-oldest semantics as in-process Rust subscribers. Effect-TS layer wraps this into a `Stream<NotificationFrame>`.\n\nAlso add conditional streaming multiplexer support in `Vine::Client` for both `SendRequest` and `SendNotification` when `LAND_VINE_STREAMING=1` is set. The multiplexer path attempts h2-multiplexed streaming and falls back to the unary path on any failure, ensuring the editor remains functional while Cocoon's streaming handler tree lands (currently returns Unimplemented).\n\nThis completes the P14.x notification subscription surface, complementing the P14.3/P14.2 multiplexer integration in Client.rs.",
-			"SHA": "f31941aa4bbbc67256d113d8d2788add73d49c7c"
+			"Message": "feat(Mountain): Add Disable env var and fix first-click focus issue\n\nTwo unrelated but complementary fixes:\n\n1. **accept_first_mouse(true)**: Fix the \"I clicked, I'm typing, nothing's happening\" bug where WKWebView swallows the first click on an unfocused window as a \"make me key\" no-op. The user had to click twice - first to focus the NSWindow, second to focus the Monaco textarea. This change flips the responder chain so the first click already reaches WKWebView's content.\n\n2. **Disable environment variable**: Add master \"disable Land customisations\" gate via `Disable=true` env var. When enabled, Mountain skips: WindowEvent::CloseRequested intercept (Cmd+W routes natively), Cocoon/Air sidecar spawn, and Wind/SkyBridge registration. This is useful for bisecting whether typing-input regressions originate in the extension host or upstream/Tauri/WKWebView. Also rename DevTools auto-open from LAND_OPEN_DEVTOOLS to `Inspect=1` to follow Land's PascalCase env var convention.",
+			"SHA": "14b86efb22e841a2d2fa91ea12ba33c37b6cec33"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T01:24:15Z",
+			"Date": "2026-04-30T20:27:26Z",
 			"File": [
-				"⡇⠀⠀⠀⠀",
-				867,
-				76
+				"⠀⠀⠀⠀⠀",
+				868,
+				2
 			],
-			"Message": "feat(Mountain): Implement mmap asset cache, path canon cache, and Vine streaming foundation\n\nThis patch (B7-S6 P2) lands three major infrastructure components:\n\n**Asset Memory Map Cache** (`Cache/AssetMemoryMap.rs`):\n- File-backed mmap cache for bundled workbench assets (~80 MB of JS/CSS/fonts)\n- Eliminates per-request `read(2)` + heap allocation duplication of OS page cache\n- Auto-discovers pre-brotli-compressed `<file>.br` siblings for `Accept-Encoding: br`\n- Uses `DashMap` for lock-free concurrent reads\n\n**Path Canonicalization Cache** (`Cache/PathCanon.rs`):\n- Process-wide canonical path cache keyed by lexical input path\n- Collapses repeated `dunce::canonicalize` calls from fs-scope security gate\n- 60s TTL bounds staleness; moka handles eviction\n- Saves ~150ms cumulative boot time across 113 extensions + 80 chunks\n\n**Vine Streaming Foundation** (`Vine/Multiplexer.rs`, proto changes):\n- Adds `Envelope` protobuf message for multiplexed frame format\n- Adds `OpenChannelFromCocoon`/`OpenChannelFromMountain` bidirectional streaming RPCs\n- Multiplexer owns the h2 stream; notifications fan out via broadcast channel\n- Stub returns Unimplemented until P14 lands streaming handler tree\n- Tuned tonic transport (4 MB stream window) for rust-analyzer diagnostic storms\n\n**Scheme Handler Fixes**:\n- MIME-honesty on 404: swap HTML body → empty text/plain for asset requests\n- Route asset reads through mmap cache\n- Serve Brotli precompressed siblings when client offers `Accept-Encoding: br`\n\n**Air Sidecar Integration** (`Service/AirStart.rs`):\n- Spawns Air daemon at boot alongside Cocoon\n- Connects via gRPC over `[::1]:50053`\n- Graceful degradation if Air unavailable\n\n**Misc Fixes**:\n- `nativeHost:getCursorScreenPoint` stub returns `{x:0, y:0}` to silence IPC spam\n- `FindFilesInWorkspace` diagnostic logging for zero-results debugging\n- HandlerRegistry.json regenerated (111 handlers)",
-			"SHA": "87bdf4c0cc831bcc4b105b190f66f0eb5eefc544"
+			"Message": "fix(Mountain): Add vscode-webview URI scheme handler for extension webviews\n\nImplement the missing vscode-webview:// URI scheme handler to enable VS Code extension webviews (Roo Code, Claude, GitLens, custom editors) to render in the Tauri WKWebView environment.\n\nVS Code's WebviewElement wraps every extension webview in an iframe with src=vscode-webview://<authority>/index.html?... Without this handler, the iframe stays blank and any extension using webviewView/WebviewPanel/CustomEditor is non-functional.\n\nThe handler serves the three-file pre/ directory (index.html, service-worker.js, fake.html) from the embedded asset resolver or filesystem fallback. Extension HTML itself arrives via the workbench's swMessage postMessage channel after index.html boots.\n\nThis completes the extension webview infrastructure alongside the extension_root allowlist added in commit 320e57a, enabling sideloaded extensions to render their UI properly.",
+			"SHA": "54650acd31bb34c764095c9160eedb19e9a18916"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T20:27:20Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				3
+			],
+			"Message": "fix(Mountain): Fix boot race and close handling for macOS\n\nTwo unrelated but impactful bugs fixed:\n\n1. **Boot race guard for Cocoon IPC**: The renderer dispatches tree:getChildren and cocoon:request (e.g. webview.resolveView) ~700 log lines before Cocoon's gRPC handshake completes. Without a wait, the first call returns ClientNotConnected, the workbench caches an empty result, and the user sees an empty Explorer until manual refresh. Add IsClientConnected() and WaitForClientConnection() to poll the connection pool before dispatching, with a 1500ms budget to keep UI responsive.\n\n2. **Cmd+W intercept for macOS**: Tauri 2.x maps Cmd+W to NSWindow.performClose: which wins the responder chain over the webview's keydown handler. The result: hitting Cmd+W to close a tab nukes the entire editor. Intercept CloseRequested, emit sky://window/close-requested to the webview, and use destroy() instead of close() in nativeHost:closeWindow to avoid re-entering the intercept.\n\n3. **DevTools focus theft**: DevTools auto-opening in debug builds steals macOS keyboard focus the moment it appears, preventing the main webview from becoming first responder. Make auto-open opt-in via LAND_OPEN_DEVTOOLS=1. Cmd+Alt+I and right-click Inspect still work.\n\nThese fixes resolve the \"I can't type or keybind\" issue and the empty Explorer on first launch.",
+			"SHA": "fb254aded503fa1e8ee2e0047bcfca44729e4c67"
 		}
 	],
-	"TimeStamp": 1778249210168
+	"TimeStamp": 1778420681947
 }

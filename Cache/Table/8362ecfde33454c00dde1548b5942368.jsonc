@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "dependabot[bot]",
-			"Date": "2026-04-24T07:53:34Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T00:25:31Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				6
+			],
+			"Message": "refactor(Mountain): Clean up development naming and complete stub implementations\n\nRename the binary, lib, and Tauri config from the verbose development name\n(`DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain`)\nto simply `Mountain` for cleaner builds and debugging.\n\nImplement two previously-stubbed trait methods:\n\n1. **OutputProvider::CloseChannel**: Properly sets `IsVisible = false` in\nApplicationState and emits a SkyEvent so the renderer collapses the panel.\nThe channel remains in state to preserve buffered content for later reveal.\n\n2. **WorkspaceProvider::OpenFile**: Converts the path to a file:// URI via\nUrl::from_file_path (with percent-encoding for unicode), emits the\n`sky://editor/openDocument` event that Sky's bridge listens on, and adds\nthe file to the recently-opened list (capped at 50 entries).\n\nAlso remove the now-obsolete `.Backup` files. These changes complete the\nIPC wiring for output channel management and editor document opening.",
+			"SHA": "2d330dbf776b664caa2426a9bee51c703619062a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T00:21:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				1
+			],
+			"Message": "feat(Mountain): Implement FindFilesInWorkspace with ignore-aware parallel walking\n\nReplace the stub implementation that returned empty results with a complete `WorkspaceProvider::FindFilesInWorkspace` using:\n- `ignore::WalkBuilder::build_parallel()` for OS-thread-parallel directory traversal respecting `.gitignore` / `.ignore` / `.git/info/exclude`\n- `globset::GlobBuilder` for include/exclude pattern matching\n- Support for VS Code's RelativePattern shape (`{ base, pattern }`) to restrict walks to subfolders\n- Thread-safe result collection via `Arc<Mutex<Vec<Url>>>` capped at MaxResults (default 10,000)\n- Proper hidden-directory handling and symlink follow control\n\nThis complements the recent wiring of search IPC handlers to trait implementations, completing the file search path from Wind → Mountain → WorkspaceProvider::FindFilesInWorkspace for quick file open, symbol search, and fuzzy file matching features.",
+			"SHA": "044fdb7c156598f3081093012d5e5ac21cf8395b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:39:12Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				8
+			],
+			"Message": "refactor(Mountain): Wire Cocoon RPC handlers to trait implementations for state tracking\n\nReplace direct Sky event emissions with proper trait implementations across SCM, StatusBar, Webview, and Search handlers:\n\n1. **SCM**: RegisterScmProvider and UpdateScmGroup now use SourceControlManagementProvider trait to materialize state in ApplicationState::SourceControl. Previously the direct Sky emit bypassed state tracking, so SCM providers (gitlens, svn) never appeared in Sky's SCM view until UpdateScmGroup - and the header row never materialized.\n\n2. **StatusBar**: CreateStatusBarItem and SetStatusBarText now use StatusBarProvider::SetStatusBarEntry to store entries in ActiveStatusBarItems. Without registration, the workbench had no memory of entries and set_status_bar_text calls leaked state.\n\n3. **Webview**: CreateWebviewPanel and SetWebviewHtml now use WebviewProvider trait to register panels in ApplicationState::WebviewState. Previously the extension got a handle but Mountain never knew about the panel - DisposeWebviewPanel failed with \"unknown handle\" and webviews leaked DOM.\n\n4. **Search**: findFiles delegates to WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker); findTextInFiles delegates to SearchProvider::TextSearch. This replaces naive inline fs-walk implementations that lacked .gitignore support, regex engine, parallel walks, and proper Url construction.\n\nAll handlers retain fallback to direct Sky emit on trait failure to preserve existing behavior for callers that don't depend on state tracking.",
+			"SHA": "f8de3e0f52def4658f2be37feceb8ce43e035bca"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:15:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				872,
 				1
 			],
-			"Message": "chore(deps): Bump pozil/auto-assign-issue from 2.2.0 to 2.2.1\n\nBumps [pozil/auto-assign-issue](https://github.com/pozil/auto-assign-issue) from 2.2.0 to 2.2.1.\n- [Release notes](https://github.com/pozil/auto-assign-issue/releases)\n- [Commits](https://github.com/pozil/auto-assign-issue/compare/v2.2.0...v2.2.1)\n\n---\nupdated-dependencies:\n- dependency-name: pozil/auto-assign-issue\n  dependency-version: 2.2.1\n  dependency-type: direct:production\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
-			"SHA": "7ac71734f23f84b929347fa75ffc0bda336b807a"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-24T02:11:52Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				1
-			],
-			"Message": "",
-			"SHA": "846264d9781eb7abfa4379461493984a3045cf6f"
+			"Message": "feat(Mountain): Implement regex and multiline search options in TextSearchQuery\n\nAdd missing `isRegExp` and `isMultiline` fields to TextSearchQuery, mirroring VS Code's `ITextSearchQuery` interface. When `isRegExp` is false (the default), escape the search pattern via `regex::escape()` to prevent literal searches for strings containing regex metacharacters (`.`, `(`, `[`, `*`, `?`, etc.) from crashing the regex compiler or silently matching incorrectly. Add `.multi_line()` support for multiline regex searches.\n\nThis fixes the Search view's plain-text mode which was broken for queries containing characters like `obj.method(` or `file[1].txt`.",
+			"SHA": "d0117a0eb6379a9473082566dec2a8775df35577"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T01:22:12Z",
+			"Date": "2026-04-24T23:05:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				872,
 				2
 			],
-			"Message": "fix(Mountain): Add inline workspace folders to extension host init data\n\nAdd `folders` array directly to the WorkspaceDTO in InitData so extensions that read `vscode.workspace.workspaceFolders` synchronously in their `activate()` (vscode.git, eamodio.gitlens, typescript) see the real folders immediately instead of `[]` until a delta fires. Cocoon's `WorkspaceNamespace/Index.ts` reads this at shim construction time, so the folders must be present in the initial payload.\n\nAlso add `configuration` field to pass the workspace config path, and change CWD-autoload default to ON in debug builds (OFF in release). Debug builds need folders for `vscode.git` / `eamodio.gitlens` to scan repositories and surface tree-views, while release keeps the stock VS Code UX. Override with `LAND_AUTOLOAD_CWD=0` or `=1`.",
-			"SHA": "e10a5c042b7f00b9a5e984f84d3ac65bf32de5d9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T00:09:28Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				2
-			],
-			"Message": "feat(Mountain): Add child-exit detection to Cocoon gRPC and activation-race command handling\n\nTwo related reliability improvements for Mountain-to-Cocoon communication:\n\n1. **CommandProvider.rs**: Handle TOCTOU race where TypeScript extension's post-activation pipeline invokes `_typescript.configurePlugin` within the same event-loop tick as its own `registerCommand`. The intervening executeCommand finds no handler and emits alarming red errors. Add early return with null for internal-underscore-prefixed commands (`_typescript.*`, `_extensionHost.*`, `_workbench.registerWebview*`) that the extension expects to be safely droppable if the registry hasn't caught up yet. The extension's own try/catch takes the expected \"not yet available\" path.\n\n2. **CocoonManagement.rs**: Add child-exit detection during the gRPC connection loop. Before each retry, poll `ChildProcess.try_wait()` to detect if Node has already died. If exited, abandon the loop immediately with the exit status embedded in the error (1 = unhandled exception, 13 = invalid module) instead of continuing to retry against a dead process. Also add explicit error messages that point developers at the real failure (missing bundle, ESM/CJS import drift) rather than abstract \"connection refused\" messages.\n\nThese changes complete the exponential backoff work from the previous commit by ensuring Mountain fails fast with actionable diagnostics when Cocoon spawns but immediately exits.",
-			"SHA": "26891b3039a723a3a410e073c4d00ec4064b8834"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T00:09:11Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				2
-			],
-			"Message": "refactor(Mountain): Implement exponential backoff for Cocoon gRPC handshake\n\nReplace the fixed 1-second retry poll in Mountain-to-Cocoon gRPC connection with exponential backoff (50ms initial, 2s ceiling, 20s budget). The previous approach wasted 18 seconds waiting after Cocoon's ~200ms bind completion on successful startups, while still taking a full 20s to detect genuine failures.\n\nAlso add comprehensive documentation for the `dual-track` tag in DevLog.rs, which logs progressive Rust migration dispatch decisions (mountain, node-fallback, unavailable, error) to surface the VS Code API coverage gap as a searchable TODO list.\n\nAdd a pre-flight bundle probe constant to fail fast with an actionable error when the Cocoon bundle is missing (esbuild failure, incomplete checkout) instead of spawning Node into a dying require() chain.\n\nImpact: Healthy spawns now connect in ~400ms (attempts 3-5) vs previous ~20s; failure detection still triggers at the 20s budget.",
-			"SHA": "115a48df9dbdbad30a28fa4a99d27c0557565ee4"
+			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to the properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those - the \"dead code that needs to be connected\" the user flagged.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.",
+			"SHA": "5f23bca601cb496e0c86114e0aaf8db93c22cde4"
 		}
 	],
-	"TimeStamp": 1778249214696
+	"TimeStamp": 1778420685456
 }

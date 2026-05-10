@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T20:25:41Z",
+			"Date": "2026-04-23T15:57:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
-				4
+				776,
+				8
 			],
-			"Message": "build(Mountain): Simplify binary naming and cleanup configuration\n\nShorten the binary, lib, and product names from the verbose development profile identifier to just 'Mountain'. Update the Tauri identifier to 'land.editor.binary' for consistency. Remove the externalBin reference to Binary/node since the Node.js sidecar is now handled differently. Add vscode-file and vscode-file://vscode-app to the img-src Content Security Policy for VS Code file protocol support. Delete the temporary backup files (Cargo.toml.Backup, tauri.conf.json.Backup) as the migration is complete.",
-			"SHA": "8a06b8564cd8ab294e472b4ffb145455fcd80889"
+			"Message": "feat(Mountain): Add RenderDevLog command and diagnostic logging tags\n\nAdd a new Tauri command `RenderDevLog` that bridges TypeScript-side tagged logs (Wind/Sky/Cocoon) into Mountain's `dev_log!` file sink. This enables a single `Mountain.dev.log` to carry the complete tag-filterable picture of a session, rather than requiring cross-referencing between browser console and log file.\n\nAlso add five new diagnostic tags to isolate architectural gaps during debugging:\n- `notif-drop`: Notifications hitting the default arm (no handler)\n- `provider-register`: Accepted register_*_provider notifications with extension IDs\n- `channel-stub`: Wind/Output TauriMainProcessService.call stub hits vs route vs miss\n- `git`: localGit channel, GitExec RPC, SCM provider group updates\n- `tree-view`: tree.register, GetTreeChildren, sky://tree-view/create events\n\nApply tags across SCM.rs, TreeView.rs, CreateEffectForRequest/TreeView.rs, and MountainVinegRPCService.rs to provide visibility into extension host integration issues.\n\nImpact: Developers can now filter `LAND_DEV_LOG=git,tree-view` to isolate specific subsystem issues, and TS-originated logs appear in the same file with `[RenderDevLog]` prefix for grep separation.",
+			"SHA": "f7625f320666cca6bfe3d74fb87c4fc09444ddb3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T19:43:05Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				777,
-				6
-			],
-			"Message": "build(Mountain): Update build configuration for development profile\n\nRename the binary, lib, and product to include the development environment profile identifier (DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain) in Cargo.toml and tauri.conf.json. This aligns with the development build pipeline requirements.\n\nAdditionally:\n- Add Binary/node to externalBin in tauri.conf.json for the Node.js sidecar\n- Update posthog-rs 0.5 API: replace deprecated api_endpoint() with host() in PostHogPlugin.rs\n- Replace sha2 0.11's removed LowerHex impl with hex::encode() in ConfigurationBridge.rs for session ID generation\n\nThe backup files (Cargo.toml.Backup, tauri.conf.json.Backup) are retained for recovery during this configuration migration.",
-			"SHA": "f632a4ac2e3e3a7e2f94ac4697219d03aa1b0da3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:46:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				2
-			],
-			"Message": "",
-			"SHA": "3bcce20c33084d735c6a7f446f39e56c37bfbe9a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:31:03Z",
+			"Date": "2026-04-23T15:33:55Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				775,
 				5
 			],
-			"Message": "refactor(Mountain): Centralize UriComponents construction with $mid marker\n\nAdd a shared UriComponents helper module that ensures every URI payload sent to the VS Code renderer carries the required `$mid: 1` marshalling marker. Without it, VS Code's IPC reviver leaves URIs as plain objects where `.fsPath` and `.with` are undefined, causing the sidebar and icon loader to silently fail.\n\nThe recent fix for extension location URI marshalling addressed one call site, but inline `json!` builders elsewhere risked regressing the same issue. This change introduces:\n\n- `FromFilePath`: constructs a `file://` UriComponents with `$mid` from a filesystem path\n- `FromUrl`: parses arbitrary URL strings (file://, other schemes) into UriComponents\n- `StampMidUri`: injects `$mid: 1` into any UriComponents lacking it\n- `Normalize`: handles mixed input formats (string, object, null) uniformly\n\nNow used consistently in:\n- `handle_extensions_install` (Extension.rs) - fixes location URI\n- `handle_file_realpath` (both WindServiceHandler and WindServiceHandlers FileSystem.rs)\n\nThe Extensions.rs handler continues using the existing `Normalize` import. All IPC handlers that return URI-shaped payloads now emit through the centralized helpers, preventing silent breaks in the renderer's URI revival chain.",
-			"SHA": "e632bde43d9e101210c074a094bf0db9c5d0f69f"
+			"Message": "refactor(Mountain): Standardize Tauri event channel naming to kebab-case\n\nConsolidate all `sky://` event channel names to a consistent kebab-case format and emit TreeView registration events to the canonical path.\n\nChanges:\n- `sky://treeView/register` → `SkyEvent::TreeViewCreate` (canonical path)\n- `sky://webview/setHtml` → `sky://webview/set-html`\n- `sky://webview/postMessage` → `sky://webview/post-message`\n- `sky://status-bar/*` → `sky://statusbar/*` (remove hyphen to match family)\n- `sky://status-bar/message` → `sky://statusbar/set-message`\n\nAlso emit `SkyEvent::TreeViewCreate` after a TreeDataProvider is registered so the renderer can wire up the data provider to the matching ITreeView instance. Without this, VS Code's treeView.ts keeps `_dataProvider === undefined` and all extension tree views (GitLens, debug, SCM, tasks) render empty.\n\nThe previous diverged channel names were parallel forks that no downstream listener ever subscribed to. Impact: Extension tree views now render correctly with data from providers.",
+			"SHA": "85bd2a487c73623310182363d6a35dfbe8e9c57d"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-23T02:11:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				1
+			],
+			"Message": "",
+			"SHA": "4531024429c05b7c8ad1209cc562acb2d956bde3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:20:49Z",
+			"Date": "2026-04-23T01:46:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
+				775,
 				2
 			],
-			"Message": "",
-			"SHA": "040bfbacb2ba90145b5feb6c5b41cd11e5e2f120"
+			"Message": "fix(Mountain): Treat view registry commands as no-ops and preserve VSIX executable bits\n\nTwo unrelated bug fixes bundled for convenience:\n\n1. **View registry commands** (`CommandProvider.rs`): VS Code auto-generates `<viewId>.focus`, `<viewId>.resetViewLocation`, and `<viewId>.removeView` commands when views are registered. Land's webview.registerView bypasses that registry and emits Tauri events directly, so these commands never get inserted. Extensions like GitLens call these commands on user gesture; the Cocoon try/catch swallows the error, but the red `error:` log noise is misleading. Treat these well-known suffixes as silent no-ops that return `null`.\n\n2. **VSIX executable preservation** (`VsixInstaller.rs`): Extensions shipping platform-native binaries (openai.chatgpt's `codex`, language-server launchers) rely on the `0o755` mode stored in the VSIX zip. Without this change, extracted files get the default `0o644` mode, causing `spawn()` inside extensions to fail with `EACCES`. Use `PermissionsExt::unix_mode()` to preserve the executable bit on Unix systems.\n\nImpact: GitLens no longer spams error logs, and extensions with native binaries activate correctly.",
+			"SHA": "87eeff42e66bdbfd73e3c8463268004b3b67aa68"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T01:20:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				1
+			],
+			"Message": "fix(Mountain): Strip file:// scheme from paths in FileSystem effect handlers\n\nCocoon sends full URIs like `file:///Users/nikola/.land/extensions/...` through FileSystem.ReadFile/WriteFile/ReadDirectory RPC calls. Creating a PathBuf from such strings treats the scheme literally, causing every file operation to 404.\n\nAdd `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes before constructing PathBuf. Apply to all 8 FileSystem operations: ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, and Copy.\n\nThis fixes the redhat.java extension activation failure (and any other extension that reads its own package.json via the gRPC fs.readFile path) with \"Resource not found: file:///...\".",
+			"SHA": "16b040316eaf284a4d8530a59dee5b4516699c9e"
 		}
 	],
-	"TimeStamp": 1778249217037
+	"TimeStamp": 1778420687148
 }

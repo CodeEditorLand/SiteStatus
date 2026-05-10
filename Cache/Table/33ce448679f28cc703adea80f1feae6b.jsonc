@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:50Z",
+			"Date": "2026-05-02T09:13:28Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1164,
-				6
-			],
-			"Message": "feat(Mountain): Implement cross-platform process introspection commands\n\nAdd a suite of new Tauri commands within `Binary/IPC/ProcessCommand` to expose essential runtime environment data to the Wind frontend. These commands include `ProcessGetArch`, `ProcessGetPlatform`, `ProcessGetPid`, `ProcessGetExecPath`, `ProcessGetShellEnv`, and `ProcessGetMemoryInfo`.\n\nThe implementation bridges the gap between Rust's native system calls and VS Code's Node-style expectations. `ProcessGetPlatform` normalizes OS names (e.g., mapping `macos` to `darwin`), while `ProcessGetMemoryInfo` executes platform-specific probes (`ps` on macOS, `tasklist` on Windows, `/proc/self/statm` on Linux) to calculate private, shared, and resident set memory in bytes. All commands return results as `Result` types with graceful fallbacks (zeroed values or empty maps) if underlying system queries fail, ensuring the renderer remains stable even during environment anomalies.\n\nThis establishes the foundational IPC layer for the `ProcessPolyfill` service, allowing the editor to correctly identify the host architecture, platform, and resource constraints without relying on external Node.js shims.",
-			"SHA": "e1803d15dcd25dea32c474b7aa749ec60a9954da"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1157,
-				8
-			],
-			"Message": "feat(Mountain): Introduce modular PostHog telemetry plugin\n\nAtomize the PostHog telemetry integration into a dedicated plugin structure within `Binary/Build/PostHogPlugin`. This introduces a strict separation of concerns: `CaptureAllowed` acts as a compile-time and env-var gate to disable telemetry in non-debug builds; `Initialize` bootstraps the singleton `Client` instance and emits the session start event; `CaptureEvent` handles the core logic of stamping standard metadata (`$app`, `$component`) before dispatching; and specific wrappers (`CaptureError`, `CaptureIPC`) provide typed instrumentation for error logging and gRPC method tracing.\n\nThe implementation adheres to project naming conventions with dedicated `Fn::Fn` modules and uses `env!` macros to bake credentials (`Authorize`, `Beam`, `Report`) from `.env.Land.PostHog` at compile time, ensuring a clean checkout builds without runtime dependency on external secrets. This lays the foundation for observability within the Mountain backend without blocking the primary IPC or UI loops.",
-			"SHA": "20a80336a80f6ead98f874736b87a6cc20ecfdf6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1148,
+				1219,
 				2
 			],
-			"Message": "feat(Mountain): Introduce webview lifecycle state and message envelope types\n\nDefine the `WebviewLifecycleState::Enum` and `WebviewMessage::Struct` within the `Environment/WebviewProvider` module to establish the core data contracts for Tauri webview management.\n\nThe `WebviewLifecycleState::Enum` mirrors the VS Code webview state machine, explicitly defining the lifecycle transitions from `Unloaded` through `Loading`, `Loaded`, `Visible`, `Hidden`, to `Disposed`. The `WebviewMessage::Struct` serves as the serialization envelope for host-to-webview communication, encapsulating the `MessageIdentifier`, `MessageType` tag, `Payload`, and optional `Source` context.\n\nBoth types adhere to the project's strict PascalCase naming conventions and are configured with `Serialize` and `Deserialize` traits to support JSON transmission over the Tauri event bus, laying the groundwork for the `Wind` frontend service layer to manage native webview panel lifecycles.",
-			"SHA": "c10618c8025d32eac34106831406614f1f7eb38a"
+			"Message": "fix(Mountain): Ensure workspace auto-seed defaults to HOME on GUI launch\n\nAddress a boot-time regression where releasing Mountain via Finder (macOS `.app` launch) resulted in an empty workspace because `current_dir` defaults to `/`. The previous debug-only autoload logic left release builds with no folder, causing tree views and SCM panels to remain empty.\n\nRefactor `Source/Binary/Initialize/CliParse.rs` to:\n- Unconditionally attempt CWD autoload (overridable via `Walk=0`).\n- Skip CWD if it is the filesystem root `/` (safety check against full-disk scans).\n- Add a final fallback to the user's `$HOME` directory when no workspace is detected, ensuring a visible directory tree on first launch.\n\nAdditionally, restructure `Source/Binary/Initialize/RuntimeBuild.rs` to align with the project's modular naming conventions. The file now serves as an index exporting submodules (`SchedulerConfig`, `Build`, `BuildDebug`, etc.) for the Echo scheduler configuration, as the primary usage has moved inline to `Binary::Main`.\n\nThis change guarantees a consistent user experience across debug and release profiles regardless of the launch method (CLI vs. GUI).",
+			"SHA": "c9ba82bedba46712b6b4b21def8272290ce7087a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:33Z",
+			"Date": "2026-05-02T09:13:22Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1146,
-				2
-			],
-			"Message": "feat(Mountain): Introduce atomic performance and throughput metrics modules\n\nEstablish the `PerformanceMetrics` and `ThroughputMetrics` structs within `Source/IPC/Common` to provide a centralized mechanism for tracking IPC performance across the Mountain backend. Adhering to the strict PascalCase naming convention (`Struct::Struct`, `Fn::Fn`), these modules define state containers for latency (average/peak), throughput (messages/bytes per second), resource utilization (CPU/memory), and error rates.\n\nThe `PerformanceMetrics::Struct` implements an unbiased running mean for latency updates via `RecordMessage::Fn` and includes logic for calculating success rates and latency threshold violations. The `ThroughputMetrics::Struct` captures per-direction counters with a fixed start time to derive rates dynamically. These new types serve as the foundation for the `Echo` scheduler and `Mist` communication layers, enabling precise observability of the gRPC and Tauri IPC boundaries without relying on external telemetry agents.",
-			"SHA": "2be1a2667b6af7ed494d04fbe7f5a14bfb3cbd86"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:21Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1143,
+				1219,
 				5
 			],
-			"Message": "feat(Mountain): Atomize scheduler initialization into dedicated PascalCase modules\n\nDecompose the runtime scheduler bring-up logic into a focused directory of modules (`Build`, `BuildDebug`, `BuildWithConfig`, `CreateBuilder`, `SchedulerConfig`) to enforce the project's `Struct::Struct` and `Fn` naming conventions. The new `SchedulerConfig::Struct` defines tuning knobs for worker count, metrics, and log levels that adapt automatically to the active build profile (`Debug`, `Telemetry`, `Development`).\n\n`Build::Fn` and `BuildDebug::Fn` serve as profile-specific entry points that delegate to `BuildWithConfig::Fn`, which orchestrates the creation of an `Echo` scheduler instance via `CreateBuilder::Fn`. The builder logic clamps worker counts to the `[1, 256]` range to prevent misconfiguration. This change isolates the scheduler boot path from the binary initialization, providing atomic, testable units for the `Echo` integration while maintaining strict separation of concerns between configuration, construction, and execution.",
-			"SHA": "7469788102dc319e5db53b52b342a961b70d2401"
+			"Message": "feat(Mountain): Expose keybinding management commands to Tauri frontend\n\nAdd the initial Tauri command layer for the keybinding subsystem to enable communication between the `Wind` service and the `Mountain` backend. Implement five new command handlers in `Source/Command/Keybinding/` to support the Keyboard Shortcuts UI:\n\n- `CheckKeybindingConflicts`: Detect chord-sequence overlaps (stub implementation).\n- `GetResolvedKeybindings`: Fetch the weighted aggregation of defaults and user overrides.\n- `GetUserKeybindings`: Return user-defined overrides (stub pending persistence).\n- `RegisterExtensionKeybindings`: Accept contribution payloads from the extension host.\n- `UnregisterExtensionKeybindings`: Remove bindings contributed by a specific extension.\n\nEach command retrieves the `KeybindingProvider` from the shared `ApplicationRunTime` state via the `Requires` trait, establishing the contract for future logic implementation. While most handlers currently return stub JSON responses or pass-through errors, this commit completes the IPC interface required for the frontend to manage and visualize keybinding states.",
+			"SHA": "c0b7bc5676e38b05ef0199ea3d46838fff4cde32"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:13:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1213,
+				2
+			],
+			"Message": "feat(Mountain): Inject user shell environment for GUI launches\n\nImplement a boot-time utility in `Source/Environment/Utility/EnhanceShellEnvironment` to resolve the minimal environment problem inherent in macOS/Linux GUI app launches (e.g., Finder, Dock, Spotlight).\n\nWhen launched non-interactively, the app receives a bare `PATH` missing user customizations like `NVM_DIR`, `HOMEBREW_PREFIX`, and `JAVA_HOME`. This previously caused child processes (Cocoon's Node, language servers, Git extensions) to fail or use outdated system binaries.\n\nThe solution spawns the user's login shell with `-ilc env` to capture their full runtime environment, then safely merges new variables into the parent process environment. It includes:\n- A 2-second timeout to prevent boot hangs from misbehaving `.rc` files.\n- A check to skip injection if already running from a TTY.\n- A safety filter (`IsPortableEnvName`) to reject non-standard variable names.\n- A strict policy to preserve existing environment variables unless they are unset, ensuring no overwrites of deliberate user overrides.\n\nThis ensures Mountain and its sidecars (Cocoon, Air) operate with the same environment context as a user's terminal session.",
+			"SHA": "240102ddfe032c28ba28bd65c16ce7412642abf1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:12:27Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1212,
+				16
+			],
+			"Message": "feat(Mountain): Introduce service registry and feature flag subsystem\n\nImplement the foundational runtime control plane within Mountain, consisting of a service discovery registry and a feature flag management system.\n\nIn `Source/IPC/Common/ServiceInfo`, define the data models for service lifecycle management: `ServiceState::Enum` (Running, Degraded, etc.), `ServicePerformance::Struct` (request/error counters with rolling mean latency), `ServiceEndpoint::Struct` (network/UDS metadata), and `ServiceInfo::Struct` (aggregated health state). The `ServiceRegistry::Struct` provides a thread-safe map for registering services, tracking heartbeat intervals, and filtering by health status (operational state, <30s heartbeat, <10% error rate).\n\nIn `Source/Telemetry/FeatureFlags`, refactor the existing monolithic module into a modular architecture adhering to the project's PascalCase naming convention. Extract `FeatureFlag::Struct`, `FlagCategory::Enum`, and `FeatureFlagError::Enum` into their own files. The `FeatureFlagRegistry::Struct` maintains a process-wide thread-safe registry (backed by `parking_lot::RwLock`) seeded with defaults like `ipc-compression` and `experimental-webgl`. Expose functional accessors (`IsEnabled::Fn`, `Enable::Fn`, `Disable::Fn`) via `GlobalRegistry` to allow the rest of the backend to gate experimental features without recompiling.\n\nThese additions enable the backend to dynamically monitor service health across the IPC landscape and toggle performance or experimental features at runtime.",
+			"SHA": "1e9d527a0900769df28f60221d7282d7f3744a10"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:07:10Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1196,
+				4
+			],
+			"Message": "feat(Mountain): Define core IPC message types and priority system\n\nIntroduce the foundational data structures for the Inter-Process Communication layer within `Source/IPC/Common/MessageType`. This commit establishes the contract for request, response, and message handling across the Mountain backend and connected services.\n\nThe implementation adds:\n- `MessagePriority::Enum`: A four-tier priority ladder (Low, Normal, High, Critical) supporting comparison and ordering for scheduling logic.\n- `IPCCommand::Struct`: A builder-pattern command request allowing positional `Args`, named `Params`, and explicit priority assignment.\n- `IPCMessage::Struct`: A generic transport envelope including a UUID, timestamp, optional correlation ID for request tracking, and a priority field.\n- `IPCResponse::Struct`: A standardized response type with `Success`/`Error` constructors, preserving the correlation ID for async matching and capturing execution results or failure reasons.\n\nAll types derive `Serialize` and `Deserialize` to enable JSON transmission over the gRPC (Vine) protocol and Tauri IPC channels. These models unify the messaging interface, enabling the `Wind` service layer and `Cocoon` extension host to exchange structured data with explicit priority handling and traceability.",
+			"SHA": "b95a7333e3b00c5c13850fdaeb0ad7e5ef0efa37"
 		}
 	],
-	"TimeStamp": 1778249201508
+	"TimeStamp": 1778420675772
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:15:50Z",
+			"Date": "2026-04-26T09:29:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
+				874,
 				1
 			],
-			"Message": "feat(Mountain): Implement regex and multiline search options in TextSearchQuery\n\nAdd missing `isRegExp` and `isMultiline` fields to TextSearchQuery, mirroring VS Code's `ITextSearchQuery` interface. When `isRegExp` is false (the default), escape the search pattern via `regex::escape()` to prevent literal searches for strings containing regex metacharacters (`.`, `(`, `[`, `*`, `?`, etc.) from crashing the regex compiler or silently matching incorrectly. Add `.multi_line()` support for multiline regex searches.\n\nThis fixes the Search view's plain-text mode which was broken for queries containing characters like `obj.method(` or `file[1].txt`.",
-			"SHA": "d0117a0eb6379a9473082566dec2a8775df35577"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "dfa3acda721ec79f2cbd6a3061850be811b84043"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-26T02:23:56Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				876,
+				1
+			],
+			"Message": "",
+			"SHA": "28ca7503d0ae648f07c56b113be6513fae61d15c"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-25T02:01:42Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				876,
+				1
+			],
+			"Message": "",
+			"SHA": "1424b031e841eef48943539cd9d268a78ea95647"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:05:17Z",
+			"Date": "2026-04-25T01:52:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
+				874,
+				5
+			],
+			"Message": "refactor(Mountain): Simplify binary and Tauri config naming to \"Mountain\"\n\nRevert verbose development identifiers to simple \"Mountain\" for binary/lib names in Cargo.toml, Tauri identifier (now \"land.editor.binary\"), and productName in tauri.conf.json. Also removes duplicate externalBin entry and deletes obsolete .Backup files.\n\nThis restores clean naming conventions while preserving all build settings and feature flags.",
+			"SHA": "715198ac9eee6c7767e86745a028aae34ab4a9ec"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T01:30:10Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				876,
 				2
 			],
-			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to the properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those - the \"dead code that needs to be connected\" the user flagged.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.",
-			"SHA": "5f23bca601cb496e0c86114e0aaf8db93c22cde4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:47:23Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				4
-			],
-			"Message": "feat(Mountain): Add VS Code IPC command aliases and stub handlers\n\nAdd command aliases in WindServiceHandlers to bridge Mountain's native Effect-TS IPC layer with VS Code's binary IPC bridge (DiskFileSystemProviderClient, ConfigurationService):\n- Configuration: `configuration:getValue` / `configuration:updateValue` → `configuration:get` / `configuration:update`\n- File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`\n- Add stub handlers for `file:watch` / `file:unwatch` that return Null to prevent channel promise leaks\n- Add `configuration:onDidChange` handler that acks the channel listener with Null\n\nAlso enhance Cocoon stderr filtering to suppress follow-up stack frames from extension errors (EntryNotFound, FileNotFound) that Node.js prints across multiple stderr lines. This keeps the main cocoon channel clean while routing benign extension path-probing to verbose.",
-			"SHA": "661fe2405f2f71c5710b1b1e6dfb59272896fd30"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:25:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				4
-			],
-			"Message": "feat(Mountain): Fire workspaceContains and onStartupFinished extension activation\n\nImplement comprehensive startup extension activation matching VS Code's behavior:\n\n1. **Extension activation phases**: Fire three bursts at startup:\n   - `*` - unconditional activation (existing)\n   - `workspaceContains:<pattern>` - for each pattern matched by workspace\n   - `onStartupFinished` - after 2s delay for late-binding extensions\n\n2. **Pattern matching**: Add `FindMatchingWorkspaceContainsPatterns` that walks\n   workspace folders (depth 3, 4096 entries max) and matches against extension-\n   contributed `workspaceContains:` patterns using a minimal glob matcher.\n\n3. **Stderr filtering**: Downgrade benign Node.js/macOS noise to `cocoon-stderr-verbose`:\n   - macOS codesign messages (\"is already signed\", \"replacing existing signature\")\n   - Node deprecation warnings (DeprecationWarning, --trace-deprecation)\n   - Keeps main cocoon channel clean for actionable errors only.\n\n4. **Rust edition**: Upgrade from 2021 to 2024.\n\nThis fixes extensions that never activated without user interaction because they\ngate on `workspaceContains:package.json`, `onStartupFinished`, or similar events.",
-			"SHA": "72db08550a3a7b20669947fe3bac64deb2e0300d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:52:00Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				872,
-				11
-			],
-			"Message": "refactor(Mountain): Move high-frequency logging to verbose/opt-in tags\n\nContinue reducing default log volume by routing per-operation lines to dedicated verbose tags that are muted in `short` mode:\n\n1. **Command registration**: `commands` → `commands-verbose` for setContext (~130/session) and command execution in CommandProvider\n2. **Output channels**: `grpc` → `output-verbose` for append/create events (200+ appends per boot from language servers)\n3. **Command registry**: `grpc` → `command-register` for register/unregister notifications (~100 commands/session)\n4. **Provider registration**: `grpc`/extensions → `grpc-verbose`/`provider-register` for duplicate provider registration logs\n5. **Extension scanning**: `extensions` → `ext-scan-verbose` for per-candidate package.json probes (203/session)\n6. **Scheme assets**: `lifecycle` → `scheme-assets` for per-asset vscode-file:// requests (worker/wasm/font loading)\n\nNew tags added to SHORT_MODE_MUTED_TAGS: output-verbose, command-register, provider-register, ext-scan-verbose, channel-stub, commands-verbose, scheme-assets.",
-			"SHA": "7d046f166e341789c3445eb14c727db2ed044a11"
+			"Message": "chore(Mountain): Add backup files for Cargo.toml and tauri.conf.json\n\nCreate backup copies of the current Cargo.toml and tauri.conf.json configuration files to preserve the existing Mountain binary configuration, including the Tauri identifier, productName, feature flags, and build settings.",
+			"SHA": "9e16a8e6eeed0abe3adae9fd4d8b9fd208a9b4ea"
 		}
 	],
-	"TimeStamp": 1778249213979
+	"TimeStamp": 1778420684922
 }

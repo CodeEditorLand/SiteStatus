@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:51Z",
+			"Date": "2026-05-02T09:30:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1191,
-				3
+				1251,
+				13
 			],
-			"Message": "feat(Common): Introduce health monitoring data models and score logic\n\nDefine the core data structures for the editor's health monitoring subsystem within `Source/IPC/Common/HealthStatus`. This commit adds `SeverityLevel::Enum` to classify issue criticality, `HealthIssue::Enum` as a tagged union for specific failure modes (e.g., MemoryPressure, ConnectionLoss), and `HealthMonitor::Struct` to aggregate state.\n\nThe `HealthMonitor` calculates a dynamic `HealthScore` (0-100) based on a deterministic penalty system derived from issue severities (Low: -5, Medium: -15, High: -25, Critical: -40). It provides methods for adding/removing issues, filtering by severity, and determining overall system health status (`IsHealthy`, `IsCritical`). All types derive `Serialize`/`Deserialize` to enable transmission over the gRPC (Vine) and Tauri IPC channels for real-time status propagation to the Wind and Sky layers.\n\nThese models lay the foundation for the backend to expose service liveness metrics to the frontend without blocking the main thread.",
-			"SHA": "23d6eddefce6d663ef87fdd01e468309c773f80d"
+			"Message": "refactor(Mountain): Modularize telemetry gate subsystem into distinct units\n\nRestructure the `Source/Telemetry/Gates` module to align with CodeEditorLand's PascalCase naming conventions and the established distributed architecture pattern.\n\nKey modifications include:\n- Extract compile-time predicates (`IsDebugBuild`, `IsDevelopmentBuild`, `IsTelemetryEnabled`, `IsMetricsEnabled`, `IsDistributedTracingEnabled`, `IsFeatureFlagsEnabled`) into dedicated `Fn` unit files using `cfg!` macros.\n- Isolate runtime gate management (`RuntimeGates`, `GetRuntimeGates`, `RuntimeGateEnabled`, `ListEnabledGates`, `ValidateRequiredGates`) into separate units sharing a private `GATES` singleton.\n- Convert `EnableRuntimeGate` into a no-op `Fn` shim with documentation noting the required migration from `OnceLock<HashSet>` to `RwLock` for mutable state.\n- Update `mod.rs` to export the new flat structure, removing the previous monolithic implementation.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the gate system for runtime configuration injection and IPC integration.\n\nRefs #Telemetry",
+			"SHA": "2a691e34b07b06fa7cc73d6c99d68b16635230a0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:39Z",
+			"Date": "2026-05-02T09:30:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1187,
+				1239,
 				6
 			],
-			"Message": "feat(Mountain): Implement LSP command stubs for code intelligence\n\nIntroduce a suite of new Tauri commands under `Source/Command/LanguageFeature` to expose core language server protocol capabilities to the Wind service layer. These commands act as the IPC bridge for code actions, completions, go-to-definition, document highlights, hover information, and reference finding.\n\nEach command (`MountainProvideCodeActions`, `MountainProvideCompletions`, `MountainProvideDefinition`, `MountainProvideDocumentHighlights`, `MountainProvideHover`, `MountainProvideReferences`) adheres to the project's PascalCase naming convention and delegates execution to the corresponding concrete implementation within `Command::LanguageFeature::<Feature>::provide_<feature>_impl`. The functions accept document URIs, cursor positions, and context payloads as JSON `Value` types, deferring strict deserialization to the downstream implementation logic to ensure a flexible interface during early development.\n\nThis commit expands the backend's LSP surface area, enabling the frontend to request and render intelligent coding assistance features without blocking the main thread.",
-			"SHA": "17c441b85904b7aac47fecdcfd0150b57ac56ca0"
+			"Message": "refactor(Mountain): Modularize tracing subsystem into distinct utility units\n\nRestructure the `Source/Telemetry/Tracing` module to align with CodeEditorLand's PascalCase naming conventions and modular design principles. Replace the previous monolithic implementation with a distributed architecture where each concept resides in its own file.\n\nKey modifications include:\n- Extract `CreateSpan::Fn`, `InitializeTracing::Fn`, `InstrumentRPC::Fn`, `InstrumentCommand::Fn`, and `MeasureTime` macro into dedicated unit files.\n- Enforce feature-gated compilation so the `Telemetry` flag completely toggles the system on/off with zero overhead in release builds.\n- Standardize function names to `Fn` and maintain strict separation between span creation, RPC wrapping, command instrumentation, and inline timing macros.\n- Update `mod.rs` to export the new structure and simplify the public API surface.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the observability layer for future integration into the IPC hot paths and binary entry point.\n\nRefs #Telemetry",
+			"SHA": "ceb085c32354e6cfeb53302f933fe3d527606057"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:25Z",
+			"Date": "2026-05-02T09:26:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1181,
+				1234,
+				10
+			],
+			"Message": "feat(Mountain): Refactor metrics subsystem into modular singleton architecture\n\nRestructure the `Source/Telemetry/Metrics` module to align with CodeEditorLand's PascalCase naming conventions and modular design principles. Replace the previous single-file implementation with a distributed architecture where each concept resides in its own file.\n\nKey modifications include:\n- Extract `Metric::Struct` and `MetricValue::Enum` into dedicated type definitions.\n- Isolate the `MetricsRegistry::Struct` (bounded ring buffer) and `GlobalRegistry::REGISTRY` singleton into separate units.\n- Introduce `Timer::Struct` for RAII-style histogram recording with label support.\n- Create convenience accessors `RecordCounter::Fn`, `RecordGauge::Fn`, and `GetAllMetrics::Fn` that operate against the global singleton.\n- Update `mod.rs` to export the new structure and add `Initialize::Fn` for feature-gated bootstrapping.\n\nThis reorganization ensures strict adherence to the project's naming standards (e.g., `Fn`, `Struct`, `REGISTRY`) and prepares the telemetry layer for future integration with the IPC fast paths and binary main entry point.",
+			"SHA": "adbf0e3f64efb9475766d21b6c343e9f24a608d2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:24:57Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1225,
+				1
+			],
+			"Message": "fix(ProcessManagement): Enhance AppRoot resolution for Tauri launches with improved fallback handling\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "b4cf3afab7fe6d7f7a504e9b9af74ef518556bd6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:13:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1225,
 				5
 			],
-			"Message": "feat(Mountain): Define hover command data models and DTOs\n\nIntroduce the foundational data structures for the Hover subsystem within `Source/Command/Hover/Interface`. This commit establishes the contract for LSP-compatible hover requests and responses, adhering to the project's strict PascalCase naming conventions.\n\nThe implementation adds:\n- `Position::Struct`: Zero-based line and character offset.\n- `Range::Struct`: Inclusive range bounded by start/end positions.\n- `HoverRequest::Struct`: Inbound DTO capturing document URI and cursor position.\n- `HoverContent::Enum`: Tagged union for plain text, markdown, and markup with language hints.\n- `HoverResponse::Struct`: Outbound DTO containing an ordered list of content items and an optional range.\n\nAll types derive `Serialize` and `Deserialize` to enable JSON transmission over the Tauri IPC event bus. These models prepare the `Wind` service layer to request and render code documentation overlays without blocking the main thread.",
-			"SHA": "8c97e9610fb18bcb7c930ab071089290d80aab28"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1175,
-				5
-			],
-			"Message": "feat(Mountain): Introduce test provider state and lifecycle data models\n\nEstablish the foundational data structures for the testing subsystem within the `Source/Environment/TestProvider` module. This commit introduces five new types adhering to project PascalCase conventions:\n\n- `TestControllerState::Struct`: Registration record for extension-provided controllers.\n- `TestProviderState::Struct`: Aggregate state managing controller registries and active run maps.\n- `TestRun::Struct`: Active execution context tracking status, timing, and per-test results.\n- `TestResult::Struct`: Per-test outcome including pass/fail status, duration, and failure diagnostics.\n- `TestRunStatus::Enum`: Lifecycle state machine (Queued, Running, Passed, Failed, Skipped, Errored).\n\nThese types utilize `Serialize`/`Deserialize` traits for IPC readiness and are designed to be held behind `tokio::sync::RwLock` in `ApplicationState` for concurrent access during test execution. This lays the groundwork for the `Wind` service layer to manage test discovery, execution, and reporting without blocking the main thread.",
-			"SHA": "8b4bbfdf16647ae11cc85575c822c7f60d75f7a0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:01Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1169,
-				4
-			],
-			"Message": "feat(Mountain): Introduce stub health probe commands for backend services\n\nAdd a new suite of Tauri commands under `Source/Binary/IPC/HealthCommand` to expose readiness states for internal and sidecar services to the Wind frontend. This includes `cocoon_debug_service_health`, `cocoon_extension_host_health`, and `cocoon_search_service_health` for the extension host subsystem, alongside a generic `shared_process_service_health` dispatcher.\n\nThe implementation follows the project's PascalCase naming conventions for command registration while intentionally retaining snake_case function names to align with the `SharedProcessProxy` invoker in the Wind service layer. `cocoon_search_service_health` and `shared_process_service_health` currently return `true` to signal filesystem readiness or known service availability, whereas DAP and extension host probes return `false` as stubs pending the actual gRPC wire-up with Cocoon.\n\nThis establishes the initial IPC interface for service liveness monitoring, allowing the frontend to conditionally enable features based on backend component status without blocking the main thread.",
-			"SHA": "ba9d963cc9fe42079f53c1ca6177d9ad57ae0ca8"
+			"Message": "feat(Mountain): Introduce URI parsing and normalization utilities for IPC\n\nAdd a new `UriComponents` module to handle the serialization and deserialization of URIs between the Mountain backend and the Tauri/Cocoon frontends. This implementation aligns with VS Code's `URI` IPC protocol, specifically addressing the requirements of `_transformIncomingURIs` in the renderer.\n\nThe new module includes:\n- `MID_URI`: Defines the `$mid: 1` constant used as a flag for the URI reviver.\n- `StampMidUri`: A utility to inject the `$mid` marker into JSON objects, ensuring VS Code's deserializer recognizes them as valid URI instances.\n- `FromFilePath`: Constructs `file://` URI objects from absolute paths without percent-encoding, matching VS Code's `URI.file()` expectations.\n- `FromUrl`: Parses generic URL strings (including non-file schemes) into component objects, with a fallback to `file://` for invalid inputs.\n- `Normalize`: A robust handler that accepts strings, objects, or nulls, standardizing all inputs into the tagged URI component format required by extension metadata.\n\nThese utilities ensure that extension locations and other URI-bearing payloads are correctly structured for transport over gRPC and Tauri events, preventing deserialization errors in the `Wind` and `Cocoon` layers.",
+			"SHA": "30f30fde1c2dd64aca45fe06e144fb1d4eddba6f"
 		}
 	],
-	"TimeStamp": 1778249201190
+	"TimeStamp": 1778420675544
 }

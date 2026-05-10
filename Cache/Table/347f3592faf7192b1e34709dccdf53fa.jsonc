@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T22:39:36Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "fix(Sky): Add missing SkyBridge initialization to Electron Layout\n\nThe Electron Layout was missing the SkyBridge step that already exists in Mountain.astro, causing the \"tree-views flash empty then pop\" flicker reported on the Electron profile.\n\nSkyBridge subscribes to Mountain's `cel:*` Tauri events (tree-view, SCM, debug, extensions) and fans them into the workbench consumers. Without it, every panel Mountain emits an event for paints empty on first frame and re-renders with data asynchronously.\n\nThis completes the Electron initialization chain: Preload → Polyfills → Bootstrap → Workbench → SkyBridge. The await chain ensures the workbench finishes its import before SkyBridge wires up consumers, so events pumped during boot reach listeners rather than firing into empty void.",
+			"SHA": "0cf2e4da0a14818f7dd9c2e43465a484a1e26c75"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T21:18:05Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				81,
+				2
+			],
+			"Message": "chore(Sky): Remove hardcoded PostHog API key from source\n\nReplace the hardcoded PostHog API key with empty strings in both PostHogBridge.ts and astro.config.ts. The key should be sourced exclusively from the LAND_POSTHOG_KEY environment variable to prevent production credentials from being committed to the repository.\n\nThis sanitizes the codebase of the exposed `phc_...` key that was present in two locations.",
+			"SHA": "9b67e2e6989c5a862bc1e6c4ee32b8e8f31a3fbd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T17:24:50Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				81,
+				2
+			],
+			"Message": "feat(Sky): Add tree-view data bridge for cel: events\n\nAdd a document listener for `cel:tree-view:create` that bridges tree view data between Mountain and the Sky frontend. When triggered, the listener invokes Mountain's `tree:getChildren` method and re-dispatches the returned items as `cel:tree-view:items` for any downstream renderer shim.\n\nThis completes the F1.1 handoff contract: Mountain emits `cel:tree-view:create` but nothing was listening, resulting in `consumer-present=false` in the cel-dispatch logs. The listener now primes the viewer by requesting root children and broadcasting them, eliminating the orphan event pattern.\n\nDev logging via `RenderDevLog` tracks both successful item retrieval (`bridge-items`) and failures (`bridge-error`) for debugging.\n\nAlso removes obsolete Step 13 comment from astro.config.ts regarding the built-in extension copy workaround.",
+			"SHA": "4d9fb694ce1b313609c5c620583478aee4b09206"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T16:54:38Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "feat(Sky): Add consumer tracking for cel:* event dispatch\n\nTrack whether each `cel:*` CustomEvent has at least one listener registered by patching `document.addEventListener`. Log every dispatch to Mountain's dev-log via the `RenderDevLog` Tauri command with a `consumer-present` flag.\n\nOrphan events (Mountain emits but no workbench listener) are now visible as `consumer-present=false` in the `cel-dispatch` tag - these are F1.1 indicators where a feature silently fails because nothing subscribes to the expected event.\n\nThe patch is wrapped in try/catch to gracefully degrade on Safari/WebKit where `Document.prototype.addEventListener` is readonly and would throw in strict mode. When tracking fails, the flag reports `?` rather than breaking boot.",
+			"SHA": "8da853ea62909d3ea381c97a9c57e75ee612e08d"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T15:32:15Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "refactor(Sky): Centralize event URIs through Wind's SkyEvent table\n\nReplace the hardcoded string table in SkyBridge with imports from Wind's `@codeeditorland/wind/Target/IPC/SkyEvent.js`, the single source of truth that mirrors Mountain's Rust `SkyEvent` enum. This catches drift at type-check time rather than failing silently at runtime.\n\nKey changes:\n- Import `SkyEvent` constants from Wind; remove local string array\n- Add `ChannelToDomEvent` helper to transform `sky://` → `cel:` with consistent `/` → `:` mapping\n- Standardize statusbar URIs from hyphenated `sky://status-bar/...` to `sky://statusbar/...`\n- Fold the separate webview fan-out loop into the main bulk loop via `SkyEvent.WebviewSetHTML`\n\nThe canonical wire format is now `sky://statusbar/` (no hyphen) matching the Wind table.",
 			"SHA": "78f6f82339f93c4ab5a35f64e64af452208fac42"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-23T02:13:32Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "",
-			"SHA": "16bda3dcabcd28298a9191cb36dfdb2a1e33f9c2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T20:25:07Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "feat(Sky): Add exception signature throttling to PostHog bridge\n\nExceptions share the `$exception` event-name slot in posthog-js, so a burst of CSP refusals/console.error/unhandledrejection callbacks during workbench boot would blow through the 10/10s rate limit. Add a secondary throttle layer keyed by the first 200 chars of the error message.\n\nUnique exceptions still reach PostHog while bursts of the same error collapse into one. Both regular and exception drop counts are now reported in the `land:sky:throttle-dropped` event for visibility.\n\nThis follows the previous throttling commit (24e76da) which added the basic per-event-name throttle for non-exception events.",
-			"SHA": "f601c0a884535251332d05d5a36cf874c147af8d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:45:35Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "chore(Sky): Upgrade Astro and @astrojs/compiler-rs dependencies\n\nBump astro from 6.1.8 to 6.1.9 and @astrojs/compiler-rs from 0.1.7 to 0.1.8 in package.json. These are patch releases containing upstream bug fixes and performance improvements.",
-			"SHA": "a29752071da8a74ad52c469b8daa4515a0c17d1f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:18:42Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "refactor(Sky): Delegate build pipeline to Output plugins, move phase advancement into workbench.js\n\nMajor refactoring of Sky's astro.config.ts build pipeline:\n\n**Plugin delegation:** Inline Steps 1-7, 10-12, and 14 are now delegated to a plugin-based `BuildPipeline` and `ApplyPlugins` system under `Element/Output/Source/Plugin/`. This moves ~400 lines of copy/patch logic into reusable, testable plugins with a consistent interface. Steps 8, 8b, 9, and 13 remain inline (documented in comments) because they require Mountain-specific knowledge or spawn external commands.\n\n**Phase advancement relocation:** The `_A(phase)` function is now injected directly into workbench.js rather than living in a top-level Astro `<script>` block. This prevents Astro/Vite's chunk hoisting from blocking the async import and deferring phase advances past Mountain's 8s/23s fallback timers. Duplicate advances are safe since Mountain rejects backwards/same-phase transitions.\n\n**Removed ext-registry-probe:** The post-boot probe for `globalThis.monaco.extensions` always reported `monacoExtensionsApi:false` in modern VS Code (the API isn't on globalThis). Removed as noise; can be re-enabled via env-driven define if needed.\n\n**Other changes:** Gate missing browser bundle warnings behind `LAND_WARN_MISSING_BROWSER_BUNDLES=true` to keep default output clean. Add NodeModules and Addons configuration sections to the pipeline.",
-			"SHA": "4c3a80c40733108c47b2d6161f4a3595204a963c"
 		}
 	],
-	"TimeStamp": 1778254823156
+	"TimeStamp": 1778420677206
 }
