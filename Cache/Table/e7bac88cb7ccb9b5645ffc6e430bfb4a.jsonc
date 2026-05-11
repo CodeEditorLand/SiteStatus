@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T22:56:17Z",
+			"Date": "2026-04-23T15:57:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				730,
-				7
+				776,
+				8
 			],
-			"Message": "feat(Mountain): Implement local VSIX install and kernel profiles\n\nAdd VSIX installer module (Atom K2/K3) to handle local .vsix file installation:\n- New VsixInstaller.rs unpacks VSIX archives (ZIP with extension/ prefix) to ~/.land/extensions\n- Two-pass extraction: read manifest for install path before writing files\n- Handles zip-slip protection and produces ExtensionDescriptionStateDTO for the registry\n- Install and uninstall IPC handlers in WindServiceHandler/Extension.rs\n- Notifies Cocoon via $deltaExtensions for hot-activation without reload\n- Broadcasts sky://extensions/installed|uninstalled for Wind sidebar refresh\n\nAdd kernel/minimal profile support (Atom J3):\n- LAND_SKIP_BUILTIN_EXTENSIONS env var skips built-in extension scan paths\n- User-extensions path (~/.land/extensions) still scanned for VSIX-installed extensions\n\nAdd debug-mountain-only/release-mountain-only profiles (Atom N1):\n- LAND_SPAWN_COCOON=false skips extension host spawn entirely\n- Useful for Mountain-only integration tests and minimal shippable surface\n\nForward environment to Cocoon (Atom I11):\n- NODE_ENV, LAND_DEV_LOG, TAURI_ENV_DEBUG now propagate to Cocoon subprocess\n\nImprove gRPC connection logging (Atom I12):\n- Distinguish expected startup race from real failures in Cocoon connection attempts\n\nBetter unknown command logging (Atom L2):\n- Distinguish typos from registered-but-unimplemented channels\n\nCloses #",
-			"SHA": "43b39fff66082a09f3f75e888268bd9c5d9273a4"
+			"Message": "feat(Mountain): Add RenderDevLog command and diagnostic logging tags\n\nAdd a new Tauri command `RenderDevLog` that bridges TypeScript-side tagged logs (Wind/Sky/Cocoon) into Mountain's `dev_log!` file sink. This enables a single `Mountain.dev.log` to carry the complete tag-filterable picture of a session, rather than requiring cross-referencing between browser console and log file.\n\nAlso add five new diagnostic tags to isolate architectural gaps during debugging:\n- `notif-drop`: Notifications hitting the default arm (no handler)\n- `provider-register`: Accepted register_*_provider notifications with extension IDs\n- `channel-stub`: Wind/Output TauriMainProcessService.call stub hits vs route vs miss\n- `git`: localGit channel, GitExec RPC, SCM provider group updates\n- `tree-view`: tree.register, GetTreeChildren, sky://tree-view/create events\n\nApply tags across SCM.rs, TreeView.rs, CreateEffectForRequest/TreeView.rs, and MountainVinegRPCService.rs to provide visibility into extension host integration issues.\n\nImpact: Developers can now filter `LAND_DEV_LOG=git,tree-view` to isolate specific subsystem issues, and TS-originated logs appear in the same file with `[RenderDevLog]` prefix for grep separation.",
+			"SHA": "f7625f320666cca6bfe3d74fb87c4fc09444ddb3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T18:57:51Z",
+			"Date": "2026-04-23T15:33:55Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				729,
+				775,
+				5
+			],
+			"Message": "refactor(Mountain): Standardize Tauri event channel naming to kebab-case\n\nConsolidate all `sky://` event channel names to a consistent kebab-case format and emit TreeView registration events to the canonical path.\n\nChanges:\n- `sky://treeView/register` → `SkyEvent::TreeViewCreate` (canonical path)\n- `sky://webview/setHtml` → `sky://webview/set-html`\n- `sky://webview/postMessage` → `sky://webview/post-message`\n- `sky://status-bar/*` → `sky://statusbar/*` (remove hyphen to match family)\n- `sky://status-bar/message` → `sky://statusbar/set-message`\n\nAlso emit `SkyEvent::TreeViewCreate` after a TreeDataProvider is registered so the renderer can wire up the data provider to the matching ITreeView instance. Without this, VS Code's treeView.ts keeps `_dataProvider === undefined` and all extension tree views (GitLens, debug, SCM, tasks) render empty.\n\nThe previous diverged channel names were parallel forks that no downstream listener ever subscribed to. Impact: Extension tree views now render correctly with data from providers.",
+			"SHA": "85bd2a487c73623310182363d6a35dfbe8e9c57d"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-23T02:11:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
 				1
 			],
 			"Message": "",
-			"SHA": "a3a45cc15be7111f6f8442680c746706342643b8"
+			"SHA": "4531024429c05b7c8ad1209cc562acb2d956bde3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T18:57:51Z",
+			"Date": "2026-04-23T01:46:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				729,
+				775,
+				2
+			],
+			"Message": "fix(Mountain): Treat view registry commands as no-ops and preserve VSIX executable bits\n\nTwo unrelated bug fixes bundled for convenience:\n\n1. **View registry commands** (`CommandProvider.rs`): VS Code auto-generates `<viewId>.focus`, `<viewId>.resetViewLocation`, and `<viewId>.removeView` commands when views are registered. Land's webview.registerView bypasses that registry and emits Tauri events directly, so these commands never get inserted. Extensions like GitLens call these commands on user gesture; the Cocoon try/catch swallows the error, but the red `error:` log noise is misleading. Treat these well-known suffixes as silent no-ops that return `null`.\n\n2. **VSIX executable preservation** (`VsixInstaller.rs`): Extensions shipping platform-native binaries (openai.chatgpt's `codex`, language-server launchers) rely on the `0o755` mode stored in the VSIX zip. Without this change, extracted files get the default `0o644` mode, causing `spawn()` inside extensions to fail with `EACCES`. Use `PermissionsExt::unix_mode()` to preserve the executable bit on Unix systems.\n\nImpact: GitLens no longer spams error logs, and extensions with native binaries activate correctly.",
+			"SHA": "87eeff42e66bdbfd73e3c8463268004b3b67aa68"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T01:20:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
 				1
 			],
-			"Message": "fix(Mountain): Inject security.workspace.trust.enabled=false by default\n\nAtom I7: Add logic to AppLifecycle to ensure the VS Code workspace trust\nsystem is disabled in User/settings.json. Without this, opening the Land\nrepo as a workspace triggers VS Code's trust gate which marks built-in\nextensions as `DisabledByTrustRequirement` because they ship under\n`Element/Sky/Target/Static/Application/extensions/` — inside the repo.\n\nThis writes `\"security.workspace.trust.enabled\": false` only if the key\nisn't already present. Users can opt back in by editing their\nUser/settings.json.\n\nThis ensures built-in extensions load reliably regardless of which\nfolder the user picks as their workspace.",
-			"SHA": "f985fca565b75c8b3360cca6ea3606cfd660fc38"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T18:33:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				729,
-				5
-			],
-			"Message": "feat(Mountain): Add .env.Land bootstrap and zombie-Cocoon cleanup\n\nAdd environment loading from .env.Land at Mountain boot (Atom I5):\n- Load from cwd, parent dir, and repo-layout probe (binary → 6 ancestors)\n- Populates Product*, Tier*, Network* vars for standalone binary launches\n- Forwards these vars to Cocoon subprocess for single-source-of-truth design\n- InitializationData.ts now reads version/commit/quality from env instead of hardcoded defaults\n\nFix workspace activation not firing after folder pick (Atom I1):\n- Before Window.navigate() reload, mutate ApplicationState.Workspace and broadcast $deltaWorkspaceFolders to Cocoon\n- Without this, Cocoon keeps its pre-nav snapshot (0 folders) and workspaceContains:* activations never match\n- Previously in a dead copy of the handler; consolidated here\n\nAdd zombie-Cocoon prevention (Atom I6):\n- Pre-boot SweepStaleCocoon(): TCP-probe port 50052, resolve owner via lsof, SIGTERM→SIGKILL if stale\n- Post-shutdown HardKillCocoon(): force-terminate child after $shutdown gRPC attempt completes\n- Without this, segfault/SIGKILL/debugger detach left zombie holding port, causing EADDRINUSE cascade on next launch\n\nThis ensures extensions load reliably after folder picks and prevents stale Cocoon processes from degrading the extension host.",
-			"SHA": "b5b669a09006ce160ded354d37f2d4497a4f0b4c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T16:44:28Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				729,
-				10
-			],
-			"Message": "fix(Mountain): improve extension loading, add BATCH-16 latency instrumentation\n\nKey changes:\n- LocalhostPlugin: add MIME type override for JS/CSS/JSON/HTML/SVG assets to fix \"not a valid JavaScript MIME type\" errors in webview\n- ScanPathConfigure: remove debug_only gate on extension scan paths, enabling repo-layout fallback in release builds\n- AppLifecycle: extend fallback timers (2s→8s, 5s→15s) with logging when Sky hasn't advanced phases; skip if already advanced\n- TerminalProvider: capture and log PID + exit status code on terminal exit\n- DevLog: replace manual UTC timestamp with chrono::Local to match VS Code's session log directory convention\n- WindServiceHandlers: add diagnostic:log bridge, implement extensions:getInstalled for sidebar, add aux window stubs, use shared SessionTimestamp\n- CreateEffectForRequest: add BATCH-16 timestamps at dispatch-enter and body-start for tree.register latency analysis\n- MountainVinegRPCService: add grpc-recv timestamp for hot-path RPCs enabling 3-hop latency breakdown\n\nThese changes improve extension loading reliability, add diagnostic visibility into RPC latency, and fix session log directory mismatch between Mountain.dev.log and VS Code output logs.",
-			"SHA": "9a4751a1ee8ef1b0f174a524647c54e19264b732"
+			"Message": "fix(Mountain): Strip file:// scheme from paths in FileSystem effect handlers\n\nCocoon sends full URIs like `file:///Users/nikola/.land/extensions/...` through FileSystem.ReadFile/WriteFile/ReadDirectory RPC calls. Creating a PathBuf from such strings treats the scheme literally, causing every file operation to 404.\n\nAdd `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes before constructing PathBuf. Apply to all 8 FileSystem operations: ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, and Copy.\n\nThis fixes the redhat.java extension activation failure (and any other extension that reads its own package.json via the gRPC fs.readFile path) with \"Resource not found: file:///...\".",
+			"SHA": "16b040316eaf284a4d8530a59dee5b4516699c9e"
 		}
 	],
-	"TimeStamp": 1778420688880
+	"TimeStamp": 1778513344412
 }

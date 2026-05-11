@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T00:25:31Z",
+			"Date": "2026-04-29T01:40:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
-				6
-			],
-			"Message": "refactor(Mountain): Clean up development naming and complete stub implementations\n\nRename the binary, lib, and Tauri config from the verbose development name\n(`DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain`)\nto simply `Mountain` for cleaner builds and debugging.\n\nImplement two previously-stubbed trait methods:\n\n1. **OutputProvider::CloseChannel**: Properly sets `IsVisible = false` in\nApplicationState and emits a SkyEvent so the renderer collapses the panel.\nThe channel remains in state to preserve buffered content for later reveal.\n\n2. **WorkspaceProvider::OpenFile**: Converts the path to a file:// URI via\nUrl::from_file_path (with percent-encoding for unicode), emits the\n`sky://editor/openDocument` event that Sky's bridge listens on, and adds\nthe file to the recently-opened list (capped at 50 entries).\n\nAlso remove the now-obsolete `.Backup` files. These changes complete the\nIPC wiring for output channel management and editor document opening.",
-			"SHA": "2d330dbf776b664caa2426a9bee51c703619062a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T00:21:37Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				874,
-				1
-			],
-			"Message": "feat(Mountain): Implement FindFilesInWorkspace with ignore-aware parallel walking\n\nReplace the stub implementation that returned empty results with a complete `WorkspaceProvider::FindFilesInWorkspace` using:\n- `ignore::WalkBuilder::build_parallel()` for OS-thread-parallel directory traversal respecting `.gitignore` / `.ignore` / `.git/info/exclude`\n- `globset::GlobBuilder` for include/exclude pattern matching\n- Support for VS Code's RelativePattern shape (`{ base, pattern }`) to restrict walks to subfolders\n- Thread-safe result collection via `Arc<Mutex<Vec<Url>>>` capped at MaxResults (default 10,000)\n- Proper hidden-directory handling and symlink follow control\n\nThis complements the recent wiring of search IPC handlers to trait implementations, completing the file search path from Wind → Mountain → WorkspaceProvider::FindFilesInWorkspace for quick file open, symbol search, and fuzzy file matching features.",
-			"SHA": "044fdb7c156598f3081093012d5e5ac21cf8395b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:39:12Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				874,
-				8
-			],
-			"Message": "refactor(Mountain): Wire Cocoon RPC handlers to trait implementations for state tracking\n\nReplace direct Sky event emissions with proper trait implementations across SCM, StatusBar, Webview, and Search handlers:\n\n1. **SCM**: RegisterScmProvider and UpdateScmGroup now use SourceControlManagementProvider trait to materialize state in ApplicationState::SourceControl. Previously the direct Sky emit bypassed state tracking, so SCM providers (gitlens, svn) never appeared in Sky's SCM view until UpdateScmGroup - and the header row never materialized.\n\n2. **StatusBar**: CreateStatusBarItem and SetStatusBarText now use StatusBarProvider::SetStatusBarEntry to store entries in ActiveStatusBarItems. Without registration, the workbench had no memory of entries and set_status_bar_text calls leaked state.\n\n3. **Webview**: CreateWebviewPanel and SetWebviewHtml now use WebviewProvider trait to register panels in ApplicationState::WebviewState. Previously the extension got a handle but Mountain never knew about the panel - DisposeWebviewPanel failed with \"unknown handle\" and webviews leaked DOM.\n\n4. **Search**: findFiles delegates to WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker); findTextInFiles delegates to SearchProvider::TextSearch. This replaces naive inline fs-walk implementations that lacked .gitignore support, regex engine, parallel walks, and proper Url construction.\n\nAll handlers retain fallback to direct Sky emit on trait failure to preserve existing behavior for callers that don't depend on state tracking.",
-			"SHA": "f8de3e0f52def4658f2be37feceb8ce43e035bca"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:15:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				1
-			],
-			"Message": "feat(Mountain): Implement regex and multiline search options in TextSearchQuery\n\nAdd missing `isRegExp` and `isMultiline` fields to TextSearchQuery, mirroring VS Code's `ITextSearchQuery` interface. When `isRegExp` is false (the default), escape the search pattern via `regex::escape()` to prevent literal searches for strings containing regex metacharacters (`.`, `(`, `[`, `*`, `?`, etc.) from crashing the regex compiler or silently matching incorrectly. Add `.multi_line()` support for multiline regex searches.\n\nThis fixes the Search view's plain-text mode which was broken for queries containing characters like `obj.method(` or `file[1].txt`.",
-			"SHA": "d0117a0eb6379a9473082566dec2a8775df35577"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:05:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
+				859,
 				2
 			],
-			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to the properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those - the \"dead code that needs to be connected\" the user flagged.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.",
-			"SHA": "5f23bca601cb496e0c86114e0aaf8db93c22cde4"
+			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nTwo changes in Mountain's gRPC service layer:\n\n1. **FileWatcher.rs**: Cocoon's `NextProviderHandle()` returns a number, but older callers pass a string. Handle both shapes in `RegisterWatcher` and `UnregisterWatcher` instead of silently converting numbers to empty string.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without a string-regex round-trip, while `-32000` remains the catch-all for genuine failures.",
+			"SHA": "160b5a4251133f31e4ce99898a02a8d63f8ca19b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T01:03:45Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
+			],
+			"Message": "docs(Mountain): Update build.rs comments to document PascalCase naming\n\nClarify the build script comments to document the PascalCase environment variable naming convention introduced in the 2026-04-29 migration. The comments now specify that `Profile`, `Pack`, `Bundle`, and `Compiler` (PascalCase) are the current env var names, replacing the legacy `LAND_*` names that were retired. This ensures clarity for developers debugging build configuration resolution at runtime.",
+			"SHA": "de696659a367b81cdc5404e3055fa6837bd94fa7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T23:06:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				2
+			],
+			"Message": "feat(Mountain): Add per-URI marker payloads to diagnostics events and cap keyring logging\n\nTwo changes in Mountain's diagnostic system:\n\n1. **DiagnosticProvider.rs**: Extend the `DiagnosticsChanged` event payload with a new `changedURIs` field containing per-URI marker data alongside the existing `Uris` string array. This enables SkyBridge's `cel:diagnostics:changed` listener to call `IMarkerService.changeOne(owner, uri, markers)` directly without an extra IPC round-trip per diagnostic change. Also adds lowercase `owner` field for consistency. Maintains backward compatibility with listeners expecting the original format.\n\n2. **LoggingPlugin.rs**: Cap the `keyring` crate to Warn level. This dependency (used by Mountain's secret-storage path for license data lookups) emits a 3-line DEBUG block per `get_password` call that fires indefinitely after the workbench paints, similar to the previous `ignore` and `globset` mutes.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "5b111b189f5566e92bce268a48be289d73ef6735"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T22:00:38Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				4
+			],
+			"Message": "refactor: simplify project naming in Cargo.toml and tauri.conf.json\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "7ecd2c78579c71c6c6dbbbb509d52c63b1e771ad"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T21:54:13Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				861,
+				6
+			],
+			"Message": "fix(Mountain): Resolve 404s for extension webview assets and reduce logging noise\n\nTwo bug fixes in Mountain's build modules:\n\n1. **Scheme.rs**: Extend vscode-file URI handling to support arbitrary authorities beyond \"vscode-app\". The original code only handled `vscode-file://vscode-app/<path>` but `WebviewImplementation::asWebviewUri` rewrites local resource URIs to use the extension's identifier as authority (e.g., `vscode-file://vscode.git/...`). This caused every extension-supplied webview asset (icons, scripts, stylesheets, fonts) to return 404. Added a generic fallback that extracts the path after any authority.\n\n2. **LoggingPlugin.rs**: Cap noisy extension-scanner log targets (\"ignore\", \"ignore::walk\", \"ignore::gitignore\", \"globset\") to Warn level. These crates emit DEBUG lines per `.gitignore` opened, per glob compiled, and per file whitelisted—tens of thousands during a single boot, drowning out extension activation signals.\n\nAlso updates binary/lib names and tauri productName to include build configuration identifiers for development builds.",
+			"SHA": "bbbdab26d47fbd3bca35342c224431194c519eb7"
 		}
 	],
-	"TimeStamp": 1778420685456
+	"TimeStamp": 1778513339855
 }

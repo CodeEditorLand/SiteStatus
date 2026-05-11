@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:57:33Z",
+			"Date": "2026-04-25T00:25:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				776,
+				872,
+				6
+			],
+			"Message": "refactor(Mountain): Clean up development naming and complete stub implementations\n\nRename the binary, lib, and Tauri config from the verbose development name\n(`DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain`)\nto simply `Mountain` for cleaner builds and debugging.\n\nImplement two previously-stubbed trait methods:\n\n1. **OutputProvider::CloseChannel**: Properly sets `IsVisible = false` in\nApplicationState and emits a SkyEvent so the renderer collapses the panel.\nThe channel remains in state to preserve buffered content for later reveal.\n\n2. **WorkspaceProvider::OpenFile**: Converts the path to a file:// URI via\nUrl::from_file_path (with percent-encoding for unicode), emits the\n`sky://editor/openDocument` event that Sky's bridge listens on, and adds\nthe file to the recently-opened list (capped at 50 entries).\n\nAlso remove the now-obsolete `.Backup` files. These changes complete the\nIPC wiring for output channel management and editor document opening.",
+			"SHA": "2d330dbf776b664caa2426a9bee51c703619062a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T00:21:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				1
+			],
+			"Message": "feat(Mountain): Implement FindFilesInWorkspace with ignore-aware parallel walking\n\nReplace the stub implementation that returned empty results with a complete `WorkspaceProvider::FindFilesInWorkspace` using:\n- `ignore::WalkBuilder::build_parallel()` for OS-thread-parallel directory traversal respecting `.gitignore` / `.ignore` / `.git/info/exclude`\n- `globset::GlobBuilder` for include/exclude pattern matching\n- Support for VS Code's RelativePattern shape (`{ base, pattern }`) to restrict walks to subfolders\n- Thread-safe result collection via `Arc<Mutex<Vec<Url>>>` capped at MaxResults (default 10,000)\n- Proper hidden-directory handling and symlink follow control\n\nThis complements the recent wiring of search IPC handlers to trait implementations, completing the file search path from Wind → Mountain → WorkspaceProvider::FindFilesInWorkspace for quick file open, symbol search, and fuzzy file matching features.",
+			"SHA": "044fdb7c156598f3081093012d5e5ac21cf8395b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:39:12Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
 				8
 			],
-			"Message": "feat(Mountain): Add RenderDevLog command and diagnostic logging tags\n\nAdd a new Tauri command `RenderDevLog` that bridges TypeScript-side tagged logs (Wind/Sky/Cocoon) into Mountain's `dev_log!` file sink. This enables a single `Mountain.dev.log` to carry the complete tag-filterable picture of a session, rather than requiring cross-referencing between browser console and log file.\n\nAlso add five new diagnostic tags to isolate architectural gaps during debugging:\n- `notif-drop`: Notifications hitting the default arm (no handler)\n- `provider-register`: Accepted register_*_provider notifications with extension IDs\n- `channel-stub`: Wind/Output TauriMainProcessService.call stub hits vs route vs miss\n- `git`: localGit channel, GitExec RPC, SCM provider group updates\n- `tree-view`: tree.register, GetTreeChildren, sky://tree-view/create events\n\nApply tags across SCM.rs, TreeView.rs, CreateEffectForRequest/TreeView.rs, and MountainVinegRPCService.rs to provide visibility into extension host integration issues.\n\nImpact: Developers can now filter `LAND_DEV_LOG=git,tree-view` to isolate specific subsystem issues, and TS-originated logs appear in the same file with `[RenderDevLog]` prefix for grep separation.",
-			"SHA": "f7625f320666cca6bfe3d74fb87c4fc09444ddb3"
+			"Message": "refactor(Mountain): Wire Cocoon RPC handlers to trait implementations for state tracking\n\nReplace direct Sky event emissions with proper trait implementations across SCM, StatusBar, Webview, and Search handlers:\n\n1. **SCM**: RegisterScmProvider and UpdateScmGroup now use SourceControlManagementProvider trait to materialize state in ApplicationState::SourceControl. Previously the direct Sky emit bypassed state tracking, so SCM providers (gitlens, svn) never appeared in Sky's SCM view until UpdateScmGroup - and the header row never materialized.\n\n2. **StatusBar**: CreateStatusBarItem and SetStatusBarText now use StatusBarProvider::SetStatusBarEntry to store entries in ActiveStatusBarItems. Without registration, the workbench had no memory of entries and set_status_bar_text calls leaked state.\n\n3. **Webview**: CreateWebviewPanel and SetWebviewHtml now use WebviewProvider trait to register panels in ApplicationState::WebviewState. Previously the extension got a handle but Mountain never knew about the panel - DisposeWebviewPanel failed with \"unknown handle\" and webviews leaked DOM.\n\n4. **Search**: findFiles delegates to WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker); findTextInFiles delegates to SearchProvider::TextSearch. This replaces naive inline fs-walk implementations that lacked .gitignore support, regex engine, parallel walks, and proper Url construction.\n\nAll handlers retain fallback to direct Sky emit on trait failure to preserve existing behavior for callers that don't depend on state tracking.",
+			"SHA": "f8de3e0f52def4658f2be37feceb8ce43e035bca"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:33:55Z",
+			"Date": "2026-04-24T23:15:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
-				5
-			],
-			"Message": "refactor(Mountain): Standardize Tauri event channel naming to kebab-case\n\nConsolidate all `sky://` event channel names to a consistent kebab-case format and emit TreeView registration events to the canonical path.\n\nChanges:\n- `sky://treeView/register` → `SkyEvent::TreeViewCreate` (canonical path)\n- `sky://webview/setHtml` → `sky://webview/set-html`\n- `sky://webview/postMessage` → `sky://webview/post-message`\n- `sky://status-bar/*` → `sky://statusbar/*` (remove hyphen to match family)\n- `sky://status-bar/message` → `sky://statusbar/set-message`\n\nAlso emit `SkyEvent::TreeViewCreate` after a TreeDataProvider is registered so the renderer can wire up the data provider to the matching ITreeView instance. Without this, VS Code's treeView.ts keeps `_dataProvider === undefined` and all extension tree views (GitLens, debug, SCM, tasks) render empty.\n\nThe previous diverged channel names were parallel forks that no downstream listener ever subscribed to. Impact: Extension tree views now render correctly with data from providers.",
-			"SHA": "85bd2a487c73623310182363d6a35dfbe8e9c57d"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-23T02:11:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
+				872,
 				1
 			],
-			"Message": "",
-			"SHA": "4531024429c05b7c8ad1209cc562acb2d956bde3"
+			"Message": "feat(Mountain): Implement regex and multiline search options in TextSearchQuery\n\nAdd missing `isRegExp` and `isMultiline` fields to TextSearchQuery, mirroring VS Code's `ITextSearchQuery` interface. When `isRegExp` is false (the default), escape the search pattern via `regex::escape()` to prevent literal searches for strings containing regex metacharacters (`.`, `(`, `[`, `*`, `?`, etc.) from crashing the regex compiler or silently matching incorrectly. Add `.multi_line()` support for multiline regex searches.\n\nThis fixes the Search view's plain-text mode which was broken for queries containing characters like `obj.method(` or `file[1].txt`.",
+			"SHA": "d0117a0eb6379a9473082566dec2a8775df35577"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:46:17Z",
+			"Date": "2026-04-24T23:05:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
+				872,
 				2
 			],
-			"Message": "fix(Mountain): Treat view registry commands as no-ops and preserve VSIX executable bits\n\nTwo unrelated bug fixes bundled for convenience:\n\n1. **View registry commands** (`CommandProvider.rs`): VS Code auto-generates `<viewId>.focus`, `<viewId>.resetViewLocation`, and `<viewId>.removeView` commands when views are registered. Land's webview.registerView bypasses that registry and emits Tauri events directly, so these commands never get inserted. Extensions like GitLens call these commands on user gesture; the Cocoon try/catch swallows the error, but the red `error:` log noise is misleading. Treat these well-known suffixes as silent no-ops that return `null`.\n\n2. **VSIX executable preservation** (`VsixInstaller.rs`): Extensions shipping platform-native binaries (openai.chatgpt's `codex`, language-server launchers) rely on the `0o755` mode stored in the VSIX zip. Without this change, extracted files get the default `0o644` mode, causing `spawn()` inside extensions to fail with `EACCES`. Use `PermissionsExt::unix_mode()` to preserve the executable bit on Unix systems.\n\nImpact: GitLens no longer spams error logs, and extensions with native binaries activate correctly.",
-			"SHA": "87eeff42e66bdbfd73e3c8463268004b3b67aa68"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:20:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				1
-			],
-			"Message": "fix(Mountain): Strip file:// scheme from paths in FileSystem effect handlers\n\nCocoon sends full URIs like `file:///Users/nikola/.land/extensions/...` through FileSystem.ReadFile/WriteFile/ReadDirectory RPC calls. Creating a PathBuf from such strings treats the scheme literally, causing every file operation to 404.\n\nAdd `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes before constructing PathBuf. Apply to all 8 FileSystem operations: ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, and Copy.\n\nThis fixes the redhat.java extension activation failure (and any other extension that reads its own package.json via the gRPC fs.readFile path) with \"Resource not found: file:///...\".",
-			"SHA": "16b040316eaf284a4d8530a59dee5b4516699c9e"
+			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to the properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those - the \"dead code that needs to be connected\" the user flagged.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.",
+			"SHA": "5f23bca601cb496e0c86114e0aaf8db93c22cde4"
 		}
 	],
-	"TimeStamp": 1778420687148
+	"TimeStamp": 1778513342167
 }

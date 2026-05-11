@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T14:19:43Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				774,
-				51
-			],
-			"Message": "feat(Mountain): Add Node binary resolver and extension path environment variables\n\nImplement two significant features for Cocoon sidecar spawning and extension management:\n\n1. **NodeResolver (Atom N1):** New module that resolves Node.js binary for Cocoon spawn, checking in order: explicit override (LAND_NODE_BINARY), shipped runtime (Tauri bundle or dev-tree sibling), version managers (fnm, volta, asdf, nvm), Homebrew, and PATH fallback. Logs source for forensics.\n\n2. **Extension path configuration (Atom U1):** Add support for environment variables controlling extension scan paths:\n  - LAND_DISABLE_BUILTIN_EXTENSIONS: Same effect as LAND_SKIP_BUILTIN_EXTENSIONS\n  - LAND_BUILTIN_EXTENSIONS_DIR: Override bundle path for CI builds\n  - LAND_USER_EXTENSIONS_DIR: Override ~/.land/extensions for sandboxes\n  - LAND_EXTRA_EXTENSIONS_DIRS: Multi-path separator (semicolon Windows, colon elsewhere)\n  - LAND_DEV_EXTENSIONS_DIR: Development extensions that always load\n\n3. **Profile sentinel fix:** Replace runtime std::env::var(\"LAND_PROFILE\") with compile-time option_env! in build.rs so profile resolves correctly after binary launch (previously showed \"unknown\" when run outside Build.sh shell).\n\n4. **IPC handler improvements:** Add extensions:resetPinnedStateForAllUserExtensions handler (Atom P1), improve error handling in showSaveDialog/showMessageBox with proper Join handling.",
-			"SHA": "458377b0d14a3611cc723298645f95d86eebfd80"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T12:58:23Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				773,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "edeef4b1eb18a7b9c3bcb7a3cdc2f7a15f48efe4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T12:51:22Z",
+			"Date": "2026-04-23T19:04:49Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				773,
-				24
+				827,
+				11
 			],
-			"Message": "",
-			"SHA": "85483ef53b574cfa1ad8bd98fa1d5eb622c8e87e"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-22T02:07:38Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				773,
-				1
-			],
-			"Message": "",
-			"SHA": "4e8e4de83a418317ba072f28c0b100f3928b8d53"
+			"Message": "refactor(Mountain): Split monolithic UI.rs into domain-specific modules\n\nExtract the 32 handlers from the single `UI.rs` (~670 LoC) into 9 separate domain modules under `WindServiceHandlers/UI/`:\n- `Decoration.rs` - URI badge/tooltip/colour providers\n- `Keybinding.rs` - dynamic runtime keybinding registry\n- `Lifecycle.rs` - app phase get/wait/shutdown\n- `Notification.rs` - toast messages and notification-scoped progress\n- `Progress.rs` - window/status-bar progress indicators\n- `QuickInput.rs` - QuickPick and InputBox dialogs\n- `Theme.rs` - colour theme get/list/set\n- `Workspace.rs` - workspace folder lifecycle\n- `WorkingCopy.rs` - dirty-state tracking\n\nEach file contains focused handlers for one UI concern, improving discoverability with `grep pub async fn`. The `mod.rs` re-exports all handlers flat to preserve the existing dispatcher call sites.\n\nThis follows the same pattern as recent Batch 15/16 notification atom migrations, further decomposing Mountain's IPC surface for better maintainability.",
+			"SHA": "285e8d1e67f19bb8f8c520665197d620d792cb5a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:42:27Z",
+			"Date": "2026-04-23T18:52:25Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				817,
+				12
+			],
+			"Message": "refactor(Mountain): Migrate Batch 16 notification handlers to atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to 10 new atom functions in `Vine::Server::Notification::*`:\n\n- webview lifecycle (setTitle, setIconPath, setHtml) → WebviewLifecycle\n- window.createTerminal → WindowCreateTerminal\n- terminal lifecycle (sendText, show, hide, dispose) → TerminalLifecycle\n- decoration lifecycle (createTextEditorDecorationType, disposeTextEditorDecorationType) → DecorationTypeLifecycle\n- debug lifecycle (addBreakpoints, removeBreakpoints, consoleAppend) → DebugLifecycle\n- statusBar lifecycle (update, dispose) → StatusBarLifecycle\n- statusBar.message → StatusBarMessage\n- window.showMessage → WindowShowMessage\n- registerCommand → RegisterCommand\n- unregisterCommand → UnregisterCommand\n\nTerminalLifecycle is a \"group atom\" covering 4 wire methods that share both the `sky://terminal/*` relay and provider-side PTY drive. StatusBarLifecycle similarly groups 2 methods. This keeps MountainVinegRPCService thin with one-line delegations.",
+			"SHA": "1699cfca4a8e3c70bcf0b1d355097788d7a0068b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T18:52:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				773,
+				807,
+				2
+			],
+			"Message": "refactor(Mountain): Migrate remaining notification handlers to Batch 15 atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to the Batch 15 atom functions in `Vine::Server::Notification::*`. The migrated handlers include:\n- extensionHostMessage → ExtensionHostMessage\n- ExtensionActivated/ExtensionDeactivated → ExtensionActivated/ExtensionDeactivated\n- WebviewReady → WebviewReady\n- progress.start/report/end → ProgressStart/ProgressReport/ProgressEnd\n- languages.setDocumentLanguage → LanguagesSetDocumentLanguage\n- workspace.applyEdit → WorkspaceApplyEdit\n- window.showTextDocument → WindowShowTextDocument (new atom file)\n\nAlso removes the dead handler bodies at the bottom of the match arm that were unreachable after Rust selected the first matching arm for each wire name. This consolidates all notification dispatch to the atom layer, keeping MountainVinegRPCService thin with one-line delegations.",
+			"SHA": "c834d103d4fc2f2002a1e55093df536bf58031c1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T18:46:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				806,
 				1
 			],
 			"Message": "",
-			"SHA": "df31ca163397115c733f07d4aebc695813ca05fe"
+			"SHA": "6dfa4be105691b49a93eb4e42a2bef8eb772ee4d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T18:46:55Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				806,
+				47
+			],
+			"Message": "refactor(Mountain): Consolidate WindServiceHandler to WindServiceHandlers atoms\n\nMerge the deprecated singular `WindServiceHandler` module into the plural `WindServiceHandlers` atoms:\n- Delete 24 files from `WindServiceHandler/` (21 were dead duplicates)\n- Re-implement 3 live handlers as atoms: `extensions:install`, `extensions:uninstall`, `nativeHost.showOpenDialog`\n- Move extension handlers to `WindServiceHandlers/Extension/` (Install, Uninstall, NotifyCocoonDeltaExtensions, UserExtensionDirectory, VsixPathFromArgs)\n- Move dialog handlers to `WindServiceHandlers/NativeDialog/` (ShowOpenDialog, ParseDialogFilters, DialogFilter)\n- Add 9 new notification atoms: ExtensionActivated, ExtensionDeactivated, ExtensionHostMessage, LanguagesSetDocumentLanguage, ProgressStart, ProgressReport, ProgressEnd, WebviewReady, WorkspaceApplyEdit\n- Update MountainVinegRPCService to dispatch notifications via atoms (note: outputChannel.* already dispatched from Batch 9)\n\nThe consolidation eliminates code duplication and centralizes all IPC dispatch in the plural module. New notification atoms enable Wind/Sky to receive extension lifecycle events and progress updates from Cocoon.",
+			"SHA": "c8bfb37b939a9d0745929edef864c331c9c8f56e"
 		}
 	],
-	"TimeStamp": 1778420688403
+	"TimeStamp": 1778513343820
 }

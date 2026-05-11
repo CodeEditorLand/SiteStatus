@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:15Z",
+			"Date": "2026-05-04T19:56:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1428,
-				12
+				1507,
+				5
 			],
-			"Message": "feat(Mountain): Implement advanced IPC monitoring and collaboration session tracking\n\nIntroduce a comprehensive `AdvancedFeatures` module under `Source/IPC/AdvancedFeatures/` to expose real-time performance metrics and collaborative session management to the Wind/Sky frontend via Tauri commands.\n\nKey additions include:\n- **State Aggregator:** `Features::Struct` manages concurrent access to performance counters, a TTL-bound `MessageCache`, and active `CollaborationSession` maps using `Arc<Mutex>`.\n- **Background Monitoring:** Three asynchronous tasks handle periodic performance stat emission, cache cleanup (TTL expiration), and session timeout management.\n- **Collaboration Primitives:** Define DTOs for `CollaborationPermissions` (edit/view/comment/share flags) and `CollaborationSession` (participant lists, document URIs).\n- **Tauri Commands:** Surface functionality via `mountain_create_collaboration_session`, `mountain_get_collaboration_sessions`, `mountain_get_performance_stats`, and `mountain_get_cache_stats`.\n\nThis implementation provides the backend telemetry required for the Feature Parity dashboard and establishes the structural foundation for real-time co-editing features in Land.",
-			"SHA": "535672b372fb0e0187307494d5782bda8e257bfd"
+			"Message": "fix(Mountain): Align path probes, extend Cocoon wait times, and correct progress channels\n\nResolve multiple bootstrapping and rendering failures by synchronizing file paths, adjusting IPC timeouts, and fixing event routing.\n\n1. **Path Probes:** Update `CocoonMain.js` references to `Cocoon/Main.js` in `CocoonManagement.rs` and `bootstrap-fork.js` to match the actual output directory structure from the Cocoon build pipeline.\n2. **Timeouts:** Increase `WaitForClientConnection` and tree-view RPC timeouts from 1500ms to 5000ms. Cold-boot traces show Cocoon initialization completing significantly later than the previous threshold, causing Sky-side caches to populate with empty fallbacks (e.g., empty Explorer, failed `resolveView`).\n3. **Asset Resolution:** In `VscodeFileSchemeHandler`, strip query strings and fragments from paths to ensure sourcemap probes (e.g., `index.js?source-map=true`) resolve to valid disk files. Add a strict gate to only apply the CSS shim for `Static/Application/` paths, preventing the silent breaking of extension-specific CSS bundles located on absolute filesystem paths.\n4. **IPC Channels:** Correct the `progress.complete` notification to emit on `sky://progress/complete` instead of the unused `sky://progress/end`, ensuring progress indicators in the renderer properly tear down upon task completion.\n\nThese changes restore extension UI visibility, prevent silent IPC failures during cold boot, and ensure debug sources and progress indicators function correctly.",
+			"SHA": "b31e5bd8131796200fe19e83d841ece45d6515e9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:04Z",
+			"Date": "2026-05-04T17:27:12Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1415,
-				8
+				1507,
+				2
 			],
-			"Message": "refactor(Mountain): Modularize WindServiceHandlers into discrete sub-modules\n\nDecompose the monolithic `WindServiceHandlers` modules (Extensions, Git, Model, Navigation, Output, Storage, Terminal) into a structured tree of individual files, one per exported handler. This aligns with the project's modular architecture and PascalCase naming convention, replacing large stub files with thin `mod.rs` dispatchers that delegate to specific handler implementations.\n\nKey changes:\n- **Extensions:** Extract `GetInstalled`, `GetAll`, `Get`, and `IsActive` into separate modules. Preserve the critical boot-race polling logic (up to 5s) and manifest skeletonization in `ExtensionsGetInstalled` to prevent UI crashes during trusted-publishers migration.\n- **Git:** Isolate `HandleExec` and `HandleClone` etc. into distinct units while retaining the shared `Shared` module for process registration and PID tracking.\n- **Model/Navigation/Storage/Terminal:** Refactor each into a family of single-purpose modules (e.g., `ModelOpen`, `HistoryGoBack`, `StorageSet`) to improve testability and readability.\n- **Dispatcher Update:** Update `mountain_ipc_invoke` in `mod.rs` to route commands to the new nested module paths (e.g., `Git::HandleExec::HandleExec`).\n- **Telemetry:** Standardize OTLP span names to `land:mountain:ipc:<command>` and inject the `CaptureHandler` instrumentation to track per-invocation duration for the Feature Parity dashboard.\n\nThis restructuring eliminates `dead_code` and `unused_variables` lints while clarifying the IPC surface area for future Wind service migrations.",
-			"SHA": "f7f34e5ab2e7ad549f1ea09c3416588942ea7a19"
+			"Message": "feat(Mountain): Implement vscode-webview-resource schemes and enforce COEP\n\nRegister asynchronous URI scheme handlers for `vscode-webview-resource` and `vscode-resource` to intercept legacy VS Code asset requests. These schemes are rewritten to `vscode-file://vscode-app` and forwarded to the existing `VscodeFileSchemeHandler`, compensating for the disabled service worker in the WebKit-based webview.\n\nSimultaneously, update `VscodeFileSchemeHandler` responses to include `Cross-Origin-Resource-Policy: cross-origin` and `Cross-Origin-Embedder-Policy: require-corp` headers. This configuration enables the COEP-isolated webview iframe to load extension assets (React bundles, CSS, fonts) without being blocked by WebKit's cross-origin security policies, ensuring extension content renders correctly.\n\nThis bridges the gap between stock VS Code's URI handling and Tauri's custom protocol implementation, restoring asset visibility for extensions like Roo and GitLens within the editor.",
+			"SHA": "f65fa4338464ae53c577a5883b9256c8a26517e4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:52Z",
+			"Date": "2026-05-04T15:09:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1415,
-				14
+				1507,
+				5
 			],
-			"Message": "feat(Mountain): Implement Wind service adapter bridge and DTOs\n\nIntroduce a comprehensive adapter layer under `Source/IPC/WindServiceAdapters/` to bridge the Mountain Rust backend with the Wind TypeScript UI service contracts. This module serializes Mountain's sandbox configuration into the `WindDesktopConfiguration` structure expected by Sky during boot, and provides concrete implementations for Wind's core service interfaces (File, Storage, Configuration, Environment) using the `CommonLibrary` trait definitions.\n\nKey additions include:\n- **DTOs:** `MountainSandboxConfiguration`, `WindDesktopConfiguration`, and file-specific structures (`FileToDiff`, `FilesToWait`) to serialize launch parameters and state.\n- **Service Wrappers:** `WindFileService`, `WindStorageService`, `WindConfigurationService`, and `WindEnvironmentService` that inject `CommonLibrary` providers (FileSystemReader/Writer, StorageProvider) to satisfy Wind's async service requirements.\n- **Adapter Logic:** `WindServiceAdapter` which transforms raw JSON sandbox configs into the typed `WindDesktopConfiguration` and instantiates service instances with the current `ApplicationRunTime` context.\n\nThis enables the Wind frontend to operate on native Rust services via the Tauri IPC layer, decoupling UI service logic from the underlying OS implementation.\n\nRefs: Land Element Architecture, IPC Bridge",
-			"SHA": "1dd8948da9ad46dd9e6188992b3288afae914b16"
+			"Message": "",
+			"SHA": "73d01e92998495d3895291a89328501c61eca47c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:45Z",
+			"Date": "2026-05-04T10:43:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1400,
+				1507,
 				1
 			],
-			"Message": "refactor(Mountain): Remove empty Permission validation stub\n\nDelete the `ValidatePermission.rs` file which was present as an empty placeholder with no implementation. This cleanup removes dead code artifacts from the `Source/IPC/Permission/Validate` directory, streamlining the permission handling module structure.\n\nThe removal ensures the codebase reflects the current architectural state where specific permission validation logic is either implemented inline with IPC handlers or managed by the Common trait definitions, avoiding confusion from orphaned stub files.",
-			"SHA": "0158bbcdd21075e4419f77fedc6a76253be574af"
+			"Message": "refactor(Mountain): Simplify payload construction and comment formatting for Webview effects\n\nRefactor the JSON payload creation logic in `Source/Track/Effect/CreateEffectForRequest/Webview.rs` to remove redundant line breaks and formatting inconsistencies in comments and string insertions. Align the implementation with the existing strategy of preserving positional `args` while adding named aliases for specific IPC methods like `registerView`, `unregisterView`, and `create`.\n\nThe changes streamline the code structure without altering the functional behavior, ensuring the `viewId`, `viewType`, and `title` named keys are correctly mapped from the positional arguments array for SkyBridge consumption.",
+			"SHA": "a81efd6d80b95fe80e345ffda5820827bf96120b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:41Z",
+			"Date": "2026-05-04T10:40:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1401,
-				10
+				1507,
+				1
 			],
-			"Message": "feat(Mountain): Implement TLS certificate management IPC command suite\n\nIntroduce a comprehensive set of Tauri commands under `Source/Binary/Build/TlsCommands/` to expose the `CertificateManager` to the Wind/Sky frontend for local TLS/HTTPS provisioning.\n\nThe implementation adheres to PascalCase naming and the project's modular architecture, adding:\n- **DTOs:** `CertificateGenerationResult` and `CertificateStatus` to structure payload responses including expiry timelines and renewal flags.\n- **Lifecycle:** `tls_initialize` loads or generates the root CA; `tls_generate_cert` issues or retrieves server certificates for specific hostnames.\n- **Monitoring:** `tls_check_cert_status` calculates days until expiry and flags renewal needs based on the configured threshold.\n- **Inspection:** `tls_get_all_certs`, `tls_get_server_cert_info`, and `tls_get_ca_cert` provide diagnostic data for the security panel.\n- **Maintenance:** `tls_renew_certificate` and `tls_delete_cert` (currently aliased to renewal) allow manual certificate rotation.\n\nThese commands gate access via the `CertificateManager` state mutex, enabling secure, asynchronous certificate lifecycle operations from the editor UI.\n\nNote: `tls_delete_cert` currently regenerates the certificate as a placeholder until a dedicated deletion logic is implemented in `CertificateManager`.",
-			"SHA": "8e396fbf31d1bb878c5a4609f59a4e823f0f2871"
+			"Message": "",
+			"SHA": "3b41633e84fbd89f87b75ba674eabbe7ccde8296"
 		}
 	],
-	"TimeStamp": 1778420673928
+	"TimeStamp": 1778513324711
 }

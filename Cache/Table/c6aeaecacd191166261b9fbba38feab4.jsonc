@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-03-26T01:59:04Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-05T13:40:52Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				670,
 				1
 			],
-			"Message": "",
-			"SHA": "336d8c9bafc63694fd282662d9daa3c2379d6be8"
+			"Message": "feat(Mountain): implement output channel events and configuration retrieval in CocoonService\n\nReplace stubbed TODO implementations for output channel operations and get_configuration with working implementations:\n\n- **Output Channels (create, append, clear, show, dispose)**: Emit Tauri events to Sky (`sky://output/*`) to notify the frontend to create, update, clear, show, or dispose output panels. This enables the extension host to write to output channels that Sky renders in the editor UI.\n\n- **get_configuration**: Delegate to ConfigurationProvider to retrieve VS Code configuration values. The section and key from the request are combined into a dot-notation key (e.g., \"editor.fontSize\") and passed to GetConfigurationValue. Returns the serialized JSON value.\n\nThese implementations complete the gRPC contract between Mountain and Cocoon, enabling VS Code extensions running in Cocoon to interact with the editor's output panels and configuration system.",
+			"SHA": "65a75298bafffa634d230333d1dd72aa60bcb499"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-03-25T01:52:16Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-05T13:38:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				670,
 				1
 			],
-			"Message": "",
-			"SHA": "e621f2e9f4f57c73f395a98955b77bcf4be7552b"
+			"Message": "feat(Mountain): add Wind IPC handlers for terminal, output, and textFile commands\n\nAdd command handlers in WindServiceHandlers to expose terminal, output channel,\nand text file operations to the Wind frontend via Tauri IPC:\n\n- Terminal: create, sendText, dispose, show, hide - delegate to TerminalProvider\n- Output channels: create, append, appendLine, clear, show - emit Tauri events to Sky\n- TextFile: read, write, save - use tokio::fs for disk I/O\n\nThese handlers complete the IPC bridge between Wind's service layer and\nMountain's native backend capabilities.",
+			"SHA": "6ed9f10234aa14095301f824fa65e5c31a924349"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-03-24T01:46:45Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-05T13:35:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				670,
 				1
 			],
-			"Message": "",
-			"SHA": "a98db165800723480512fc3b69b8d55e964a6794"
+			"Message": "feat(Mountain): implement generic request router in process_mountain_request\n\nImplement the generic request handler that routes fs.* and commands.execute methods from Cocoon's FileSystemService. The previous implementation returned \"Method not found\" errors for all requests.\n\nNow properly handles: fs.readFile/file:read, fs.writeFile/file:write, fs.stat/file:stat, fs.listDir/fs.readdir/file:readdir, fs.createDir/file:mkdir, fs.delete/file:delete, fs.rename/file:move, and commands.execute. Each method delegates to the appropriate handler or returns a JSON-RPC compatible response.\n\nThis enables Cocoon's generic ProcessCocoonRequest RPC to work with the same operations available via typed gRPC methods, completing the gRPC service contract.",
+			"SHA": "030b3c73fcb413ef014d1c8cb48a38e533e775b5"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-03-23T01:54:58Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-05T13:32:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				670,
 				1
 			],
-			"Message": "",
-			"SHA": "38823e34e8d7f98604a23b0cc69681882cfb4232"
+			"Message": "feat(Mountain): implement terminal I/O, secret storage, and UI dialogs in CocoonService\n\nReplace unimplemented stubs with working implementations:\n- Terminal I/O: terminal_input sends bytes to PTY stdin via SendTextToTerminal, close_terminal disposes PTY via DisposeTerminal\n- Secret Storage: get_secret/store_secret/delete_secret delegate to OS keychain via SecretProvider (GetSecret, StoreSecret, DeleteSecret)\n- UI Dialogs: show_quick_pick presents selection list via ShowQuickPick, show_input_box presents text entry via ShowInputBox\n- Terminal Resize: emits Tauri event 'sky://terminal/resize' to Sky for xterm.js canvas resizing\n\nAll operations now properly call their corresponding MountainEnvironment providers instead of returning Status::unimplemented, completing the gRPC service contract between Mountain and Cocoon.",
+			"SHA": "58b532fce0197d38987927178f3c53d10b8bdf29"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-03-22T01:53:40Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-05T13:29:45Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				670,
-				1
+				2
 			],
-			"Message": "",
-			"SHA": "e43de9012901577d022b7c9412d7b6ec7d353977"
+			"Message": "feat(Mountain): implement Cocoon gRPC file system operations and command registry\n\nThis commit implements the remaining stubbed operations in the CocoonService gRPC server, replacing Status::unimplemented returns with working implementations:\n\n- **File System Operations**: read_file, write_file, stat, readdir now delegate to tokio::fs with proper URI-to-path parsing. delete_file, rename_file, copy_file, create_directory implemented with atomic parent directory creation.\n- **find_files**: Implements glob pattern matching using globset crate, walking workspace folders from ApplicationState.\n- **git_exec**: Spawns native git process with provided args, captures stdout/stderr, returns exit code and output lines.\n- **open_terminal**: Wires to MountainEnvironment::CreateTerminal using TerminalProvider.\n- **Command Registration**: Wires RegisterCommand/UnregisterCommand to CommandExecutor instead of stub logging.\n- **Language Feature Providers**: All 15+ provider registration methods now call RegisterProvider to store metadata in ApplicationState.Extension.ProviderRegistration.\n- **Workspace Folders**: Initialize handler now parses workspace_folders from init payload and stores in ApplicationState.Workspace.\n- **Extension Queries**: get_extension and get_all_extensions now query ApplicationState via ExtensionManagementService.\n\nThis removes the TODO placeholders for these operations and enables the full gRPC service contract between Mountain and Cocoon.",
+			"SHA": "75fdf60b0a353c83682c828488db2809a208526c"
 		}
 	],
-	"TimeStamp": 1778420694894
+	"TimeStamp": 1778513352719
 }

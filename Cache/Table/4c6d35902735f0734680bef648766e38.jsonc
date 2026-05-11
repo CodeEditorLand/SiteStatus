@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:44:28Z",
+			"Date": "2026-05-02T06:35:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1003,
-				8
+				1117,
+				1
 			],
-			"Message": "refactor(Mountain): Decompose Terminal RPC handlers into file-per-struct modules\n\nExtract all gRPC entry points within `Source/RPC/CocoonService/Terminal` into dedicated PascalCase modules to align with the project-wide architectural convention. New modules cover the full terminal lifecycle: `OpenTerminal` (spawning PTY via `TerminalProvider::CreateTerminal`), `CloseTerminal` (disposing via `DisposeTerminal`), `TerminalInput` (forwarding bytes to the master writer), `ResizeTerminal` (emitting dimensions to Sky), and notifications for `AcceptTerminalOpened`, `AcceptTerminalClosed`, `AcceptTerminalProcessData`, and `AcceptTerminalProcessId`.\n\nEach handler implements the `Fn` signature required for Tauri's `generate_handler!` macro and bridges the `Vine` gRPC protocol to the `Sky` UI layer. Notifications are emitted via Tauri events (`sky://terminal/create`, `/exit`, `/data`, `/processId`, `/resize`) using lossy UTF-8 decoding for stream data. This completes the decomposition of the `CocoonService` namespace, ensuring consistent symbol resolution and maintainability across the terminal subsystem.",
-			"SHA": "1a89bda0e090338927fd29676be62533ef50ca16"
+			"Message": "refactor(Mountain): Initialize atomic StatusReporter module structure\n\nReplace the legacy single-file implementation in `Source/IPC/StatusReporter/mod.rs` with a placeholder module header. The original documentation and re-export logic are removed to clear the namespace for a new granular, atomic status reporting system.\n\nThe legacy file content has been preserved in a sibling path for reference. This change aligns the `Source/IPC` directory with the project's shift towards fine-grained state management and prepares the architecture for the upcoming rewrite of the observability layer.",
+			"SHA": "9a4cc80af215da4b18c502e3978094d4b4c27896"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:43:24Z",
+			"Date": "2026-05-02T06:35:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				994,
-				4
+				1117,
+				1
 			],
-			"Message": "feat(Mountain): Decompose TreeView RPC handlers into file-per-struct modules\n\nExtract the `TreeView` gRPC entry points within `Source/RPC/CocoonService` into dedicated PascalCase modules (`EnqueueTreeViewEmit`, `GetTreeChildren`, `RegisterTreeViewProvider`, `ViewIdHandle`) to align with the project-wide architectural convention.\n\nThe `EnqueueTreeViewEmit` module implements a static batcher that coalesces 30+ `tree-view/create` events from boot into single 16 ms window payloads, utilizing `AtomicBool` locking and `tokio::spawn` for non-blocking emission to the `Sky` UI layer. `GetTreeChildren` bridges the `Vine` gRPC protocol to the `Cocoon` extension host, performing a 5-second timeout-protected round-trip to `$provideTreeChildren` and returning empty lists on provider registration failures. `RegisterTreeViewProvider` registers tree data providers in `ApplicationState` using a consistent 31-based string hash for handle generation and triggers the batched emit. `ViewIdHandle` centralizes the hash logic for provider lookup.\n\nAll handlers are exposed as `Fn` functions for invocation via `Tauri::generate_handler!`, completing the refactoring of the `CocoonService` RPC namespace.",
-			"SHA": "39923726563a05fc656a7c3766fa7bd4f9232528"
+			"Message": "fix(Mountain): Correct ApplicationState import path in extension scanner\n\nUpdate the import statement in `Source/ExtensionManagement/Scanner.rs` to explicitly reference the nested `State::ApplicationState::ApplicationState` struct. The previous flat import path failed to resolve the type correctly within the current module hierarchy.\n\nThis change ensures the `ApplicationState` type is properly available for extension state management logic, preventing compilation errors related to missing type definitions in the extension scanner.",
+			"SHA": "a6fa8e0baf0f34804f514a65c32a36d5e3c985c2"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:42:40Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				989,
-				16
-			],
-			"Message": "feat(Mountain): Decompose Window RPC handlers into file-per-struct modules\n\nExtract all gRPC entry points within the `Source/RPC/CocoonService/Window` namespace into dedicated PascalCase modules. This completes the architectural refactor initiated in previous commits for Workspace, Command, and Configuration, ensuring the monolithic `mod.rs` no longer contains inline handler logic.\n\nNew modules include handlers for window management (CreateWebviewPanel, DisposeWebviewPanel, SetWebviewHtml), status bar operations (CreateStatusBarItem, SetStatusBarText), and user interface interactions (ShowErrorMessage, ShowInformationMessage, ShowWarningMessage, ShowInputBox, ShowQuickPick, ShowTextDocument). Additional handlers cover progress reporting (ShowProgress, ReportProgress) and webview messaging (OnDidReceiveMessage, PostWebviewMessage).\n\nEach handler implements the `Fn` signature required by Tauri's `generate_handler!` macro and bridges the `Vine` gRPC protocol to the `Sky` UI layer. The implementations utilize the `CommonLibrary` traits (`StatusBarProvider`, `WebviewProvider`, `UserInterfaceProvider`) for state registration and stateful operations. Fallback mechanisms via direct `sky://` Tauri events are preserved for trait failures to prevent state leaks in webview and status bar components.",
-			"SHA": "adfab9f41833191c1652fc00fb0b0d91aa16054d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:37:42Z",
+			"Date": "2026-05-02T06:35:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				972,
-				5
+				1117,
+				1
 			],
-			"Message": "refactor(Mountain): Decompose Workspace RPC handlers into file-per-struct modules\n\nDecompose the `Source/RPC/CocoonService/Workspace` module to align with the project-wide PascalCase file-per-struct convention. Extract the handler logic for `ApplyEdit`, `OpenDocument`, `SaveAll`, `UpdateConfiguration`, and `UpdateWorkspaceFolders` into dedicated submodules.\n\nEach handler is exposed as a public async function `Fn` within its own file, invoked via fully qualified paths in the parent `mod.rs`. The implementations bridge the gRPC `Vine` protocol to the frontend: `ApplyEdit`, `OpenDocument`, `SaveAll`, and `UpdateConfiguration` emit specific Tauri events to the `Sky` UI layer, while `UpdateWorkspaceFolders` performs direct mutation of the `ApplicationState.Workspace` DTOs and triggers the standard notification mechanism. This preserves all existing logic for text editing ranges, untitled file handling, and folder index stability, ensuring consistent symbol resolution for Tauri's `generate_handler!` macro.",
-			"SHA": "3ad7df3dc9d9447ced7b2baf5725e63fb4752381"
+			"Message": "fix(Mountain): Correct application state type import and formatting\n\nUpdate the import path for `ApplicationState` in `PathSecurity.rs` to reference the nested `State::ApplicationState::ApplicationState` struct, resolving a type resolution issue where the previous flat import path was incorrect.\n\nThe fix aligns the usage with the current Rust module hierarchy where the state type resides. Additionally, apply consistent formatting to the `Canonicalize` calls by splitting the long lines and removing unnecessary whitespace, ensuring readability matches the existing code style in the `Source/Environment/Utility` directory.\n\nThis change prevents compilation errors related to the missing type import and cleans up the path resolution logic for filesystem security checks.",
+			"SHA": "deb80e8f137b2d5fc4060ee8ab609749d40cb51d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:37:15Z",
+			"Date": "2026-05-02T06:34:58Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				966,
-				16
+				"⠀⠀⠀⠀⠀",
+				1117,
+				1
 			],
-			"Message": "refactor(Mountain): Decompose CocoonService RPC handlers into file-per-struct modules\n\nDecompose the monolithic `Source/RPC/CocoonService` modules to align with the project-wide PascalCase file-per-struct convention. Extract the handler logic for every gRPC entry point across Auth, Command, Debug, Extension, FileSystem, Initialization, Output, Provider, SCM, Secret, Task, Terminal, TreeView, Window, and Workspace into dedicated submodules (e.g., `Command/RegisterCommand.rs`, `FileSystem/ReadFile.rs`, `Window/ShowTextDocument.rs`).\n\nEach handler is now exposed as a function within its own module and invoked via the fully qualified path `Module::Function::Fn` in the main `mod.rs` implementation. This mirrors the architectural pattern established in recent `Workspace`, `Echo`, and `Telemetry` refactors. The changes preserve all existing logic, including the TreeView emission batching, SCM state tracking, and webview panel lifecycle management, while ensuring correct symbol resolution for Tauri's `generate_handler!` macro and gRPC wire protocol generation.",
-			"SHA": "ef96dfe524b73c7c862a7a1c74bf8088065d5b35"
+			"Message": "refactor(Mountain): Replace legacy WindAdvancedSync with atomic sync placeholder\n\nRemove the verbose documentation and re-export logic from the legacy `WindAdvancedSync` module which was designed for batched, single-file document synchronization. Replace the file content with a concise header indicating this is a placeholder for the new atomic state synchronization system.\n\nThe legacy approach of syncing large documents in batches is being superseded by a fine-grained, atomic synchronization model to improve performance and conflict resolution. The original legacy implementation has been preserved in a sibling path for reference while this module prepares for the new IPC architecture.\n\nThis change clears the namespace for the upcoming atomic sync handlers and aligns with the project's shift towards more granular state management between Wind and Mountain.",
+			"SHA": "5eff696f0ac3281d2c873c76c1fd5ff2e5780347"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T06:34:53Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1117,
+				2
+			],
+			"Message": "refactor(Mountain): Remove empty AdvancedFeatures IPC module\n\nThe `Source/IPC/AdvancedFeatures` directory contained no implementation logic (0 bytes) and is not referenced by the `Vine.proto` contract or the `CocoonService` handlers. This placeholder module was likely created in anticipation of features that were either deferred or implemented under different IPC paths.\n\nDelete the unused `Features.rs` and `mod.rs` files to clean up the `Source/IPC` namespace, reduce clutter in the build graph, and prevent confusion during future code audits. This aligns with the project's commitment to removing redundant artifacts before they accumulate technical debt.",
+			"SHA": "f2a4de317b7e3ef7a8bf8c07aac4a21759db161f"
 		}
 	],
-	"TimeStamp": 1778420679760
+	"TimeStamp": 1778513332757
 }

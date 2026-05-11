@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-06T03:05:41Z",
+			"Date": "2026-04-11T14:01:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				670,
-				2
-			],
-			"Message": "refactor(Mountain): update workspace folder access from async to sync API\n\nUpdate WindServiceHandlers and CocoonService to use the new synchronous workspace folder API:\n- Replace `GetFolders().await` with `GetWorkspaceFolders()` in handlers for getFolders, findInFiles, and findFiles\n- Refactor addFolder and removeFolder to use direct folder manipulation via GetWorkspaceFolders/SetWorkspaceFolders instead of async AddFolder/RemoveFolder methods\n- Update getName handler to extract display name from first workspace folder synchronously\n- Fix field access: change `Folder.Uri` to `Folder.URI.to_string()` for consistency with the new DTO structure\n- Add missing `IgnoreFocusOut` field to the showInputBox handler\n\nThese changes align with the updated Common library API where workspace folder operations are now synchronous, removing the need for async/await in workspace folder handlers.",
-			"SHA": "8b7e172c8e096c67392eafc196361e7cc8c7123f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-06T03:03:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				670,
+				691,
 				1
 			],
-			"Message": "fix(Mountain): fix type mismatches and API changes in WindServiceHandlers\n\nCorrect several IPC handler implementations to match the updated Common library API contracts:\n\n- Storage: Replace non-existent `DeleteItem` with `UpdateStorageValue(true, Key, None)`, and fix `GetKeys` to use `GetAllStorage(true)` extracting keys from the returned object\n- QuickInput: Fix field names (`Placeholder` -> `PlaceHolder`), wrap optional bools in `Some()`, add `..Default::default()` for missing fields, and pass options wrapped in `Some()`\n- Workspaces: Update all handlers to use `ApplicationState.Workspace` instead of `Environment.Workspace`\n- Themes: Add required `ConfigurationOverridesDTO` parameter to `GetConfigurationValue` and `UpdateConfigurationValue`, fix null handling with proper `as_str()` call\n- Search: Update workspace access to use `ApplicationState.Workspace`\n\nThese changes resolve compilation errors and runtime failures caused by API drift between the handler implementations and the Common trait definitions.",
-			"SHA": "241b13223edbd244f02fc228545eb3030e4ec46e"
+			"Message": "feat(Mountain): Add IPC handler for extension host message relay\n\nAdd a new `cocoon:extensionHostMessage` IPC handler in WindServiceHandlers that receives extension host messages from Wind and forwards them to Mountain for relaying to Cocoon.\n\nThe handler logs the message size for debugging and currently returns Ok(Value::Null) as a stub. The TODO documents that Cocoon's gRPC server must implement the ExtensionHostMessage RPC to receive and process these binary messages.\n\nThis establishes the Wind → Mountain → Cocoon communication pathway for extension host messaging.",
+			"SHA": "4a2c91afcdbc9796ebbb4528a73a9ff52be975db"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-06T02:56:13Z",
+			"Date": "2026-04-11T12:57:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				670,
+				691,
 				3
 			],
-			"Message": "feat(Mountain): expand IPC handlers and gRPC service for VS Code API compatibility\n\nAdd comprehensive IPC command handlers and gRPC request/notification routers in WindServiceHandlers and CocoonService to implement VS Code-compatible extension APIs:\n\n**WindServiceHandlers IPC commands:**\n- Storage: delete, keys\n- Notifications: show, showProgress, updateProgress, endProgress\n- Progress: begin, report, end\n- QuickInput: showQuickPick, showInputBox (via UserInterfaceProvider)\n- Workspaces: getFolders, addFolder, removeFolder, getName\n- Themes: getActive, list, set\n- Search: findInFiles, findFiles (glob-based file/text search)\n\n**CocoonService gRPC handlers:**\n- Commands: executeCommand, unregisterCommand\n- Window: showTextDocument, showMessage variants, status bar, webview panels\n- Workspace: findFiles, findTextInFiles, openDocument, saveAll, applyEdit\n- Secrets: getSecret, storeSecret, deleteSecret (via SecretProvider)\n- FS aliases: readFile, writeFile, stat, readdir\n- Language provider registration: 20+ LSP provider types (hover, completion, definition, references, code actions, formatting, etc.)\n\nMost handlers emit Tauri events to Sky (`sky://*`) for UI rendering, enabling VS Code extensions running in Cocoon to interact with the editor's UI components. This completes the extension host contract for basic editor operations.",
-			"SHA": "028ed5fbc4948c884e7f4c329205cbcc7770d755"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-06T02:05:07Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				670,
-				1
-			],
 			"Message": "",
-			"SHA": "a7f3715fe35034fea0c829a05f361b3ebf050490"
+			"SHA": "aa3c85a1c7d9fd99795da677e8214b99e7df2a6a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-05T13:56:40Z",
+			"Date": "2026-04-11T12:57:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				670,
-				1
+				691,
+				4
 			],
-			"Message": "save\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "3d2b28aefc799d19721540a9ae96808c909f9321"
+			"Message": "fix(Mountain): Enable graceful Cocoon degradation and production safety\n\nChanges:\n1. CocoonStart now gracefully degrades when the Cocoon sidecar is unavailable, logging a warning instead of an error and returning Ok(()). The workbench functions without the extension host.\n2. EmitOTLPSpan now returns early in release builds to avoid unnecessary span emission overhead in production.\n3. PostHogCapture and OTLPFlush in bootstrap-fork.js now return early when NODE_ENV=production, preventing telemetry events from being sent in production environments.\n4. Remove eu-assets.i.posthog.com from CSP script-src since telemetry is now disabled in production.\n\nThese changes ensure the editor operates in degraded mode when Cocoon is unavailable while preventing telemetry overhead in production builds.",
+			"SHA": "b0dcc091543f624bad2152e7122912e5a63e1b39"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-11T11:57:56Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				691,
+				5
+			],
+			"Message": "",
+			"SHA": "4fea39fb0ac6b4b77b345cab2f1732007bddac2d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-11T11:43:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				691,
+				6
+			],
+			"Message": "",
+			"SHA": "0968bfa4a332dab49f82cc340686bd242af041fb"
 		}
 	],
-	"TimeStamp": 1778420693025
+	"TimeStamp": 1778513349834
 }

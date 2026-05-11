@@ -2,6 +2,17 @@
 {
 	"Set": [
 		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T03:40:20Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				267,
+				1
+			],
+			"Message": "fix(Output): Add retry logic to user extension scan path\n\nThe system extension scan path had retry logic but user extension scan\ndid not. Without retry on the user path, an empty initial response\nsilently passes 0 user extensions through to viewsExtensionPoint and\nExtensionsRegistry, which means every user-extension contribution\n(gitlens panes, clangd views, commands, configuration, languages)\nstays unregistered for the rest of the session.\n\nAdd the same retry logic to `extensions:scanUserExtensions` as already\nexists for `extensions:scanSystemExtensions`. Also switch to exponential\nbackoff (100, 200, 400, 800, 1500ms) instead of fixed 1000ms delays,\nsince Mountain's scan usually completes in ~500ms and the longer delays\nwere just padding boot time.\n\nUser extensions now load properly at boot even if Mountain's async disk\nscan hasn't completed yet.",
+			"SHA": "a28351b7240a5a722ebef039f3370ac90240818c"
+		},
+		{
 			"Author": "Auto",
 			"Date": "2026-04-29T03:39:30Z",
 			"File": [
@@ -44,18 +55,7 @@
 			],
 			"Message": "feat(Output): Add RewriteNodeModulesPath transform and expose IMarkerService\n\nAdd a new build transform and update an existing one:\n\n1. RewriteNodeModulesPath: Patch `vs/base/common/network.js`'s hardcoded paths (`vs/../../node_modules`, `vs/../../extensions`, etc.) to drop one `../` segment. Without this, the dev server resolves to `/Static/node_modules/` instead of `/Static/Application/node_modules/`, returns SPA `index.html` fallback, and all grammar/tokenization (textmate, oniguruma, language-detection) silently breaks across every extension.\n\n2. ExposeWorkbenchAccessor: Expose `IMarkerService` on `__CEL_SERVICES__.Markers` so SkyBridge can push extension diagnostics (rust-analyzer, TypeScript, ESLint) into the workbench. Mountain emits `sky://diagnostics/changed` events; the bridge now calls `Markers.changeOne(owner, uri, markers)` to paint red squiggles and populate the Problems panel.\n\nBoth transforms are idempotent and added to the BuildPipeline after RewriteNestedWorkerBootstrap.",
 			"SHA": "cf8dea549df816cc3b534beb9449f90bf678f69f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T21:54:01Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				261,
-				45
-			],
-			"Message": "feat(Output): Fix Monaco worker bootstrap crashes and add polyfill telemetry\n\nAdd two new build transforms that fix worker bootstrap crashes in the bundled editor:\n\n1. InjectWorkerBootstrapShim: Injects `__name`/`__defProp` shim into `webWorkerServiceImpl.js::getWorkerBootstrapUrl` blob factory so Monaco's language workers (TS/CSS/HTML/JSON services, semantic tokens) inherit the helpers in their module scope. Without this, workers crash with `ReferenceError: Can't find variable: $4e` when Vite/OXC mangling renames `__name` to `$4e`.\n\n2. RewriteNestedWorkerBootstrap: Replaces `polyfillNestedWorker.js`'s `(function... ).toString()` pattern with a literal JSON.stringified source that omits the cosmetic `__name(...)` decorations. The `.toString()` approach returns mangled source (`$4e`) which the blob worker can't evaluate since the identifier isn't defined in its scope.\n\n3. RewriteStaticBlockSelfRef: Replace hardcoded 2-file whitelist with auto-detection across all `vs/*.js` files - the whitelist silently failed because VS Code's out-build mangler emits different class names than expected.\n\n4. InstrumentVscodeGit: Add markers F (createModel done) and L (openRepository getRepositoryRoot done) for finer-grained Git extension activation diagnostics.\n\n5. Telemetry: Add global `__LAND_POLYFILL_TELEMETRY__` hook and wire it into ChildProcessPolyfill, IPCRendererShim, ProcessPolyfill, and SharedProcessProxy to route silently-caught failures to PostHog for monitoring.",
-			"SHA": "e0fda068f1befeb3a76f470689b34bd8378fe554"
 		}
 	],
-	"TimeStamp": 1778420674281
+	"TimeStamp": 1778513322251
 }

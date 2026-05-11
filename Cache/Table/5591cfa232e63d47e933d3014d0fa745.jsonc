@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T00:07:11Z",
+			"Date": "2026-05-02T05:37:15Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				966,
+				16
+			],
+			"Message": "refactor(Mountain): Decompose CocoonService RPC handlers into file-per-struct modules\n\nDecompose the monolithic `Source/RPC/CocoonService` modules to align with the project-wide PascalCase file-per-struct convention. Extract the handler logic for every gRPC entry point across Auth, Command, Debug, Extension, FileSystem, Initialization, Output, Provider, SCM, Secret, Task, Terminal, TreeView, Window, and Workspace into dedicated submodules (e.g., `Command/RegisterCommand.rs`, `FileSystem/ReadFile.rs`, `Window/ShowTextDocument.rs`).\n\nEach handler is now exposed as a function within its own module and invoked via the fully qualified path `Module::Function::Fn` in the main `mod.rs` implementation. This mirrors the architectural pattern established in recent `Workspace`, `Echo`, and `Telemetry` refactors. The changes preserve all existing logic, including the TreeView emission batching, SCM state tracking, and webview panel lifecycle management, while ensuring correct symbol resolution for Tauri's `generate_handler!` macro and gRPC wire protocol generation.",
+			"SHA": "ef96dfe524b73c7c862a7a1c74bf8088065d5b35"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:36:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
+				966,
+				3
+			],
+			"Message": "refactor(Mountain): Extract Command DTOs and service into file-per-struct modules\n\nDecompose the Command RPC module to align with the project-wide PascalCase file-per-struct convention. Create dedicated `Command.rs`, `CommandService.rs`, and `CommandValidation.rs` files within `Source/RPC/Commands`.\n\nThe `Command` struct defines the core DTO for command metadata (id, title, description) and implements `Serialize` and `Deserialize` for Tauri event payloads. `CommandService` establishes a placeholder in-memory registry using `HashMap` to track registered command handlers. `CommandValidation` provides the initial stub for input validation logic.\n\nEach file defines its core type as `Struct` to satisfy Tauri's `generate_handler!` macro symbol resolution requirements, maintaining architectural consistency with recent refactors in Echo, Telemetry, and Configuration modules.",
+			"SHA": "0c75e06733f49b2421aff02e083ac4d8a1f3c70a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:36:16Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				962,
+				3
+			],
+			"Message": "refactor(Mountain): Extract Configuration DTOs and service into file-per-struct modules\n\nDecompose the new Configuration RPC module to align with the project-wide PascalCase file-per-struct convention. Create dedicated `ConfigurationScope.rs`, `ConfigurationService.rs`, and `ConfigurationUpdate.rs` files within `Source/RPC/Configuration`.\n\nThe `ConfigurationScope` enum defines Global, Workspace, and Folder scopes. `ConfigurationUpdate` acts as the DTO carrying key, value, and scope for configuration changes. `ConfigurationService` implements a placeholder in-memory key-value store using `HashMap<String, Value>` with `get` and `set` methods. All files define their core types as `Struct` or `Enum` to satisfy Tauri's `generate_handler!` macro symbol resolution requirements, mirroring the architectural pattern established in recent Echo, Telemetry, Workspace, and Vine refactors.",
+			"SHA": "118c95c7742e8f7cce344f7cb801d3f8d3d245f4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:35:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				958,
 				4
 			],
-			"Message": "perf(Mountain): Deduplicate FS watchers and single-flight directory walks\n\nReduce kernel resource exhaustion and redundant I/O during extension boot by implementing deduplication strategies in the native environment layer.\n\nIn `FileWatcherProvider`, introduce a deduplication index keyed by `(root, recursive, pattern)` to prevent multiple extensions from spawning duplicate `notify::Watcher` instances for identical paths. Aliased handles now share the primary OS watcher, with events fanned out to all subscribers in the forwarder task.\n\nIn `WorkspaceProvider`, implement a single-flight registry for `findFiles` operations. Concurrent requests for the same search key now await a single filesystem walk leader rather than re-walking the tree, fixing the race condition where cache misses occurred before the leader populated the cache.\n\nIn `ConfigurationProvider`, add a 250ms in-memory cache for parsed `settings.json` files to eliminate redundant disk reads triggered by the `InspectConfigurationValue` handler. Invalidate the cache immediately upon configuration updates.\n\nThese changes significantly lower IPC saturation and CPU usage during the high-load extension activation phase.",
-			"SHA": "44851c1cd73bfdaa2a743295959359a05e11a082"
+			"Message": "refactor(Mountain): Decompose EchoAction RPC module into file-per-struct submodules\n\nDecompose the monolithic `Source/RPC/EchoAction` module to align with the project-wide PascalCase file-per-struct convention. Extract core logic into dedicated `EchoActionServer.rs`, `ExtensionHostRegistry.rs`, `ExtensionRouter.rs`, and `ResolveMethodPriority.rs` files.\n\nThe `Struct` in `EchoActionServer` encapsulates the singleton submission gate and task dispatch logic, coordinating with the `Echo` scheduler and priority lanes. `ExtensionHostRegistry` manages the mapping of extension identifiers to active host processes, while `ExtensionRouter` provides lookup capabilities for routing requests. `ResolveMethodPriority` defines the static mapping logic for assigning Echo priority lanes (High, Normal, Low) based on incoming wire method names.\n\nAll files adhere to the `Struct` and `Fn` naming patterns required by Tauri's `generate_handler!` macro for correct symbol resolution, continuing the architectural consistency established in recent `Workspace`, `Telemetry`, and `Vine` refactors.",
+			"SHA": "74aa2e6a8f907db173a00a6b9f858f81c536b5b3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T23:48:12Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				868,
-				53
-			],
-			"Message": "refactor(Mountain): Rename IPC handler bindings to PascalCase\n\nComplete the PascalCase migration started in the previous commit by renaming all local identifiers in WindServiceHandlers to match the project convention: runtime → RunTime, args → Arguments, app_handle → ApplicationHandle, and error bindings such as e → Error. Update doc comments and JSON field names that referenced the old identifiers.\n\nAlso fix a boot-time URI normalization bug in BuildInitialUrl: RecentlyOpened.json stores workspace URIs with a trailing slash (file:///.../Mountain/). Strip it before URL-encoding the folder path so that workbench-side URI.revive produces a folder URI matching URI.from, which never carries a trailing slash on the parent directory. The mismatch caused IUriIdentityService.extUri.relativePath to return absolute paths, making breadcrumbs, quick-pick, and Problems-panel labels render full /Volumes/... paths instead of the workspace-relative short form.",
-			"SHA": "fd28a7bd6076ee9b112d8a1d8b5301c11b75bfc9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T23:02:00Z",
+			"Date": "2026-05-02T05:35:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
-				2
+				953,
+				3
 			],
-			"Message": "perf(Mountain): Batch decoration and progress emits to reduce IPC load\n\nExtend the 16ms coalescing strategy to two additional high-frequency Vine notification handlers, following the `CommandEmitBatch` pattern established for command registration.\n\n`DecorationTypeLifecycle`: Extension activation generates ~650 create/dispose calls per session, mostly registering syntax-highlight decorations. Previously each call fired an individual Tauri event on `sky://decoration/<suffix>`. Add `DecorationEmitBatch`, grouping payloads by channel and emitting a single `{ batch: [...] }` per channel per 16ms frame. SkyBridge demultiplexes these back into individual `cel:decoration:*` CustomEvents.\n\n`ProgressReport`: The git extension alone fires 6000+ `progress.report` calls per session during repository scans. Add `ProgressEmitBatch`, accumulating per-handle `increment` deltas and keeping the latest non-empty `message` over a 16ms window. Each progress handle receives one coalesced update per frame preserving the same final cumulative state, instead of dozens of individual emits.\n\nBoth use `OnceLock`-initialised static singletons with atomic flush scheduling to prevent duplicate timer tasks. This keeps the shared WKWebView IPC channel clear for keystrokes during extension boot and repository scanning when the renderer is most busy.",
-			"SHA": "644b96ee46ecc92796e2b34d2dcce2dc1c9be91f"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-01T02:40:30Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
-				1
-			],
-			"Message": "",
-			"SHA": "51d4bddbf442268c76e36e70ef9e176c98fe2c3b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:32:25Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				868,
-				55
-			],
-			"Message": "refactor(Mountain): Rename IPC handler functions to follow PascalCase convention\n\nRename all `handle_*` IPC handler functions in WindServiceHandlers, ConfigurationBridge, TauriIPCServer, and related modules to match the PascalCase naming convention specified in CLAUDE.md. Functions like `handle_commands_execute` → `CommandsExecute`, `handle_configuration_get` → `ConfigurationGet`, `handle_incoming_message` → `IncomingMessage`, etc. The new names align with the command/channel names they service (e.g., `commands:execute` → `CommandsExecute`), improving code clarity and consistency across the Mountain IPC layer.\n\nThis is a pure refactor with no functional changes.",
-			"SHA": "9134f4bf64e3333b62d9591a5c58b4764b8d5b47"
+			"Message": "refactor(Mountain): Extract Telemetry DTOs into file-per-struct modules\n\nDecompose the `Source/RPC/Telemetry` module to align with the project-wide PascalCase file-per-struct convention. Extract `ServiceMetrics`, `TelemetryService`, and `TraceSpan` definitions from the monolithic module into dedicated `ServiceMetrics.rs`, `TelemetryService.rs`, and `TraceSpan.rs` files.\n\nEach file defines its core type as `Struct` to satisfy Tauri's `generate_handler!` macro symbol resolution requirements when referenced via the full module path. The `ServiceMetrics` and `TraceSpan` structs implement `Serialize` and `Deserialize` for gRPC/JSON payloads, while `TelemetryService` is initialized as a placeholder OTEL integration handle.\n\nThis establishes a consistent architectural pattern for the Telemetry service layer, mirroring recent refactors in Workspace, Vine, and Track modules.",
+			"SHA": "6e5dd829a3bb81a889b0fc00f0470d6167f96bd2"
 		}
 	],
-	"TimeStamp": 1778420681710
+	"TimeStamp": 1778513335284
 }
