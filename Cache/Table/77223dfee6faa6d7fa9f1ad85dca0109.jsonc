@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T04:54:25Z",
+			"Date": "2026-05-03T06:24:11Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				255,
-				15
+				"⣿⣿⡇⠀⠀",
+				269,
+				137
 			],
-			"Message": "feat(Output): Expand workbench service exposure and add config/storage overlays\n\nAdd 21 new service handles to ExposeWorkbenchAccessor for Wind consumption:\nConfiguration, Storage, Lifecycle, Theme, WorkbenchTheme, Keybinding,\nNotification, File, Dialog, FileDialog, Clipboard, ContextKey, Host,\nExtension, Workspace, Product, Progress, Editor, EditorGroups, TextFile,\nActivity, Title, PaneComposite, ViewDescriptor, Layout.\n\nAdd two new transforms enabling Wind to inject runtime overrides without\ndisk persistence:\n- InjectConfigurationOverlay: consults `globalThis.__CEL_OVERRIDE_CONFIG__`\n  before upstream's default→user→workspace→folder chain in\n  IConfigurationService.getValue(). Bag is opt-in; unset preserves\n  upstream behavior.\n- InjectStorageOverlay: consults `globalThis.__CEL_OVERRIDE_STORAGE__` on\n  every AbstractStorageService.{get,getBoolean,getNumber,getObject} call.\n  Composite key `<scope>:<key>` disambiguates across\n  APPLICATION/PROFILE/WORKSPACE scopes.\n\nOther changes:\n- RewriteWorkerURLs: generalize pattern from specific file paths to\n  `*WorkerMain.ts` / `*Iframe.html` glob so future worker types are\n  covered automatically. Also handle `.ts`→`.js` suffix mapping.\n- StaticToDynamicImport: skip rewrite when `Pack` env var is set (bundled\n  profiles), since Vite needs static imports to walk the graph for CSS\n  extraction and tree-shaking.\n- ESBuild: add `.css` to copy-loader to avoid esbuild's default CSS\n  parser silently dropping modern syntax (@property, container queries).",
-			"SHA": "b20d23f9eed8c644fca5b50dc734a87d1fb03f53"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T03:48:56Z",
-			"File": [
-				"⣿⣿⣿⡟⠀",
-				251,
-				187
-			],
-			"Message": "refactor(Output): Switch from esbuild transform to byte-copy for VS Code sources\n\nChange VSCode.ts ESBuild config to use `loader: { \".js\": \"copy\" }` instead of parsing/transforming VS Code's `out/` tree. This byte-copies .js/.cjs/.mjs files directly to Target/, preserving tsc's original identifiers and formatting.\n\nWhy:\n- Output's Transform plugins (ExposeWorkbenchAccessor, InjectWorkerBootstrapShim, RewriteNestedWorkerBootstrap, etc.) are keyed on specific string patterns from VS Code's un-minified output\n- Previously esbuild's default minification + quote-rewriting silently no-oped every transform: the patterns never matched, and the workbench bootstrap crashed with `Unexpected token '<'` (404 HTML served as JS)\n- The `keepNames: false` + `minify: false` belt-and-suspenders ensure any future non-copied JS files also bypass mangling\n\nImpact:\n- Bundle profile: Sky's downstream Vite/Rollup re-mangles for bundled-electron production\n- Unbundled profile: `Static/Application/` serves readable identifiers (gzip-compressed, debuggable)\n- Transform plugins updated to match single-quoted form in tsc's original emit",
-			"SHA": "41381d88b50a83b655c0083b5360b790289a6f02"
+			"Message": "refactor(Output): Reformat build configuration and plugin pipeline for readability\n\nReformat the entire Output element's ESBuild configuration, plugin definitions, and polyfill scripts. Apply consistent whitespace, indentation, and array formatting across all `.js` and `.ts` files in `Configuration/` and `Source/` to align with the project's PascalCase naming conventions and readability standards.\n\nKey modifications:\n- Unbundle minified one-liners in `Configuration/ESBuild/` exclusion patterns and plugin transforms into multi-line structures for clarity.\n- Refactor `Source/Plugin/Index.ts` import statements and the `BuildPipeline` composition logic.\n- Update PostHog telemetry injection in `Source/ESBuild/Output.ts` to include environment variables `Capture` and `Report` as kill switches.\n- Reformat polyfill implementations (`ChildProcess`, `FileSystem`, `IPCRenderer`, etc.) to improve code density and maintenance.\n- Update `CHANGELOG.md` to reflect v2.2 correctness pass details.\n\nThe logical behavior of the build pipeline remains unchanged; the commit solely addresses source formatting and documentation consistency.",
+			"SHA": "5d96f05899866da6486915f209a6bae7215ab9d9"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-04-30T03:40:38Z",
+			"Date": "2026-05-03T03:47:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				341,
+				269,
 				1
 			],
 			"Message": "",
-			"SHA": "1891515604d6bb24012b6d0c0275f78feb0e765a"
+			"SHA": "5e2dd204ead0ef0467e39b0ad9d3d3376c224dad"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T02:20:26Z",
+			"Date": "2026-05-02T09:46:22Z",
 			"File": [
-				"⣿⠀⠀⠀⠀",
-				341,
-				64
+				"⣿⣿⣿⡏⠀",
+				269,
+				198
 			],
-			"Message": "refactor(Output): Extract polyfill bodies to type-checked modules, add service stub transforms\n\nMove the inline polyfill IIFE bodies from Transform/*.ts to new Polyfill/*.ts\nmodules. Each polyfill is now a real TypeScript function that gets compiled\nand recovered via `.toString()` at transform time. This enables compile-time\ntype-checking, tree-shaking, and earlier bug detection - previously typos\nonly surfaced at runtime.\n\nKey changes:\n- Extract 6 polyfills to Source/Plugin/Polyfill/: DisableLazyPaint,\n  EagerExtensionActivation, EagerIdleValue, EagerLifecyclePhase,\n  StripBackgroundPolling, TelemetryConsentOff (moved from Transform),\n  WorkbenchInteractivityCSS (moved from Transform), WorkbenchPaintPrime\n  (moved from Transform)\n- Add 4 new Inject* transforms that import from Polyfill/ and use\n  `.toString()` to recover the prepend body\n- Add 3 new Replace* transforms: ReplaceTelemetryService,\n  ReplaceUpdateService, ReplaceExtensionGalleryService replace VS Code\n  service bodies with no-op stubs so static imports resolve while runtime\n  behavior is neutralized\n- Comment out the ESBuild Exclude/{Telemetry,Network,ChromiumIPC}.js lists:\n  the bundled-Vite walk follows static imports inside workbench.*.main.js;\n  excluding the files breaks the build. Body-rewrite via Replace* transforms\n  achieves the same effect while keeping imports intact.\n- Update prepublishOnly.sh to always use `out/` (unminified) for Microsoft/VSCode\n  instead of `out-build/` (gulp release). This ensures Output's transforms\n  operate on readable identifiers; Vite/Rollup re-mangles for bundled profiles.\n\nNew boot-time behavior:\n- InjectStripBackgroundPolling: stack-trace deny-match strips setInterval\n  timers from telemetry/update/sync services\n- InjectEagerLifecyclePhase: advances ILifecycleService.phase from Starting\n  to Eventually immediately, unblocking extension activations\n- InjectEagerExtensionActivation: fires activateByEvent onStartupFinished/*\n  at workbench-loaded so extension panels populate instantly\n- InjectEagerIdleValue: collapses requestIdleCallback to setTimeout(0) so\n  IdleValue<T> lazy-init resolves eagerly\n- ReplaceTelemetryService: body-rewrite to NullTelemetryService (no-op)\n- ReplaceUpdateService: body-rewrite to NullUpdateService (State.Idle forever)\n- ReplaceExtensionGalleryService: body-rewrite to offline stub (empty queries)",
-			"SHA": "c97cc8b17b24fa5a0afa9aac46d948340a371b32"
+			"Message": "save\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "0a85c82b4f9c3a81b474cc12da7b6a25ca81558b"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-02T03:26:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				368,
+				1
+			],
+			"Message": "",
+			"SHA": "75641f620ffb6e87d74e991c621907f804ca13eb"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T01:23:46Z",
+			"Date": "2026-05-02T00:15:06Z",
 			"File": [
-				"⡇⠀⠀⠀⠀",
-				294,
-				28
+				"⠁⠀⠀⠀⠀",
+				368,
+				7
 			],
-			"Message": "feat(Output): Add Network/ChromiumIPC excludes, WKWebView lazy-paint fixes\n\nAdd three ESBuild exclude lists to strip dead code from the bundle:\n- Network.ts excludes external endpoints (update service, marketplace,\n  telemetry appenders, Live Share, experiments, surveys)\n- ChromiumIPC.ts excludes Electron IPC/MessagePort/sandbox modules that\n  never run in our non-Electron environment\n- Telemetry.ts was already present but commented out; now enabled\n\nAdd four new workbench transforms to fix WKWebView rendering issues:\n- InjectDisableLazyPaint: Replace requestAnimationFrame with coalesced\n  setTimeout(0) queue, stub IntersectionObserver to fire-on-observe,\n  strip content-visibility/contain:paint from CSS\n- InjectWorkbenchInteractivityCSS: Force pointer-events:auto, visibility,\n  opacity on workbench parts, zero transition durations\n- InjectWorkbenchPaintPrime: Force compositor layout commit via\n  offsetHeight reads on each workbench part\n- InjectTelemetryConsentOff: Pre-bake telemetry.telemetryLevel=off into\n  workbench bootstrap so even straggler consumers take disabled branches\n\nAlso fix InjectEditorGPULayerCSS and InjectTerminalGPULayerCSS: scope\ncontain:paint to canvas only, not row containers (view-lines, xterm-viewport)\nto prevent glyph clipping from paint boundaries in WKWebView. Adds\nimage-rendering hints for nearest-neighbor rasterization.\n\nBundle size impact: ~25 KB net reduction from Network/ChromiumIPC excludes.\nRuntime impact: Zero network pings, panels render immediately on show.",
-			"SHA": "13d8a561c773f0b047f323594af80a5b06565258"
+			"Message": "fix(Output): Restore eager paint and re-enable webview panel service injection\n\nRevert the `DisableLazyPaint` opt-in gate to restore unconditional requestAnimationFrame and IntersectionObserver overrides. The previous gating (`__LAND_AGGRESSIVE_LAZY_PAINT__`) regressed editor mount behavior—preventing the editor from loading until user interaction—because WKWebView's compositor does not fire native callbacks on hidden surfaces. Restoring the overrides ensures immediate paint and layout resolution without relying on user clicks.\n\nRe-introduce the `.monaco-workbench .part { isolation: isolate; }` CSS rule in `PartZIndexCSS`. While this rule previously blocked input events under WKWebView, that issue was resolved by the `ForceTextAreaInput` fix in recent commits. The `isolation` property is now required to prevent `transform: translate3d` hints from promoting individual parts into new stacking contexts, which was hiding sibling layers.\n\nAugment the `ExposeWorkbenchAccessor` transform to inject `IWebviewWorkbenchService`. This service is required by `SkyBridge` to materialize real editor-based panels for `vscode.window.createWebviewPanel` calls (e.g., Roo chat, Claude surfaces). Without this injection, such webviews were silently parked in memory and never rendered. The service is now exposed alongside `IWebviewViewService` and other core workbench services via the `__CEL_SERVICES__` facade.",
+			"SHA": "cc92003ba07d5af70491041752a39a3b4ebebe0a"
 		}
 	],
-	"TimeStamp": 1778513321254
+	"TimeStamp": 1778683893835
 }

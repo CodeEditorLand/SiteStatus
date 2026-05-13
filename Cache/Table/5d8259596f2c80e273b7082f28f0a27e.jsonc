@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T18:51:36Z",
+			"Date": "2026-05-01T23:48:12Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				2
+				"⠃⠀⠀⠀⠀",
+				868,
+				53
 			],
-			"Message": "fix(Mountain): Fix boot-time extensions race and add missing getLatency\n\nAdd polling to extensions:getInstalled to resolve boot-time race condition where workbench caches empty extension list before ExtensionPopulate completes its scan (~250-500ms). Poll the ScannedExtensions map for up to 3 seconds before returning empty, ensuring 113+ extension contributions appear in the activity bar.\n\nAlso add localPty:getLatency handler returning empty array per VS Code's IPtyHostLatencyMeasurement[] contract. Without this, every poll cycle logged \"Unknown IPC command: localPty:getLatency\" and a failed TauriInvoke.",
-			"SHA": "2b89f60a78bc0322f8e68c9ae88d722fd369416f"
+			"Message": "refactor(Mountain): Rename IPC handler bindings to PascalCase\n\nComplete the PascalCase migration started in the previous commit by renaming all local identifiers in WindServiceHandlers to match the project convention: runtime → RunTime, args → Arguments, app_handle → ApplicationHandle, and error bindings such as e → Error. Update doc comments and JSON field names that referenced the old identifiers.\n\nAlso fix a boot-time URI normalization bug in BuildInitialUrl: RecentlyOpened.json stores workspace URIs with a trailing slash (file:///.../Mountain/). Strip it before URL-encoding the folder path so that workbench-side URI.revive produces a folder URI matching URI.from, which never carries a trailing slash on the parent directory. The mismatch caused IUriIdentityService.extUri.relativePath to return absolute paths, making breadcrumbs, quick-pick, and Problems-panel labels render full /Volumes/... paths instead of the workspace-relative short form.",
+			"SHA": "fd28a7bd6076ee9b112d8a1d8b5301c11b75bfc9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T18:38:08Z",
+			"Date": "2026-05-01T23:02:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				2
 			],
-			"Message": "fix(Mountain): Remove duplicate DevTools window in debug builds\n\nWindowBuild.rs was calling `MainWindow.open_devtools()` independently\nfrom AppLifecycle.rs, causing two DevTools windows to open on every\ndebug launch. Remove the redundant call and document that DevTools\nauto-open lives in AppLifecycle (line 174), gated on debug_assertions\nwith a matching log line.\n\ndocs(Mountain): Clarify diagnostic coordinates are 1-based\n\nUpdate DiagnosticProvider.rs docstring to specify that\nStartLineNumber/StartColumn and EndLineNumber/EndColumn use 1-based\nindexing, matching workbench IMarkerData. Add note explaining that\nCocoon's LanguagesNamespace.ts NormaliseDiagnostic adds the +1 offset\nfrom vscode.Position 0-based convention before sending to Mountain.",
-			"SHA": "c661d669a5f51174397956c2ab363d240e270059"
+			"Message": "perf(Mountain): Batch decoration and progress emits to reduce IPC load\n\nExtend the 16ms coalescing strategy to two additional high-frequency Vine notification handlers, following the `CommandEmitBatch` pattern established for command registration.\n\n`DecorationTypeLifecycle`: Extension activation generates ~650 create/dispose calls per session, mostly registering syntax-highlight decorations. Previously each call fired an individual Tauri event on `sky://decoration/<suffix>`. Add `DecorationEmitBatch`, grouping payloads by channel and emitting a single `{ batch: [...] }` per channel per 16ms frame. SkyBridge demultiplexes these back into individual `cel:decoration:*` CustomEvents.\n\n`ProgressReport`: The git extension alone fires 6000+ `progress.report` calls per session during repository scans. Add `ProgressEmitBatch`, accumulating per-handle `increment` deltas and keeping the latest non-empty `message` over a 16ms window. Each progress handle receives one coalesced update per frame preserving the same final cumulative state, instead of dozens of individual emits.\n\nBoth use `OnceLock`-initialised static singletons with atomic flush scheduling to prevent duplicate timer tasks. This keeps the shared WKWebView IPC channel clear for keystrokes during extension boot and repository scanning when the renderer is most busy.",
+			"SHA": "644b96ee46ecc92796e2b34d2dcce2dc1c9be91f"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:42:51Z",
+			"Author": "Auto",
+			"Date": "2026-05-01T02:40:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				1
 			],
-			"Message": "fix(Mountain): Defer sky://terminal/create event to fix race condition\n\nThe terminal workbench's `LocalTerminalBackend.createProcess` flow has a timing vulnerability: when `sky://terminal/create` emits synchronously during step 1 (RPC in-flight), the Tauri event arrives before step 3 (`_ptys.set(id, pty)`) completes. This causes `_ptys.get(id)` to return `undefined`, skipping `handleReady` and preventing `processManager._onProcessReady` from firing. Since `ptyProcessReady` never resolves, every subsequent `processManager.write(data)` call hangs indefinitely—users see the terminal panel but all keystrokes are silently dropped.\n\nFix by emitting on a deferred tokio task with a 120ms delay, giving the RPC response roundtrip + `_ptys.set` sufficient headroom. Also switch to `LogSkyEmit` for visibility under `[DEV:SKY-EMIT]` histogram tracking.\n\nThis complements the existing `AppendTerminalOutput` replay buffer for data (added in c99ccbe), completing the terminal race-condition fix for both create and data events.",
-			"SHA": "c2d0beca968f600d76ac4d85a436931124cfdf07"
+			"Message": "",
+			"SHA": "51d4bddbf442268c76e36e70ef9e176c98fe2c3b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:20:13Z",
+			"Date": "2026-05-01T01:32:25Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				1
+				"⠇⠀⠀⠀⠀",
+				868,
+				55
 			],
-			"Message": "fix(Mountain): Return integer id from localPty:createProcess\n\nThe VS Code terminal workbench expects `IPtyService.createProcess` to return a `Promise<number>` (the integer terminal id). However, Mountain was returning the full `{id, name, pid}` object. The workbench then keys its internal `_ptys` map by that object, so every `_ptys.get(<integer>)` lookup from `onProcessData`/`onProcessReady` returns `undefined`. This causes xterm to receive zero bytes even though Mountain's PTY reader emits data continuously—resulting in blank terminal panels.\n\nSplit the terminal handler into three distinct paths:\n- `localPty:spawn`: Preserves full response for Cocoon's Sky bridge\n- `localPty:createProcess`: Returns only the integer id per VS Code contract\n- `localPty:start`: No-op for eager-spawn pattern (shell already started during createProcess)\n\nThis fixes the terminal rendering while maintaining backward compatibility with existing spawn callers.",
-			"SHA": "c99ccbe7715342838206eb2c54509fa3a97f513f"
+			"Message": "refactor(Mountain): Rename IPC handler functions to follow PascalCase convention\n\nRename all `handle_*` IPC handler functions in WindServiceHandlers, ConfigurationBridge, TauriIPCServer, and related modules to match the PascalCase naming convention specified in CLAUDE.md. Functions like `handle_commands_execute` → `CommandsExecute`, `handle_configuration_get` → `ConfigurationGet`, `handle_incoming_message` → `IncomingMessage`, etc. The new names align with the command/channel names they service (e.g., `commands:execute` → `CommandsExecute`), improving code clarity and consistency across the Mountain IPC layer.\n\nThis is a pure refactor with no functional changes.",
+			"SHA": "9134f4bf64e3333b62d9591a5c58b4764b8d5b47"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T16:59:58Z",
+			"Date": "2026-05-01T01:17:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				2
 			],
-			"Message": "refactor(Mountain): Simplify binary and product names\n\nRename the Mountain binary, library, and default-run targets from the verbose development profile name to simply \"Mountain\". This follows the project's PascalCase naming convention and removes the debug build artifact naming.\n\nIn tauri.conf.json, simplify the identifier from the lengthy development-specific string to \"land.editor.binary\" and the productName from the long debug name to \"Mountain\". Also remove the duplicate \"Binary/node\" entry from externalBin.\n\nThese changes clean up the build configuration for proper release builds while maintaining the same functionality.",
-			"SHA": "db5f0f7bc58c4108ea4f51ec3ac0d30bb008def3"
+			"Message": "perf(Mountain): Batch command registration emits to reduce IPC saturation\n\nDuring extension boot, 1000+ `registerCommand` notifications fire in a tight burst (113 extensions × ~10 commands each). Each notification was emitting a separate Tauri event, saturating the shared WKWebView IPC channel that also carries keystroke delivery. Users could type for a split second before the burst hit, then nothing.\n\nAdd a `CommandEmitBatch` struct that buffers commands and flushes after 16ms (one frame), reducing 1000+ individual emits to a single batched `{ commands: [...] }` emit. SkyBridge's listener already accepts both shapes (single `{ id, commandId, kind }` or batch `{ commands: [...] }`), so no Sky changes required.\n\nThis keeps the IPC channel free for keystrokes during extension boot when the renderer is most busy.",
+			"SHA": "f304bd408f391d1848c357b909b09e5f5906ae99"
 		}
 	],
-	"TimeStamp": 1778513338938
+	"TimeStamp": 1778683905571
 }

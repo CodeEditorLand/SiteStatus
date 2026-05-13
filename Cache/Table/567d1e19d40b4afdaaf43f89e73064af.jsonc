@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:11:44Z",
+			"Date": "2026-04-23T17:25:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
+				778,
 				5
 			],
-			"Message": "feat(Mountain): Initialize PostHog telemetry client at boot\n\nAdd PostHogPlugin initialization at the start of Entry.rs Fn() to capture any errors during the boot process in telemetry. This runs before all other boot steps, including CLI parsing and state initialization, ensuring crash logs include PostHog context.\n\nAdditional improvements:\n- Remove incorrectly placed #[tauri::command] attribute from internal IPC dispatcher in mod.rs, adding docstring clarifying it's not directly reachable from the frontend\n- Fix en-dash to hyphen in three documentation comments (UI-Backend, timezone offset, lifecycle phase)",
-			"SHA": "4ff7003125814f3d5be66877b4fe2de4c52f2281"
+			"Message": "feat(Mountain): Wire tree-view children to extension host and add diagnostic tags\n\nImplement the full round-trip for tree-view data providers:\n1. Add `tree:getChildren` invoke handler in WindServiceHandlers - allows Wind/Sky UI to request tree children directly without waiting for Cocoon to ask first\n2. Wire GetTreeChildren gRPC in TreeView.rs to forward requests to the `$provideTreeChildren` handler in Cocoon, returning actual TreeItem data instead of empty stub\n3. Add viewId→handle hashing to match RegisterTreeViewProvider's provider lookup\n\nAlso add two new diagnostic tags per the Batch 3 logging spec in DevLog.rs:\n- `scheme-assets`: logs vscode-file:// request routing, MIME type, byte size\n- `ext-scan`: logs extension scanner accept/skip decisions with is_builtin flag and skip reasons\n\nThese tags catch the subsystems new traffic passes through so regressions surface as silent tag counts going to zero. Extension tree views (GitLens, SCM, debug, tasks) now render with data from providers instead of appearing empty.",
+			"SHA": "b71ab93f22e526a1a9cc961706c66040fd2a9be6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:27:19Z",
+			"Date": "2026-04-23T17:00:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
-				1
-			],
-			"Message": "docs: improve LandFixTier.rs module header",
-			"SHA": "957f84e8bf064fe68b3f05c6cdeca1e1848fa23f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:13:26Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				774,
+				778,
 				2
 			],
-			"Message": "docs(Mountain): Streamline extension path and NodeResolver module docs\n\nSimplify comments in ScanPathConfigure for extension skip flags and builtin path override to be more concise while preserving the technical details.\n\nCondense the NodeResolver module docstring from verbose prose to a compact ladder list showing the resolution order: LAND_NODE_BINARY → shipped runtime → fnm/volta/asdf/nvm → homebrew → PATH. The resolution behavior is unchanged, only the documentation format is improved for scannability.",
-			"SHA": "bcc45254e06f84f91d17cb58716d12de486805f9"
+			"Message": "",
+			"SHA": "0d061de2fe103d84efa38c8c494c45d1fffaf853"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:03:13Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				774,
-				12
-			],
-			"Message": "feat(Mountain): Add extension metadata passthrough, IPC round-trip, and Node version checking\n\nThree major improvements for extension handling and IPC reliability:\n\n1. **Extension manifest passthrough (Atom TH1):** Add 14 new fields to ExtensionDescriptionStateDTO for VS Code package.json metadata: Categories, DisplayName, Description, Keywords, Repository, Bugs, Homepage, License, Icon, AiKey, ExtensionKind, Capabilities, ExtensionDependencies, ExtensionPack. Wind's Extensions sidebar filter `@builtin category:themes` now works — previously categories were absent so the filter never matched.\n\n2. **IPC round-trip for applyEdit/showTextDocument (Atom T1):** Replace fire-and-forget event emission with request/response pattern using SendUserInterfaceRequest. Extensions awaiting workspace.applyEdit() now block until Sky actually applies the edit, fixing races with listeners expecting post-apply state. Also made SendUserInterfaceRequest pub(crate) so Track effect creators reuse the same pattern.\n\n3. **Node version checking (Atom N1):** ResolveNodeBinary now queries `node --version` and logs the resolved version. Emits a warning when major version falls below LAND_NODE_MIN_MAJOR (default 20). Helps diagnose extension host boot failures.\n\n4. **Compile-time PostHog config (Atom P2):** PostHogPlugin now reads API key/host/enable flag from env! baked in build.rs via PropagatePostHogSentinel(). Supports LAND_POSTHOG_DISTINCT_ID for CI correlation. Combined with debug_assertions gate for cheaper no-op path.\n\n5. **IPC logging improvement (Atom I13):** Add paired entry/exit lines per invoke. `done: <cmd> ok=... t_ns=...` on the way out enables latency diagnosis via single grep without Jaeger hopping.",
-			"SHA": "f24e444f42f611f00e844728138c5036e8f28793"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T14:19:44Z",
+			"Date": "2026-04-23T17:00:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
-				1
+				778,
+				7
 			],
-			"Message": "",
-			"SHA": "12de818c4d637c9baa99ed0690625ee482720398"
+			"Message": "feat(Mountain): Add Git service handlers and expand diagnostic instrumentation\n\nThree major additions to Mountain's diagnostic and service capabilities:\n\n1. **Git service handlers** (`WindServiceHandlers/Git.rs`): Implement the full `localGit` channel mirroring VS Code's `ILocalGitService` API - clone, pull, checkout, revParse, fetch, revListCount, cancel, exec, and isAvailable. Uses process PIDs for cancellation (SIGTERM on Unix, taskkill on Windows) and logs all operations under the existing `git` tag.\n\n2. **SkyEmit instrumentation** (`SkyEmit.rs`): New `LogSkyEmit` wrapper around `tauri::Emitter::emit` that logs every Mountain→Wind/Sky emit under the `sky-emit` tag. Records channel name, payload bytes, and ok/fail status. Enables traffic-volume auditing via `LAND_DEV_LOG=sky-emit`.\n\n3. **Provider registration expansion** (`MountainVinegRPCService.rs`): Extend the register_* notification handler from 8 to 34+ provider types - debug_configuration, text_document_content, folding_range, document_link, code_lens, selection_range, document_range_formatting, debug_adapter, rename, file_system, uri_handler, document_paste_edit, task, signature_help, semantic_tokens, document_highlight, workspace_symbol, on_type_formatting, inlay_hints, document_drop_edit, color, type_hierarchy, type_definition, notebook_serializer, linked_editing_range, implementation, terminal_profile, terminal_link, inline_values, inline_completion_item, file_decoration, external_uri_opener, declaration, call_hierarchy. Also extracts and logs the scheme for scheme-bound providers, and includes options in the DTO.\n\nPlus: Flexible `RenderDevLog` command now accepts both PascalCase (Tag/Message) and snake_case (tag/message) params, supporting any JS caller convention.",
+			"SHA": "de6e0f842ce46f14a18508dc143e2a456644f76f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:57:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				776,
+				8
+			],
+			"Message": "feat(Mountain): Add RenderDevLog command and diagnostic logging tags\n\nAdd a new Tauri command `RenderDevLog` that bridges TypeScript-side tagged logs (Wind/Sky/Cocoon) into Mountain's `dev_log!` file sink. This enables a single `Mountain.dev.log` to carry the complete tag-filterable picture of a session, rather than requiring cross-referencing between browser console and log file.\n\nAlso add five new diagnostic tags to isolate architectural gaps during debugging:\n- `notif-drop`: Notifications hitting the default arm (no handler)\n- `provider-register`: Accepted register_*_provider notifications with extension IDs\n- `channel-stub`: Wind/Output TauriMainProcessService.call stub hits vs route vs miss\n- `git`: localGit channel, GitExec RPC, SCM provider group updates\n- `tree-view`: tree.register, GetTreeChildren, sky://tree-view/create events\n\nApply tags across SCM.rs, TreeView.rs, CreateEffectForRequest/TreeView.rs, and MountainVinegRPCService.rs to provide visibility into extension host integration issues.\n\nImpact: Developers can now filter `LAND_DEV_LOG=git,tree-view` to isolate specific subsystem issues, and TS-originated logs appear in the same file with `[RenderDevLog]` prefix for grep separation.",
+			"SHA": "f7625f320666cca6bfe3d74fb87c4fc09444ddb3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:33:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				5
+			],
+			"Message": "refactor(Mountain): Standardize Tauri event channel naming to kebab-case\n\nConsolidate all `sky://` event channel names to a consistent kebab-case format and emit TreeView registration events to the canonical path.\n\nChanges:\n- `sky://treeView/register` → `SkyEvent::TreeViewCreate` (canonical path)\n- `sky://webview/setHtml` → `sky://webview/set-html`\n- `sky://webview/postMessage` → `sky://webview/post-message`\n- `sky://status-bar/*` → `sky://statusbar/*` (remove hyphen to match family)\n- `sky://status-bar/message` → `sky://statusbar/set-message`\n\nAlso emit `SkyEvent::TreeViewCreate` after a TreeDataProvider is registered so the renderer can wire up the data provider to the matching ITreeView instance. Without this, VS Code's treeView.ts keeps `_dataProvider === undefined` and all extension tree views (GitLens, debug, SCM, tasks) render empty.\n\nThe previous diverged channel names were parallel forks that no downstream listener ever subscribed to. Impact: Extension tree views now render correctly with data from providers.",
+			"SHA": "85bd2a487c73623310182363d6a35dfbe8e9c57d"
 		}
 	],
-	"TimeStamp": 1778513345931
+	"TimeStamp": 1778683911967
 }

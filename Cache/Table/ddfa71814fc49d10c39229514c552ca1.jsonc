@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:42:41Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				270,
-				6
-			],
-			"Message": "feat(Output): Add PatchTerminalGpuAcceleration transform for WKWebView terminal\n\nAdd a new transform plugin that patches the terminal configuration schema to default `terminal.integrated.gpuAcceleration` to `'off'` instead of stock VS Code's `'auto'`. Under WKWebView, xterm.js's WebGL renderer builds its texture atlas before the Menlo font resolves, causing wrong cell widths and rendering glitches (overlapping characters, double-width glyph gaps, halos around anti-aliased edges due to texImage2D premultiplication differences).\n\nThe transform is currently NOT wired into the BuildPipeline by default. It was disabled after enabling revealed a \"black shadow over text\" artifact from xterm's DOM-renderer cursor/accessibility layer in WKWebView. The transform exists on disk so it can be re-enabled if the original WebGL atlas font drift issue resurfaces after the deferred-create race fix lands.\n\nUsers can still opt into WebGL by setting `terminal.integrated.gpuAcceleration: \"on\"` in settings.json — the schema enum is unchanged.",
-			"SHA": "8d7a19d0e4241a66065c7e53257283843fae4c27"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T05:25:19Z",
+			"Date": "2026-05-01T00:15:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				267,
-				1
-			],
-			"Message": "docs(Output): Rewrite CHANGELOG to document v2.x release chain\n\nComprehensive CHANGELOG rewrite documenting Output's evolution from v0.0 through v2.2. Adds new sections for the three v2.x releases:\n\n- v2.2: ExposeWorkbenchAccessor transform, service-IIFE wrapping for bundled profile, Mountain→Cocoon buffer decoding, JSDoc nested comment fixes\n- v2.1: Polyfill hardening (6 Electron-to-Tauri shims, TauriMainProcessService IPC adapter, DevLog/Trace/telemetry)\n- v2.0: Source compilation migration from prebuilt artifacts to compiling from Dependency/Microsoft/Dependency/Editor/src\n\nRestructures older v1.x entries and adds inception details for v0.0-v0.2. Previously the changelog only documented up to v2.0 with minimal detail.",
-			"SHA": "214a9ffb6fc64120ec88a3635c37af8be60d74db"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:58:13Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
+				368,
 				3
 			],
-			"Message": "feat(Output): Bridge localPty channel events through Tauri's sky:// event system\n\nAdd ChannelEventBridge to map VS Code's IPC channel.listen() calls to Tauri's native event system. The localPty channel now routes onProcessData, onProcessReady, and onProcessExit events from Mountain's PTY reader (sky://terminal/*) to the workbench's terminal service handlers with proper payload transformation.\n\nPreviously, channel.listen() returned a no-op handler that silently discarded all event subscriptions. This caused the terminal's xterm panel to stay blank despite Mountain emitting sky://terminal/data hundreds of times - the callback never fired because there was no connection between Tauri's event system and VS Code's channel event surface.\n\nThe bridge maps Mountain's `{id, data|pid|code}` payload shape to VS Code's expected `{id, event: ...}` format and wires the listener through Tauri's @tauri-apps/api/event.listen(). Terminals now render properly.",
-			"SHA": "471479a2554333d215fad46705e9873c5fa671a1"
+			"Message": "perf(Output): Reduce IPC logging to fix channel saturation causing input lag\n\nThe per-invoke `_DevLogForward` calls on every successful `MountainIPCInvoke` were doubling IPC traffic during extension boot (dozens of file:stat/readFile/extensions:getInstalled calls per second). This saturated Tauri's invoke channel (175-280ms queue depth observed) and starved the WebKit message channel that carries both IPC replies AND keystrokes on macOS.\n\nObserved symptom: user types in editor, nothing visible happens, switches focus, then queued keystrokes flush into the newly-focused element (\"characters appearing automatically in chat input\").\n\nChanges:\n- Remove success-case `tauri-invoke` logging in InvokeMountain (failures still forward)\n- Remove fire-and-forget channel stub logging (logger/status-bar fire dozens/sec)\n- Only log stub-hit for `drift` disposition (command not covered by existing stub)\n\nRust-side `[DEV:IPC] invoke:/done:` lines already carry the same data at ns precision and are filterable via `Trace=ipc`.",
+			"SHA": "2588fe4706490748982b01d181db632c39bb3114"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:07:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "99efc02f89574f4e46a52eeb1611ac4103262602"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:01:14Z",
+			"Date": "2026-04-30T23:34:39Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				267,
-				5
+				368,
+				12
 			],
-			"Message": "fix(Output): Add user extension retry + short-circuit Promise probes\n\nTwo fixes to the Output build pipeline:\n\n1. ExtensionScannerIPC: Mirror retry logic on user extensions scan path\n   The system extensions path had retry on empty response but user\n   extensions did not. Without it, an empty initial user-extensions\n   response silently passes 0 extensions through to viewsExtensionPoint\n   and ExtensionsRegistry, leaving every user extension contribution\n   (gitlens, clangd, commands, configuration, languages) unregistered.\n   Also switch to exponential backoff (100, 200, 400, 800, 1500ms) from\n   fixed 1000ms delays - Mountain's scan usually completes in ~500ms.\n\n2. TauriMainProcessService: Short-circuit Promise protocol probes\n   When VS Code resolves a channel-returned thenable, the JS runtime\n   accesses .then, .catch, .finally, constructor, valueOf, toString,\n   toJSON, @@iterator, @@asyncIterator on the proxy to determine if it's\n   a Promise. Each access became a channel call with the property name,\n   surfacing as \"Unknown IPC command: localPty:then\" on every workbench\n   wake. Returning undefined synchronously matches stock VS Code's\n   IChannel behaviour for unknown methods - the runtime sees a non-\n   thenable and stops probing. Saves ~15-25ms of round-trip per probe\n   and removes the noisiest IPC error in the dev log.\n\nRefs a28351b7240a5a722ebef039f3370ac90240818c (system ext retry)",
-			"SHA": "2924f2ae8bb3b41fa32ae0fd965804a80d548dfa"
+			"Message": "fix(Output): Disable EditContext and refine WKWebView input polyfills\n\nAdd ForceTextAreaInput transform that flips Monaco's `editor.editContext`\ndefault from `true` to `false`, routing keyboard input through the legacy\n`<textarea class=\"inputarea\">` rather than the EditContext API. WKWebView's\nEditContext support is flaky enough that focused divs silently swallow\nkeystrokes - users see the cursor blink but typing produces nothing.\n\nRefine WorkbenchInteractivityCSS polyfill (V2):\n- Remove blanket `visibility: visible` and `opacity: 1` on workbench parts.\n  These forced invisible click-capturing rectangles over the editor that\n  absorbed clicks before Monaco's mousedown handler fired, presenting as\n  \"I clicked the editor but typing doesn't work\".\n- Add explicit `pointer-events: auto` rules for Monaco's textarea input\n  chain (.overflow-guard, .lines-content, .inputarea) to survive stacking\n  context interactions with our `InjectPartZIndexCSS` `isolation:isolate`.\n\nRefine WorkbenchPaintPrime polyfill (V2):\n- Remove `keydown` and `focus` capture-phase listeners. Each keystroke\n  triggered a synchronous `FindPartAncestor` + forced reflow BEFORE the\n  event reached Monaco's textarea, and the oninput queue could drop the\n  keystroke. Keeping only `pointerdown` still primes paint on first click\n  without breaking the input path.\n\nAdd LandDisableAll gate: when `process.env.Disable` is `\"true\"`, skip all\ntransform plugins and run only Copy plugins. Produces \"vanilla VS Code on\nTauri\" useful for bisecting whether regressions are in our polyfills or\nin upstream/Tauri/WKWebView.",
+			"SHA": "44e160c6b8a8de6aaa693bc8e4b6e3fcd56d49c6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T23:34:25Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				365,
+				7
+			],
+			"Message": "feat(Output): Add RewriteWebviewShellCSP transform and fix icon URL rewriting\n\nAdd a new transform plugin that loosens the webview shell's CSP script-src from a stale sha256 hash to `'unsafe-inline' 'self' blob:`. Stock VS Code pins the hash; WKWebView computes it differently from Chromium, and any transform that touches the inline script body silently invalidates it. This matches Land's single-user desktop threat model and lets every extension webview boot.\n\nAlso fix RewriteIconsStyleSheetURLs to handle a third URL scheme that leaks through under Tauri/WKWebView: plain `file:///` URLs. Stock VS Code's FileAccess.uriToBrowserUri only converts file→vscode-file when process.versions.node exists, but the shim isn't always installed before iconsStyleSheet.getCSS() runs. The @font-face rule then fetches a 0-byte mixed-scheme response and codicons render as missing-glyph boxes. Add a third replace: `file:///...` → `<origin>/Extension/...`.\n\nBump marker version to _V2 so prior builds get re-patched rather than skipped. Update regex patterns to handle trailing replace chains from previous transform versions.",
+			"SHA": "8a3e8d281a0c6815422cea9dd2278e24923ff677"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T20:27:12Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				363,
+				19
+			],
+			"Message": "feat(Output): Add macOS titlebar offset and z-index CSS transforms\n\nAdd two new Output transforms that inject runtime CSS to fix WKWebView visual issues:\n\n- InjectMacTitlebarOffsetCSS: Reserve ~80px on the left of the workbench titlebar so the in-window menubar (`File / Edit / View / ...`) and command-center quick-pick stop overlapping with macOS traffic lights. Targets `.monoco-workbench.mac` only via the standard marker pattern.\n\n- InjectPartZIndexCSS: Establish explicit z-index hierarchy for every workbench part (`isolation: isolate` + numeric z-indexes) so a sibling that accidentally creates a stacking context (transform, opacity) can't hide the activity bar, sidebar, panel resize handle, status bar badges, or command-center dropdown.\n\nAlso expand StripWebviewIframeSandbox to patch BOTH the outer iframe creation site (`webviewElement.js`'s `element.sandbox.add(...)`) AND the pending-frame-swap site (`pre/index.html`'s `setAttribute('sandbox', ...)`). The earlier single-file patch wasn't sufficient - the outer iframe remained sandboxed and blocked all webview loads with the \"custom protocol from sandboxed iframe\" error.\n\nAdd RewriteWebviewShellCSP: loosen the webview shell's CSP script-src from a stale sha256 hash (WKWebView normalizes CR/LF differently) to `'unsafe-inline' 'self' blob:`. Matches Land's single-user desktop threat model; every extension webview now boots.",
+			"SHA": "0d47460778c1a546313b88539815d6ebde3bb03e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T18:59:27Z",
+			"File": [
+				"⣿⣿⡟⠀⠀",
+				350,
+				189
+			],
+			"Message": "",
+			"SHA": "fc91741983660b9ae401dd22f9fbfa1fa3a1301f"
 		}
 	],
-	"TimeStamp": 1778513321899
+	"TimeStamp": 1778683895739
 }

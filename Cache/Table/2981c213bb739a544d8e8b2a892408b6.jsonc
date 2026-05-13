@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T05:16:48Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				28,
+				1
+			],
+			"Message": "docs(Mountain): Sync CHANGELOG to prose format, add v2.2 section\n\nSubmodule synchronization updating Mountain to 9515b2f7. The CHANGELOG has been restructured from itemized bullet points to narrative prose paragraphs, improving readability while preserving all historical content. A new v2.2 section documents the bundled-electron correctness pass including JSON-RPC -32004 for benign 404s, deferred-no-op file watching, canonical-path comparison for Volume mounts, Identifier field on SCM provider DTO, sky:replay-events handler, 64KB terminal ring buffer, and tree:getChildren timeout reduction.\n\nThe new prose format emphasizes user-facing impact over file references, making it more useful for release notes and external communication.",
+			"SHA": "119c3acaa6851f09e4df23bca9835f43a9bf060b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T04:58:32Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "fix(Project): Sync submodules with terminal event bridging and search schema migration\n\nMulti-component synchronization restoring terminal rendering and search functionality:\n\n1. **Output**: Bridge localPty channel events through Tauri's sky:// event system - Add ChannelEventBridge to map VS Code's IPC `channel.listen()` calls to Tauri's native event system. The localPty channel now routes `onProcessData`, `onProcessReady`, and `onProcessExit` events from Mountain's PTY reader to the workbench's terminal service handlers. Previously, `channel.listen()` returned a no-op handler that silently discarded all event subscriptions, causing the terminal's xterm panel to stay blank despite Mountain emitting `sky://terminal/data` hundreds of times.\n\n2. **Sky**: Migrate search result format to VS Code ≥1.92 schema - VS Code ≥1.92 renamed the search result shape: `preview.text` → `previewText`, `preview.matches` + `ranges` → `rangeLocations[]` with `{source, preview}` pairs. Stock vscode's `searchResult.add()` reads the new fields and silently rejects entries with the old shape. This transforms Mountain's ripgrep results into the current `ITextSearchMatch` format, restoring search functionality.\n\n3. **Cocoon**: Submodule synchronization to latest downstream.\n\nImpact: Terminals now render properly. Search panel now displays results (was showing 0 despite 2560 line-matches).",
+			"SHA": "8273c1268659fc3a973f289a7162ac7a49cc5de6"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-29T04:34:06Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "refactor(Project): Sync submodules with SCM identifier, command replay, and retry logic\n\nMulti-component synchronization enabling multi-SCM support and improving boot reliability:\n\n1. **Common**: Add Identifier field to SourceControlManagementProviderDTO - enables provider identification (\"git\", \"github\", \"hg\") for multi-SCM support, maps to `scmId` in sky://scm/register events.\n\n2. **Mountain**: Use actual SCM provider identifier in replay instead of hardcoded \"git\", add command registration replay for extension-registered commands, reduce tree-view timeout from 5000ms to 1500ms for graceful failure.\n\n3. **Output**: Mirror retry logic on user extensions scan path (was missing), switch to exponential backoff (100-200-400-800-1500ms), short-circuit Promise protocol probes to eliminate spurious \"Unknown IPC command\" errors.\n\n4. **Sky**: Display commands count in replay-events log for visibility into early-boot command replay.\n\nImpact: Multi-SCM providers (github, hg) now replay correctly. User extensions load at boot even when Mountain scan is slow. Promise probes reduced from ~25ms to <1ms per wake cycle.",
 			"SHA": "b15e1d818609f1ab74584410abb5c73f3628d9bf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T03:40:55Z",
-			"File": [
-				"⣿⠇⠀⠀⠀",
-				28,
-				8
-			],
-			"Message": "fix(Project): Sync submodules with sidebar fix and extension scan improvements\n\nMulti-component synchronization addressing Activity Bar emptiness and extension loading:\n\n1. Mountain: Add Sky event replay on listener registration - Mountain emits events before Sky listeners install, causing dropped `sky://tree-view/create` and `sky://scm/register` events. New `sky:replay-events` handler iterates active TreeViews and SCM providers to re-emit. Also adds path security checks and SCM provider emit failure logging.\n\n2. Output: Add retry logic to user extension scan path - User extension paths lacked the retry logic that system paths had, causing silent 0-extension responses. Add exponential backoff (100-200-400-800-1500ms) for async disk scans.\n\n3. Sky: Fix Rollup no-external dropping VS Code contribution imports - Activity Bar came up empty because Rollup was dropping side-effect imports (`extensions.contribution`, `scm.contribution`, `files.contribution`, `*.viewlet.js`...). Add normalized path matching for disk paths, package specs, and lowercase variants.\n\n4. Cocoon: Refactor code structure for improved readability and maintainability.\n\nImpact: Activity Bar now populates with extension-contributed views (GitLens, jsdebug, SCM providers). User extensions load properly at boot even when Mountain's async scan hasn't completed.",
-			"SHA": "972a110b4e940290d87a1a0af952d93f16b42318"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:13:47Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				28,
-				4
-			],
-			"Message": "fix(Project): Fix circuit breaker trips from URI parsing and service isolation\n\nMulti-component synchronization preventing silent error cascades:\n\n1. **Mountain**: Fix false circuit breaker trips from URI parsing edge cases - Extensions frequently register watchers on optional paths (e.g., `~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't exist. Mountain now catches benign \"path not found\" errors and records a deferred entry. Additionally, Cocoon sends URIs in three formats (plain strings, objects with `external` field, legacy `scheme`+`path` objects), but only the `external` field was accepted, causing `Diagnostic.Set` to trip the breaker after 5 publishes, silencing all linters.\n\n2. **Output**: Fix ExposeWorkbenchAccessor transform silently failing - The import marker used single quotes but esbuild rewrites to double quotes post-bundle, causing the entire `__CEL_SERVICES__` patch to no-op (all SkyBridge hooks offline). Also wraps each `invokeFunction` in its own try-IIFE so a single missing service doesn't throw the entire facade undefined.\n\nImpact: File watchers no longer fail on fresh workspaces. Language extension diagnostics now publish without triggering circuit breaker. All SkyBridge services (search, SCM, status bar, tree views) now initialize correctly.",
-			"SHA": "7cc10566bad81808c5008aaa95a040fb6b3c133f"
 		}
 	],
-	"TimeStamp": 1778513321708
+	"TimeStamp": 1778683894769
 }

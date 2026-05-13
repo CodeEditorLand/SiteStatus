@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T22:45:26Z",
+			"Date": "2026-04-29T02:54:10Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
+				"⠀⠀⠀⠀⠀",
 				859,
-				39
-			],
-			"Message": "refactor(Mountain): Align DTO serialization to camelCase and fix SCM provider field mapping\n\nThis commit standardizes JSON serialization across all DTO structs from PascalCase to camelCase to match the wire format expected by Wind/Sky. Additionally fixes the SCM provider registration which was silently failing due to field name mismatches.\n\n**DTO Serialization Migration (13 files)**\n- Change `#[serde(rename_all = \"PascalCase\")]` to `#[serde(rename_all = \"camelCase\")]` across CustomDocumentStateDTO, DocumentStateDTO, MarkerDataDTO, MergedConfigurationStateDTO, OutputChannelStateDTO, ProviderRegistrationDTO, RPCModelContentChangeDTO, RPCRangeDTO, WebviewStateDTO, WindowStateDTO, WorkspaceFolderStateDTO\n- Add explicit `#[serde(rename = \"uri\")]` for URL fields and `#[serde(rename = \"eol\")]` for EOL field\n\n**SCM Provider Fixes (2 files)**\n- RegisterScmProvider: Change PascalCase keys (\"ID\", \"Label\", \"RootUri\") to camelCase (\"id\", \"label\", \"rootUri\") to match SourceControlCreateDTO's wire shape\n- RegisterScmResourceGroup: Add missing \"providerHandle\" field and use camelCase keys (\"providerHandle\", \"groupId\", \"label\") matching SourceControlGroupUpdateDTO\n\n**Code Cleanup**\n- Add #[allow(dead_code)] to 15 structs/functions used only in specific build configs\n- Make 7 structs public (WatcherEntry, TestControllerState, TestRunStatus, TestResult, TestRun, ConnectionHealthChecker, EncryptionKey) for testing\n- Change result-discarding calls from `Self::Method(...)` to `let _ = Self::Method(...)` for clarity\n- Remove unused IPC handlers: file:readFile/writeFile/rename/watch/unwatch, workspaces:getWorkspaceIdentifier/enterWorkspace\n- Set MACOSX_DEPLOYMENT_TARGET=10.13 in Cargo config for broader compatibility",
-			"SHA": "11b3c822ee8a556e47c07a9821fdc8f028c8bad4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:29:53Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				874,
-				2
-			],
-			"Message": "feat(Mountain): Implement workspace trust handlers for vscode.git\n\nAdd handlers for `Workspace.RequestResourceTrust` and `Workspace.IsResourceTrusted`\nthat route through Mountain instead of falling back to Cocoon's permissive heuristic.\nThe vscode.git `Model.openRepository` calls these before constructing the Repository,\nand while the Cocoon proxy already returns `true` (allowing git to proceed), this gives\nthe canonical handler a proper home and enables `GenerateRouteManifest.sh` to detect\nthese methods and automatically switch Cocoon from heuristic-default to gRPC-routed\non the next manifest regeneration.\n\nAlso mute `vscode-api-gap` dev logs in short mode. This tag fires from\n`WrapNamespaceWithHeuristics` whenever an extension uses a vscode API method we\nhaven't formally shimmed — useful for API gap audits but noisy in default dev runs.\nEnable via `LAND_DEV_LOG=all` or `LAND_DEV_LOG=vscode-api-gap` when needed.\n\nFuture rounds can replace the trust-by-default `true` with real per-OS trust queries\n(Gatekeeper/SmartScreen/xattrs).",
-			"SHA": "bd4aed14ea15f92d919ac15eef541579baad76fc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:05:31Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				874,
-				73
-			],
-			"Message": "feat(Mountain): Fix extension activation and SCM provider integration\n\nKey fixes for extension activation and SCM functionality:\n\n1. **Configuration re-merge after extension scan** (AppLifecycle.rs):\n   - First-pass config merge ran before extensions were scanned, so\n     `contributes.configuration.properties[*].default` values weren't\n     available. `getConfiguration('git').get('enabled')` returned\n     undefined, causing vscode.git to short-circuit in `_activate` and\n     the SCM viewlet to stay empty.\n   - Add second-pass merge after extension scan to collect and apply\n     extension default configurations (113 extensions declare defaults).\n\n2. **Debug session lifecycle events** (DebugProvider.rs):\n   - Add `$onDidStartDebugSession` notification to Cocoon for extension\n     listeners, plus `sky://debug/sessionStart` emit for Sky.\n   - Fix termination payload to include `id` field for proper session\n     tracking, add `sky://debug/sessionEnd` emit.\n\n3. **SCM provider handle alignment** (RegisterScmProvider.rs):\n   - Cocoon uses sequential handles from `ScmNamespace.ts`, but Mountain\n     was computing DJB hash of scmId. Resource group updates arrived with\n     the sequential handle while providers were registered under the hash,\n     starving the SCM viewlet.\n   - Now reads `handle` / `scm_handle` from the wire payload verbatim,\n     falls back to hash only when absent.\n\n4. **SCM group update parsing** (UpdateScmGroup.rs):\n   - Wire format sends `scm_handle` + `group_handle` (\"<handle>/<groupId>\"),\n     not the flat `provider_id`/`group_id` the previous decoder expected.\n   - Split `group_handle` to extract groupId for renderer payload.\n\n5. **Output channel log routing** (OutputChannelAppend.rs):\n   - vscode.git \"Git\" channel logs are critical for diagnosing F6\n     silent-bail (extension activates but never reaches\n     `createSourceControl`). Route to `grpc` level instead of\n     `output-verbose`.\n\nAlso: minor formatting cleanup across 70+ files, documentation improvements.",
-			"SHA": "190e8d070ed1277c1849075703fd20b34301a891"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T10:38:38Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				874,
-				4
-			],
-			"Message": "fix(Mountain): Fix extension config loading and enhance search provider\n\nThe configuration loading code was searching for a VS Code manifest shape (`[{key, value}]` array) that doesn't exist in any real extension. Every `workspace.getConfiguration('foo')` lookup fell through to undefined, causing extensions like vscode.git to activate but never reach `createSourceControl()`.\n\nThe fix walks both the array AND object shapes that `contributes.configuration` accepts, extracts `default` values from each property schema, and inserts them into nested maps using dotted keys (e.g. `git.enabled` → `{\"git\": {\"enabled\": true}}`).\n\nSearchProvider receives major improvements:\n- Add `ColumnRange` tracking so the Sky renderer underlines actual match positions instead of whole lines\n- Fix line numbers: previously returned 0 (treated as \"no line info\"), now returns 1-based\n- Add byte→char map with binary search for O(log n) UTF-8 column lookups (previously O(n) per match, causing quadratic slowdown on match-dense files)\n- Cap preview length at 512 chars to avoid massive row layouts on minified files\n- Add per-line match cap (100) to prevent hangs on pathological regexes like `.` against long lines\n\nAlso switch TreeView error logging to the DebugOnce pattern to avoid flooding dev logs with repeated failures from the same view.",
-			"SHA": "44bf29d434cdf1eac0409fe5e471383dd064a387"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:50:10Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				874,
 				1
 			],
-			"Message": "perf(Mountain): Deduplicate dev log entries for unregistered commands\n\nReplace dev_log! macro with DebugOnce for unregistered view-action and workbench-internal commands. These commands fire repeatedly (view-action buttons clicked multiple times, getTelemetrySenderObject fires 30+ times per boot extension activation), causing N-line log trails that obscure other diagnostic output.\n\nThe new implementation uses a dedup key format (e.g., \"view-action-noop:{CommandId}\") so the first invocation still logs for debugging probe shape, while subsequent calls to the same command ID are silently suppressed.\n\nThis reduces dev log noise in hot IPC paths while preserving diagnostic value for identifying unregistered command patterns.",
-			"SHA": "2120ad5e42aec918ce1f2bb0a769dd02a7cf2e84"
+			"Message": "fix(Mountain): Enhance logging for SCM provider registration emit failures\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "660a067a4bfe2e220d4c61c742d31805c92f1e6d"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-29T02:33:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
+			],
+			"Message": "",
+			"SHA": "cce2516555660983de4287c47ab94daaa710b02a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T02:08:42Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				2
+			],
+			"Message": "fix(Mountain): Accept absent paths in FileWatcher and varied URI shapes\n\nTwo changes that prevent false circuit breaker trips in Mountain's gRPC service:\n\n1. **FileWatcherProvider.rs**: Extensions frequently register watchers on optional paths (`~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't yet exist. Previously, `notify::Watcher::watch()` failure triggered a gRPC error that counted against Cocoon's circuit breaker — 5 probes at boot trips it open and cascades into 60s of rejected reads. Now Mountain catches benign \"path not found\" errors, records a \"deferred\" entry without a live OS watcher, and still allows Unregister to clean up the handle.\n\n2. **UriParsing.rs**: Cocoon sends URIs in three different shapes — plain strings (e.g., `Diagnostic.Set`), objects with `external` field (VS Code's `URI.toJSON()`), and legacy objects with just `scheme` + `path`. The original code only accepted the `external` field, causing `Diagnostic.Set` from `vscode.languages.createDiagnosticCollection().set` to trip the breaker after 5 publishes, silencing all linters across language extensions. Now all three formats are accepted.\n\nBoth fixes maintain backward compatibility while eliminating spurious error cascades.",
+			"SHA": "9c10fbe92d916db112eb377dcd9f1ab9130c8821"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T01:40:26Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				2
+			],
+			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nTwo changes in Mountain's gRPC service layer:\n\n1. **FileWatcher.rs**: Cocoon's `NextProviderHandle()` returns a number, but older callers pass a string. Handle both shapes in `RegisterWatcher` and `UnregisterWatcher` instead of silently converting numbers to empty string.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without a string-regex round-trip, while `-32000` remains the catch-all for genuine failures.",
+			"SHA": "160b5a4251133f31e4ce99898a02a8d63f8ca19b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T01:03:45Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
+			],
+			"Message": "docs(Mountain): Update build.rs comments to document PascalCase naming\n\nClarify the build script comments to document the PascalCase environment variable naming convention introduced in the 2026-04-29 migration. The comments now specify that `Profile`, `Pack`, `Bundle`, and `Compiler` (PascalCase) are the current env var names, replacing the legacy `LAND_*` names that were retired. This ensures clarity for developers debugging build configuration resolution at runtime.",
+			"SHA": "de696659a367b81cdc5404e3055fa6837bd94fa7"
 		}
 	],
-	"TimeStamp": 1778513341149
+	"TimeStamp": 1778683907701
 }

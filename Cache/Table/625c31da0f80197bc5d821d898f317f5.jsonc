@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T10:14:04Z",
+			"Date": "2026-05-03T08:18:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
-				2
+				1415,
+				8
 			],
-			"Message": "refactor(CocoonManagement): Update health monitor method names for consistency\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "d577f0778d8d8315338ea92933a7aae13cabc298"
+			"Message": "refactor(Mountain): Modularize WindServiceHandlers into discrete sub-modules\n\nDecompose the monolithic `WindServiceHandlers` modules (Extensions, Git, Model, Navigation, Output, Storage, Terminal) into a structured tree of individual files, one per exported handler. This aligns with the project's modular architecture and PascalCase naming convention, replacing large stub files with thin `mod.rs` dispatchers that delegate to specific handler implementations.\n\nKey changes:\n- **Extensions:** Extract `GetInstalled`, `GetAll`, `Get`, and `IsActive` into separate modules. Preserve the critical boot-race polling logic (up to 5s) and manifest skeletonization in `ExtensionsGetInstalled` to prevent UI crashes during trusted-publishers migration.\n- **Git:** Isolate `HandleExec` and `HandleClone` etc. into distinct units while retaining the shared `Shared` module for process registration and PID tracking.\n- **Model/Navigation/Storage/Terminal:** Refactor each into a family of single-purpose modules (e.g., `ModelOpen`, `HistoryGoBack`, `StorageSet`) to improve testability and readability.\n- **Dispatcher Update:** Update `mountain_ipc_invoke` in `mod.rs` to route commands to the new nested module paths (e.g., `Git::HandleExec::HandleExec`).\n- **Telemetry:** Standardize OTLP span names to `land:mountain:ipc:<command>` and inject the `CaptureHandler` instrumentation to track per-invocation duration for the Feature Parity dashboard.\n\nThis restructuring eliminates `dead_code` and `unused_variables` lints while clarifying the IPC surface area for future Wind service migrations.",
+			"SHA": "f7f34e5ab2e7ad549f1ea09c3416588942ea7a19"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:52:24Z",
+			"Date": "2026-05-03T08:17:52Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
+				1415,
+				14
+			],
+			"Message": "feat(Mountain): Implement Wind service adapter bridge and DTOs\n\nIntroduce a comprehensive adapter layer under `Source/IPC/WindServiceAdapters/` to bridge the Mountain Rust backend with the Wind TypeScript UI service contracts. This module serializes Mountain's sandbox configuration into the `WindDesktopConfiguration` structure expected by Sky during boot, and provides concrete implementations for Wind's core service interfaces (File, Storage, Configuration, Environment) using the `CommonLibrary` trait definitions.\n\nKey additions include:\n- **DTOs:** `MountainSandboxConfiguration`, `WindDesktopConfiguration`, and file-specific structures (`FileToDiff`, `FilesToWait`) to serialize launch parameters and state.\n- **Service Wrappers:** `WindFileService`, `WindStorageService`, `WindConfigurationService`, and `WindEnvironmentService` that inject `CommonLibrary` providers (FileSystemReader/Writer, StorageProvider) to satisfy Wind's async service requirements.\n- **Adapter Logic:** `WindServiceAdapter` which transforms raw JSON sandbox configs into the typed `WindDesktopConfiguration` and instantiates service instances with the current `ApplicationRunTime` context.\n\nThis enables the Wind frontend to operate on native Rust services via the Tauri IPC layer, decoupling UI service logic from the underlying OS implementation.\n\nRefs: Land Element Architecture, IPC Bridge",
+			"SHA": "1dd8948da9ad46dd9e6188992b3288afae914b16"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:17:45Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1400,
 				1
 			],
-			"Message": "refactor(Mountain): Modularize UriComponents IPC marshalling helpers\n\nDecompose the monolithic `Source/IPC/UriComponents.rs` into a flat module tree to align with the distributed architecture's 'one export per file' pattern. Each logical unit (`MID_URI`, `StampMidUri`, `FromFilePath`, `FromUrl`, `Normalize`) is now its own PascalCase unit file, exposing the public API via the root manifest.\n\nThe documentation has been expanded to clarify the VS Code IPC reviver requirements (`$mid === 1`) and the consequences of missing tags. This reorganization reduces file complexity, enforces strict PascalCase naming for all exports, and prepares the IPC layer for finer-grained testing of URI marshalling logic within the Mountain backend.",
-			"SHA": "bd60b172ef9394d2f2d10a985fb95701269e9cad"
+			"Message": "refactor(Mountain): Remove empty Permission validation stub\n\nDelete the `ValidatePermission.rs` file which was present as an empty placeholder with no implementation. This cleanup removes dead code artifacts from the `Source/IPC/Permission/Validate` directory, streamlining the permission handling module structure.\n\nThe removal ensures the codebase reflects the current architectural state where specific permission validation logic is either implemented inline with IPC handlers or managed by the Common trait definitions, avoiding confusion from orphaned stub files.",
+			"SHA": "0158bbcdd21075e4419f77fedc6a76253be574af"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:51:03Z",
+			"Date": "2026-05-03T08:17:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
-				1
+				1401,
+				10
 			],
-			"Message": "refactor(Mountain): Document dead-code status of CoreError types\n\nMark the `Source/Error/CoreError.rs` module as legacy implementation superseded by `CommonLibrary::Error::CommonError`. Add inline documentation noting zero active callers and the presence of ~700 lines of dead code.\n\nExplicitly state that atomizing the five sibling modules into PascalCase single-symbol files is deferred. Refactoring is blocked by the high cost of renaming fields and methods (`ErrorContext`, `with_kind`, `with_severity`) across the dormant codebase.\n\nThe file is retained solely for reference until the entire error stack is either deleted or fully migrated to the Common library.",
-			"SHA": "879f8f9b78ece43f4e8fa0bf7b7ca0ba2e0e6771"
+			"Message": "feat(Mountain): Implement TLS certificate management IPC command suite\n\nIntroduce a comprehensive set of Tauri commands under `Source/Binary/Build/TlsCommands/` to expose the `CertificateManager` to the Wind/Sky frontend for local TLS/HTTPS provisioning.\n\nThe implementation adheres to PascalCase naming and the project's modular architecture, adding:\n- **DTOs:** `CertificateGenerationResult` and `CertificateStatus` to structure payload responses including expiry timelines and renewal flags.\n- **Lifecycle:** `tls_initialize` loads or generates the root CA; `tls_generate_cert` issues or retrieves server certificates for specific hostnames.\n- **Monitoring:** `tls_check_cert_status` calculates days until expiry and flags renewal needs based on the configured threshold.\n- **Inspection:** `tls_get_all_certs`, `tls_get_server_cert_info`, and `tls_get_ca_cert` provide diagnostic data for the security panel.\n- **Maintenance:** `tls_renew_certificate` and `tls_delete_cert` (currently aliased to renewal) allow manual certificate rotation.\n\nThese commands gate access via the `CertificateManager` state mutex, enabling secure, asynchronous certificate lifecycle operations from the editor UI.\n\nNote: `tls_delete_cert` currently regenerates the certificate as a placeholder until a dedicated deletion logic is implemented in `CertificateManager`.",
+			"SHA": "8e396fbf31d1bb878c5a4609f59a4e823f0f2871"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:49:45Z",
+			"Date": "2026-05-03T08:17:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
-				1
+				1390,
+				14
 			],
-			"Message": "build(Mountain): Configure Tauri resources for Sky frontend artifacts\n\nDefine the `resources` table in `tauri.conf.json` to bundle critical Sky frontend assets into the Mountain native binary. This mapping includes the compiled extension set (`extensions`), dependency tree (`node_modules`), localization keys and messages (`nls.*`), bootstrap entry points, and the product definition file (`product.json`).\n\nThis configuration replaces the previous null placeholder and ensures that the Tauri webview can access these static assets at runtime via the `resources` directory within the binary bundle. This is a prerequisite for the Mountain backend to launch the Sky UI and Cocoon extension host without external file dependencies.",
-			"SHA": "e5daab6f47fe5a1bf0a00c6873577819bec1c0e5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:49:01Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1251,
-				2
-			],
-			"Message": "refactor(Mountain): Modularize keybinding and language feature command surfaces\n\nAlign the `Source/Command` subsystem with the distributed architecture's 'one export per file' pattern. The monolithic `Keybinding.rs` and `LanguageFeature.rs` files have been decomposed into flat module trees where each Tauri command resides in its own unit file.\n\nFor `Keybinding`, extract the five wire-bound commands (`GetResolvedKeybinding`, `GetUserKeybindings`, etc.) into dedicated modules, converting the root file into a manifest of public modules. For `LanguageFeature`, split the polyfill bridge and six IPC commands (`MountainProvideHover`, `MountainProvideCodeActions`, etc.) into individual units, exposing the `#[command]` shells while keeping implementation details (`Hover`, `CodeActions`, `Validation`, `InvokeProvider`) private via `pub(crate)` visibility.\n\nThis reorganization reduces file complexity, enforces strict PascalCase naming for all public exports, and clarifies the boundary between the Rust backend and the TypeScript frontend. The changes prepare the IPC layer for finer-grained testing and type safety, continuing the modularization trend initiated in the recent `Source/IPC` and `Source/Environment` refactorings.",
-			"SHA": "5e571efe18203567968fbe04062cdc021dfe5867"
+			"Message": "feat(Mountain): Implement DNS diagnostic and health-check IPC commands\n\nIntroduce a complete suite of Tauri commands under `Source/Binary/Build/DnsCommands/` to expose the internal DNS server state to the Wind/Sky frontend for diagnostic and monitoring purposes. This implements the backend support for a DNS health dashboard and resolution tester.\n\nThe commit adds:\n- **DTOs:** `DnsHealthStatus`, `DnsServerInfo`, `DnsResolutionResult`, `ZoneInfo`, `ZoneRecord`, and `ForwardAllowList` to structure return payloads, adhering to PascalCase naming.\n- **Server Info & Startup:** `dns_get_server_info` returns port status and a persistent startup timestamp captured via `StartupTime`.\n- **Health Monitoring:** `dns_get_health_status` and `dns_health_check` provide aggregated health snapshots and boolean checks for the server, zone, and forwarder states.\n- **Zone Inspection:** `dns_get_zone_info` returns the static `editor.land` authoritative zone snapshot, including SOA, NS, A records, and DNSSEC keys/signatures.\n- **Resolution Logic:** `dns_resolve` handles manual queries, routing `editor.land` to `127.0.0.1` and allowlisted external domains to `TEST-NET-1` placeholders, while rejecting others.\n- **Helpers:** `dns_get_forward_allowlist` and `dns_test_resolution` provide simplified access for automated health loops.\n\nAll commands gate access on the `DnsPort` state, ensuring safe interaction with the underlying Hickory DNS server lifecycle.",
+			"SHA": "004e560b79b0d6cb9ff67b09d4f9de615720c1a3"
 		}
 	],
-	"TimeStamp": 1778513328515
+	"TimeStamp": 1778683895473
 }

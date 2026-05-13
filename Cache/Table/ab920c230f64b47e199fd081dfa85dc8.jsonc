@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:46:33Z",
+			"Date": "2026-04-23T18:52:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
+				807,
 				2
+			],
+			"Message": "refactor(Mountain): Migrate remaining notification handlers to Batch 15 atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to the Batch 15 atom functions in `Vine::Server::Notification::*`. The migrated handlers include:\n- extensionHostMessage → ExtensionHostMessage\n- ExtensionActivated/ExtensionDeactivated → ExtensionActivated/ExtensionDeactivated\n- WebviewReady → WebviewReady\n- progress.start/report/end → ProgressStart/ProgressReport/ProgressEnd\n- languages.setDocumentLanguage → LanguagesSetDocumentLanguage\n- workspace.applyEdit → WorkspaceApplyEdit\n- window.showTextDocument → WindowShowTextDocument (new atom file)\n\nAlso removes the dead handler bodies at the bottom of the match arm that were unreachable after Rust selected the first matching arm for each wire name. This consolidates all notification dispatch to the atom layer, keeping MountainVinegRPCService thin with one-line delegations.",
+			"SHA": "c834d103d4fc2f2002a1e55093df536bf58031c1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T18:46:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				806,
+				1
 			],
 			"Message": "",
-			"SHA": "3bcce20c33084d735c6a7f446f39e56c37bfbe9a"
+			"SHA": "6dfa4be105691b49a93eb4e42a2bef8eb772ee4d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:31:03Z",
+			"Date": "2026-04-23T18:46:55Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				5
+				"⠃⠀⠀⠀⠀",
+				806,
+				47
 			],
-			"Message": "refactor(Mountain): Centralize UriComponents construction with $mid marker\n\nAdd a shared UriComponents helper module that ensures every URI payload sent to the VS Code renderer carries the required `$mid: 1` marshalling marker. Without it, VS Code's IPC reviver leaves URIs as plain objects where `.fsPath` and `.with` are undefined, causing the sidebar and icon loader to silently fail.\n\nThe recent fix for extension location URI marshalling addressed one call site, but inline `json!` builders elsewhere risked regressing the same issue. This change introduces:\n\n- `FromFilePath`: constructs a `file://` UriComponents with `$mid` from a filesystem path\n- `FromUrl`: parses arbitrary URL strings (file://, other schemes) into UriComponents\n- `StampMidUri`: injects `$mid: 1` into any UriComponents lacking it\n- `Normalize`: handles mixed input formats (string, object, null) uniformly\n\nNow used consistently in:\n- `handle_extensions_install` (Extension.rs) - fixes location URI\n- `handle_file_realpath` (both WindServiceHandler and WindServiceHandlers FileSystem.rs)\n\nThe Extensions.rs handler continues using the existing `Normalize` import. All IPC handlers that return URI-shaped payloads now emit through the centralized helpers, preventing silent breaks in the renderer's URI revival chain.",
-			"SHA": "e632bde43d9e101210c074a094bf0db9c5d0f69f"
+			"Message": "refactor(Mountain): Consolidate WindServiceHandler to WindServiceHandlers atoms\n\nMerge the deprecated singular `WindServiceHandler` module into the plural `WindServiceHandlers` atoms:\n- Delete 24 files from `WindServiceHandler/` (21 were dead duplicates)\n- Re-implement 3 live handlers as atoms: `extensions:install`, `extensions:uninstall`, `nativeHost.showOpenDialog`\n- Move extension handlers to `WindServiceHandlers/Extension/` (Install, Uninstall, NotifyCocoonDeltaExtensions, UserExtensionDirectory, VsixPathFromArgs)\n- Move dialog handlers to `WindServiceHandlers/NativeDialog/` (ShowOpenDialog, ParseDialogFilters, DialogFilter)\n- Add 9 new notification atoms: ExtensionActivated, ExtensionDeactivated, ExtensionHostMessage, LanguagesSetDocumentLanguage, ProgressStart, ProgressReport, ProgressEnd, WebviewReady, WorkspaceApplyEdit\n- Update MountainVinegRPCService to dispatch notifications via atoms (note: outputChannel.* already dispatched from Batch 9)\n\nThe consolidation eliminates code duplication and centralizes all IPC dispatch in the plural module. New notification atoms enable Wind/Sky to receive extension lifecycle events and progress updates from Cocoon.",
+			"SHA": "c8bfb37b939a9d0745929edef864c331c9c8f56e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:20:49Z",
+			"Date": "2026-04-23T18:46:37Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				774,
-				2
+				"⠃⠀⠀⠀⠀",
+				810,
+				35
 			],
-			"Message": "",
-			"SHA": "040bfbacb2ba90145b5feb6c5b41cd11e5e2f120"
+			"Message": "feat(Mountain): Add notification atom handlers and Cocoon log tag extraction\n\nAdd 25 new notification handlers in `Vine::Server::Notification` to bridge the remaining VS Code API surface from Cocoon to Mountain:\n\n- Output channel lifecycle: create, append, appendLine, clear, dispose, replace, show (both `output.*` and `outputChannel.*` wire names)\n- Status bar text updates: setStatusBarText, disposeStatusBarItem\n- Progress lifecycle: progress.update, progress.complete (routes to existing `sky://progress/*` channels)\n- Webview reverse messaging: webview.postMessage, webview.dispose\n- Provider unregistration: authentication, debug_adapter, file_system, scm, task, uri_handler handlers + updateScmGroup\n- Misc: openExternal (uses `opener` crate), security.incident, set_language_configuration\n\nEach atom is a dedicated file with a single handler, keeping the dispatcher in `MountainVinegRPCService` thin. The atoms access `ApplicationHandle` and `RunTime` via new accessors on the service struct.\n\nAlso add `ExtractDevTag` module to parse Cocoon stdout lines prefixed with `[DEV:<TAG>]` and re-emit them under Mountain's matching tag (e.g., `bootstrap-stage`, `ext-activate`, `config-prime`, `breaker`). This enables `LAND_DEV_LOG=bootstrap-stage` on Mountain's side to surface Cocoon's bootstrap diagnostics without enabling the broad `cocoon` tag.\n\nImpact: Extension output channels, status bar messages, progress indicators, and webview messaging now flow through Mountain to the renderer. Cocoon bootstrap and extension activation logs are tag-filterable end-to-end.",
+			"SHA": "27652fa62ef39c7f187b96f73e086e5a4580cc50"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:20:49Z",
+			"Date": "2026-04-23T17:59:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
-				2
+				778,
+				1
 			],
-			"Message": "fix(Mountain): Fix extension location URI marshalling for VS Code renderer\n\nVS Code's URI revival system ignores objects lacking the `$mid === 1` marshalling marker. Without it, extension locations sent to the renderer become plain `UriComponents` bags where `.fsPath` and `.with` are undefined — the sidebar silently filters the entire batch out.\n\nThis change adds three functions in Extensions.rs:\n- `Normalize_Location_To_UriComponents`: converts the scanner's raw `file://` URL string into VS Code's `UriComponents` object shape\n- `Stamp_Mid_Uri`: attaches `$mid: 1` to any UriComponents that lack it\n- `Parse_File_Url_To_UriComponents`: parses `file:///absolute/path` URLs into the required structure\n\nAlso extends `BuildInitialUrl` to recognize Mountain's own `{ uri: \"file://…\" }` format (written by the recently opened persistence) alongside VS Code's historical `folderUri`/`workspace.configPath` shapes for backward compatibility with imported profiles.\n\nExtension locations in the sidebar now resolve correctly.",
-			"SHA": "07b4da763e4acaec886915effcb6b6c49eb0d689"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:12:01Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				774,
-				3
-			],
-			"Message": "feat(Mountain): Restore recently opened folder on launch, fix macOS window drag\n\nTwo improvements to the window boot sequence:\n\n1. **Recently opened folder restoration (Atom W7):** Add BuildInitialUrl to read `~/.land/workspaces/RecentlyOpened.json` and pass `?folder=<path>` to the initial webview URL. This skips the destructive round-trip where every launch landed on Welcome, forced users to click \"Open Folder\", and triggered a hard reload that wiped workbench state. That reload was the direct cause of the purple splash flash, stuttering paint, empty `@builtin` sidebar, and broken keybindings (every layer boots twice, second pass loses first-pass references).\n\n2. **Fix macOS window dragging:** Remove `maximized(true)` from the window builder. Maximized macOS windows are pinned to the screen and refuse all drag events regardless of `-webkit-app-region: drag` CSS. Replace with `TitleBarStyle::Overlay` + `hidden_title(true)` which keeps traffic lights visible while letting VS Code's custom titlebar paint the drag region. Windows/Linux continue using `decorations(false)` for chrome-less operation.\n\nAlso fix en-dash to hyphen in three documentation comments (ExtensionDescriptionStateDTO, LandFixTier) to match project convention.",
-			"SHA": "aa5eafbd77da6ffa239edf2a45206ae3dfa1e4cc"
+			"Message": "feat(Mountain): Expand provider registration handlers to full VS Code surface\n\nAdd missing provider type handlers in MountainVinegRPCService to match Cocoon's complete VS Code API shim. New handlers include:\n\n- Authentication, SCM, and resource label providers for extension auth/workspace\n- Full notebook support (notebook_content, notebook_serializer)\n- Advanced editing features (inline_edit, mapped_edits, multi_document_highlight)\n- Debug infrastructure (debug_adapter)\n- Remote workspace features (external_uri_opener, remote_authority_resolver)\n\nAlso adds corresponding ProviderType enum variants to the DTO mapping. The expansion from ~25 to 50+ provider types enables extensions that register these previously-unhandled providers (e.g., GitLens, live share, remote tunnels) to activate successfully.\n\nRefs: b71ab93f22e526a1a9cc961706c66040fd2a9be6",
+			"SHA": "cc8f2a07bd71e36d8eed04d5c377cf52eeeb7e64"
 		}
 	],
-	"TimeStamp": 1778513345349
+	"TimeStamp": 1778683911668
 }

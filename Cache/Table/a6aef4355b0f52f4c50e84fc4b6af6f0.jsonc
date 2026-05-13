@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:46:37Z",
+			"Date": "2026-04-24T20:52:00Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				810,
-				35
+				"⠁⠀⠀⠀⠀",
+				872,
+				11
 			],
-			"Message": "feat(Mountain): Add notification atom handlers and Cocoon log tag extraction\n\nAdd 25 new notification handlers in `Vine::Server::Notification` to bridge the remaining VS Code API surface from Cocoon to Mountain:\n\n- Output channel lifecycle: create, append, appendLine, clear, dispose, replace, show (both `output.*` and `outputChannel.*` wire names)\n- Status bar text updates: setStatusBarText, disposeStatusBarItem\n- Progress lifecycle: progress.update, progress.complete (routes to existing `sky://progress/*` channels)\n- Webview reverse messaging: webview.postMessage, webview.dispose\n- Provider unregistration: authentication, debug_adapter, file_system, scm, task, uri_handler handlers + updateScmGroup\n- Misc: openExternal (uses `opener` crate), security.incident, set_language_configuration\n\nEach atom is a dedicated file with a single handler, keeping the dispatcher in `MountainVinegRPCService` thin. The atoms access `ApplicationHandle` and `RunTime` via new accessors on the service struct.\n\nAlso add `ExtractDevTag` module to parse Cocoon stdout lines prefixed with `[DEV:<TAG>]` and re-emit them under Mountain's matching tag (e.g., `bootstrap-stage`, `ext-activate`, `config-prime`, `breaker`). This enables `LAND_DEV_LOG=bootstrap-stage` on Mountain's side to surface Cocoon's bootstrap diagnostics without enabling the broad `cocoon` tag.\n\nImpact: Extension output channels, status bar messages, progress indicators, and webview messaging now flow through Mountain to the renderer. Cocoon bootstrap and extension activation logs are tag-filterable end-to-end.",
-			"SHA": "27652fa62ef39c7f187b96f73e086e5a4580cc50"
+			"Message": "refactor(Mountain): Move high-frequency logging to verbose/opt-in tags\n\nContinue reducing default log volume by routing per-operation lines to dedicated verbose tags that are muted in `short` mode:\n\n1. **Command registration**: `commands` → `commands-verbose` for setContext (~130/session) and command execution in CommandProvider\n2. **Output channels**: `grpc` → `output-verbose` for append/create events (200+ appends per boot from language servers)\n3. **Command registry**: `grpc` → `command-register` for register/unregister notifications (~100 commands/session)\n4. **Provider registration**: `grpc`/extensions → `grpc-verbose`/`provider-register` for duplicate provider registration logs\n5. **Extension scanning**: `extensions` → `ext-scan-verbose` for per-candidate package.json probes (203/session)\n6. **Scheme assets**: `lifecycle` → `scheme-assets` for per-asset vscode-file:// requests (worker/wasm/font loading)\n\nNew tags added to SHORT_MODE_MUTED_TAGS: output-verbose, command-register, provider-register, ext-scan-verbose, channel-stub, commands-verbose, scheme-assets.",
+			"SHA": "7d046f166e341789c3445eb14c727db2ed044a11"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:59:24Z",
+			"Date": "2026-04-24T20:37:22Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				778,
-				1
+				"⠁⠀⠀⠀⠀",
+				872,
+				23
 			],
-			"Message": "feat(Mountain): Expand provider registration handlers to full VS Code surface\n\nAdd missing provider type handlers in MountainVinegRPCService to match Cocoon's complete VS Code API shim. New handlers include:\n\n- Authentication, SCM, and resource label providers for extension auth/workspace\n- Full notebook support (notebook_content, notebook_serializer)\n- Advanced editing features (inline_edit, mapped_edits, multi_document_highlight)\n- Debug infrastructure (debug_adapter)\n- Remote workspace features (external_uri_opener, remote_authority_resolver)\n\nAlso adds corresponding ProviderType enum variants to the DTO mapping. The expansion from ~25 to 50+ provider types enables extensions that register these previously-unhandled providers (e.g., GitLens, live share, remote tunnels) to activate successfully.\n\nRefs: b71ab93f22e526a1a9cc961706c66040fd2a9be6",
-			"SHA": "cc8f2a07bd71e36d8eed04d5c377cf52eeeb7e64"
+			"Message": "refactor(Mountain): Reduce high-frequency log noise in default mode\n\nMove per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants that are muted in `short` mode:\n\n1. **DevLog infrastructure** (`DevLog.rs`):\n   - Add `SHORT_MODE_MUTED_TAGS` constant listing tags silenced by `short` mode\n   - Update `IsEnabled()` to respect muted list while preserving explicit tag overrides\n\n2. **gRPC layer** (`MountainVinegRPCService.rs`):\n   - Move per-request banners to `grpc-verbose`: receive, dispatch, params, completion\n   - Move latency timestamps to `rpc-latency` for profiling\n   - Extend 404 downgrade to both `FileSystem.ReadFile` and `FileSystem.Stat`\n   - Move notification receive banners to `grpc-verbose`\n\n3. **VFS operations** (all FileSystem handlers):\n   - Change `vfs` → `vfs-verbose` for stat/read/write/mkdir/delete/copy/move operations\n   - Per-path stat fires thousands of times during workbench boot\n\n4. **Storage operations** (`StorageProvider.rs`, `SecretProvider.rs`):\n   - Change `storage` → `storage-verbose` for updateItems, getAllStorage, setAllStorage\n   - Short-form storage logs also use `storage-verbose` for consistency\n\n5. **IPC routing** (`WindServiceHandlers/mod.rs`):\n   - Expand high-frequency skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme\n   - These fire thousands of times per session and add no signal beyond the IPC summary line\n\n6. **NLS scanning** (`Scanner.rs`):\n   - Change `extensions` → `nls` for NLS placeholder resolution and bundle loading\n\n7. **Tree latency** (`TreeView.rs`, `DispatchSideCarRequest.rs`):\n   - Change `grpc` → `tree-latency` / `grpc-verbose` for dispatch timing\n\nThis reduces default log volume from ~14k+ lines per session to ~500, while preserving full verbosity via `LAND_DEV_LOG=all` or explicit tag matching. The failure paths for each subsystem still log at the default level, so errors remain visible.",
+			"SHA": "9aa00458dcaa47d38fe44223376a186373386db0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:25:07Z",
+			"Date": "2026-04-24T16:45:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				778,
-				5
+				872,
+				4
 			],
-			"Message": "feat(Mountain): Wire tree-view children to extension host and add diagnostic tags\n\nImplement the full round-trip for tree-view data providers:\n1. Add `tree:getChildren` invoke handler in WindServiceHandlers - allows Wind/Sky UI to request tree children directly without waiting for Cocoon to ask first\n2. Wire GetTreeChildren gRPC in TreeView.rs to forward requests to the `$provideTreeChildren` handler in Cocoon, returning actual TreeItem data instead of empty stub\n3. Add viewId→handle hashing to match RegisterTreeViewProvider's provider lookup\n\nAlso add two new diagnostic tags per the Batch 3 logging spec in DevLog.rs:\n- `scheme-assets`: logs vscode-file:// request routing, MIME type, byte size\n- `ext-scan`: logs extension scanner accept/skip decisions with is_builtin flag and skip reasons\n\nThese tags catch the subsystems new traffic passes through so regressions surface as silent tag counts going to zero. Extension tree views (GitLens, SCM, debug, tasks) now render with data from providers instead of appearing empty.",
-			"SHA": "b71ab93f22e526a1a9cc961706c66040fd2a9be6"
+			"Message": "feat(Mountain): Expand trusted paths and add exec-bit magic-number detection\n\nThree complementary improvements for extension runtime reliability:\n\n1. **Extended trusted paths** (`PathSecurity.rs`):\n   - Add `/tmp`, `/private/tmp`, `/var/tmp` for language servers (ruby-lsp, pyright, etc.)\n   - Add third-party tool state: `~/.gitkraken`, `~/.gk`, `~/.copilot`, `~/.config/git`\n   - Add read-only POSIX OS files (`/etc/os-release`, `/proc/*`, etc.)\n\n2. **Magic-number executable detection** (`VsixInstaller.rs`):\n   - Enhance extraction to probe file headers for ELF, Mach-O fat/thin, and shebang\n   - Detect bin paths (`bin/`, `server/`, `tools/`, `omnisharp`, `adapter`, `native`)\n   - Promote 0o644 → 0o755 for detected executables, fixing EACCES on spawn\n   - Add `HealExecutableBits()` to retroactively fix pre-existing installs\n\n3. **Boot-time exec-bit heal** (`Scanner.rs`):\n   - Walk user extensions (`~/.land/extensions/`) at scan time\n   - Apply same heuristic to recover extensions installed before the fix\n\n4. **Benign ENOENT** (`DevLog.rs`):\n   - Add vim registers, globalStorage probing, chat editing sessions\n\nThese changes unblock extension binaries (rust-analyzer, GitLens, Copilot) that were failing with EACCES due to missing exec bits.",
+			"SHA": "713fc89729f6f995808d00db9ca625cdfc93f906"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:00:37Z",
+			"Date": "2026-04-24T15:07:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				778,
+				872,
 				2
 			],
-			"Message": "",
-			"SHA": "0d061de2fe103d84efa38c8c494c45d1fffaf853"
+			"Message": "feat(Mountain): Add trusted system paths bypass and idempotent VSIX installs\n\nImplement two related extension-management improvements:\n\n1. **Trusted system paths** (`PathSecurity.rs`): Add `IsTrustedSystemPath` that defines directories Land owns (`.land/`, Application Support, bundled extension roots, TMPDIR) which bypass the workspace-folder sandbox check. Without this, the extension scanner's read of `~/.land/extensions` was rejected as \"outside workspace\" - user-installed VSIXes never reached the Extensions sidebar.\n\n2. **Idempotent VSIX reinstalls** (`VsixInstaller.rs`): Remove `AlreadyInstalled` error and instead treat re-installs as no-op when the target already exists with a readable manifest. Matches VS Code's semantics and prevents the renderer crash where `ExtensionsWorkbenchService` dereferences a null result. Corrupt/partial installs are wiped and re-extracted.\n\nBoth changes unblock the extension loading pipeline.",
+			"SHA": "e49563563641f0491ec4cb23c2ea1809d455feea"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:00:37Z",
+			"Date": "2026-04-24T14:49:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				778,
-				7
+				872,
+				2
 			],
-			"Message": "feat(Mountain): Add Git service handlers and expand diagnostic instrumentation\n\nThree major additions to Mountain's diagnostic and service capabilities:\n\n1. **Git service handlers** (`WindServiceHandlers/Git.rs`): Implement the full `localGit` channel mirroring VS Code's `ILocalGitService` API - clone, pull, checkout, revParse, fetch, revListCount, cancel, exec, and isAvailable. Uses process PIDs for cancellation (SIGTERM on Unix, taskkill on Windows) and logs all operations under the existing `git` tag.\n\n2. **SkyEmit instrumentation** (`SkyEmit.rs`): New `LogSkyEmit` wrapper around `tauri::Emitter::emit` that logs every Mountain→Wind/Sky emit under the `sky-emit` tag. Records channel name, payload bytes, and ok/fail status. Enables traffic-volume auditing via `LAND_DEV_LOG=sky-emit`.\n\n3. **Provider registration expansion** (`MountainVinegRPCService.rs`): Extend the register_* notification handler from 8 to 34+ provider types - debug_configuration, text_document_content, folding_range, document_link, code_lens, selection_range, document_range_formatting, debug_adapter, rename, file_system, uri_handler, document_paste_edit, task, signature_help, semantic_tokens, document_highlight, workspace_symbol, on_type_formatting, inlay_hints, document_drop_edit, color, type_hierarchy, type_definition, notebook_serializer, linked_editing_range, implementation, terminal_profile, terminal_link, inline_values, inline_completion_item, file_decoration, external_uri_opener, declaration, call_hierarchy. Also extracts and logs the scheme for scheme-bound providers, and includes options in the DTO.\n\nPlus: Flexible `RenderDevLog` command now accepts both PascalCase (Tag/Message) and snake_case (tag/message) params, supporting any JS caller convention.",
-			"SHA": "de6e0f842ce46f14a18508dc143e2a456644f76f"
+			"Message": "chore(Mountain): Add payload preview to notif-drop logging and register benign ENOENT paths\n\nTwo logging improvements for Mountain's developer diagnostics:\n\n1. **Notif-drop payload preview**: When a notification falls through to the Cocoon event handler, include a truncated payload preview (160 bytes max) in the dev log. This helps diagnose which new upstream notifications are reaching the catch-all without needing a second debug run.\n\n2. **Benign ENOENT paths**: Register additional file paths that commonly return ENOENT but aren't errors:\n   - MCP config files (.vscode/mcp.json, .mcp.json)\n   - User snippets and keybindings (/User/snippets, /User/keybindings.json)\n   - AI-generated workspace storage (aiGeneratedWorkspaces.json)\n   - Git config for non-repo folders (/.git/config)\n\nThese paths reduce noise in dev logs while preserving signal for genuine file-access issues.",
+			"SHA": "f1de83d594ad1a3f7c893f0ecbf92581f8029abb"
 		}
 	],
-	"TimeStamp": 1778513344098
+	"TimeStamp": 1778683910533
 }

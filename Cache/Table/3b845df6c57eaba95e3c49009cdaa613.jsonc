@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T13:44:43Z",
+			"Author": "Auto",
+			"Date": "2026-05-11T02:44:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "fix(comments): add missing periods and rewrite tautological //! in ServiceError\n\n- Replace tautological second sentence in //! with a precise\n  description of the failure domains: service discovery, lifecycle\n  transitions (start, stop, already-running, not-running),\n  operation timeout, and dependency resolution failures.\n- Add missing sentence-final period to every /// doc comment:\n  - enum-level doc\n  - all 8 variant docs\n  - all 8 method docs (context, service_not_found,\n    initialization_failed, already_running, not_running,\n    start_failed, timeout, dependency_error)",
-			"SHA": "19f4987eadc7e2c5dd0666ec4888c623da88c6e0"
+			"Message": "",
+			"SHA": "48d8f0a267819c656ffb6700f5f6b256da744f18"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T13:44:16Z",
+			"Date": "2026-05-10T20:59:03Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "fix(comments): add missing periods and rewrite tautological //! in ProviderError\n\n- Replace the weak //! module doc (\"Used for all provider related\n  errors (DocumentProvider, FileSystemProvider, etc.)\") with a\n  precise description of the failure domains: provider registration,\n  initialization, method dispatch, configuration validation,\n  operation timeout, and availability.\n- Add missing sentence-final period to every /// doc comment:\n  - enum-level doc\n  - all 6 variant docs\n  - all 7 method docs (context, provider_not_registered,\n    initialization_failed, method_not_implemented,\n    invalid_configuration, timeout, unavailable)",
-			"SHA": "55484630bab1e5f0dbfb2024c7680d79e1f6e0ca"
+			"Message": "fix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with an early error return\n\nThe `$resolveCustomEditor` arm contained:\n\n    let resource_uri = Url::parse(resource_uri_str)\n        .unwrap_or_else(|_| Url::parse(\"file:///tmp/test.txt\").unwrap());\n\nThe `unwrap_or_else` silently swallowed a malformed or missing URI and\nsubstituted the hardcoded test path `file:///tmp/test.txt`. Two\nconsequences:\n\n  1. A caller that passes an empty or invalid URI (e.g., an extension\n     registering a custom editor for a virtual scheme that Mountain\n     does not yet translate) receives a resolved result for\n     `/tmp/test.txt` instead of an error. The provider's\n     `ResolveCustomEditor` then opens or creates that file, which:\n     - Leaks a sentinel file to the OS tmp directory on every\n       such call.\n     - Returns success to Cocoon, which treats the editor as\n       resolved. The extension's `openCustomDocument` never fires\n       for the real resource, and the editor panel stays empty.\n\n  2. The fallback URI makes the log completely undiagnosable: every\n     failed resolve shows `resource=file:///tmp/test.txt` regardless\n     of what the caller sent, masking the real resource path.\n\nFix: return an `Err` immediately when the URI is empty or fails to\nparse. The error string is deliberately plain (no `resource not\nfound` suffix) because a malformed URI is a caller contract violation,\nnot a benign 404 probe - it should surface at error level in the\n`grpc` log and NOT be swallowed by `LooksLike404`.",
+			"SHA": "8b3f1a90730370b689d1269d924f04f906624966"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T13:43:49Z",
+			"Date": "2026-05-10T20:57:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "fix(comments): add missing periods and rewrite tautological //! in IPCError\n\n- Replace tautological second sentence in //! with a precise\n  description of the failure domains: connection establishment,\n  message send/receive, format validation, operation timeout,\n  permission checks, service availability, and queue capacity.\n- Add missing sentence-final period to every /// doc comment:\n  - enum-level doc\n  - all 8 variant docs\n  - all 6 method docs (context, connection_failed, message_send_failed,\n    timeout, permission_denied, service_unavailable)",
-			"SHA": "1f9bc128e963144a1ed09593b68c9eee7962ddc8"
+			"Message": "Merge pull request #46 from CodeEditorLand/fix/TVIEW-unreg-dispose-emit\n\nfix(TVIEW): wire tree.unregister + tree.dispose to provider; emit TreeViewDispose",
+			"SHA": "22734234c478e2281666ae644675fcab1aece7f7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T13:43:25Z",
+			"Date": "2026-05-10T20:54:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "fix(comments): add missing periods and rewrite tautological //! in FileSystemError\n\n- Replace tautological second sentence in //! with a precise\n  description of the failure domains covered: not-found, permission\n  denial, raw I/O failures, invalid paths, directory state, and\n  file/directory type mismatches.\n- Add missing sentence-final period to every /// doc comment:\n  - enum-level doc\n  - all 8 variant docs\n  - all 6 method docs (context, file_not_found, permission_denied,\n    io_error, invalid_path, path)",
-			"SHA": "582eafbacb86fa89a77e7c586dc09ab0807c7798"
+			"Message": "fix(TVIEW): wire tree.unregister + tree.dispose to provider + emit TreeViewDispose\n\n`tree.unregister` / `tree.dispose` were no-ops: the effect body\nlogged the handle but never called the provider and never emitted a\nSkyEvent. The consequence:\n\n  - Provider registry in `Sky/Source/TreeView/TreeViewService.ts`\n    kept the `_dataProvider` slot live after the extension called\n    `vscode.window.registerTreeDataProvider(...).dispose()`. A\n    subsequent re-registration from the same extension (reload,\n    update) produced a duplicate registration warning from Sky and\n    the new provider was ignored.\n\n  - `getChildren()` calls on a disposed tree continued to hit the\n    old provider pointer, producing stale results or panics if the\n    provider had been GC'd from the Cocoon side.\n\nFix: call `provider.UnregisterTreeDataProvider(view_id)`, emit\n`SkyEvent::TreeViewDispose` (parity with the register arm's\n`TreeViewCreate`), and log both outcomes under the same `tree-view`\nand `grpc` tags used by the register arm.",
+			"SHA": "90a62cdda4de6b6184a0e80498676c96d39f3f4d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T13:40:13Z",
+			"Date": "2026-05-10T20:51:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "fix(comments): replace mixed file/module path notation with Rust module path in LandFixTier\n\nPass 5 — Source/LandFixTier.rs\n\n- Two occurrences of `Binary/Main/Entry::Fn` mixed `/` (file-system\n  path separator) with `::` (Rust module path separator) inside\n  prose comments. The correct Rust module path is\n  `Binary::Main::Entry::Fn` throughout.\n- One occurrence in the //! module doc (\"Call Site\" section).\n- One occurrence in the /// function doc.",
-			"SHA": "fdb3fafc64d870c29cec1880f8aabad481c26221"
+			"Message": "fix(FSSRV): add empty-path guard + URI strip to Stat, ReadDirectory, ReadFile\n\nFileSystem.Stat and FileSystem.ReadDirectory had no empty-path guard,\nunlike FileSystem.ReadFile which already had one (added in the\n`LooksLike404` classifier batch). An extension passing an empty string\nto `vscode.workspace.fs.stat` or `readDirectory` (probe-on-activate\npattern) hit PathBuf::from(\"\") which:\n  - On Stat: reached the OS with an empty path and returned a\n    platform-dependent error string that did NOT match any of the eight\n    known \"not found\" patterns in MountainVinegRPCService, so the\n    LooksLike404 guard logged it at grpc/error and incremented the\n    circuit-breaker counter.\n  - On ReadDirectory: same failure path, plus PathSecurity could emit\n    \"path outside workspace\" which was previously only guarded on the\n    ReadFile arm.\n\nFix: mirror the ReadFile guard verbatim on both Stat and ReadDirectory.\nThe \"resource not found\" suffix in the error string is the canonical\nkey the LooksLike404 classifier matches on, so these errors now\ndowngrade to grpc-verbose and use code -32004 like ReadFile does.\n\nStripFileUriScheme is already called on the path_str in both arms;\nthis commit makes that call consistent - the strip was missing on\nReadDirectory before the empty-path branch was added, leaving\nfile:///absolute/path inputs reaching the OS with the scheme intact\nand 404-ing with a literal \"file:\" prefix in the error.",
+			"SHA": "701563143aa3d55befc5f0b1adc173057a1dc30c"
 		}
 	],
-	"TimeStamp": 1778513323557
+	"TimeStamp": 1778683890186
 }

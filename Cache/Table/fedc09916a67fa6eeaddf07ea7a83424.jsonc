@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T21:27:11Z",
+			"Date": "2026-04-29T17:42:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
+			],
+			"Message": "fix(Mountain): Defer sky://terminal/create event to fix race condition\n\nThe terminal workbench's `LocalTerminalBackend.createProcess` flow has a timing vulnerability: when `sky://terminal/create` emits synchronously during step 1 (RPC in-flight), the Tauri event arrives before step 3 (`_ptys.set(id, pty)`) completes. This causes `_ptys.get(id)` to return `undefined`, skipping `handleReady` and preventing `processManager._onProcessReady` from firing. Since `ptyProcessReady` never resolves, every subsequent `processManager.write(data)` call hangs indefinitely—users see the terminal panel but all keystrokes are silently dropped.\n\nFix by emitting on a deferred tokio task with a 120ms delay, giving the RPC response roundtrip + `_ptys.set` sufficient headroom. Also switch to `LogSkyEmit` for visibility under `[DEV:SKY-EMIT]` histogram tracking.\n\nThis complements the existing `AppendTerminalOutput` replay buffer for data (added in c99ccbe), completing the terminal race-condition fix for both create and data events.",
+			"SHA": "c2d0beca968f600d76ac4d85a436931124cfdf07"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T17:20:13Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
+			],
+			"Message": "fix(Mountain): Return integer id from localPty:createProcess\n\nThe VS Code terminal workbench expects `IPtyService.createProcess` to return a `Promise<number>` (the integer terminal id). However, Mountain was returning the full `{id, name, pid}` object. The workbench then keys its internal `_ptys` map by that object, so every `_ptys.get(<integer>)` lookup from `onProcessData`/`onProcessReady` returns `undefined`. This causes xterm to receive zero bytes even though Mountain's PTY reader emits data continuously—resulting in blank terminal panels.\n\nSplit the terminal handler into three distinct paths:\n- `localPty:spawn`: Preserves full response for Cocoon's Sky bridge\n- `localPty:createProcess`: Returns only the integer id per VS Code contract\n- `localPty:start`: No-op for eager-spawn pattern (shell already started during createProcess)\n\nThis fixes the terminal rendering while maintaining backward compatibility with existing spawn callers.",
+			"SHA": "c99ccbe7715342838206eb2c54509fa3a97f513f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T16:59:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				859,
 				2
 			],
-			"Message": "feat(Mountain): Add cocoon:notify handler and webview notification channels\n\nAdd a new `cocoon:notify` IPC handler as a fire-and-forget companion to the existing `cocoon:request` bridge. This handles one-way wire methods (webview.message, webview.dispose, webview.viewState, etc.) where the extension host doesn't reply, avoiding the 30s request timeout penalty when the renderer just wants to push data into Cocoon.\n\nAlso extend the webview notification relay in MountainVinegRPCService to handle `webview.updateView` and `webview.reveal` in addition to the existing setTitle, setIconPath, and setHtml. These new channels route through the WebviewLifecycle notification handler for proper translation to Sky's kebab-case channel registry.\n\nThis completes the one-way communication path complementing the request/response RPC bridge added in the prior commit.",
-			"SHA": "c3883463d357d421647827bc32d7e8435cf36d48"
+			"Message": "refactor(Mountain): Simplify binary and product names\n\nRename the Mountain binary, library, and default-run targets from the verbose development profile name to simply \"Mountain\". This follows the project's PascalCase naming convention and removes the debug build artifact naming.\n\nIn tauri.conf.json, simplify the identifier from the lengthy development-specific string to \"land.editor.binary\" and the productName from the long debug name to \"Mountain\". Also remove the duplicate \"Binary/node\" entry from externalBin.\n\nThese changes clean up the build configuration for proper release builds while maintaining the same functionality.",
+			"SHA": "db5f0f7bc58c4108ea4f51ec3ac0d30bb008def3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T21:02:53Z",
+			"Date": "2026-04-29T16:55:25Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				3
+			],
+			"Message": "",
+			"SHA": "f2b5c349377b143b33dab188478a947d77522a46"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T05:16:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				859,
 				1
 			],
-			"Message": "fix(Mountain): Translate webview.setHtml to kebab-case for Sky channel alignment\n\nAdd suffix mapping in WebviewLifecycle to convert VS Code's camelCase\nwire format (`setHtml`) to Sky's canonical kebab-case channel registry\n(`set-html`). The translation happens before emitting so events like\nHTML assignment correctly route to sky://webview/set-html where Sky's\nlistener expects them. Other methods pass through unchanged since\nSky uses camelCase for setTitle and setIconPath.\n\nThis follows the event channel corrections in the prior commit that\naligned Terminal, Debug, StatusBar, Progress, and Output channels.",
-			"SHA": "728ab19ea1e973ad206d97d450e44ab69ab15ee4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T20:53:06Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				1
-			],
-			"Message": "feat(Mountain): Add cocoon:request IPC handler for extension host RPC bridge\n\nIntroduce a generic renderer→Cocoon RPC bridge in WindServiceHandlers to allow Sky-side bridges (e.g., webview.resolveView) to dispatch requests into the extension host.\n\nThe handler accepts params in the shape `[Method, Payload]`, forwards the request to Cocoon via `Vine::Client::SendRequest` with a 30s timeout, and returns the response verbatim. On failure, it returns a stringified error so the renderer can fall back to its alternative path (CustomEvent fan-out for legacy observers).\n\nThis enables extension callbacks like `resolveWebviewView` to flow through Mountain's IPC layer rather than requiring separate channel registrations for each bridge type.",
-			"SHA": "4044ae0a4523b3c5369965aa3b380fb030ce482a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T19:54:02Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				5
-			],
-			"Message": "feat(Mountain): Implement debug session tracking and DAP adapter spawning\n\nAdd DebugSessionEntry struct and DebugSessions map to DebugState for lifecycle management of active debug sessions. Implement StartDebugging to spawn executable adapters (node, chrome, etc.) with stdin/stdout/stderr pipes, parse DAP frames from adapter stdout, and emit messages on `sky://debug/dap-message`. Implement SendCommand to route DAP requests to the spawned adapter's stdin or fall back to reverse-RPC for inline-implementation adapters. Implement StopDebugging to send DAP disconnect and unregister the session.\n\nAlso implement OnSaveCustomDocument in CustomEditorProvider to reverse-RPC to the extension sidecar via `$onSaveCustomDocument`, replacing the stub.\n\nFix char-aware truncation in WindServiceHandlers and OutputChannelAppend to avoid panics when slicing multi-byte UTF-8 codepoints (e.g., `•` in SCM progress messages).",
-			"SHA": "0b6ac619c4e7e5af9b04d1cd45731dbdd4959176"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T15:54:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				4
-			],
-			"Message": "fix(Mountain): Fix workspace boot seeding from recently-opened list and SCM handle alignment\n\nTwo issues addressed in this commit:\n\n1. **Recently-opened workspace fallback (CliParse.rs)**\n   The webview's initial URL is built from `~/.land/workspaces/RecentlyOpened.json`'s top entry (see `Binary/Build/WindowBuild.rs::BuildInitialUrl`), but Mountain's boot-time seeder previously fell straight through to CWD walk-up. This caused a mismatch: webview title said \"Mountain\" while Cocoon's init payload shipped \"Land\", vscode.git scanned the wrong root, and the SCM panel reported zeros despite uncommitted changes in the actual folder.\n\n   Add a fallback that probes the same source of truth as `BuildInitialUrl`, slotting it between env/CLI (explicit user intent) and CWD walk-up (last resort).\n\n2. **SCM provider handle alignment (3 files)**\n   Mountain was allocating new handles via DJB hash while Cocoon uses sequential handles from `ScmNamespace.ts`. When `UpdateSourceControlGroup` arrived with Cocoon's sequential handle, the lookup in Mountain's marker map failed because it was keyed by the hash instead.\n\n   - Honor caller-supplied `Handle` in `CreateSourceControl` (SourceControlManagementProvider.rs)\n   - Pass the same `Handle` through to `CreateData` in RPC/CocoonService/SCM.rs\n   - Include `handle` on the wire in Vine notification (RegisterScmProvider.rs)\n\nThis ensures all three components key their marker maps under the same identifier, allowing group updates to reach the SCM viewlet correctly.",
-			"SHA": "c6897f8464e700b43fbece81e2be179d6e418623"
+			"Message": "docs(Mountain): Rework CHANGELOG to prose format, add v2.2 section\n\nRestructure the Mountain CHANGELOG from itemized bullet points to narrative prose paragraphs, improving readability while preserving all historical content. Add new v2.2 section documenting bundled-electron correctness pass including: JSON-RPC -32004 for benign 404s, deferred-no-op file watching, canonical-path comparison for Volumes mounts, Identifier field on SCM provider DTO, sky:replay-events handler, 64KB terminal ring buffer, and tree:getChildren timeout reduction.\n\nThe new format emphasizes user-facing impact over file references, making it more useful for release notes and external communication.",
+			"SHA": "9515b2f72adf9866c58023f42f52630759ffa3da"
 		}
 	],
-	"TimeStamp": 1778513340451
+	"TimeStamp": 1778683907077
 }

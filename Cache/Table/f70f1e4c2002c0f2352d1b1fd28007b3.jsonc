@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T17:01:08Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				28,
+				5
+			],
+			"Message": "feat(Project): Coordinate performance optimization and diagnostic instrumentation\n\nThree coordinated changes eliminate ~156 unnecessary Tauri IPC round-trips per editor boot and add comprehensive diagnostic capabilities:\n\n- **Performance (Wind/Output):** Add no-op IPC stubs for telemetryAppender (155 calls/boot) and mcpGalleryManifest (1 call/boot). These channels were falling through to Rust invoke with undefined handlers, adding latency to every editor startup. Stubs short-circuit in the TypeScript layer.\n\n- **Diagnostics (Mountain):** Add Git service handlers implementing the full localGit channel (clone, pull, checkout, revParse, fetch, etc.). Add SkyEmit instrumentation logging all Mountain→Wind/Sky emits under the sky-emit tag. Expand provider registration from 8 to 34+ types with scheme extraction.\n\n- **Diagnostics (Sky):** Track cel:* CustomEvent listener registration via document.addEventListener patching. Log consumer-present flag on every dispatch to identify orphan events (Mountain emits but no workbench listener). These are F1.1 indicators where features silently fail.\n\nImpact: Editor startup latency reduced by eliminating ~156 IPC round-trips. Developers can now audit SkyEmit traffic via LAND_DEV_LOG=sky-emit and identify dead event routes via cel-dispatch consumer-present=false.",
+			"SHA": "0e69949349f5d303288bef0ea1eac5a5970bc2cf"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:57:54Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "feat(Project): Add unified dev-log forwarding from Wind/Sky/Cocoon to Mountain\n\nCoordinate logging infrastructure across Mountain, Output, and Wind to enable filtered dev logging in a single file. Three related changes:\n\n- **Mountain**: Add `RenderDevLog` Tauri command that bridges TypeScript-side tagged logs into Mountain's `dev_log!` file sink. Also add five diagnostic tags (`notif-drop`, `provider-register`, `channel-stub`, `git`, `tree-view`) to isolate architectural gaps during debugging.\n\n- **Output**: Add `_DevLogForward` helper to TauriMainProcessService that mirrors IPC channel routing decisions into Mountain's dev-log. Logs channel name, command, route prefix, and hit/miss status in three code paths: fire-and-forget, stub hits, and misses.\n\n- **Wind**: Add `_DevLogForward` helper mirroring tagged log lines via `RenderDevLog` command, integrated into TauriChannel's three code paths.\n\nThis enables `LAND_DEV_LOG=<tag> tail -f Mountain.dev.log` to capture both TypeScript and Rust logs together, providing complete visibility into extension host integration issues.\n\nImpact: Developers can now filter by subsystem (e.g., `LAND_DEV_LOG=git,tree-view`) and see the full picture of a session in one file rather than cross-referencing browser console and log file.",
+			"SHA": "3ea53ff0555b7a38ed28c6af82980f1b66d7e2a8"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T15:35:36Z",
 			"File": [
 				"⣿⣿⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, not the flat structure the scanner was expecting. This caused all extensions to appear as 'unknown' with empty names/publishers.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures @builtin/@installed extension split works correctly in the sidebar.",
 			"SHA": "0a994328767963658121b9a37c38ca896ef7819a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:20:51Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "fix(Project): Coordinate extension scanning and file URI handling fixes\n\nThree related fixes improve extension host integration:\n\n- **Mountain:** Add `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes from URIs before creating PathBuf. Applies to all 8 FileSystem operations (ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, Copy). This fixes redhat.java extension activation failure with \"Resource not found: file:///...\" errors.\n\n- **Output:** Separate system and user extension scanning in ExtensionScannerIPC. Now calls `extensions:scanSystemExtensions` for ForceBuiltin=true and `extensions:scanUserExtensions` for ForceBuiltin=false. Previously all extensions were hardcoded as builtin, causing user VSIXes to appear under @builtin in the sidebar. Also implements the stubbed `scanUserExtensions()` method.\n\n- **Cocoon:** Minor submodule sync.\n\nImpact: User-installed extensions now appear under \"Installed\" (not \"Built-in\") and file operations correctly resolve paths from gRPC FileSystem calls.",
-			"SHA": "3b8390aef4f7de9ea413273d2829f52b1a8bc17c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:40:14Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "fix(Wind): Align FileSystemProviderError names with VS Code's token format\n\nWind's FileSystemErrorCode uses key-like values ('FileNotFound', 'FileExists'), but VS Code's toFileSystemProviderErrorCode extracts the token from error.name and switches on 'EntryNotFound', 'EntryExists', etc. Add a mapping function VsCodeErrorCodeToken to translate between the two formats. Also set this.name to the '<code> (FileSystemError)' pattern that VS Code's markAsFileSystemProviderError() expects. Remove individual name assignments from subclasses since the base class now handles naming.\n\nWithout this fix, mkdirp and validateWriteFile treat missing-file/dir errors as unknown and rethrow, surfacing as unhandled rejections like 'Unable to write file .../tasks.log (Error: Failed to stat file ...)'.\n\nThis is a coordinated update with Cocoon (submodule sync).",
-			"SHA": "1a7667bfc7b1461b709cc31a642cd76a71431b93"
 		}
 	],
-	"TimeStamp": 1778513326277
+	"TimeStamp": 1778683905626
 }

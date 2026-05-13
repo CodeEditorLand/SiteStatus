@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T00:07:51Z",
+			"Date": "2026-05-02T04:56:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
-				3
+				940,
+				5
 			],
-			"Message": "refactor(Mountain): Standardize IPC variable and identifier names to PascalCase\n\nComplete the project-wide naming convention migration by renaming all local variables and parameter identifiers in the IPC layer (`Connection/Manager.rs`, `TauriIPCServer.rs`, `TauriIPCServer/Server.rs`) from camelCase to PascalCase.\n\nRename `handle` → `Handle`, `message` → `Message`, `app_handle` → `app_handle` (struct field remains, local param updated to `AppHandle` where applicable), and generic error bindings like `e` → `Error` in documentation and code comments. Update all associated doc strings, example code blocks, and logging statements to reflect these changes. Also normalize terminology in comments (e.g., 'message' → 'Message', 'router' → 'Router') to align with the strict PascalCase convention specified in CLAUDE.md for all identifiers, including local variables within `impl` blocks and test modules.\n\nThis refactor ensures consistent code style across the Mountain backend IPC subsystem without altering any runtime logic or data flow.",
-			"SHA": "e2f06c0d52af54f8abe630eacded288a29f29433"
+			"Message": "refactor(Mountain): Enforce PascalCase paths in Effect module tree\n\nUpdate the `Track::Effect` module to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `CreateEffectForRequest/mod.rs`, rename the exported function from `CreateEffectForRequest` to `Fn` to match the import pattern used in `DispatchFrontendCommand` and other callers. In `mod.rs`, remove legacy `pub use` re-exports and the `pub mod` exposure pattern that allowed flat imports. Replace them with an explicit `#![allow(non_snake_case)]` directive and documentation comments.\n\nThis enforces that callers must spell out the full double-segment paths (e.g., `Track::Effect::CreateEffectForRequest::Fn`). This structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names, ensuring consistency across the Mountain crate and resolving potential symbol resolution issues in the IPC layer.\n\nAdditionally, format function signatures in `Keybinding.rs` and `NativeHost.rs` to single lines and expand comments in `Webview.rs` for clarity.",
+			"SHA": "79ccc6e73929c310801a2bb948723eeeb689f471"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T00:07:11Z",
+			"Date": "2026-05-02T04:37:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
-				4
-			],
-			"Message": "perf(Mountain): Deduplicate FS watchers and single-flight directory walks\n\nReduce kernel resource exhaustion and redundant I/O during extension boot by implementing deduplication strategies in the native environment layer.\n\nIn `FileWatcherProvider`, introduce a deduplication index keyed by `(root, recursive, pattern)` to prevent multiple extensions from spawning duplicate `notify::Watcher` instances for identical paths. Aliased handles now share the primary OS watcher, with events fanned out to all subscribers in the forwarder task.\n\nIn `WorkspaceProvider`, implement a single-flight registry for `findFiles` operations. Concurrent requests for the same search key now await a single filesystem walk leader rather than re-walking the tree, fixing the race condition where cache misses occurred before the leader populated the cache.\n\nIn `ConfigurationProvider`, add a 250ms in-memory cache for parsed `settings.json` files to eliminate redundant disk reads triggered by the `InspectConfigurationValue` handler. Invalidate the cache immediately upon configuration updates.\n\nThese changes significantly lower IPC saturation and CPU usage during the high-load extension activation phase.",
-			"SHA": "44851c1cd73bfdaa2a743295959359a05e11a082"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T23:48:12Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				868,
-				53
-			],
-			"Message": "refactor(Mountain): Rename IPC handler bindings to PascalCase\n\nComplete the PascalCase migration started in the previous commit by renaming all local identifiers in WindServiceHandlers to match the project convention: runtime → RunTime, args → Arguments, app_handle → ApplicationHandle, and error bindings such as e → Error. Update doc comments and JSON field names that referenced the old identifiers.\n\nAlso fix a boot-time URI normalization bug in BuildInitialUrl: RecentlyOpened.json stores workspace URIs with a trailing slash (file:///.../Mountain/). Strip it before URL-encoding the folder path so that workbench-side URI.revive produces a folder URI matching URI.from, which never carries a trailing slash on the parent directory. The mismatch caused IUriIdentityService.extUri.relativePath to return absolute paths, making breadcrumbs, quick-pick, and Problems-panel labels render full /Volumes/... paths instead of the workspace-relative short form.",
-			"SHA": "fd28a7bd6076ee9b112d8a1d8b5301c11b75bfc9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T23:02:00Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
+				940,
 				2
 			],
-			"Message": "perf(Mountain): Batch decoration and progress emits to reduce IPC load\n\nExtend the 16ms coalescing strategy to two additional high-frequency Vine notification handlers, following the `CommandEmitBatch` pattern established for command registration.\n\n`DecorationTypeLifecycle`: Extension activation generates ~650 create/dispose calls per session, mostly registering syntax-highlight decorations. Previously each call fired an individual Tauri event on `sky://decoration/<suffix>`. Add `DecorationEmitBatch`, grouping payloads by channel and emitting a single `{ batch: [...] }` per channel per 16ms frame. SkyBridge demultiplexes these back into individual `cel:decoration:*` CustomEvents.\n\n`ProgressReport`: The git extension alone fires 6000+ `progress.report` calls per session during repository scans. Add `ProgressEmitBatch`, accumulating per-handle `increment` deltas and keeping the latest non-empty `message` over a 16ms window. Each progress handle receives one coalesced update per frame preserving the same final cumulative state, instead of dozens of individual emits.\n\nBoth use `OnceLock`-initialised static singletons with atomic flush scheduling to prevent duplicate timer tasks. This keeps the shared WKWebView IPC channel clear for keystrokes during extension boot and repository scanning when the renderer is most busy.",
-			"SHA": "644b96ee46ecc92796e2b34d2dcce2dc1c9be91f"
+			"Message": "refactor(Mountain): Enforce PascalCase paths in FrontendCommand module\n\nUpdate the `Track::FrontendCommand` module to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `DispatchFrontendCommand.rs`, correct the `CreateEffectForRequest` import to use the full PascalCase path with explicit function aliasing (`CreateEffectForRequest::Fn as CreateEffectForRequest`), replacing the previous shorthand segment. In `mod.rs`, remove legacy `pub use` re-exports and the `pub mod` exposure pattern that allowed flat imports. Replace them with an explicit `#![allow(non_snake_case)]` directive and documentation comments.\n\nThis enforces that callers must spell out the full double-segment paths (e.g., `Track::FrontendCommand::DispatchFrontendCommand::DispatchFrontendCommand`). This structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names, ensuring consistency across the Mountain crate and resolving potential symbol resolution issues in the IPC layer.",
+			"SHA": "f787dbac9124b94e804a27a4f09f0a1e8f96179f"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-05-01T02:40:30Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T04:36:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
-				1
+				940,
+				2
 			],
-			"Message": "",
-			"SHA": "51d4bddbf442268c76e36e70ef9e176c98fe2c3b"
+			"Message": "refactor(Mountain): Enforce PascalCase paths in SideCarRequest module\n\nUpdate the `Track::SideCarRequest` module to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `DispatchSideCarRequest.rs`, correct the `CreateEffectForRequest` import to use the full PascalCase path with explicit function aliasing (`...::Fn as CreateEffectForRequest`), replacing the previous shorthand segment. In `mod.rs`, remove legacy `pub use` re-exports and the `pub mod` exposure pattern that allowed flat imports. Replace them with an explicit `#![allow(non_snake_case)]` directive and documentation comments.\n\nThis enforces that callers must spell out the full double-segment paths (e.g., `Track::SideCarRequest::DispatchSideCarRequest::DispatchSideCarRequest`). This structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names, ensuring consistency across the Mountain crate and resolving potential symbol resolution issues in the IPC layer.",
+			"SHA": "c4ab28097b9afc457565397f135757d98325a6aa"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T04:35:38Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				940,
+				2
+			],
+			"Message": "refactor(Mountain): Enforce PascalCase paths in Track UIRequest module\n\nUpdate the `Track::UIRequest` module tree to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `Source/Track/UIRequest/ResolveUIRequest.rs`, correct the `ApplicationState` import to use the full PascalCase path `ApplicationState::State::ApplicationState::ApplicationState`, replacing the previous shorthand segment.\n\nIn `Source/Track/UIRequest/mod.rs`, remove legacy `pub use` re-exports and the `pub mod` exposure pattern that allowed flat imports. Replace them with an explicit `#![allow(non_snake_case)]` directive and documentation comments. This enforces that callers must spell out the full double-segment paths (e.g., `Track::UIRequest::ResolveUIRequest::ResolveUIRequest`).\n\nThis structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names, ensuring consistency across the Mountain crate and resolving potential symbol resolution issues in the IPC layer.",
+			"SHA": "bb67ad30ba8ab521d6c11f7b64c3703cbeb70f71"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T04:24:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				940,
+				3
+			],
+			"Message": "refactor(Mountain): Enforce PascalCase paths in Track module imports\n\nUpdate the `Track` module tree to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `Source/Track/Webview/MountainWebviewPostMessageFromGuest.rs`, correct the `ApplicationState` import to use the full PascalCase path `ApplicationState::State::ApplicationState::ApplicationState`, replacing the previous snake_case segment.\n\nIn `Source/Track/Webview/mod.rs` and `Source/Track/mod.rs`, remove legacy `pub use` re-exports and snake_case module declarations. Replace them with explicit `#![allow(non_snake_case)]` directives and comments documenting that callers must spell out the full double-segment paths (e.g., `Track::UIRequest::ResolveUIRequest::ResolveUIRequest`). This structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names.\n\nThis ensures consistency across the Mountain crate and resolves potential symbol resolution issues in the IPC layer.",
+			"SHA": "7ab9a9aca39ac99cdbabf14e11ead254326d7609"
 		}
 	],
-	"TimeStamp": 1778513337375
+	"TimeStamp": 1778683904020
 }

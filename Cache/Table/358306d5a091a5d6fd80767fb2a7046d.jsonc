@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "dependabot[bot]",
-			"Date": "2026-04-29T22:44:12Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T00:15:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				105,
 				1
 			],
-			"Message": "build(deps): bump zod from 4.3.6 to 4.4.0\n\nBumps [zod](https://github.com/colinhacks/zod) from 4.3.6 to 4.4.0.\n- [Release notes](https://github.com/colinhacks/zod/releases)\n- [Commits](https://github.com/colinhacks/zod/compare/v4.3.6...v4.4.0)\n\n---\nupdated-dependencies:\n- dependency-name: zod\n  dependency-version: 4.4.0\n  dependency-type: direct:production\n  update-type: version-update:semver-minor\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
-			"SHA": "7d07aba77fa87d92dc81dcbb0b29d3851fd616cf"
+			"Message": "perf(Sky): Reduce IPC channel saturation by making diagnostic logging opt-in\n\nRemove per-fire diagnostic traces and replace with failure-only logging or opt-in flags. The original RenderDevLog calls for textSearch, fileSearch, and TreeView attach fired on every invocation (50-100/s during extension boot), doubling traffic on Tauri's single serialized WKWebView channel and starving keystroke delivery.\n\n_CelDispatchLog now requires globalThis.__LAND_TRACE_CEL_DISPATCH__=true. Diagnostic bridges for markers-bridge and webview-bridge now only log when pushable=false or hasRegister=false, capturing the triage value without saturating the channel on the success path.\n\nKeystroke delivery should be more responsive during extension boot.",
+			"SHA": "131245270726f95b174ac9a9ac9c98a9e50583ce"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T22:17:51Z",
+			"Date": "2026-04-30T23:44:34Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				102,
-				1
+				"⠁⠀⠀⠀⠀",
+				105,
+				2
 			],
-			"Message": "fix(Sky): Add defensive error handling to SkyBridge IPC handlers\n\nWrap all Tauri listener handlers, tree-item mapping, TreeView.refresh(), and webview registration calls in try/catch to prevent one bad handler from crashing the listener loop. This mirrors VS Code's Emitter pattern where each subscriber's call is isolated.\n\nAlso add SSR safety checks for `window` being undefined during Astro's pre-render pass in both GetWorkbench() and GetServices(). The existing early-return contract is preserved - callers continue to use `if (!Services) return;`.\n\nSpecifically handles: Tauri listen() registration failures (window closing mid-boot), tree-item serialization errors (missing label/handle), TreeView.refresh() synchronous throws (older xterm/tree shims), WebviewViewService.register duplicate viewId (hot-reload), and CustomEvent dispatch failures. Each failure is now isolated and logged rather than propagating and breaking unrelated listeners.\n\nThis improves SkyBridge stability during startup, view transitions, and extension host reloads.",
-			"SHA": "7563ee4580bd46c41ffc01ef4e8a8a950437da13"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
+			"SHA": "83a7b8975aa291f68d89c3e212b4a8e13ff21ddf"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T18:37:25Z",
+			"Date": "2026-04-30T23:34:10Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				102,
-				4
+				"⠇⠀⠀⠀⠀",
+				105,
+				7
 			],
-			"Message": "fix(Sky): Add reentrancy guard to InstallSkyBridge and phase advancement\n\nThe InstallSkyBridge function lacked reentrancy protection, causing duplicate Tauri listen() registrations on Astro view-transitions, Tauri webview reloads, and dev HMR. Each Mountain emit fired handlers N times, resulting in duplicated tree views, markers, and webview renders—the \"workbench loading twice\" / \"purple overlays\" bug.\n\nAdd a module-level guard (_SkyBridgeInstalled, _SkyBridgeInstallPromise) so multiple calls to InstallSkyBridge only execute once. Also add the phase advance script to Layout.astro that fires BEFORE the workbench import, mirroring Mountain.astro to prevent the 8s/23s fallback timers from leaving the workbench in a half-restored render state. Finally, add a +5s view-registry snapshot diagnostic to probe extension-point registration status.\n\nAdditionally, update astro.config.ts: set output=\"static\", disable clientPrerender and contentIntellisense, and add queuedRendering config. This restores responsive UI during startup and eliminates the double-render flicker.",
-			"SHA": "876ea919a147073a94bff61862d7861719720b8d"
+			"Message": "feat(Sky): Add Disable=true master kill-switch for bisecting regressions\n\nIntroduce a build-time and runtime gate that strips all Land customizations so the workbench loads as close to upstream VS Code on Tauri as possible:\n\n1. **Disable=true gate** (`import.meta.env.Disable`): When set, SkyBridge short-circuits without registering any of the ~100 `sky://*` Tauri event listeners. The layout script skips Bootstrap (Wind's Effect-TS layer), TelemetryBridge, and InstallSkyBridge entirely. The smoke test harness is replaced with AutoDiagnoseInput.\n\n2. **AutoDiagnoseInput diagnostic**: New hands-off probe that runs only under Disable=true. Reports to console which editor instance has focus, classifies it (chat input / file editor / search / settings), and tells the user whether typing SHOULD work. The most common \"typing doesn't work\" issue is the user typing into VS Code's chat panel which silently drops keystrokes when Cocoon is unavailable.\n\n3. **Remove eager focus restore**: The previous phaseChanged handler that forced focus to Monaco on every phase >= 3 caused regressions - it fired twice (phase 3 and phase 4 ~15s later), yanking focus away from search boxes after the user typed one character. Mountain's MainWindow.show() + set_focus() already lands first-responder correctly at phase 3, so the redundant Sky-side re-focus is dropped.\n\n4. **Flag naming**: Rename `LAND_SMOKE_TEST` / `land-smoke` to `Smoke` (PascalCase, matching Land's env-var convention in `.env.Land.Diagnostics`).\n\nUseful for bisecting whether a regression lives in our customizations (still broken under Disable) or upstream/Tauri/WKWebView (still broken even with Disable=true).",
+			"SHA": "e5259308f3d0ea7101cf657928984c778d418286"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T16:59:30Z",
+			"Author": "github-actions[bot]",
+			"Date": "2026-04-30T22:44:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				104,
 				1
 			],
-			"Message": "",
-			"SHA": "d574527e4edb29303f096511fc595dfa8dec9548"
+			"Message": "Merge pull request #494 from CodeEditorLand/dependabot/npm_and_yarn/zod-4.4.1\n\nbuild(deps): bump zod from 4.4.0 to 4.4.1",
+			"SHA": "16d146187cb277c0083c387187d8660cc9fec415"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T16:59:30Z",
+			"Author": "github-actions[bot]",
+			"Date": "2026-04-30T22:44:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				104,
 				1
 			],
-			"Message": "fix(Sky): Fix 0-based line indexing for search results and add diagnostic tracing\n\nThe search result `RangeLocations` was using 1-based line numbers, causing 'undefined is not an object' errors for single-line previews because `previewLines[1]` was out of bounds. VS Code's `MatchImpl` indexes `_fullPreviewLines` directly with 0-based indexing, so convert both `source` and `preview` to 0-based: `SourceLine = Math.max(0, M.lineNumber - 1)`.\n\nAlso add comprehensive diagnostic bridging to Mountain.dev.log for service shape probing. The original `console.log` only surfaces in DevTools which is invisible to log dissection. Add `ToMountain` helper that invokes `diagnostic:log` through the same `MountainIPCInvoke` path SkyBridge uses, making service shape and webview registration observable in Mountain's logs. Include `ResourceTree`, `UriIdentity`, `WebviewViews`, and `Markers` in the key probe list, and probe one level deeper for `WebviewViews.register` and `Markers.changeOne` to distinguish stubs from real implementations.\n\nThis restores search functionality and provides post-mortem visibility into the service initialization that drives the Problems panel and sidebar webviews.",
-			"SHA": "400379dc34d82e207dbeee66053e8dc22a11103a"
+			"Message": "Merge pull request #493 from CodeEditorLand/dependabot/npm_and_yarn/astro-6.2.1\n\nbuild(deps): bump astro from 6.1.10 to 6.2.1",
+			"SHA": "43e7ebd7188a6a19faa8be1607d30b900a8e8beb"
 		}
 	],
-	"TimeStamp": 1778513323349
+	"TimeStamp": 1778683895193
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:39:33Z",
+			"Date": "2026-05-03T08:16:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
-				4
+				1339,
+				5
 			],
-			"Message": "feat(Mountain): Expand extension root discovery and modularize telemetry/hover units\n\nExtend the LocalhostPlugin to resolve built-in extensions from multiple distribution paths (`Contents/Resources/extensions`, `Contents/Resources/app/extensions`) and the development monorepo layout. This ensures icon stylesheets for the 93 bundled extensions render correctly in packaged `.app` builds and prevents empty boxes in the extension view.\n\nApply the established distributed architecture pattern to the PostHog analytics and Hover command subsystems. Refactor `PostHogPlugin` and `Command/Hover` into distinct unit files (e.g., `Initialize::Fn`, `Position::Struct`, `HoverContent::Enum`), enforcing PascalCase naming and separating DTO definitions from logic. This aligns with recent telemetry refactors and prepares the codebase for stricter IPC type safety.\n\nImpact: Fixes extension icon rendering in production builds and standardizes the module structure for observability and LSP features.",
-			"SHA": "0bb57d42016d8ab3ea6bc79312fdbcb8681e2657"
+			"Message": "feat(Mountain): Implement RBAC enforcement engine with audit logging\n\nIntroduce the `PermissionManager` subsystem within `Source/IPC/Security` to enforce Role-Based Access Control (RBAC) on all IPC operations. This module provides the `Manager::Struct` enforcement core, which validates operations against user `SecurityContext` data (roles and permissions) before dispatch.\n\nKey components include:\n- `Manager::Struct`: Maintains role/permission tables and a rolling 1,000-entry audit log. Implements `validate_permission` to gate access and `log_security_event` for telemetry.\n- `SecurityContext::Struct`: The request envelope carrying user identity, roles, and origin IP.\n- `SecurityEvent::Struct` & `SecurityEventType::Enum`: Standardized audit log entries for access grants, denials, and violations.\n- `initialize_defaults`: Bootstraps standard roles (User, Developer, Admin) and permission definitions (file, config, storage, system).\n\nThe implementation adheres to PascalCase naming and the project's modular architecture, ensuring the native backend can strictly enforce least-privilege principles for file I/O, configuration updates, and system extensions.",
+			"SHA": "429102af223fb0f5403463c95f8e492f94e7e879"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:30:57Z",
+			"Date": "2026-05-03T08:16:46Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
-				13
+				1333,
+				16
 			],
-			"Message": "refactor(Mountain): Modularize telemetry gate subsystem into distinct units\n\nRestructure the `Source/Telemetry/Gates` module to align with CodeEditorLand's PascalCase naming conventions and the established distributed architecture pattern.\n\nKey modifications include:\n- Extract compile-time predicates (`IsDebugBuild`, `IsDevelopmentBuild`, `IsTelemetryEnabled`, `IsMetricsEnabled`, `IsDistributedTracingEnabled`, `IsFeatureFlagsEnabled`) into dedicated `Fn` unit files using `cfg!` macros.\n- Isolate runtime gate management (`RuntimeGates`, `GetRuntimeGates`, `RuntimeGateEnabled`, `ListEnabledGates`, `ValidateRequiredGates`) into separate units sharing a private `GATES` singleton.\n- Convert `EnableRuntimeGate` into a no-op `Fn` shim with documentation noting the required migration from `OnceLock<HashSet>` to `RwLock` for mutable state.\n- Update `mod.rs` to export the new flat structure, removing the previous monolithic implementation.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the gate system for runtime configuration injection and IPC integration.\n\nRefs #Telemetry",
-			"SHA": "2a691e34b07b06fa7cc73d6c99d68b16635230a0"
+			"Message": "feat(Mountain): Implement IPC message compression and RBAC role engine\n\nIntroduce two critical subsystems within the Mountain backend's `Source/IPC` layer to optimize bandwidth and enforce access control.\n\n**Message Compression & Batching:**\nAdd the `Enhanced::MessageCompressor` module to aggregate IPC payloads before transmission. The `Compressor::Struct` buffers messages until size or time thresholds are met, then flushes using configurable algorithms (Brotli, Gzip, Zlib) and levels. Supporting DTOs (`BatchConfig`, `CompressedBatch`, `CompressionInfo`) provide telemetry and serialization support, reducing network overhead for high-frequency native-to-extension communications.\n\n**Role-Based Access Control (RBAC):**\nEstablish the `Permission::Role::ManageRole` engine with strict `category.action` naming validation. Define the `Role::Struct` and `Permission::Struct` with support for sensitivity flags (e.g., `system.execute`, `role.manage`) to trigger elevated audit logging. Implement factory functions (`CreateAdminRole`, `CreateDeveloperRole`, `CreateUserRole`) to bootstrap the standard security hierarchy, ensuring the IPC layer enforces least-privilege principles across the editor's distributed components.\n\nBoth modules adhere to PascalCase naming and the project's modular 'one struct per file' architecture.",
+			"SHA": "a74d4b330ceea060804b0ab8fd5957ac1676f1a8"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:30:11Z",
+			"Date": "2026-05-03T08:16:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1239,
+				1315,
 				6
 			],
-			"Message": "refactor(Mountain): Modularize tracing subsystem into distinct utility units\n\nRestructure the `Source/Telemetry/Tracing` module to align with CodeEditorLand's PascalCase naming conventions and modular design principles. Replace the previous monolithic implementation with a distributed architecture where each concept resides in its own file.\n\nKey modifications include:\n- Extract `CreateSpan::Fn`, `InitializeTracing::Fn`, `InstrumentRPC::Fn`, `InstrumentCommand::Fn`, and `MeasureTime` macro into dedicated unit files.\n- Enforce feature-gated compilation so the `Telemetry` flag completely toggles the system on/off with zero overhead in release builds.\n- Standardize function names to `Fn` and maintain strict separation between span creation, RPC wrapping, command instrumentation, and inline timing macros.\n- Update `mod.rs` to export the new structure and simplify the public API surface.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the observability layer for future integration into the IPC hot paths and binary entry point.\n\nRefs #Telemetry",
-			"SHA": "ceb085c32354e6cfeb53302f933fe3d527606057"
+			"Message": "feat(Mountain): Implement Tauri command handlers for global and workspace storage\n\nIntroduce a comprehensive suite of Wind IPC service handlers under `Source/IPC/WindServiceHandlers/Storage/` to bridge the Mountain backend with the editor's persistent storage system. These handlers fulfill the contract required by Wind's `NativeWorkbenchStorageService` to manage state across workspaces.\n\nThe implementation covers the full CRUD lifecycle for both global (cross-workspace) and workspace-scoped storage:\n- **Basic Operations:** `StorageGet` (workspace), `StorageSet` (workspace), `StorageDelete` (global).\n- **Bulk Operations:** `StorageGetItems` (hydrates the UI cache with all global key/value pairs), `StorageKeys` (returns all global keys), and `StorageUpdateItems` (atomic batch insert/delete).\n\nHandlers strictly adhere to PascalCase naming, resolve the `StorageProvider` via `ApplicationRunTime.Environment`, and include atomic locking guarantees for concurrent access. This scaffolding enables the editor to persist extension state, user settings, and workbench configuration reliably on the native filesystem.",
+			"SHA": "a03f56da8cabe6362445181dcf079001584a61de"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:26:08Z",
+			"Date": "2026-05-03T08:16:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1234,
-				10
+				1308,
+				7
 			],
-			"Message": "feat(Mountain): Refactor metrics subsystem into modular singleton architecture\n\nRestructure the `Source/Telemetry/Metrics` module to align with CodeEditorLand's PascalCase naming conventions and modular design principles. Replace the previous single-file implementation with a distributed architecture where each concept resides in its own file.\n\nKey modifications include:\n- Extract `Metric::Struct` and `MetricValue::Enum` into dedicated type definitions.\n- Isolate the `MetricsRegistry::Struct` (bounded ring buffer) and `GlobalRegistry::REGISTRY` singleton into separate units.\n- Introduce `Timer::Struct` for RAII-style histogram recording with label support.\n- Create convenience accessors `RecordCounter::Fn`, `RecordGauge::Fn`, and `GetAllMetrics::Fn` that operate against the global singleton.\n- Update `mod.rs` to export the new structure and add `Initialize::Fn` for feature-gated bootstrapping.\n\nThis reorganization ensures strict adherence to the project's naming standards (e.g., `Fn`, `Struct`, `REGISTRY`) and prepares the telemetry layer for future integration with the IPC fast paths and binary main entry point.",
-			"SHA": "adbf0e3f64efb9475766d21b6c343e9f24a608d2"
+			"Message": "feat(Mountain): Implement initial Tauri command handlers for Source Control Management\n\nIntroduce the foundational Tauri command suite under `Source/Command/SourceControlManagement/` to enable the Wind UI to interact with version control systems. This initial batch covers seven core operations: `CheckoutSCMBranch`, `ExecuteSCMCommand`, `GetAllSourceControlManagementState`, `GetSCMBranches`, `GetSCMCommitHistory`, `GetSCMResourceChanges`, and `StageSCMResource`.\n\nThe implementation establishes the Tauri command interface adhering to the project's PascalCase naming convention. While the current logic returns mocked success responses or stubbed data structures (as noted in `TODO` comments), the handlers correctly resolve the `ApplicationState` from the Tauri `State` and access the `SourceControlManagementProviders`, `SourceControlManagementGroups`, and `SourceControlManagementResources` markers.\n\nThis scaffolding bridges the gap between the Sky/Wind frontend and the native backend, paving the way for integrating the `SourceControlManagementProvider` trait implementation to handle real Git operations, uncommitted change prompts, and branch management logic.",
+			"SHA": "64057baae447ee1b3540d2f99f9a0fefee8ab2a4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:24:57Z",
+			"Date": "2026-05-03T08:16:21Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1225,
-				1
+				1300,
+				8
 			],
-			"Message": "fix(ProcessManagement): Enhance AppRoot resolution for Tauri launches with improved fallback handling\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "b4cf3afab7fe6d7f7a504e9b9af74ef518556bd6"
+			"Message": "feat(Mountain): Implement terminal lifecycle and profile management handlers\n\nAdd a comprehensive suite of Wind IPC service handlers under `Source/IPC/WindServiceHandlers/Terminal/` to bridge the Mountain backend with the editor's terminal subsystem. This implementation fulfills the contract for local PTY management, enabling the Wind service layer to spawn, control, and profile interactive shells.\n\nThe new handlers adhere to the project's PascalCase naming convention and modular 'one export per file' pattern:\n- **Core Lifecycle:** `TerminalCreate`, `TerminalDispose`, `TerminalHide`, `TerminalShow`, and `TerminalSendText` map directly to VS Code's terminal API, interacting with `CommonLibrary::Terminal::TerminalProvider` via `ApplicationRunTime.Environment`.\n- **Profile & Environment Discovery:** `LocalPTYGetProfiles` probes standard Unix shells (`/etc/shells`) and Windows paths (PowerShell, Git Bash, WSL, Cygwin) to construct the profile list used by the terminal picker. `LocalPTYGetDefaultShell` and `LocalPTYGetEnvironment` resolve the system default shell and snapshot the process environment, ensuring inherited variables like `PATH` and `NVM_DIR` are available to new sessions.\n\nThis work completes the native backend support for the integrated terminal, allowing extensions and the workbench to manage PTY sessions with full lifecycle control and environment inheritance.",
+			"SHA": "2a64757142e1ed34f1dbbe9c2a5839c84b84302b"
 		}
 	],
-	"TimeStamp": 1778513329377
+	"TimeStamp": 1778683896121
 }

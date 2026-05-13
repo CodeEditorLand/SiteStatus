@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:50Z",
+			"Date": "2026-05-03T08:16:14Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1225,
-				5
-			],
-			"Message": "feat(Mountain): Introduce URI parsing and normalization utilities for IPC\n\nAdd a new `UriComponents` module to handle the serialization and deserialization of URIs between the Mountain backend and the Tauri/Cocoon frontends. This implementation aligns with VS Code's `URI` IPC protocol, specifically addressing the requirements of `_transformIncomingURIs` in the renderer.\n\nThe new module includes:\n- `MID_URI`: Defines the `$mid: 1` constant used as a flag for the URI reviver.\n- `StampMidUri`: A utility to inject the `$mid` marker into JSON objects, ensuring VS Code's deserializer recognizes them as valid URI instances.\n- `FromFilePath`: Constructs `file://` URI objects from absolute paths without percent-encoding, matching VS Code's `URI.file()` expectations.\n- `FromUrl`: Parses generic URL strings (including non-file schemes) into component objects, with a fallback to `file://` for invalid inputs.\n- `Normalize`: A robust handler that accepts strings, objects, or nulls, standardizing all inputs into the tagged URI component format required by extension metadata.\n\nThese utilities ensure that extension locations and other URI-bearing payloads are correctly structured for transport over gRPC and Tauri events, preventing deserialization errors in the `Wind` and `Cocoon` layers.",
-			"SHA": "30f30fde1c2dd64aca45fe06e144fb1d4eddba6f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:28Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1219,
+				1291,
 				2
 			],
-			"Message": "fix(Mountain): Ensure workspace auto-seed defaults to HOME on GUI launch\n\nAddress a boot-time regression where releasing Mountain via Finder (macOS `.app` launch) resulted in an empty workspace because `current_dir` defaults to `/`. The previous debug-only autoload logic left release builds with no folder, causing tree views and SCM panels to remain empty.\n\nRefactor `Source/Binary/Initialize/CliParse.rs` to:\n- Unconditionally attempt CWD autoload (overridable via `Walk=0`).\n- Skip CWD if it is the filesystem root `/` (safety check against full-disk scans).\n- Add a final fallback to the user's `$HOME` directory when no workspace is detected, ensuring a visible directory tree on first launch.\n\nAdditionally, restructure `Source/Binary/Initialize/RuntimeBuild.rs` to align with the project's modular naming conventions. The file now serves as an index exporting submodules (`SchedulerConfig`, `Build`, `BuildDebug`, etc.) for the Echo scheduler configuration, as the primary usage has moved inline to `Binary::Main`.\n\nThis change guarantees a consistent user experience across debug and release profiles regardless of the launch method (CLI vs. GUI).",
-			"SHA": "c9ba82bedba46712b6b4b21def8272290ce7087a"
+			"Message": "refactor(Mountain): Align extension IPC handlers with PascalCase invocation\n\nUpdate `ExtensionInstall` and `ExtensionUninstall` handlers in the Wind IPC service layer to strictly follow the project's PascalCase naming convention for method calls.\n\nReplace direct function-style invocations of `NowNano` (`crate::IPC::DevLog::NowNano()`) with explicit static method syntax (`crate::IPC::DevLog::NowNano::Fn()`). This aligns with the modularized `DevLog` crate architecture and the 'one export per file' pattern where utility functions are exposed as static methods on their respective structs.\n\nThis change ensures consistency with recent IPC refactorings (navigation, performance, and security modules) and maintains the native backend's adherence to Rust idiom requirements for the Mountain crate.",
+			"SHA": "769e6c2942fb09b888ae83a29d5756c01e54e51c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:22Z",
+			"Date": "2026-05-03T08:16:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1219,
-				5
+				1291,
+				7
 			],
-			"Message": "feat(Mountain): Expose keybinding management commands to Tauri frontend\n\nAdd the initial Tauri command layer for the keybinding subsystem to enable communication between the `Wind` service and the `Mountain` backend. Implement five new command handlers in `Source/Command/Keybinding/` to support the Keyboard Shortcuts UI:\n\n- `CheckKeybindingConflicts`: Detect chord-sequence overlaps (stub implementation).\n- `GetResolvedKeybindings`: Fetch the weighted aggregation of defaults and user overrides.\n- `GetUserKeybindings`: Return user-defined overrides (stub pending persistence).\n- `RegisterExtensionKeybindings`: Accept contribution payloads from the extension host.\n- `UnregisterExtensionKeybindings`: Remove bindings contributed by a specific extension.\n\nEach command retrieves the `KeybindingProvider` from the shared `ApplicationRunTime` state via the `Requires` trait, establishing the contract for future logic implementation. While most handlers currently return stub JSON responses or pass-through errors, this commit completes the IPC interface required for the frontend to manage and visualize keybinding states.",
-			"SHA": "c0b7bc5676e38b05ef0199ea3d46838fff4cde32"
+			"Message": "feat(Mountain): Implement AES-256-GCM secure IPC channel with key rotation\n\nIntroduce the `SecureMessageChannel` module within the Mountain backend's IPC layer to provide end-to-end encryption and integrity verification for all native-to-extension and native-to-ui communications.\n\nThe implementation establishes a tightly-coupled cluster of Rust structs adhering to PascalCase naming:\n- `Channel::Struct`: The core aggregator managing AES-256-GCM encryption, HMAC-SHA256 signing, and automatic key rotation via Tokio background tasks.\n- `EncryptionKey::Struct`: Wraps `ring` key material with metadata (ID, creation time, usage count) to support seamless rotation.\n- `EncryptedMessage::Struct` & `SecureMessage::Struct<T>`: DTOs for the encrypted envelope and the generic secure message wrapper with routing headers.\n- `SecurityConfig::Struct` & `SecurityStats::Struct`: Configuration for rotation intervals and runtime telemetry for key age and usage.\n\nKey security features include:\n- **Automatic Key Rotation**: Periodic generation of new encryption keys while retaining previous keys for a defined window to allow in-flight message decryption.\n- **Replay Protection**: Timestamp validation to reject messages older than 5 minutes.\n- **Integrity Verification**: HMAC-SHA256 signatures on all ciphertext to prevent tampering.\n- **DOs Mitigation**: Configurable maximum message size limits.\n\nThis module upgrades the IPC architecture from implicit trust to cryptographically secure communication, aligning with the `ValidatePermission` engine and the distributed architecture's security requirements.",
+			"SHA": "01058e0646a63733f48928c2f2d744dac41fd4af"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:04Z",
+			"Date": "2026-05-03T08:15:52Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1213,
-				2
+				1283,
+				11
 			],
-			"Message": "feat(Mountain): Inject user shell environment for GUI launches\n\nImplement a boot-time utility in `Source/Environment/Utility/EnhanceShellEnvironment` to resolve the minimal environment problem inherent in macOS/Linux GUI app launches (e.g., Finder, Dock, Spotlight).\n\nWhen launched non-interactively, the app receives a bare `PATH` missing user customizations like `NVM_DIR`, `HOMEBREW_PREFIX`, and `JAVA_HOME`. This previously caused child processes (Cocoon's Node, language servers, Git extensions) to fail or use outdated system binaries.\n\nThe solution spawns the user's login shell with `-ilc env` to capture their full runtime environment, then safely merges new variables into the parent process environment. It includes:\n- A 2-second timeout to prevent boot hangs from misbehaving `.rc` files.\n- A check to skip injection if already running from a TTY.\n- A safety filter (`IsPortableEnvName`) to reject non-standard variable names.\n- A strict policy to preserve existing environment variables unless they are unset, ensuring no overwrites of deliberate user overrides.\n\nThis ensures Mountain and its sidecars (Cocoon, Air) operate with the same environment context as a user's terminal session.",
-			"SHA": "240102ddfe032c28ba28bd65c16ce7412642abf1"
+			"Message": "feat(Mountain): Implement performance dashboard with distributed tracing and alerting\n\nIntroduce a new `PerformanceDashboard` module within the Mountain IPC layer to enable native-side observability. This implementation establishes a comprehensive monitoring system capable of collecting system metrics (CPU, memory, throughput), managing distributed trace spans with structured logging, and triggering severity-based alerts.\n\nThe module adheres to the project's PascalCase naming convention and \"one export per file\" pattern, utilizing a tightly-coupled cluster design where the `Dashboard::Struct` aggregator holds the logic for 25 methods interacting with sibling DTOs (`PerformanceMetric`, `TraceSpan`, `PerformanceAlert`, etc.).\n\nKey features include:\n- **Metric Collection:** Automatic ring-buffer collection of system metrics via background Tokio tasks.\n- **Distributed Tracing:** Creation and lifecycle management of `TraceSpan` objects with unique IDs, parent linking, and embedded `TraceLog` entries.\n- **Alert Engine:** Threshold-based monitoring that categorizes violations into `Low`, `Medium`, `High`, or `Critical` severities based on configurable `DashboardConfig`.\n- **Statistics Aggregation:** Real-time calculation of averages, peaks, error rates, and throughput scores.\n\nThis provides the native backend with the instrumentation required for future Wind/Sky performance UIs.",
+			"SHA": "6a201b5309947c8f0e680a4bd954dfb4395b8454"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:12:27Z",
+			"Date": "2026-05-03T08:15:43Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1212,
-				16
+				"⠀⠀⠀⠀⠀",
+				1271,
+				10
 			],
-			"Message": "feat(Mountain): Introduce service registry and feature flag subsystem\n\nImplement the foundational runtime control plane within Mountain, consisting of a service discovery registry and a feature flag management system.\n\nIn `Source/IPC/Common/ServiceInfo`, define the data models for service lifecycle management: `ServiceState::Enum` (Running, Degraded, etc.), `ServicePerformance::Struct` (request/error counters with rolling mean latency), `ServiceEndpoint::Struct` (network/UDS metadata), and `ServiceInfo::Struct` (aggregated health state). The `ServiceRegistry::Struct` provides a thread-safe map for registering services, tracking heartbeat intervals, and filtering by health status (operational state, <30s heartbeat, <10% error rate).\n\nIn `Source/Telemetry/FeatureFlags`, refactor the existing monolithic module into a modular architecture adhering to the project's PascalCase naming convention. Extract `FeatureFlag::Struct`, `FlagCategory::Enum`, and `FeatureFlagError::Enum` into their own files. The `FeatureFlagRegistry::Struct` maintains a process-wide thread-safe registry (backed by `parking_lot::RwLock`) seeded with defaults like `ipc-compression` and `experimental-webgl`. Expose functional accessors (`IsEnabled::Fn`, `Enable::Fn`, `Disable::Fn`) via `GlobalRegistry` to allow the rest of the backend to gate experimental features without recompiling.\n\nThese additions enable the backend to dynamically monitor service health across the IPC landscape and toggle performance or experimental features at runtime.",
-			"SHA": "1e9d527a0900769df28f60221d7282d7f3744a10"
+			"Message": "feat(Mountain): Implement navigation history and label IPC handlers\n\nAdd a comprehensive suite of Wind IPC service handlers in `Source/IPC/WindServiceHandlers/Navigation/` to bridge the Mountain backend with the editor's navigation state and labeling logic.\n\nThe implementation includes:\n- **History Management:** `HistoryPush`, `HistoryGoBack`, `HistoryGoForward`, `HistoryCanGoBack`, `HistoryCanGoForward`, `HistoryGetStack`, and `HistoryClear`. These handlers interact with `ApplicationRunTime.Environment.ApplicationState.Feature.NavigationHistory` to maintain the user's URI stack, enabling back/forward navigation and history views.\n- **Label Resolution:** `LabelGetBase`, `LabelGetURI`, and `LabelGetWorkspace`. These utility handlers compute display strings for tabs and breadcrumbs, supporting relative path resolution against the workspace root and extracting file basenames.\n\nAll handlers strictly adhere to the project's PascalCase naming convention, utilize the `ApplicationRunTime` environment for state access, and follow the modular 'one export per file' pattern. This completes the native backend support for the workbench's navigation UI.",
+			"SHA": "2fde83158b1debd14ea02d3891b561b397d93c8c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:15:39Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1260,
+				4
+			],
+			"Message": "feat(Mountain): Implement extension management IPC handlers\n\nAdd four new Wind IPC service handlers to `Source/IPC/WindServiceHandlers/Extensions/` to support extension lifecycle management and querying. The implementation includes:\n\n- `ExtensionsGet`: Fetches a single extension manifest by `<publisher>.<name>` identifier, returning `null` for missing entries to allow safe defaulting.\n- `ExtensionsGetAll`: Returns the full raw scan registry for debugging and tooling, bypassing `ILocalExtension` reshaping.\n- `ExtensionsGetInstalled`: The primary entry point for the UI, reshaping raw manifests into VS Code's `ILocalExtension` structure. This handler includes a 5-second polling mechanism to handle the boot-time race condition where the extension scanner populates data slightly after the workbench requests it, preventing the activity bar from losing extension icons. It also enforces type filtering (System vs. User) and injects safe defaults for missing `publisher`/`name`/`version` fields to prevent renderer crashes on `manifest` access.\n- `ExtensionsIsActive`: A predicate check confirming if an extension ID exists in the current registry.\n\nAll handlers strictly follow the project's PascalCase naming convention and modular 'one export per file' pattern, utilizing the `ApplicationRunTime` environment to interface with the `ExtensionManagementService`. The implementation preserves the distinction between raw scanner data and the workbench-shaped data required by the frontend.",
+			"SHA": "4e5ce2c6d84be68562a02c4f999bd8090958f2a0"
 		}
 	],
-	"TimeStamp": 1778513329731
+	"TimeStamp": 1778683896405
 }

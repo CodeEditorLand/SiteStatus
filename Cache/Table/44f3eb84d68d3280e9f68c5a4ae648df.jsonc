@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-04-20T02:13:16Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T16:13:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
-				1
+				774,
+				2
 			],
-			"Message": "",
-			"SHA": "568fc42f87c1b09346370c127f9d9890fafaaf11"
+			"Message": "docs(Mountain): Streamline extension path and NodeResolver module docs\n\nSimplify comments in ScanPathConfigure for extension skip flags and builtin path override to be more concise while preserving the technical details.\n\nCondense the NodeResolver module docstring from verbose prose to a compact ladder list showing the resolution order: LAND_NODE_BINARY → shipped runtime → fnm/volta/asdf/nvm → homebrew → PATH. The resolution behavior is unchanged, only the documentation format is improved for scannability.",
+			"SHA": "bcc45254e06f84f91d17cb58716d12de486805f9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-19T05:34:11Z",
+			"Date": "2026-04-22T16:03:13Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				728,
-				17
+				774,
+				12
 			],
-			"Message": "feat(Mountain): Implement tier-gating system and native file watcher\n\nAdd compile-time tier selection system (Plan A §Rust feature flags) with runtime banner:\n- New Cargo.toml features for experimental tiers (SharedMemory, Hyper, Ring, Layer4, Native, etc.)\n- build.rs propagates .env.Land settings to env!(\"Tier…\") compile-time constants\n- LandFixTier logs resolved tiers at boot for diagnostics\n- EmitTierDefaults ensures env!() resolves even without .env.Land\n\nAdd native file watcher (TierFileWatcherLayer4):\n- FileWatcherProvider backed by notify crate (FSEvents/inotify/ReadDirectoryChangesW)\n- Debouncing, glob→regex pattern filtering\n- IPC forwarding to Cocoon as $fileWatcher:event notifications\n- Integrated into CreateEffectForRequest (FileWatcher.Register/Unregister)\n\nAdd workspace folder runtime management:\n- WorkspaceFolderCommand Tauri commands (MountainWorkspaceOpenFolder, List, CloseAll)\n- CLI parsing via ParseWorkspaceFolders (--folder flags, positional dirs, LAND_WORKSPACE_FOLDER env)\n- Boot seeding in Entry::Fn before extension activation\n\nComplete previously-stubbed IPC handlers:\n- Terminal.Resize (uses PTY master handle from TerminalStateDTO)\n- Clipboard.Read/Write (arboard crate, async via spawn_blocking)\n- NativeHost.OpenExternal (open crate with scheme validation)\n- Webview operations (forwarded as sky://webview/* Tauri events)\n- Tree operations (register/unregister)\n- Task.Fetch/Execute (forwarded to ExtHostTaskService)\n- Authentication.GetSession/GetAccounts (forwarded to ExtHostAuthentication)\n- Languages.GetAll (walks scanned extensions for contributes.languages)\n- Debug.Stop (implemented in DebugProvider)\n- showOpenDialog (implemented in NativeHost with tauri-plugin-dialog)\n\nAdd DevLog file sink:\n- Logs to ~/Library/Application Support/<bundle>/logs/<timestamp>/Mountain.dev.log\n- Enabled via LAND_DEV_LOG_FILE=1 or auto-enabled in debug builds\n- Mirrors every dev_log! line with flush-per-line for tail -f\n\nBREAKING CHANGE: TierFileWatcher=Layer4 now requires TierFileWatcherLayer4 feature",
-			"SHA": "bf7535e92015b805497198451900915cee9e2a8c"
+			"Message": "feat(Mountain): Add extension metadata passthrough, IPC round-trip, and Node version checking\n\nThree major improvements for extension handling and IPC reliability:\n\n1. **Extension manifest passthrough (Atom TH1):** Add 14 new fields to ExtensionDescriptionStateDTO for VS Code package.json metadata: Categories, DisplayName, Description, Keywords, Repository, Bugs, Homepage, License, Icon, AiKey, ExtensionKind, Capabilities, ExtensionDependencies, ExtensionPack. Wind's Extensions sidebar filter `@builtin category:themes` now works — previously categories were absent so the filter never matched.\n\n2. **IPC round-trip for applyEdit/showTextDocument (Atom T1):** Replace fire-and-forget event emission with request/response pattern using SendUserInterfaceRequest. Extensions awaiting workspace.applyEdit() now block until Sky actually applies the edit, fixing races with listeners expecting post-apply state. Also made SendUserInterfaceRequest pub(crate) so Track effect creators reuse the same pattern.\n\n3. **Node version checking (Atom N1):** ResolveNodeBinary now queries `node --version` and logs the resolved version. Emits a warning when major version falls below LAND_NODE_MIN_MAJOR (default 20). Helps diagnose extension host boot failures.\n\n4. **Compile-time PostHog config (Atom P2):** PostHogPlugin now reads API key/host/enable flag from env! baked in build.rs via PropagatePostHogSentinel(). Supports LAND_POSTHOG_DISTINCT_ID for CI correlation. Combined with debug_assertions gate for cheaper no-op path.\n\n5. **IPC logging improvement (Atom I13):** Add paired entry/exit lines per invoke. `done: <cmd> ok=... t_ns=...` on the way out enables latency diagnosis via single grep without Jaeger hopping.",
+			"SHA": "f24e444f42f611f00e844728138c5036e8f28793"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-04-19T02:12:58Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T14:19:44Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
+				774,
 				1
 			],
 			"Message": "",
-			"SHA": "a612c4df9b6307141ae78cea0e3bf3e19e96941c"
+			"SHA": "12de818c4d637c9baa99ed0690625ee482720398"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-18T15:48:35Z",
+			"Date": "2026-04-22T14:19:43Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				725,
-				6
+				"⠇⠀⠀⠀⠀",
+				774,
+				51
 			],
-			"Message": "",
-			"SHA": "49ef2a1458d3b808a555845700f84d3ddcd60d25"
+			"Message": "feat(Mountain): Add Node binary resolver and extension path environment variables\n\nImplement two significant features for Cocoon sidecar spawning and extension management:\n\n1. **NodeResolver (Atom N1):** New module that resolves Node.js binary for Cocoon spawn, checking in order: explicit override (LAND_NODE_BINARY), shipped runtime (Tauri bundle or dev-tree sibling), version managers (fnm, volta, asdf, nvm), Homebrew, and PATH fallback. Logs source for forensics.\n\n2. **Extension path configuration (Atom U1):** Add support for environment variables controlling extension scan paths:\n  - LAND_DISABLE_BUILTIN_EXTENSIONS: Same effect as LAND_SKIP_BUILTIN_EXTENSIONS\n  - LAND_BUILTIN_EXTENSIONS_DIR: Override bundle path for CI builds\n  - LAND_USER_EXTENSIONS_DIR: Override ~/.land/extensions for sandboxes\n  - LAND_EXTRA_EXTENSIONS_DIRS: Multi-path separator (semicolon Windows, colon elsewhere)\n  - LAND_DEV_EXTENSIONS_DIR: Development extensions that always load\n\n3. **Profile sentinel fix:** Replace runtime std::env::var(\"LAND_PROFILE\") with compile-time option_env! in build.rs so profile resolves correctly after binary launch (previously showed \"unknown\" when run outside Build.sh shell).\n\n4. **IPC handler improvements:** Add extensions:resetPinnedStateForAllUserExtensions handler (Atom P1), improve error handling in showSaveDialog/showMessageBox with proper Join handling.",
+			"SHA": "458377b0d14a3611cc723298645f95d86eebfd80"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-18T14:28:04Z",
+			"Date": "2026-04-22T12:58:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
-				6
+				773,
+				1
 			],
-			"Message": "refactor(Mountain): Remove pub use re-exports from module public interfaces\n\nRemove wildcard and specific public re-exports from ApplicationState internal modules and the Air module. These re-exports were providing convenience access to internal types but violated encapsulation principles:\n\n- Air: Remove re-exports of AirClient, AirMetrics, AirStatus, and related types\n- ExtensionScanner: Remove ScanAndPopulateExtensions re-export\n- PathResolution: Remove ResolveMementoStorageFilePath re-export\n- Persistence: Remove MementoLoader and MementoSaver re-exports\n- Recovery: Remove RecoverState re-export\n- Serialization: Remove URLSerializer and URLDeserializer re-exports\n\nTypes should now be accessed via their explicit module paths rather than through re-exported shortcuts. This improves code clarity, prevents implicit dependencies, and enforces proper module boundaries.",
-			"SHA": "8f12359311b56898cb7ee85280a905527c751ea4"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "edeef4b1eb18a7b9c3bcb7a3cdc2f7a15f48efe4"
 		}
 	],
-	"TimeStamp": 1778513347606
+	"TimeStamp": 1778683913612
 }
