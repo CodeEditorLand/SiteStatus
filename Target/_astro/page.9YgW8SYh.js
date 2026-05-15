@@ -1,1 +1,0 @@
-import{i}from"./index.zWAFeM-e.js";i();
