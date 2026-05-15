@@ -12,7 +12,7 @@ const storageBucket = import.meta.env["PUBLIC_FIREBASE_STORAGE_BUCKET"] ?? "";
 export default await (async () => {
 	if (!apiKey || !projectId) {
 		console.warn(
-			"Firebase: skipping initialization — PUBLIC_FIREBASE_API_KEY and/or PUBLIC_FIREBASE_PROJECT_ID are not set.",
+			"Firebase: skipping initialization - PUBLIC_FIREBASE_API_KEY and/or PUBLIC_FIREBASE_PROJECT_ID are not set.",
 		);
 		return null;
 	}
