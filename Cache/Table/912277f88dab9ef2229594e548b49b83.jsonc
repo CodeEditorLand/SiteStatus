@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:28:30Z",
+			"Date": "2026-04-24T00:08:56Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				215,
-				6
+				"⣿⠃⠀⠀⠀",
+				218,
+				55
 			],
-			"Message": "fix(Output): Fix regex for minified code and correct userDataSync channel name\n\nTwo fixes for the Output build pipeline:\n\n1. CatchOutputFolderRejection regex now matches both `() => undefined` and `() => void 0` (the minified form esbuild produces). The appended catch handler also uses `void 0` for consistency with minified output.\n\n2. TauriMainProcessService channel stub keys corrected: `userDataSyncService` → `userDataSync` and `userDataSync` → `userDataSyncAccount`. VS Code registers the channel as `userDataSync` (not `userDataSyncService`), so the stub was unreachable causing sync to fail silently.\n\nRefs: The channel name discovery was confirmed by grepping the VS Code source at `workbench/services/userDataSync/electron-browser/userDataSyncService.ts:13`.",
-			"SHA": "bf9bfcd67bfb89f90fac75177e7465d81f209b0e"
+			"Message": "build(Output): Remove Configuration source directory\n\nDelete the entire Configuration/Source directory from the Output element. This includes ESBuild configs, TypeScript configs, build plugins, polyfills, and service modules.\n\nThe Output element should contain only the final bundled JS artifacts consumed by Cocoon at runtime, not source build configuration files. These configuration files should be regenerated from their source definitions during the build process.",
+			"SHA": "51de686e76fe8bbdaf8c8bca938d3d79fc793522"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:02:00Z",
+			"Date": "2026-04-24T00:08:35Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				215,
-				3
+				"⣿⠀⠀⠀⠀",
+				290,
+				55
 			],
-			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object\nargs ({ path, encoding: \"utf8\" }) and the response was assumed to be\na string. Mountain actually returns raw bytes as { buffer: number[] } and\nignores the encoding param entirely.\n\nWhen VS Code loaded binary files (WASM, fonts, images), the response\nbody became \"[object Object]\" which corrupted the data. This broke\nTextMate syntax highlighting with:\n  \"WebAssembly.Module doesn't parse at byte 0: module doesn't start\n   with '\\0asm'\"\n\nFix by:\n1. Invoking file:read with positional array args [path] as expected\n   by MountainIPCInvoke\n2. Adding UnwrapReadResult() to unwrap { buffer: number[] } into\n   Uint8Array for binary-safe Response bodies\n3. Updating content type to Uint8Array | string | Blob | null\n\nAll three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler,\nFileHandler) now use the binary-safe pattern.",
-			"SHA": "2f14553fa6611e381918643364ca6e0c65155a9c"
+			"Message": "revert(Output): Restore Configuration build directory\n\nThe previous commit removed the Configuration directory as \"intermediate artifacts\", but these are actually source configuration files (ESBuild configs, TypeScript configs, build plugins, polyfills, and service modules) that define how the VS Code source is transformed for Land.\n\nThese files were incorrectly classified as intermediate build artifacts. They are essential source configurations that:\n- Define ESBuild bundling rules for CodeEditorLand/Editor and Microsoft/VSCode targets\n- Provide TypeScript compilation configs with proper path mappings\n- Implement build plugins for code transformation (IPC shims, CSS handling, electron replacements)\n- Supply browser polyfills (fs, child_process, ipcRenderer, etc.)\n- Define Tauri main process service stubs\n\nThe Output element requires these configuration files to produce the bundled JS artifacts consumed by Cocoon at runtime.",
+			"SHA": "9ea46755c9ab13a25e53afb3b1929eaf801db7ff"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:44:07Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				215,
-				6
-			],
-			"Message": "feat(Output): Add CatchOutputFolderRejection transform plugin\n\nAdd Step 15 to the build pipeline that catches an unhandled promise rejection\nfrom VS Code's outputServices.createFolder(). In Land, the VFS-IPC stat call\nrejects with FileNotFound before fileService can swallow it, causing the\nrejection to propagate past the .then(() => undefined) handler and surface as\ntelemetry noise in PostHog.\n\nThe plugin uses a regex match against outputServices.js to append\n.catch(() => undefined) to the createFolder chain, silencing the harmless\nrejection since the output folder is created lazily on first channel write\nanyway. If upstream VS Code changes the exact .then(() => undefined) shape,\nthe Match() returns Unchanged and a LOG line surfaces as a regression tripwire.",
-			"SHA": "a900f339a30600bc403059043a5a71f9a2b4c854"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:24:42Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				212,
-				3
-			],
-			"Message": "fix(Output): Add IPC stubs for extension tips, MCP, sync, and language detection\n\nAdd missing stub handlers to TauriMainProcessService to prevent renderer crashes when VS Code code calls these services without Mountain handlers:\n\n- IExtensionTipsService: exeBasedRecommendations.ts calls .forEach() on the result, requiring array stubs (empty = no recommendations)\n- IMcpManagementService / IMcpWorkbenchManagement: mcpManagementIpc.ts calls .map() on server arrays, requiring array stubs\n- IUserDataSyncService: userDataSyncServiceIpc.ts destructures a [status, conflicts, lastSyncTime] tuple, requiring tuple stub\n- ILanguageDetectionService: iterates fileExtensions.extensions, requiring object stub with nested empty extensions array\n\nThese stubs return safe empty values that VS Code's workbench code can gracefully handle, preventing TypeError crashes in the renderer.",
-			"SHA": "1452db402083b54d42dd76a6ab8ea6a45111f087"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T19:42:06Z",
+			"Date": "2026-04-23T21:18:06Z",
 			"File": [
 				"⣿⣿⠇⠀⠀",
-				212,
-				100
+				218,
+				106
 			],
 			"Message": "",
-			"SHA": "28c2f0b65dd0165f695a314b9bd6d1dd76dce039"
+			"SHA": "da8d5269012a9b2eb886c4ff868cde805e2cbecc"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T19:04:31Z",
+			"File": [
+				"⣿⣿⣿⣿⣿",
+				97,
+				104
+			],
+			"Message": "chore(Output): Remove Configuration build directory\n\nDelete the entire Configuration directory from Output element. These build configuration files (ESBuild configs, plugins, polyfills, service modules, tsconfigs) were intermediate artifacts that should be regenerated from source during the build process rather than persisted in the Output tree.\n\nThis reduces confusion between source build configs and output artifacts, and ensures the Output directory contains only the final bundled JS artifacts consumed by Cocoon at runtime.",
+			"SHA": "d0b23daeb49a7f2516c8b520bafccc22be4cc44f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T18:46:22Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				218,
+				3
+			],
+			"Message": "fix(Output): Add playwright.__initialize stub and improve disposition telemetry\n\nAdd `__initialize` to the playwright stub to handle `PlaywrightChannelClient` constructor posting protocol version negotiation. This surfaced as `disposition=drift` in previous boot logs. Also add explicit `setExtensionGalleryManifest` stub for extension gallery metadata seeding.\n\nReplace the binary `present=true/false` stub-hit logging with three-state disposition: `value` (stub has real payload), `noop` (stub key intentionally undefined like telemetryAppender.log), and `drift` (channel stubbed but command missing - needs investigation). This helps developers distinguish between \"method intentionally returns undefined\" vs \"stub key missing from object\".",
+			"SHA": "b7dc4a7243028788d13edcd2f6f19fda6fc96eef"
 		}
 	],
-	"TimeStamp": 1778683909483
+	"TimeStamp": 1778855109583
 }

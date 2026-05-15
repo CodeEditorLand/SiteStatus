@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T00:09:11Z",
+			"Date": "2026-04-25T00:42:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				872,
-				2
+				5
 			],
-			"Message": "refactor(Mountain): Implement exponential backoff for Cocoon gRPC handshake\n\nReplace the fixed 1-second retry poll in Mountain-to-Cocoon gRPC connection with exponential backoff (50ms initial, 2s ceiling, 20s budget). The previous approach wasted 18 seconds waiting after Cocoon's ~200ms bind completion on successful startups, while still taking a full 20s to detect genuine failures.\n\nAlso add comprehensive documentation for the `dual-track` tag in DevLog.rs, which logs progressive Rust migration dispatch decisions (mountain, node-fallback, unavailable, error) to surface the VS Code API coverage gap as a searchable TODO list.\n\nAdd a pre-flight bundle probe constant to fail fast with an actionable error when the Cocoon bundle is missing (esbuild failure, incomplete checkout) instead of spawning Node into a dying require() chain.\n\nImpact: Healthy spawns now connect in ~400ms (attempts 3-5) vs previous ~20s; failure detection still triggers at the 20s budget.",
-			"SHA": "115a48df9dbdbad30a28fa4a99d27c0557565ee4"
+			"Message": "refactor(Mountain): Implement configuration target support and clean up naming\n\nImplement missing ConfigurationTarget handling in UpdateValue.rs:\n- UserLocal now maps to User settings.json (Land has no sync backend)\n- WorkspaceFolder writes to <folder>/.vscode/settings.json for first folder\n- Memory target stores in-memory only (no disk write)\n- Default and Policy targets return read-only errors per spec\n\nAdditionally:\n- Revert binary/lib names from verbose dev identifier back to \"Mountain\"\n- Simplify Tauri identifier to \"land.editor.binary\" and productName to \"Mountain\"\n- Remove duplicate externalBin entry and obsolete .Backup files\n\nThis completes the ConfigurationProvider trait implementation for all VS Code configuration targets, enabling extensions to persist settings to user preferences, workspace .vscode folders, and in-memory session state.",
+			"SHA": "1c3dd9e7d4dde40184a53712500b91c447eb2197"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T22:39:48Z",
+			"Date": "2026-04-25T00:32:43Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
-				6
-			],
-			"Message": "feat(Mountain): Implement hidden-until-ready window pattern\n\nEliminate the visual flash on startup by creating the main window with\n.visible(false) and revealing it only when Sky reports phase 3 (Restored).\nThe previous approach allowed Tauri's default immediate visibility, causing\na four-repaint cascade: native chrome → #1e1e1e inline background → VS Code\ntheme CSS → workbench DOM, observed as \"purple/dark flash\" and panel-pop\nflicker over ~200ms.\n\nChanges:\n- WindowBuild.rs: Add .visible(false) to WebviewWindowBuilder chain\n- AppLifecycle.rs: Add 3s safety timer to force-reveal if Sky crashes\n  before phase 3 (matches observed cold-boot p95 timing)\n- WindServiceHandlers/mod.rs: Show window on phase 3 + set_focus()\n- CommandProvider.rs: Handle missing workbench commands as silent no-ops\n  (getTelemetrySenderObject, testing.clearTestResults)\n- DevLog.rs: Document Batch 4 fs-route/cmd-route diagnostic tags\n- CocoonManagement.rs: Forward LAND_* env vars to Cocoon (fixes PostHog\n  bridge fallback)\n\nThe 3s safety timer guarantees the window appears even if Sky crashes before\nsignalling phase 3, preventing invisible-window lockup while rarely firing\non a healthy startup path.",
-			"SHA": "993a69a785aedb36bfd1501e52960eccc08ab288"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T21:18:23Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				6
-			],
-			"Message": "refactor(Mountain): Simplify binary names and remove PostHog API keys\n\nRevert binary and library names from the verbose development profile format back to 'Mountain' in Cargo.toml and tauri.conf.json, continuing the simplification from recent commits.\n\nAlso remove the PostHog API key from build.rs and scripts/cocoon/bootstrap-fork.js by replacing with empty strings for development safety. Clean up tauri.conf.json identifier from the long verbose format to 'land.editor.binary' and productName to 'Mountain'.\n\nDelete obsolete Cargo.toml.Backup and tauri.conf.json.Backup files. Remove duplicate externalBin entry for Binary/node in tauri.conf.json.\n\nThese changes consolidate the naming simplification and remove sensitive API keys from the repository.",
-			"SHA": "5140a38948860dee4209069e3d0110001474a9e9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T21:18:15Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
 				874,
-				27
+				6
 			],
-			"Message": "refactor(Mountain): Decompose Utilities module into explicit submodules\n\nSplit the monolithic Utilities.rs into 7 domain-specific modules under WindServiceHandlers/Utilities/: ApplicationRoot, ChannelPriority, JsonValueHelpers, MetadataEncoding, PathExtraction, RecentlyOpened, and UserdataDir. Update all call sites in FileSystem/Native handlers, Scheme.rs, WindowBuild.rs, and AppLifecycle.rs to use explicit module paths (e.g., `Utilities::PathExtraction::extract_path_from_arg`) instead of flat imports.\n\nThis continues the module decomposition pattern from recent commits, replacing the catch-all Utilities module with granular domain-specific handlers. The explicit reverse-hierarchical paths make dependency relationships clear at every call site, consistent with CLAUDE.md requirements.\n\nAlso reverts binary/lib names in Cargo.toml and tauri.conf.json to the verbose development profile format, matching the pre-simplification state.",
-			"SHA": "8cba79c0ae380c97ef1709c4a1c12df9e87017aa"
+			"Message": "refactor(Mountain): Revert development naming and implement core file operations\n\nRevert the Mountain binary/lib/config naming from \"Mountain\" back to the verbose development identifier to maintain continuity with the existing build artifacts and CI configurations.\n\nImplement two missing trait implementations:\n\n1. **FileSystemProvider::Copy for directories** (WriteOperations.rs):\n   - Previously returned NotImplemented for directory copies\n   - New `copy_directory_recursive` uses an iterative stack (avoids async recursion stack overflow on deep trees)\n   - Symlinks are followed to match VS Code's IFileService.copy semantics\n   - Prevents copy-to-self which would truncate files or explode recursively\n   - Creates parent directories as needed; uses tokio::fs::copy for fast file copying\n\n2. **WorkspaceEditApplier::ApplyWorkspaceEdit** (WorkspaceProvider.rs):\n   - Two-tier approach: emit `sky://editor/applyEdits` for open documents (preserves undo/dirty state), then apply edits directly to disk for closed files\n   - Converts VS Code's line/character positions to byte offsets with UTF-16 code unit counting (matches VS Code Range semantics)\n   - Edits sorted by descending offset to maintain validity during splicing\n   - Atomic writes via tempfile+rename to prevent torn writes on crash\n   - Handles file:// URIs with percent-encoding decode\n\nBREAKING CHANGE: Binary and lib names changed from \"Mountain\" to \"DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain\"",
+			"SHA": "8c25573710b3a7ec50c4312a7c1f99bfdd2a2739"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T20:54:21Z",
+			"Date": "2026-04-25T00:25:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				864,
-				3
+				872,
+				6
 			],
-			"Message": "refactor(Mountain): Decompose FileSystem module and add native readdir handler\n\nReplace the FileSystem glob import with explicit submodule paths for all Managed (trait-based) and Native (tokio::fs) file operations. Add new FileReaddirNative handler under FileSystem/Native/ implementing the file:readdir wire method using tokio::fs.\n\nThis continues the module decomposition pattern from recent commits, replacing the monolithic FileSystem.rs with granular domain-specific handlers. The explicit paths follow CLAUDE.md requirements, making dependency relationships clear at every call site.\n\nNo functional changes - this is a pure refactoring for code organization and maintainability.",
-			"SHA": "70c31747d3943f857b4c7bc9644f8fd469b0dd76"
+			"Message": "refactor(Mountain): Clean up development naming and complete stub implementations\n\nRename the binary, lib, and Tauri config from the verbose development name\n(`DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain`)\nto simply `Mountain` for cleaner builds and debugging.\n\nImplement two previously-stubbed trait methods:\n\n1. **OutputProvider::CloseChannel**: Properly sets `IsVisible = false` in\nApplicationState and emits a SkyEvent so the renderer collapses the panel.\nThe channel remains in state to preserve buffered content for later reveal.\n\n2. **WorkspaceProvider::OpenFile**: Converts the path to a file:// URI via\nUrl::from_file_path (with percent-encoding for unicode), emits the\n`sky://editor/openDocument` event that Sky's bridge listens on, and adds\nthe file to the recently-opened list (capped at 50 entries).\n\nAlso remove the now-obsolete `.Backup` files. These changes complete the\nIPC wiring for output channel management and editor document opening.",
+			"SHA": "2d330dbf776b664caa2426a9bee51c703619062a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T00:21:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				1
+			],
+			"Message": "feat(Mountain): Implement FindFilesInWorkspace with ignore-aware parallel walking\n\nReplace the stub implementation that returned empty results with a complete `WorkspaceProvider::FindFilesInWorkspace` using:\n- `ignore::WalkBuilder::build_parallel()` for OS-thread-parallel directory traversal respecting `.gitignore` / `.ignore` / `.git/info/exclude`\n- `globset::GlobBuilder` for include/exclude pattern matching\n- Support for VS Code's RelativePattern shape (`{ base, pattern }`) to restrict walks to subfolders\n- Thread-safe result collection via `Arc<Mutex<Vec<Url>>>` capped at MaxResults (default 10,000)\n- Proper hidden-directory handling and symlink follow control\n\nThis complements the recent wiring of search IPC handlers to trait implementations, completing the file search path from Wind → Mountain → WorkspaceProvider::FindFilesInWorkspace for quick file open, symbol search, and fuzzy file matching features.",
+			"SHA": "044fdb7c156598f3081093012d5e5ac21cf8395b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:39:12Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				8
+			],
+			"Message": "refactor(Mountain): Wire Cocoon RPC handlers to trait implementations for state tracking\n\nReplace direct Sky event emissions with proper trait implementations across SCM, StatusBar, Webview, and Search handlers:\n\n1. **SCM**: RegisterScmProvider and UpdateScmGroup now use SourceControlManagementProvider trait to materialize state in ApplicationState::SourceControl. Previously the direct Sky emit bypassed state tracking, so SCM providers (gitlens, svn) never appeared in Sky's SCM view until UpdateScmGroup - and the header row never materialized.\n\n2. **StatusBar**: CreateStatusBarItem and SetStatusBarText now use StatusBarProvider::SetStatusBarEntry to store entries in ActiveStatusBarItems. Without registration, the workbench had no memory of entries and set_status_bar_text calls leaked state.\n\n3. **Webview**: CreateWebviewPanel and SetWebviewHtml now use WebviewProvider trait to register panels in ApplicationState::WebviewState. Previously the extension got a handle but Mountain never knew about the panel - DisposeWebviewPanel failed with \"unknown handle\" and webviews leaked DOM.\n\n4. **Search**: findFiles delegates to WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker); findTextInFiles delegates to SearchProvider::TextSearch. This replaces naive inline fs-walk implementations that lacked .gitignore support, regex engine, parallel walks, and proper Url construction.\n\nAll handlers retain fallback to direct Sky emit on trait failure to preserve existing behavior for callers that don't depend on state tracking.",
+			"SHA": "f8de3e0f52def4658f2be37feceb8ce43e035bca"
 		}
 	],
-	"TimeStamp": 1778683911085
+	"TimeStamp": 1778855173547
 }

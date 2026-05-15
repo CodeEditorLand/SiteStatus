@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T20:54:15Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				864,
-				42
-			],
-			"Message": "refactor(Mountain): Simplify binary names and split monolithic IPC handlers\n\nRename the Cargo binary and lib from the verbose development profile name to simply 'Mountain', matching the tauri.conf.json productName simplification. Concurrently, decompose the monolithic NativeHost.rs into 10 domain-specific handler files under WindServiceHandlers/NativeHost/ (FindFreePort, GetColorScheme, IsFullscreen, IsMaximized, OpenExternal, OSProperties, OSStatistics, PickFolder, ShowItemInFolder, ShowOpenDialog).\n\nAlso introduce a new FileSystem module split into Managed (trait-based) and Native (tokio::fs) tiers, each with their own atom handlers. Update mod.rs to replace the NativeHost glob import with explicit submodule paths, consistent with the reverse-hierarchical path pattern enforced in recent commits.",
-			"SHA": "fb4a24fd951420127e59e433b3a268432fbcf6da"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:11:54Z",
+			"Date": "2026-04-24T23:15:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				829,
+				872,
+				1
+			],
+			"Message": "feat(Mountain): Implement regex and multiline search options in TextSearchQuery\n\nAdd missing `isRegExp` and `isMultiline` fields to TextSearchQuery, mirroring VS Code's `ITextSearchQuery` interface. When `isRegExp` is false (the default), escape the search pattern via `regex::escape()` to prevent literal searches for strings containing regex metacharacters (`.`, `(`, `[`, `*`, `?`, etc.) from crashing the regex compiler or silently matching incorrectly. Add `.multi_line()` support for multiline regex searches.\n\nThis fixes the Search view's plain-text mode which was broken for queries containing characters like `obj.method(` or `file[1].txt`.",
+			"SHA": "d0117a0eb6379a9473082566dec2a8775df35577"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:05:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				2
+			],
+			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to the properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those - the \"dead code that needs to be connected\" the user flagged.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.",
+			"SHA": "5f23bca601cb496e0c86114e0aaf8db93c22cde4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T21:47:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
 				4
 			],
-			"Message": "refactor(Mountain): Complete explicit module path migration in state and IPC\n\nContinue the refactoring from commit 10feb14ec to eliminate implicit module namespace reliance by fully qualifying internal paths:\n\n- Add explicit `TextProcessing` segment in DocumentStateDTO import for `AnalyzeTextLinesAndEOL`\n- Prefix ConfigurationState, UIState, and WorkspaceState type paths with their module name (e.g., `UIState::UIState::State`)\n- Update WorkspaceDelta function signatures with full `WorkspaceState::WorkspaceState::State` paths\n- Migrate AppLifecycle call site from `WindServiceHandlers::set_static_application_root` to `WindServiceHandlers::Utilities::set_static_application_root`\n\nThis ensures all internal references use the reverse-hierarchical path pattern that makes dependency relationships explicit in every call site, consistent with the CLAUDE.md module path requirements.",
-			"SHA": "e3135b994ecc9c8cbedf24de93c125e810437122"
+			"Message": "feat(Mountain): Add VS Code IPC command aliases and stub handlers\n\nAdd command aliases in WindServiceHandlers to bridge Mountain's native Effect-TS IPC layer with VS Code's binary IPC bridge (DiskFileSystemProviderClient, ConfigurationService):\n- Configuration: `configuration:getValue` / `configuration:updateValue` → `configuration:get` / `configuration:update`\n- File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`\n- Add stub handlers for `file:watch` / `file:unwatch` that return Null to prevent channel promise leaks\n- Add `configuration:onDidChange` handler that acks the channel listener with Null\n\nAlso enhance Cocoon stderr filtering to suppress follow-up stack frames from extension errors (EntryNotFound, FileNotFound) that Node.js prints across multiple stderr lines. This keeps the main cocoon channel clean while routing benign extension path-probing to verbose.",
+			"SHA": "661fe2405f2f71c5710b1b1e6dfb59272896fd30"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:05:06Z",
+			"Date": "2026-04-24T21:25:18Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				829,
-				14
+				"⠀⠀⠀⠀⠀",
+				872,
+				4
 			],
-			"Message": "refactor(Mountain): Enforce explicit module paths, eliminate pub use re-exports\n\nPer CLAUDE.md requirements, replace `pub use` glob re-exports with local `use` statements throughout Mountain's IPC and state modules. This enforces that callers spell full qualified paths like `WindServiceHandlers::Utilities::get_static_application_root()` rather than relying on flattened namespace imports.\n\nChanges:\n- Remove `pub use *` from WindServiceHandlers/mod.rs, UI/mod.rs, and ApplicationState modules\n- Convert to local `use X::*` scoped to the dispatcher file only\n- Update call sites in Scheme.rs, AppLifecycle.rs, and Search.rs to use explicit paths\n- Reorganize module declaration order in FeatureState and Internal modules\n\nThe reverse-hierarchical path is load-bearing - it tells the reader which file owns the handler. This change prevents accidental namespace pollution and makes dependency relationships explicit in every call site.\n\nAlso updates tauri.conf.json to include externalBin for node binary.",
-			"SHA": "10feb14ec590c0361e9a0038e0833bf752bf447e"
+			"Message": "feat(Mountain): Fire workspaceContains and onStartupFinished extension activation\n\nImplement comprehensive startup extension activation matching VS Code's behavior:\n\n1. **Extension activation phases**: Fire three bursts at startup:\n   - `*` - unconditional activation (existing)\n   - `workspaceContains:<pattern>` - for each pattern matched by workspace\n   - `onStartupFinished` - after 2s delay for late-binding extensions\n\n2. **Pattern matching**: Add `FindMatchingWorkspaceContainsPatterns` that walks\n   workspace folders (depth 3, 4096 entries max) and matches against extension-\n   contributed `workspaceContains:` patterns using a minimal glob matcher.\n\n3. **Stderr filtering**: Downgrade benign Node.js/macOS noise to `cocoon-stderr-verbose`:\n   - macOS codesign messages (\"is already signed\", \"replacing existing signature\")\n   - Node deprecation warnings (DeprecationWarning, --trace-deprecation)\n   - Keeps main cocoon channel clean for actionable errors only.\n\n4. **Rust edition**: Upgrade from 2021 to 2024.\n\nThis fixes extensions that never activated without user interaction because they\ngate on `workspaceContains:package.json`, `onStartupFinished`, or similar events.",
+			"SHA": "72db08550a3a7b20669947fe3bac64deb2e0300d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:04:49Z",
+			"Date": "2026-04-24T20:52:00Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				827,
+				872,
 				11
 			],
-			"Message": "refactor(Mountain): Split monolithic UI.rs into domain-specific modules\n\nExtract the 32 handlers from the single `UI.rs` (~670 LoC) into 9 separate domain modules under `WindServiceHandlers/UI/`:\n- `Decoration.rs` - URI badge/tooltip/colour providers\n- `Keybinding.rs` - dynamic runtime keybinding registry\n- `Lifecycle.rs` - app phase get/wait/shutdown\n- `Notification.rs` - toast messages and notification-scoped progress\n- `Progress.rs` - window/status-bar progress indicators\n- `QuickInput.rs` - QuickPick and InputBox dialogs\n- `Theme.rs` - colour theme get/list/set\n- `Workspace.rs` - workspace folder lifecycle\n- `WorkingCopy.rs` - dirty-state tracking\n\nEach file contains focused handlers for one UI concern, improving discoverability with `grep pub async fn`. The `mod.rs` re-exports all handlers flat to preserve the existing dispatcher call sites.\n\nThis follows the same pattern as recent Batch 15/16 notification atom migrations, further decomposing Mountain's IPC surface for better maintainability.",
-			"SHA": "285e8d1e67f19bb8f8c520665197d620d792cb5a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:52:25Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				817,
-				12
-			],
-			"Message": "refactor(Mountain): Migrate Batch 16 notification handlers to atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to 10 new atom functions in `Vine::Server::Notification::*`:\n\n- webview lifecycle (setTitle, setIconPath, setHtml) → WebviewLifecycle\n- window.createTerminal → WindowCreateTerminal\n- terminal lifecycle (sendText, show, hide, dispose) → TerminalLifecycle\n- decoration lifecycle (createTextEditorDecorationType, disposeTextEditorDecorationType) → DecorationTypeLifecycle\n- debug lifecycle (addBreakpoints, removeBreakpoints, consoleAppend) → DebugLifecycle\n- statusBar lifecycle (update, dispose) → StatusBarLifecycle\n- statusBar.message → StatusBarMessage\n- window.showMessage → WindowShowMessage\n- registerCommand → RegisterCommand\n- unregisterCommand → UnregisterCommand\n\nTerminalLifecycle is a \"group atom\" covering 4 wire methods that share both the `sky://terminal/*` relay and provider-side PTY drive. StatusBarLifecycle similarly groups 2 methods. This keeps MountainVinegRPCService thin with one-line delegations.",
-			"SHA": "1699cfca4a8e3c70bcf0b1d355097788d7a0068b"
+			"Message": "refactor(Mountain): Move high-frequency logging to verbose/opt-in tags\n\nContinue reducing default log volume by routing per-operation lines to dedicated verbose tags that are muted in `short` mode:\n\n1. **Command registration**: `commands` → `commands-verbose` for setContext (~130/session) and command execution in CommandProvider\n2. **Output channels**: `grpc` → `output-verbose` for append/create events (200+ appends per boot from language servers)\n3. **Command registry**: `grpc` → `command-register` for register/unregister notifications (~100 commands/session)\n4. **Provider registration**: `grpc`/extensions → `grpc-verbose`/`provider-register` for duplicate provider registration logs\n5. **Extension scanning**: `extensions` → `ext-scan-verbose` for per-candidate package.json probes (203/session)\n6. **Scheme assets**: `lifecycle` → `scheme-assets` for per-asset vscode-file:// requests (worker/wasm/font loading)\n\nNew tags added to SHORT_MODE_MUTED_TAGS: output-verbose, command-register, provider-register, ext-scan-verbose, channel-stub, commands-verbose, scheme-assets.",
+			"SHA": "7d046f166e341789c3445eb14c727db2ed044a11"
 		}
 	],
-	"TimeStamp": 1778683911359
+	"TimeStamp": 1778855174565
 }

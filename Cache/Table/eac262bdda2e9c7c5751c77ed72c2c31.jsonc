@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:39:12Z",
+			"Author": "dependabot[bot]",
+			"Date": "2026-04-27T08:29:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				874,
-				8
-			],
-			"Message": "refactor(Mountain): Wire Cocoon RPC handlers to trait implementations for state tracking\n\nReplace direct Sky event emissions with proper trait implementations across SCM, StatusBar, Webview, and Search handlers:\n\n1. **SCM**: RegisterScmProvider and UpdateScmGroup now use SourceControlManagementProvider trait to materialize state in ApplicationState::SourceControl. Previously the direct Sky emit bypassed state tracking, so SCM providers (gitlens, svn) never appeared in Sky's SCM view until UpdateScmGroup - and the header row never materialized.\n\n2. **StatusBar**: CreateStatusBarItem and SetStatusBarText now use StatusBarProvider::SetStatusBarEntry to store entries in ActiveStatusBarItems. Without registration, the workbench had no memory of entries and set_status_bar_text calls leaked state.\n\n3. **Webview**: CreateWebviewPanel and SetWebviewHtml now use WebviewProvider trait to register panels in ApplicationState::WebviewState. Previously the extension got a handle but Mountain never knew about the panel - DisposeWebviewPanel failed with \"unknown handle\" and webviews leaked DOM.\n\n4. **Search**: findFiles delegates to WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker); findTextInFiles delegates to SearchProvider::TextSearch. This replaces naive inline fs-walk implementations that lacked .gitignore support, regex engine, parallel walks, and proper Url construction.\n\nAll handlers retain fallback to direct Sky emit on trait failure to preserve existing behavior for callers that don't depend on state tracking.",
-			"SHA": "f8de3e0f52def4658f2be37feceb8ce43e035bca"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:15:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
 				1
 			],
-			"Message": "feat(Mountain): Implement regex and multiline search options in TextSearchQuery\n\nAdd missing `isRegExp` and `isMultiline` fields to TextSearchQuery, mirroring VS Code's `ITextSearchQuery` interface. When `isRegExp` is false (the default), escape the search pattern via `regex::escape()` to prevent literal searches for strings containing regex metacharacters (`.`, `(`, `[`, `*`, `?`, etc.) from crashing the regex compiler or silently matching incorrectly. Add `.multi_line()` support for multiline regex searches.\n\nThis fixes the Search view's plain-text mode which was broken for queries containing characters like `obj.method(` or `file[1].txt`.",
-			"SHA": "d0117a0eb6379a9473082566dec2a8775df35577"
+			"Message": "chore(deps): Bump pozil/auto-assign-issue from 2.2.1 to 3.0.0\n\nBumps [pozil/auto-assign-issue](https://github.com/pozil/auto-assign-issue) from 2.2.1 to 3.0.0.\n- [Release notes](https://github.com/pozil/auto-assign-issue/releases)\n- [Commits](https://github.com/pozil/auto-assign-issue/compare/v2.2.1...v3.0.0)\n\n---\nupdated-dependencies:\n- dependency-name: pozil/auto-assign-issue\n  dependency-version: 3.0.0\n  dependency-type: direct:production\n  update-type: version-update:semver-major\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "9fe3d8afd59f66617841ca32138e08aa1e67be22"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-27T02:26:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				1
+			],
+			"Message": "",
+			"SHA": "04334da80f061bf13ae0b41ae45315fc16139e24"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:05:17Z",
+			"Date": "2026-04-26T22:45:26Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				859,
+				39
+			],
+			"Message": "refactor(Mountain): Align DTO serialization to camelCase and fix SCM provider field mapping\n\nThis commit standardizes JSON serialization across all DTO structs from PascalCase to camelCase to match the wire format expected by Wind/Sky. Additionally fixes the SCM provider registration which was silently failing due to field name mismatches.\n\n**DTO Serialization Migration (13 files)**\n- Change `#[serde(rename_all = \"PascalCase\")]` to `#[serde(rename_all = \"camelCase\")]` across CustomDocumentStateDTO, DocumentStateDTO, MarkerDataDTO, MergedConfigurationStateDTO, OutputChannelStateDTO, ProviderRegistrationDTO, RPCModelContentChangeDTO, RPCRangeDTO, WebviewStateDTO, WindowStateDTO, WorkspaceFolderStateDTO\n- Add explicit `#[serde(rename = \"uri\")]` for URL fields and `#[serde(rename = \"eol\")]` for EOL field\n\n**SCM Provider Fixes (2 files)**\n- RegisterScmProvider: Change PascalCase keys (\"ID\", \"Label\", \"RootUri\") to camelCase (\"id\", \"label\", \"rootUri\") to match SourceControlCreateDTO's wire shape\n- RegisterScmResourceGroup: Add missing \"providerHandle\" field and use camelCase keys (\"providerHandle\", \"groupId\", \"label\") matching SourceControlGroupUpdateDTO\n\n**Code Cleanup**\n- Add #[allow(dead_code)] to 15 structs/functions used only in specific build configs\n- Make 7 structs public (WatcherEntry, TestControllerState, TestRunStatus, TestResult, TestRun, ConnectionHealthChecker, EncryptionKey) for testing\n- Change result-discarding calls from `Self::Method(...)` to `let _ = Self::Method(...)` for clarity\n- Remove unused IPC handlers: file:readFile/writeFile/rename/watch/unwatch, workspaces:getWorkspaceIdentifier/enterWorkspace\n- Set MACOSX_DEPLOYMENT_TARGET=10.13 in Cargo config for broader compatibility",
+			"SHA": "11b3c822ee8a556e47c07a9821fdc8f028c8bad4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T20:29:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
+				874,
 				2
 			],
-			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to the properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those - the \"dead code that needs to be connected\" the user flagged.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.",
-			"SHA": "5f23bca601cb496e0c86114e0aaf8db93c22cde4"
+			"Message": "feat(Mountain): Implement workspace trust handlers for vscode.git\n\nAdd handlers for `Workspace.RequestResourceTrust` and `Workspace.IsResourceTrusted`\nthat route through Mountain instead of falling back to Cocoon's permissive heuristic.\nThe vscode.git `Model.openRepository` calls these before constructing the Repository,\nand while the Cocoon proxy already returns `true` (allowing git to proceed), this gives\nthe canonical handler a proper home and enables `GenerateRouteManifest.sh` to detect\nthese methods and automatically switch Cocoon from heuristic-default to gRPC-routed\non the next manifest regeneration.\n\nAlso mute `vscode-api-gap` dev logs in short mode. This tag fires from\n`WrapNamespaceWithHeuristics` whenever an extension uses a vscode API method we\nhaven't formally shimmed — useful for API gap audits but noisy in default dev runs.\nEnable via `LAND_DEV_LOG=all` or `LAND_DEV_LOG=vscode-api-gap` when needed.\n\nFuture rounds can replace the trust-by-default `true` with real per-OS trust queries\n(Gatekeeper/SmartScreen/xattrs).",
+			"SHA": "bd4aed14ea15f92d919ac15eef541579baad76fc"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:47:23Z",
+			"Date": "2026-04-26T20:05:31Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				4
+				"⠇⠀⠀⠀⠀",
+				874,
+				73
 			],
-			"Message": "feat(Mountain): Add VS Code IPC command aliases and stub handlers\n\nAdd command aliases in WindServiceHandlers to bridge Mountain's native Effect-TS IPC layer with VS Code's binary IPC bridge (DiskFileSystemProviderClient, ConfigurationService):\n- Configuration: `configuration:getValue` / `configuration:updateValue` → `configuration:get` / `configuration:update`\n- File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`\n- Add stub handlers for `file:watch` / `file:unwatch` that return Null to prevent channel promise leaks\n- Add `configuration:onDidChange` handler that acks the channel listener with Null\n\nAlso enhance Cocoon stderr filtering to suppress follow-up stack frames from extension errors (EntryNotFound, FileNotFound) that Node.js prints across multiple stderr lines. This keeps the main cocoon channel clean while routing benign extension path-probing to verbose.",
-			"SHA": "661fe2405f2f71c5710b1b1e6dfb59272896fd30"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:25:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				4
-			],
-			"Message": "feat(Mountain): Fire workspaceContains and onStartupFinished extension activation\n\nImplement comprehensive startup extension activation matching VS Code's behavior:\n\n1. **Extension activation phases**: Fire three bursts at startup:\n   - `*` - unconditional activation (existing)\n   - `workspaceContains:<pattern>` - for each pattern matched by workspace\n   - `onStartupFinished` - after 2s delay for late-binding extensions\n\n2. **Pattern matching**: Add `FindMatchingWorkspaceContainsPatterns` that walks\n   workspace folders (depth 3, 4096 entries max) and matches against extension-\n   contributed `workspaceContains:` patterns using a minimal glob matcher.\n\n3. **Stderr filtering**: Downgrade benign Node.js/macOS noise to `cocoon-stderr-verbose`:\n   - macOS codesign messages (\"is already signed\", \"replacing existing signature\")\n   - Node deprecation warnings (DeprecationWarning, --trace-deprecation)\n   - Keeps main cocoon channel clean for actionable errors only.\n\n4. **Rust edition**: Upgrade from 2021 to 2024.\n\nThis fixes extensions that never activated without user interaction because they\ngate on `workspaceContains:package.json`, `onStartupFinished`, or similar events.",
-			"SHA": "72db08550a3a7b20669947fe3bac64deb2e0300d"
+			"Message": "feat(Mountain): Fix extension activation and SCM provider integration\n\nKey fixes for extension activation and SCM functionality:\n\n1. **Configuration re-merge after extension scan** (AppLifecycle.rs):\n   - First-pass config merge ran before extensions were scanned, so\n     `contributes.configuration.properties[*].default` values weren't\n     available. `getConfiguration('git').get('enabled')` returned\n     undefined, causing vscode.git to short-circuit in `_activate` and\n     the SCM viewlet to stay empty.\n   - Add second-pass merge after extension scan to collect and apply\n     extension default configurations (113 extensions declare defaults).\n\n2. **Debug session lifecycle events** (DebugProvider.rs):\n   - Add `$onDidStartDebugSession` notification to Cocoon for extension\n     listeners, plus `sky://debug/sessionStart` emit for Sky.\n   - Fix termination payload to include `id` field for proper session\n     tracking, add `sky://debug/sessionEnd` emit.\n\n3. **SCM provider handle alignment** (RegisterScmProvider.rs):\n   - Cocoon uses sequential handles from `ScmNamespace.ts`, but Mountain\n     was computing DJB hash of scmId. Resource group updates arrived with\n     the sequential handle while providers were registered under the hash,\n     starving the SCM viewlet.\n   - Now reads `handle` / `scm_handle` from the wire payload verbatim,\n     falls back to hash only when absent.\n\n4. **SCM group update parsing** (UpdateScmGroup.rs):\n   - Wire format sends `scm_handle` + `group_handle` (\"<handle>/<groupId>\"),\n     not the flat `provider_id`/`group_id` the previous decoder expected.\n   - Split `group_handle` to extract groupId for renderer payload.\n\n5. **Output channel log routing** (OutputChannelAppend.rs):\n   - vscode.git \"Git\" channel logs are critical for diagnosing F6\n     silent-bail (extension activates but never reaches\n     `createSourceControl`). Route to `grpc` level instead of\n     `output-verbose`.\n\nAlso: minor formatting cleanup across 70+ files, documentation improvements.",
+			"SHA": "190e8d070ed1277c1849075703fd20b34301a891"
 		}
 	],
-	"TimeStamp": 1778683910244
+	"TimeStamp": 1778855169842
 }
