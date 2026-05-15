@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-17T15:29:21Z",
+			"Date": "2026-04-21T18:33:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				729,
+				5
+			],
+			"Message": "feat(Mountain): Add .env.Land bootstrap and zombie-Cocoon cleanup\n\nAdd environment loading from .env.Land at Mountain boot (Atom I5):\n- Load from cwd, parent dir, and repo-layout probe (binary → 6 ancestors)\n- Populates Product*, Tier*, Network* vars for standalone binary launches\n- Forwards these vars to Cocoon subprocess for single-source-of-truth design\n- InitializationData.ts now reads version/commit/quality from env instead of hardcoded defaults\n\nFix workspace activation not firing after folder pick (Atom I1):\n- Before Window.navigate() reload, mutate ApplicationState.Workspace and broadcast $deltaWorkspaceFolders to Cocoon\n- Without this, Cocoon keeps its pre-nav snapshot (0 folders) and workspaceContains:* activations never match\n- Previously in a dead copy of the handler; consolidated here\n\nAdd zombie-Cocoon prevention (Atom I6):\n- Pre-boot SweepStaleCocoon(): TCP-probe port 50052, resolve owner via lsof, SIGTERM→SIGKILL if stale\n- Post-shutdown HardKillCocoon(): force-terminate child after $shutdown gRPC attempt completes\n- Without this, segfault/SIGKILL/debugger detach left zombie holding port, causing EADDRINUSE cascade on next launch\n\nThis ensures extensions load reliably after folder picks and prevents stale Cocoon processes from degrading the extension host.",
+			"SHA": "b5b669a09006ce160ded354d37f2d4497a4f0b4c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-21T16:44:28Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				732,
-				19
+				729,
+				10
 			],
-			"Message": "refactor(Mountain): Adopt PascalCase naming and simplify binary configuration\n\nRename all snake_case module files to PascalCase throughout the Mountain codebase:\n- LanguageFeature: code_actions.rs → CodeActions.rs, invoke_provider.rs → InvokeProvider.rs\n- FileSystemProvider: read_operations.rs → ReadOperations.rs, write_operations.rs → WriteOperations.rs\n- StatusBarProvider: entry_management.rs → EntryManagement.rs, message_management.rs → MessageManagement.rs\n- RPC: echo_action.rs → EchoAction.rs\n\nAlso simplify the binary/library names in Cargo.toml and tauri.conf.json from the verbose development identifier `DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_Mountain` back to `Mountain`, and remove the externalBin reference to Binary/node.\n\nThis aligns with the CodeEditorLand PascalCase naming convention and removes development-specific configuration artifacts.",
-			"SHA": "3461db4f7ae8b09eacca0216c8fa85521797b25f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-17T15:19:41Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				734,
-				8
-			],
-			"Message": "feat(Mountain): Configure dev node environment and add extension scanning/user stub handlers\n\nConfigure Mountain for development node environment with verbose binary/library naming and add extension scanning improvements:\n\n1. **Dev Node Environment Setup**: Rename binary and library to `DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_Mountain` with corresponding tauri.conf.json changes including externalBin reference to `Binary/node`.\n\n2. **Extension Scanning Enhancements** (ScanPathConfigure.rs):\n   - Add VS Code-style bundle path: `.app/Contents/Resources/app/extensions`\n   - Add user-scope paths: `~/.codeeditorland/extensions` and `~/.land/extensions`\n   - Mirrors VS Code's `~/.vscode-oss/extensions` convention\n\n3. **Cocoon Health Monitor Fix** (CocoonManagement.rs):\n   - Stop flooding logs with \"No Cocoon process to monitor\" after crashes\n   - Monitor now exits quietly once process is gone instead of looping forever\n\n4. **Hover Provider Logging** (Provider.rs):\n   - Enhanced logging with handle, URI, position, and result details\n\n5. **IPC Stub Handlers** (CreateEffectForRequest.rs):\n   - Debug.Stop, Task.Fetch, Task.Execute\n   - Authentication.GetSession, Authentication.GetAccounts\n   - Clipboard.Read, Clipboard.Write, NativeHost.OpenExternal\n   - Languages.GetAll\n   These stubs return safe defaults (null/[]/\"\") to prevent extensions from crashing on unimplemented VS Code APIs.\n\nThese changes enable proper development workflow with user extension directories and prevent log flooding while providing foundation for future full implementations.",
-			"SHA": "62187df95ab59673fc80a98c9e3bfdc8dc4342d2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-17T13:32:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				732,
-				9
-			],
-			"Message": "fix(Mountain): Correct Sky path resolution and add extension scanning instrumentation\n\nThree related improvements to extension management and path resolution:\n\n1. **Fix Sky target path resolution** - The monorepo layout places Sky at `Land/Element/Sky/`, but the code was incorrectly using `Element/Sky/Target` (doubling Element). Change from `../../../Element/Sky/Target` to `../../../Sky/Target` in ScanPathConfigure.rs, AppLifecycle.rs, and InitializationData.rs.\n\n2. **Add dev-only cfg guards** - Wrap dev fallback paths in `#[cfg(debug_assertions)]` to keep release builds lean. Production should fail loudly if the bundle is misconfigured rather than silently falling back to dev paths.\n\n3. **Add extension scanning instrumentation** - Comprehensive logging throughout the scanning pipeline:\n   - ScanAndPopulateExtensions: track inserted vs rejected (empty identifier) counts\n   - Scanner: log directory entries, parse failures, missing package.json\n   - MountainEnvironment: verify serialized non-null extensions\n   - Extension handler: log serialized payload sizes, warn on empty results\n   - Also register native `setContext` command as no-op for VS Code extension compatibility\n\n4. **Implement FileSystem effects** - Add FileSystem.Stat, CreateDirectory, Delete, Rename, Copy effects to CreateEffectForRequest, completing the IPC bridge between Wind requests and Mountain's FileSystemReader/Writer traits.",
-			"SHA": "3ba96f11406420784098879a309de9cd997c2fcf"
+			"Message": "fix(Mountain): improve extension loading, add BATCH-16 latency instrumentation\n\nKey changes:\n- LocalhostPlugin: add MIME type override for JS/CSS/JSON/HTML/SVG assets to fix \"not a valid JavaScript MIME type\" errors in webview\n- ScanPathConfigure: remove debug_only gate on extension scan paths, enabling repo-layout fallback in release builds\n- AppLifecycle: extend fallback timers (2s→8s, 5s→15s) with logging when Sky hasn't advanced phases; skip if already advanced\n- TerminalProvider: capture and log PID + exit status code on terminal exit\n- DevLog: replace manual UTC timestamp with chrono::Local to match VS Code's session log directory convention\n- WindServiceHandlers: add diagnostic:log bridge, implement extensions:getInstalled for sidebar, add aux window stubs, use shared SessionTimestamp\n- CreateEffectForRequest: add BATCH-16 timestamps at dispatch-enter and body-start for tree.register latency analysis\n- MountainVinegRPCService: add grpc-recv timestamp for hot-path RPCs enabling 3-hop latency breakdown\n\nThese changes improve extension loading reliability, add diagnostic visibility into RPC latency, and fix session log directory mismatch between Mountain.dev.log and VS Code output logs.",
+			"SHA": "9a4751a1ee8ef1b0f174a524647c54e19264b732"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-04-17T02:08:42Z",
+			"Date": "2026-04-21T02:09:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				691,
+				729,
 				1
 			],
 			"Message": "",
-			"SHA": "e157f71a4ebacc67e0e5f1c263aac38c45ce57c6"
+			"SHA": "22db075db0768e5cf22aa1e6825b98aa6214f758"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-16T20:52:00Z",
+			"Date": "2026-04-20T14:29:15Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
-				732,
-				48
+				"⠀⠀⠀⠀⠀",
+				729,
+				2
 			],
-			"Message": "refactor(Mountain): Split WindServiceHandlers and CocoonService into atomic domain modules\n\nRefactor the IPC layer by splitting monolithic handlers into focused domain modules:\n\n**WindServiceHandler split (24 modules):**\n- Command, Configuration, Decoration, Environment, Extension, FileSystem\n- History, Keybinding, Label, Lifecycle, Model, NativeHost\n- Notification, Output, Progress, QuickInput, Search, Storage\n- Terminal, TextFile, Theme, WorkingCopy, Workspace\n- Each module contains handlers for its domain with proper error handling\n\n**CocoonService split (15 modules):**\n- Auth, Command, Debug, Extension, FileSystem, Output, Provider\n- SCM, Save, Secret, Task, Terminal, TreeView, Window, Workspace\n- Language feature provider handlers consolidated in Provider.rs\n\n**Additional changes:**\n- Fix MutexGuard scope in FeatureMethods.rs (lock held across await point)\n- Remove duplicate dev_log imports in AdvancedFeatures.rs and WindAdvancedSync.rs\n- Simplify TraceLog.rs and ConfigurationInitialize.rs (remove excess docs)\n- Add comprehensive CHANGELOG.md documenting v0.0 through v2.1\n- Update mod.rs to re-export helper functions for submodules\n\nThis modular structure improves maintainability and enables parallel development of domain-specific IPC handlers.",
-			"SHA": "f8dd70ea95583cfeee8936cc7eb8b022b141465f"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "777bd8fe5033e7bcc9c447c1bc587277114c04a2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-20T14:21:03Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				729,
+				23
+			],
+			"Message": "",
+			"SHA": "f42cde92e1e8f48d69034b04cd1fa40a1a9948b4"
 		}
 	],
-	"TimeStamp": 1778683915934
+	"TimeStamp": 1778855190672
 }

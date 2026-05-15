@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T23:06:23Z",
+			"Date": "2026-04-29T22:17:52Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
-				264,
-				10
+				276,
+				12
 			],
-			"Message": "feat(Output): Add RewriteNodeModulesPath transform and expose IMarkerService\n\nAdd a new build transform and update an existing one:\n\n1. RewriteNodeModulesPath: Patch `vs/base/common/network.js`'s hardcoded paths (`vs/../../node_modules`, `vs/../../extensions`, etc.) to drop one `../` segment. Without this, the dev server resolves to `/Static/node_modules/` instead of `/Static/Application/node_modules/`, returns SPA `index.html` fallback, and all grammar/tokenization (textmate, oniguruma, language-detection) silently breaks across every extension.\n\n2. ExposeWorkbenchAccessor: Expose `IMarkerService` on `__CEL_SERVICES__.Markers` so SkyBridge can push extension diagnostics (rust-analyzer, TypeScript, ESLint) into the workbench. Mountain emits `sky://diagnostics/changed` events; the bridge now calls `Markers.changeOne(owner, uri, markers)` to paint red squiggles and populate the Problems panel.\n\nBoth transforms are idempotent and added to the BuildPipeline after RewriteNestedWorkerBootstrap.",
-			"SHA": "cf8dea549df816cc3b534beb9449f90bf678f69f"
+			"Message": "",
+			"SHA": "087dbf0bcee05c59dcd736eb09ed0c23d52faa60"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T21:54:01Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				261,
-				45
-			],
-			"Message": "feat(Output): Fix Monaco worker bootstrap crashes and add polyfill telemetry\n\nAdd two new build transforms that fix worker bootstrap crashes in the bundled editor:\n\n1. InjectWorkerBootstrapShim: Injects `__name`/`__defProp` shim into `webWorkerServiceImpl.js::getWorkerBootstrapUrl` blob factory so Monaco's language workers (TS/CSS/HTML/JSON services, semantic tokens) inherit the helpers in their module scope. Without this, workers crash with `ReferenceError: Can't find variable: $4e` when Vite/OXC mangling renames `__name` to `$4e`.\n\n2. RewriteNestedWorkerBootstrap: Replaces `polyfillNestedWorker.js`'s `(function... ).toString()` pattern with a literal JSON.stringified source that omits the cosmetic `__name(...)` decorations. The `.toString()` approach returns mangled source (`$4e`) which the blob worker can't evaluate since the identifier isn't defined in its scope.\n\n3. RewriteStaticBlockSelfRef: Replace hardcoded 2-file whitelist with auto-detection across all `vs/*.js` files - the whitelist silently failed because VS Code's out-build mangler emits different class names than expected.\n\n4. InstrumentVscodeGit: Add markers F (createModel done) and L (openRepository getRepositoryRoot done) for finer-grained Git extension activation diagnostics.\n\n5. Telemetry: Add global `__LAND_POLYFILL_TELEMETRY__` hook and wire it into ChildProcessPolyfill, IPCRendererShim, ProcessPolyfill, and SharedProcessProxy to route silently-caught failures to PostHog for monitoring.",
-			"SHA": "e0fda068f1befeb3a76f470689b34bd8378fe554"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:56:17Z",
+			"Date": "2026-04-29T18:50:01Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				266,
-				1
+				270,
+				2
 			],
-			"Message": "refactor(Output): Update RewriteStaticBlockSelfRef to auto-detect affected files and remove manual whitelist\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "4fab2bb7a34e298cf9ea9c00697fedeedbacb2ac"
+			"Message": "fix(Output): Correct ViewContainersRegistry registry ID in ViewRegistrySnapshot\n\nThe ViewRegistrySnapshot diagnostic function was reporting containers=0\nbecause it used a guessed registry ID 'workbench.view.containersRegistry'\nwhich returned null from Registry.as(). The correct stock VS Code registry\nID (documented in vs/workbench/common/views.ts:35) is\n'workbench.registry.view.containers'. This fixes SkyBridge's diagnostic\nprobe so it now correctly reports the actual container and view counts\nfor extension manifests (Roo, Claude, gitlens, ...) reaching the workbench.",
+			"SHA": "1f47ba960742d3e508694b6d695fb5174466af89"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:48:41Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				266,
-				16
-			],
-			"Message": "feat(Output): Add HoistFunctionDeclarations and RewriteStaticBlockSelfRef transforms\n\nAdd two new build transforms to Output's ApplyPipeline that fix TDZ errors in bundled VS Code:\n\n1. HoistFunctionDeclarations: Moves top-level `function NAME(...) {...}` declarations and ESBuild helper vars (`__defProp`, `__name`, `__decorate`, `__param`) to the top of each file, before any calls. After Rollup concatenation converts function declarations to `let NAME; NAME = function(){...}`, calls before the assignment hit a TDZ. Pre-hoisting preserves the unbundled semantics.\n\n2. RewriteStaticBlockSelfRef: Rewrites class-name self-references (`ClassName.member`) inside `static {...}` blocks to `this.member`. After bundling, `class X {...}` becomes `let X; X = class{...}` so static block self-references resolve to undefined. Inside a static block, `this` IS the class.\n\nAlso update InjectNameShim to add 'unsafe-inline' to the iframe's CSP - the name shim injection invalidates the SHA256 hash. Update RewriteWorkbenchBaseURL to use a literal import string instead of runtime-computed URL, enabling Vite/Rollup to follow the module graph for bundling.\n\nThese transforms enable the bundled workbench to boot correctly after Output's tree shake + bundle pass.",
-			"SHA": "3c4cbf07803c8b20cfceed4186ca2dd24682c052"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T05:26:09Z",
+			"Date": "2026-04-29T18:37:59Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				260,
+				270,
 				1
 			],
-			"Message": "refactor(Output): Exclude StaticToDynamicImport and CSS transforms from ApplyPipeline\n\nRemove CSSStrategy (InlineCSSImport/StripCSSImport) and StaticToDynamicImport from Output's ApplyPipeline. These transforms rewrite static imports into runtime forms (`await import(...)` for JS, `_LOAD_CSS_WORKER(...)` for CSS) which suit the `/Static/Application/` path where files are individually loaded via the Worker SW.\n\nFor Output's bundled tree where Vite walks Target, we WANT static imports so Rollup can follow the module graph and emit a single hashed chunk. CSS is handled by Vite's native pipeline which extracts and hashes CSS assets into `_astro/`, with `cssCodeSplit: false` in astro.config.ts to fold every CSS module into one file.\n\nSky's `astro:build:done` hook still runs the full BuildPipeline (including these transforms) over Sky/Target/Static/Application/, so the existing path maintains its runtime-load behavior. The two output trees diverge intentionally.",
-			"SHA": "5b9e387695fc9812e24274d0b447d42550613243"
+			"Message": "",
+			"SHA": "8990969b75a5f51a932dca0721304cf14a075ac9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T18:37:58Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				270,
+				5
+			],
+			"Message": "refactor(Output): Disable PatchTerminalGpuAcceleration, add ViewRegistrySnapshot\n\nTwo changes to the Output build pipeline:\n\n1. Remove PatchTerminalGpuAcceleration from BuildPipeline default order.\n   The transform fixed WebGL atlas font glitches (Menlo loading race) but\n   introduced a \"black shadow over text\" artifact from xterm's DOM-renderer\n   cursor/accessibility layer in WKWebView. Keeping the transform file on\n   disk for potential re-enablement after the input race fix lands.\n\n2. Add ViewRegistrySnapshot() to __CEL_SERVICES__ facade. This diagnostic\n   function queries the workbench's ViewContainersRegistry and ViewsRegistry\n   to return container/view counts + sample IDs. SkyBridge uses this to\n   verify extension manifests (Roo, Claude, gitlens) reached\n   viewsExtensionPoint's setHandler - the most common cause of silent\n   extension panel failures is contributions never flowing through\n   IExtensionService to the registry.",
+			"SHA": "325a4de7ad74ebc36c42725572c9f36d4d7b8c3f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T17:42:41Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				270,
+				6
+			],
+			"Message": "feat(Output): Add PatchTerminalGpuAcceleration transform for WKWebView terminal\n\nAdd a new transform plugin that patches the terminal configuration schema to default `terminal.integrated.gpuAcceleration` to `'off'` instead of stock VS Code's `'auto'`. Under WKWebView, xterm.js's WebGL renderer builds its texture atlas before the Menlo font resolves, causing wrong cell widths and rendering glitches (overlapping characters, double-width glyph gaps, halos around anti-aliased edges due to texImage2D premultiplication differences).\n\nThe transform is currently NOT wired into the BuildPipeline by default. It was disabled after enabling revealed a \"black shadow over text\" artifact from xterm's DOM-renderer cursor/accessibility layer in WKWebView. The transform exists on disk so it can be re-enabled if the original WebGL atlas font drift issue resurfaces after the deferred-create race fix lands.\n\nUsers can still opt into WebGL by setting `terminal.integrated.gpuAcceleration: \"on\"` in settings.json — the schema enum is unchanged.",
+			"SHA": "8d7a19d0e4241a66065c7e53257283843fae4c27"
 		}
 	],
-	"TimeStamp": 1778683899975
+	"TimeStamp": 1778855105864
 }

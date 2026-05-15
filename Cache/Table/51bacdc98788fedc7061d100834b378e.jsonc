@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T23:06:33Z",
+			"Date": "2026-04-29T22:36:34Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				3
+			],
+			"Message": "fix(Mountain): Extend extensions poll timeout and add gRPC shutdown guard\n\nIncrease the polling timeout in `extensions:getInstalled` from 3s to 5s because cold-cache runs over 113 extensions across 6 paths regularly hit ~2950ms, poisoning the workbench's `IExtensionService` cache with empty results.\n\nAdd a process-wide shutdown flag to the Vine gRPC client that gets marked before SIGKILL of Cocoon. Background tasks (PTY reader, file watchers, diagnostics emitter) that fire `SendNotification` after the sidecar is dead now short-circuit silently instead of logging false-positive `Connection refused` errors during shutdown. `SendRequest` returns an error immediately while `SendNotification` returns `Ok(())` to allow natural unwinding of background tasks.\n\nThis prevents the shutdown tail from being flooded with spurious gRPC errors while keeping the worst-case visible boot delay bounded at 5 seconds.",
+			"SHA": "06be111688dffce33846936c513b1b67504248a5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T22:18:02Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				859,
+				11
+			],
+			"Message": "refactor(Mountain): Centralize sky event emissions via LogSkyEmit and add defensive guards\n\nThis commit consolidates all Tauri event emissions through `LogSkyEmit` for histogram visibility in the `[DEV:SKY-EMIT]` tracking channel, and adds defensive error handling throughout the provider layer.\n\n**LogSkyEmit migration (7 files):**\n- LifecyclePhaseState, WorkspaceDelta, DiagnosticProvider, OpenDocument, TerminalProvider, RegisterCommand, RegisterScmProvider\n- Previously each file imported `tauri::Emitter` directly; now routes through LogSkyEmit so diagnostic/command/workspace event volume is visible in the histogram for debugging \"panel shows count but no items\" issues.\n\n**Defensive URI handling (DiagnosticProvider):**\n- Batch now tolerates malformed URIs per entry rather than failing the entire batch (mirrors VS Code's `MarkerService._toMarker` returning undefined instead of throwing)\n- Skips entries with empty URI strings with a warning log\n\n**Defensive path guards:**\n- PathSecurity.rs: Reject empty paths upfront to prevent empty-string path from bypassing workspace gating (`Path::starts_with(\"\")` returns true)\n- FileSystem.rs (CreateEffect): Add empty-path guards for ReadFile and StatFile, returning FileNotFound per VS Code's FileSystemProvider contract\n\n**Terminal resilience (WindServiceHandlers):**\n- localPty:createProcess now returns explicit error when id is 0/invalid instead of silently returning 0 (prevents keystrokes being swallowed)\n- localPty:resize clamps cols/rows to minimum of 1 (portable-pty crashes on 0×0 during pane drag-storms)\n- Resize on disposed terminal now logs warn and returns Null instead of error (common race during shutdown)\n- Tree-view data shape check: force `{items: []}` for non-conforming shapes to prevent TypeError in renderer\n\n**Documentation:**\n- MarkerDataDTO: Clarify coordinates are 1-based (matching workbench IMarkerData), noting Cocoon's LanguagesNamespace.ts adds the +1 offset from vscode.Position 0-based convention",
+			"SHA": "51f75f11010ab398a1f34525834f36b792dfbbfd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T18:51:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				859,
 				2
 			],
-			"Message": "feat(Mountain): Add per-URI marker payloads to diagnostics events and cap keyring logging\n\nTwo changes in Mountain's diagnostic system:\n\n1. **DiagnosticProvider.rs**: Extend the `DiagnosticsChanged` event payload with a new `changedURIs` field containing per-URI marker data alongside the existing `Uris` string array. This enables SkyBridge's `cel:diagnostics:changed` listener to call `IMarkerService.changeOne(owner, uri, markers)` directly without an extra IPC round-trip per diagnostic change. Also adds lowercase `owner` field for consistency. Maintains backward compatibility with listeners expecting the original format.\n\n2. **LoggingPlugin.rs**: Cap the `keyring` crate to Warn level. This dependency (used by Mountain's secret-storage path for license data lookups) emits a 3-line DEBUG block per `get_password` call that fires indefinitely after the workbench paints, similar to the previous `ignore` and `globset` mutes.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "5b111b189f5566e92bce268a48be289d73ef6735"
+			"Message": "fix(Mountain): Fix boot-time extensions race and add missing getLatency\n\nAdd polling to extensions:getInstalled to resolve boot-time race condition where workbench caches empty extension list before ExtensionPopulate completes its scan (~250-500ms). Poll the ScannedExtensions map for up to 3 seconds before returning empty, ensuring 113+ extension contributions appear in the activity bar.\n\nAlso add localPty:getLatency handler returning empty array per VS Code's IPtyHostLatencyMeasurement[] contract. Without this, every poll cycle logged \"Unknown IPC command: localPty:getLatency\" and a failed TauriInvoke.",
+			"SHA": "2b89f60a78bc0322f8e68c9ae88d722fd369416f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T22:00:38Z",
+			"Date": "2026-04-29T18:38:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				859,
-				4
+				2
 			],
-			"Message": "refactor: simplify project naming in Cargo.toml and tauri.conf.json\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "7ecd2c78579c71c6c6dbbbb509d52c63b1e771ad"
+			"Message": "fix(Mountain): Remove duplicate DevTools window in debug builds\n\nWindowBuild.rs was calling `MainWindow.open_devtools()` independently\nfrom AppLifecycle.rs, causing two DevTools windows to open on every\ndebug launch. Remove the redundant call and document that DevTools\nauto-open lives in AppLifecycle (line 174), gated on debug_assertions\nwith a matching log line.\n\ndocs(Mountain): Clarify diagnostic coordinates are 1-based\n\nUpdate DiagnosticProvider.rs docstring to specify that\nStartLineNumber/StartColumn and EndLineNumber/EndColumn use 1-based\nindexing, matching workbench IMarkerData. Add note explaining that\nCocoon's LanguagesNamespace.ts NormaliseDiagnostic adds the +1 offset\nfrom vscode.Position 0-based convention before sending to Mountain.",
+			"SHA": "c661d669a5f51174397956c2ab363d240e270059"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T21:54:13Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				861,
-				6
-			],
-			"Message": "fix(Mountain): Resolve 404s for extension webview assets and reduce logging noise\n\nTwo bug fixes in Mountain's build modules:\n\n1. **Scheme.rs**: Extend vscode-file URI handling to support arbitrary authorities beyond \"vscode-app\". The original code only handled `vscode-file://vscode-app/<path>` but `WebviewImplementation::asWebviewUri` rewrites local resource URIs to use the extension's identifier as authority (e.g., `vscode-file://vscode.git/...`). This caused every extension-supplied webview asset (icons, scripts, stylesheets, fonts) to return 404. Added a generic fallback that extracts the path after any authority.\n\n2. **LoggingPlugin.rs**: Cap noisy extension-scanner log targets (\"ignore\", \"ignore::walk\", \"ignore::gitignore\", \"globset\") to Warn level. These crates emit DEBUG lines per `.gitignore` opened, per glob compiled, and per file whitelisted—tens of thousands during a single boot, drowning out extension activation signals.\n\nAlso updates binary/lib names and tauri productName to include build configuration identifiers for development builds.",
-			"SHA": "bbbdab26d47fbd3bca35342c224431194c519eb7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:56:13Z",
+			"Date": "2026-04-29T17:42:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				859,
 				1
 			],
-			"Message": "fix: correct wording in changelog for clarity and consistency\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "fc4f4ed5042663818a32ac3024397cff72f0a794"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:53:01Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				4
-			],
-			"Message": "feat: add support for multiple windows in app and window permissions\n\n- Updated default permissions for the app plugin to include `allow-supports-multiple-windows`.\n- Added new permissions for enabling and denying `supports_multiple_windows` command.\n- Enhanced window plugin permissions to include `allow-activity-name` and `allow-scene-identifier`.\n- Added corresponding deny permissions for `activity_name` and `scene_identifier` commands.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "c7c748bb0dce25923e80d5c6b1573c08e05b421e"
+			"Message": "fix(Mountain): Defer sky://terminal/create event to fix race condition\n\nThe terminal workbench's `LocalTerminalBackend.createProcess` flow has a timing vulnerability: when `sky://terminal/create` emits synchronously during step 1 (RPC in-flight), the Tauri event arrives before step 3 (`_ptys.set(id, pty)`) completes. This causes `_ptys.get(id)` to return `undefined`, skipping `handleReady` and preventing `processManager._onProcessReady` from firing. Since `ptyProcessReady` never resolves, every subsequent `processManager.write(data)` call hangs indefinitely—users see the terminal panel but all keystrokes are silently dropped.\n\nFix by emitting on a deferred tokio task with a 120ms delay, giving the RPC response roundtrip + `_ptys.set` sufficient headroom. Also switch to `LogSkyEmit` for visibility under `[DEV:SKY-EMIT]` histogram tracking.\n\nThis complements the existing `AppendTerminalOutput` replay buffer for data (added in c99ccbe), completing the terminal race-condition fix for both create and data events.",
+			"SHA": "c2d0beca968f600d76ac4d85a436931124cfdf07"
 		}
 	],
-	"TimeStamp": 1778683908009
+	"TimeStamp": 1778855160706
 }
