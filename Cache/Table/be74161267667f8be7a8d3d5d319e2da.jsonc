@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:56:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				266,
-				1
-			],
-			"Message": "refactor(Output): Update RewriteStaticBlockSelfRef to auto-detect affected files and remove manual whitelist\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "4fab2bb7a34e298cf9ea9c00697fedeedbacb2ac"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:48:41Z",
+			"Date": "2026-04-30T04:54:25Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
-				266,
-				16
+				255,
+				15
 			],
-			"Message": "feat(Output): Add HoistFunctionDeclarations and RewriteStaticBlockSelfRef transforms\n\nAdd two new build transforms to Output's ApplyPipeline that fix TDZ errors in bundled VS Code:\n\n1. HoistFunctionDeclarations: Moves top-level `function NAME(...) {...}` declarations and ESBuild helper vars (`__defProp`, `__name`, `__decorate`, `__param`) to the top of each file, before any calls. After Rollup concatenation converts function declarations to `let NAME; NAME = function(){...}`, calls before the assignment hit a TDZ. Pre-hoisting preserves the unbundled semantics.\n\n2. RewriteStaticBlockSelfRef: Rewrites class-name self-references (`ClassName.member`) inside `static {...}` blocks to `this.member`. After bundling, `class X {...}` becomes `let X; X = class{...}` so static block self-references resolve to undefined. Inside a static block, `this` IS the class.\n\nAlso update InjectNameShim to add 'unsafe-inline' to the iframe's CSP - the name shim injection invalidates the SHA256 hash. Update RewriteWorkbenchBaseURL to use a literal import string instead of runtime-computed URL, enabling Vite/Rollup to follow the module graph for bundling.\n\nThese transforms enable the bundled workbench to boot correctly after Output's tree shake + bundle pass.",
-			"SHA": "3c4cbf07803c8b20cfceed4186ca2dd24682c052"
+			"Message": "feat(Output): Expand workbench service exposure and add config/storage overlays\n\nAdd 21 new service handles to ExposeWorkbenchAccessor for Wind consumption:\nConfiguration, Storage, Lifecycle, Theme, WorkbenchTheme, Keybinding,\nNotification, File, Dialog, FileDialog, Clipboard, ContextKey, Host,\nExtension, Workspace, Product, Progress, Editor, EditorGroups, TextFile,\nActivity, Title, PaneComposite, ViewDescriptor, Layout.\n\nAdd two new transforms enabling Wind to inject runtime overrides without\ndisk persistence:\n- InjectConfigurationOverlay: consults `globalThis.__CEL_OVERRIDE_CONFIG__`\n  before upstream's default→user→workspace→folder chain in\n  IConfigurationService.getValue(). Bag is opt-in; unset preserves\n  upstream behavior.\n- InjectStorageOverlay: consults `globalThis.__CEL_OVERRIDE_STORAGE__` on\n  every AbstractStorageService.{get,getBoolean,getNumber,getObject} call.\n  Composite key `<scope>:<key>` disambiguates across\n  APPLICATION/PROFILE/WORKSPACE scopes.\n\nOther changes:\n- RewriteWorkerURLs: generalize pattern from specific file paths to\n  `*WorkerMain.ts` / `*Iframe.html` glob so future worker types are\n  covered automatically. Also handle `.ts`→`.js` suffix mapping.\n- StaticToDynamicImport: skip rewrite when `Pack` env var is set (bundled\n  profiles), since Vite needs static imports to walk the graph for CSS\n  extraction and tree-shaking.\n- ESBuild: add `.css` to copy-loader to avoid esbuild's default CSS\n  parser silently dropping modern syntax (@property, container queries).",
+			"SHA": "b20d23f9eed8c644fca5b50dc734a87d1fb03f53"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T05:26:09Z",
+			"Date": "2026-04-30T03:48:56Z",
+			"File": [
+				"⣿⣿⣿⡟⠀",
+				251,
+				187
+			],
+			"Message": "refactor(Output): Switch from esbuild transform to byte-copy for VS Code sources\n\nChange VSCode.ts ESBuild config to use `loader: { \".js\": \"copy\" }` instead of parsing/transforming VS Code's `out/` tree. This byte-copies .js/.cjs/.mjs files directly to Target/, preserving tsc's original identifiers and formatting.\n\nWhy:\n- Output's Transform plugins (ExposeWorkbenchAccessor, InjectWorkerBootstrapShim, RewriteNestedWorkerBootstrap, etc.) are keyed on specific string patterns from VS Code's un-minified output\n- Previously esbuild's default minification + quote-rewriting silently no-oped every transform: the patterns never matched, and the workbench bootstrap crashed with `Unexpected token '<'` (404 HTML served as JS)\n- The `keepNames: false` + `minify: false` belt-and-suspenders ensure any future non-copied JS files also bypass mangling\n\nImpact:\n- Bundle profile: Sky's downstream Vite/Rollup re-mangles for bundled-electron production\n- Unbundled profile: `Static/Application/` serves readable identifiers (gzip-compressed, debuggable)\n- Transform plugins updated to match single-quoted form in tsc's original emit",
+			"SHA": "41381d88b50a83b655c0083b5360b790289a6f02"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-30T03:40:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				260,
+				341,
 				1
 			],
-			"Message": "refactor(Output): Exclude StaticToDynamicImport and CSS transforms from ApplyPipeline\n\nRemove CSSStrategy (InlineCSSImport/StripCSSImport) and StaticToDynamicImport from Output's ApplyPipeline. These transforms rewrite static imports into runtime forms (`await import(...)` for JS, `_LOAD_CSS_WORKER(...)` for CSS) which suit the `/Static/Application/` path where files are individually loaded via the Worker SW.\n\nFor Output's bundled tree where Vite walks Target, we WANT static imports so Rollup can follow the module graph and emit a single hashed chunk. CSS is handled by Vite's native pipeline which extracts and hashes CSS assets into `_astro/`, with `cssCodeSplit: false` in astro.config.ts to fold every CSS module into one file.\n\nSky's `astro:build:done` hook still runs the full BuildPipeline (including these transforms) over Sky/Target/Static/Application/, so the existing path maintains its runtime-load behavior. The two output trees diverge intentionally.",
-			"SHA": "5b9e387695fc9812e24274d0b447d42550613243"
+			"Message": "",
+			"SHA": "1891515604d6bb24012b6d0c0275f78feb0e765a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:53:25Z",
+			"Date": "2026-04-30T02:20:26Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				260,
-				1
+				"⣿⠀⠀⠀⠀",
+				341,
+				64
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "ae22fae83e8e83ac908e8af3a3159e2340b00435"
+			"Message": "refactor(Output): Extract polyfill bodies to type-checked modules, add service stub transforms\n\nMove the inline polyfill IIFE bodies from Transform/*.ts to new Polyfill/*.ts\nmodules. Each polyfill is now a real TypeScript function that gets compiled\nand recovered via `.toString()` at transform time. This enables compile-time\ntype-checking, tree-shaking, and earlier bug detection - previously typos\nonly surfaced at runtime.\n\nKey changes:\n- Extract 6 polyfills to Source/Plugin/Polyfill/: DisableLazyPaint,\n  EagerExtensionActivation, EagerIdleValue, EagerLifecyclePhase,\n  StripBackgroundPolling, TelemetryConsentOff (moved from Transform),\n  WorkbenchInteractivityCSS (moved from Transform), WorkbenchPaintPrime\n  (moved from Transform)\n- Add 4 new Inject* transforms that import from Polyfill/ and use\n  `.toString()` to recover the prepend body\n- Add 3 new Replace* transforms: ReplaceTelemetryService,\n  ReplaceUpdateService, ReplaceExtensionGalleryService replace VS Code\n  service bodies with no-op stubs so static imports resolve while runtime\n  behavior is neutralized\n- Comment out the ESBuild Exclude/{Telemetry,Network,ChromiumIPC}.js lists:\n  the bundled-Vite walk follows static imports inside workbench.*.main.js;\n  excluding the files breaks the build. Body-rewrite via Replace* transforms\n  achieves the same effect while keeping imports intact.\n- Update prepublishOnly.sh to always use `out/` (unminified) for Microsoft/VSCode\n  instead of `out-build/` (gulp release). This ensures Output's transforms\n  operate on readable identifiers; Vite/Rollup re-mangles for bundled profiles.\n\nNew boot-time behavior:\n- InjectStripBackgroundPolling: stack-trace deny-match strips setInterval\n  timers from telemetry/update/sync services\n- InjectEagerLifecyclePhase: advances ILifecycleService.phase from Starting\n  to Eventually immediately, unblocking extension activations\n- InjectEagerExtensionActivation: fires activateByEvent onStartupFinished/*\n  at workbench-loaded so extension panels populate instantly\n- InjectEagerIdleValue: collapses requestIdleCallback to setTimeout(0) so\n  IdleValue<T> lazy-init resolves eagerly\n- ReplaceTelemetryService: body-rewrite to NullTelemetryService (no-op)\n- ReplaceUpdateService: body-rewrite to NullUpdateService (State.Idle forever)\n- ReplaceExtensionGalleryService: body-rewrite to offline stub (empty queries)",
+			"SHA": "c97cc8b17b24fa5a0afa9aac46d948340a371b32"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:53:22Z",
+			"Date": "2026-04-30T01:23:46Z",
 			"File": [
-				"⡿⠀⠀⠀⠀",
-				260,
-				46
+				"⡇⠀⠀⠀⠀",
+				294,
+				28
 			],
-			"Message": "feat: Implement ApplyPipeline for output-side transforms\n\n- Added ApplyPipeline.ts to run transform plugins after building VS Code.\n- Copied TauriMainProcessService.js to Output's Target for correct imports.\n- Introduced new transform plugins: InjectWebViewPolyfills, RewriteWorkerURLs, and RewriteWorkbenchBaseURL.\n- Updated existing plugins to ensure compatibility with new output structure.\n- Adjusted paths in Polyfill and Service modules to point to the new Target structure.\n- Modified prepublishOnly.sh to include the ApplyPipeline execution step.\n- Removed outdated exports and typesVersions from package.json.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "405c62842baa1e3d74c9403c903f299308f6bcb8"
+			"Message": "feat(Output): Add Network/ChromiumIPC excludes, WKWebView lazy-paint fixes\n\nAdd three ESBuild exclude lists to strip dead code from the bundle:\n- Network.ts excludes external endpoints (update service, marketplace,\n  telemetry appenders, Live Share, experiments, surveys)\n- ChromiumIPC.ts excludes Electron IPC/MessagePort/sandbox modules that\n  never run in our non-Electron environment\n- Telemetry.ts was already present but commented out; now enabled\n\nAdd four new workbench transforms to fix WKWebView rendering issues:\n- InjectDisableLazyPaint: Replace requestAnimationFrame with coalesced\n  setTimeout(0) queue, stub IntersectionObserver to fire-on-observe,\n  strip content-visibility/contain:paint from CSS\n- InjectWorkbenchInteractivityCSS: Force pointer-events:auto, visibility,\n  opacity on workbench parts, zero transition durations\n- InjectWorkbenchPaintPrime: Force compositor layout commit via\n  offsetHeight reads on each workbench part\n- InjectTelemetryConsentOff: Pre-bake telemetry.telemetryLevel=off into\n  workbench bootstrap so even straggler consumers take disabled branches\n\nAlso fix InjectEditorGPULayerCSS and InjectTerminalGPULayerCSS: scope\ncontain:paint to canvas only, not row containers (view-lines, xterm-viewport)\nto prevent glyph clipping from paint boundaries in WKWebView. Adds\nimage-rendering hints for nearest-neighbor rasterization.\n\nBundle size impact: ~25 KB net reduction from Network/ChromiumIPC excludes.\nRuntime impact: Zero network pings, panels render immediately on show.",
+			"SHA": "13d8a561c773f0b047f323594af80a5b06565258"
 		}
 	],
-	"TimeStamp": 1778855106968
+	"TimeStamp": 1779025675681
 }

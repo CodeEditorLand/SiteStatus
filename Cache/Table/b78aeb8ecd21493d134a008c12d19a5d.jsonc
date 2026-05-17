@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T12:51:50Z",
+			"Date": "2026-04-22T23:44:18Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
 				28,
 				3
 			],
-			"Message": "build(Project): Coordinate Element submodule updates across 3 components\n\nSynchronize Cocoon, Mountain, and Wind submodules with the following changes:\n- **Wind:** Regenerate compiled MountainImplementation.js to reflect Channel registry migration — replaces `mountain_get_status` string literal with `Channel.MountainGetStatus` reference, updating all IPC channel invokes to use typed Channel imports for compile-time validation.\n- **Cocoon:** Submodule updated to c4626acecda9fba76e991b542c5240721e2e88c1.\n- **Mountain:** Submodule updated to 85483ef53b574cfa1ad8bd98fa1d5eb622c8e87e.\n\nThis ensures the built JavaScript artifacts stay synchronized with the TypeScript source refactoring that added compile-time validated IPC channel names.",
-			"SHA": "838def0552066db8a6a708f44ff8c045e200fb47"
+			"Message": "fix(Project): Distinguish user vs built-in extensions, add IPC stubs\n\nCoordinate fix across Mountain, Output, and Wind submodules:\n\n- **Mountain:** Add `IsUserExtensionScanPath()` helper to detect whether a scan directory represents the user-writable `~/.land/extensions` root versus bundled paths like `Resources/extensions` and VS Code's submodule. Previously every extension was marked `IsBuiltin = true` regardless of source, causing user-installed VSIXes to appear under \"Built-in\" in the Extensions sidebar and leaving `@installed` (which filters for User-scope) empty.\n\n- **Output/Wind:** Add missing stub handlers in TauriMainProcessService to prevent renderer crashes when VS Code code calls unimplemented services: extension tips (empty arrays), MCP management (empty arrays), user data sync (status tuple), and language detection (empty extensions). These stubs return safe empty values matching the absence of corresponding backends in Land.\n\nImpact: User VSIX extensions now appear correctly under \"Installed\" (not \"Built-in\") and VS Code workbench code gracefully handles the lack of sync/tips/MCP/language detection backends without crashing.",
+			"SHA": "2af35a6c2d381bb04045e0d3344f14f1fe92a056"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:42:50Z",
+			"Date": "2026-04-22T22:55:15Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "refactor(Mountain): Replace hardcoded output event strings with typed SkyEvent constants\n\nReplace hardcoded \"sky://output/*\" string literals in ChannelContent.rs and ChannelLifecycle.rs with typed constants from CommonLibrary::IPC::SkyEvent:\n- sky://output/append → SkyEvent::OutputAppend\n- sky://output/replace → SkyEvent::OutputReplace\n- sky://output/clear → SkyEvent::OutputClear\n- sky://output/create → SkyEvent::OutputCreate\n- sky://output/dispose → SkyEvent::OutputDispose\n\nUsing the SkyEvent enum ensures consistency across the codebase and reduces the risk of typos in event names.",
-			"SHA": "21fbdf32a02153ea3fc22be35d5c2ea876f14daa"
+			"Message": "fix(Mountain): Ensure extension manifest fields and type filtering work correctly\n\nTwo related fixes address extension loading failures and missing activation:\n\n1. **Manifest field serialization** (`Extensions.rs`, DTOs): Remove `skip_serializing_if = \"String::is_empty\"` from `Name`, `Version`, `Publisher` fields. VS Code's trusted-publishers migration calls `manifest.publisher.toLowerCase()` at boot—if the key is omitted, the renderer crashes with `TypeError: undefined is not an object`. Add IPC handler hardening to inject explicit fallback values (\"unknown\") when fields are missing.\n\n2. **Extension type filtering** (`Extensions.rs`, `mod.rs`): Respect the `ExtensionType` filter passed to `getInstalled(type?)`. Previously all calls returned the full list as `type: 0, isBuiltin: true`. Now System extensions (type=0) and User extensions (type=1, including VSIX) are properly distinguished. Forward filters from `scanSystemExtensions` and `scanUserExtensions` handlers.\n\n3. **Post-install activation** (`Extension.rs`): Fire `onStartupFinished` activation events after `$deltaExtensions` adds an extension. Without this, extensions like `Anthropic.claude-code` register but never activate—sidebar contributions silently no-op until restart.\n\n4. **Log file eager init** (`Entry.rs`, `DevLog.rs`): Call `InitEager()` at binary startup to preserve logs before any panic. Fix `BinarySignature()` PascalCase splitting. Expand benign ENOENT ignore list.\n\nImpact: VSIX extensions now show under \"Installed\" with Uninstall, activate immediately after install without reload, and the Extensions sidebar refresh works correctly.",
+			"SHA": "75cf03921a7c58ba540974f2d06ac58bfc3f3235"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:40:26Z",
+			"Date": "2026-04-22T22:17:39Z",
 			"File": [
-				"⡇⠀⠀⠀⠀",
+				"⠁⠀⠀⠀⠀",
 				28,
-				3
+				1
 			],
-			"Message": "refactor(Project): Coordinate Element submodule updates across 3 components\n\nSynchronize Cocoon, Mountain, and Sky submodules with modularization and observability improvements:\n\n- **Cocoon:** Add Wave 7 instrumentation to $deltaExtensions handler — log added/removed counts, registry size, activation events, and wall-clock duration per delta. Emit extended deltaExtensions event with registrySize and durationMs fields. Also fix ISerializationResult/IDeserializationResult interfaces for TypeScript's exactOptionalPropertyTypes.\n\n- **Mountain:** Split monolithic 167KB WindServiceHandlers.rs into domain modules (Commands, Configuration, Extensions, FileSystem, Model, NativeHost, Navigation, Output, Search, Storage, Terminal, UI, Utilities). Similarly refactor CocoonService/mod.rs from 2800-line monolithic to domain modules (Auth, Command, Debug, Extension, FileSystem, Initialization, Output, Provider, Save, SCM, Secret, Task, Terminal, TreeView, Window, Workspace).\n\n- **Sky:** Add ExtensionChangeSubscriber that listens to Mountain's sky://extensions/installed and sky://extensions/uninstalled events, forwarding to VS Code's ExtensionEnablementService. Enables live sidebar updates after VSIX install/uninstall without workbench reload. Uses Effect.runFork for fire-and-forget semantics.\n\nThis completes the K2/K3 milestone for live extension state synchronization between Mountain and Wind/Sky frontend.",
-			"SHA": "2c6da4377c7715f2be9a57a0f5b6d0345cce4f79"
+			"Message": "fix(Mountain): Add shutdown guard and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings.\n\nExtend static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader resolves asset URLs relative to the current document, which strips the leading slash before reaching the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.\n\nThis prevents spurious shutdown warnings, fixes TextMate grammar loading, and reduces log noise.",
+			"SHA": "8adf5bfc83b8f1bb64be9883facf6d0933a64315"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:24:00Z",
+			"Date": "2026-04-22T20:26:34Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
+				"⠇⠀⠀⠀⠀",
 				28,
-				4
+				2
 			],
-			"Message": "refactor(Project): Coordinate Element submodule updates across 4 components\n\nSynchronize Cocoon, Common, Mountain, and Wind submodules with the following changes:\n\n- **Cocoon:** Refactor Window service from monolithic file into 7 focused modules (TextDocument, QuickInput, FileDialogs, StatusBar, OutputChannel, WebviewPanel, Progress) with Window/Index.ts as composition point. Follows the same modularization pattern as previous Message and WorkspaceNamespace refactoring.\n\n- **Common:** Add `SkyEvent` enum registry for Mountain→Wind Tauri events (~100 events covering Configuration, Debug, Diagnostics, Dialog, Documents, Editor, Extensions, etc.). Uses `DefineSkyEvent!` macro producing wire strings via `AsStr()` and parsing via `FromStr()`. Also adds 3 legacy channels to Channel.rs that predate the `prefix:method` convention.\n\n- **Mountain:** Remove accidental zero-byte `.bak` backup file from Source/Track/Effect directory.\n\n- **Wind:** Add SkyEvent.ts as TypeScript mirror of Rust SkyEvent enum for compile-time validated Tauri event subscriptions. Extend Channel.ts with 3 legacy channels (MountainGetStatus, UserInterface.ShowOpenDialog, UserInterface.ShowSaveDialog). Add ExtensionChangeStream.ts merging install/uninstall event streams. Update all call sites to use typed registry constants.\n\nThis establishes a robust typed event-based IPC surface from Mountain to Wind, eliminating silent runtime failures from string typos in event URIs.",
-			"SHA": "d7655e692e65aa841d42a4722d3df589717a35bb"
+			"Message": "build(Project): Coordinate Element submodule updates across 2 components\n\nSynchronize Mountain and Sky submodules with the following changes:\n- **Mountain:** Simplify binary naming from verbose development profile identifier to just 'Mountain'. Update Tauri identifier to 'land.editor.binary'. Remove externalBin reference to Binary/node since Node.js sidecar is now handled differently. Add vscode-file and vscode-file://vscode-app to img-src Content Security Policy for VS Code file protocol support. Delete temporary backup files (Cargo.toml.Backup, tauri.conf.json.Backup).\n- **Sky:** Add exception signature throttling to PostHog bridge — exceptions share the `$exception` event-name slot in posthog-js, so a burst of CSP refusals/console.error/unhandledrejection callbacks during workbench boot would blow through the 10/10s rate limit. Add a secondary throttle layer keyed by the first 200 chars of the error message. Unique exceptions still reach PostHog while bursts of the same error collapse into one. Both regular and exception drop counts are now reported in the `land:sky:throttle-dropped` event for visibility.\n\nThis coordinated update delivers build configuration simplification and PostHog rate limit protection while maintaining identical runtime behavior.",
+			"SHA": "3c5b85b952028923580cc7c9f3a867bf7e1987df"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:10:12Z",
+			"Date": "2026-04-22T19:45:13Z",
 			"File": [
-				"⡿⠀⠀⠀⠀",
+				"⣿⠃⠀⠀⠀",
 				28,
-				5
+				7
 			],
-			"Message": "refactor(Project): Coordinate Element submodule updates across 5 components\n\nSynchronize Cocoon, Common, Mountain, Sky, and Wind submodules with the following improvements:\n\n- Cocoon: Split monolithic Message.ts and WorkspaceNamespace.ts into modular directories with separate modules for Types, Constants, VSBuffer, Validation, Serialization, Batching, and domain-specific namespaces (Configuration, FileSystem, Providers, Window services)\n\n- Common: Add 9 new IPC channels to the Channel registry — QuickInput (showInputBox, showQuickPick), TextFile (read, write, save), and WorkingCopy (getAllDirty, getDirtyCount, isDirty, setDirty) — completing the IPC contract for text editor and quick input services\n\n- Mountain: Add WindServiceHandlers for IPC bridge and CreateEffectForRequest effect creators across 20+ domain modules (Authentication, Clipboard, Commands, Configuration, Diagnostics, Documents, FileSystem, Git, Keybinding, Languages, NativeHost, SCM, Search, Secrets, StatusBar, Storage, Task, Terminal, TreeView, UserInterface, Webview, WindowUI, Workspace)\n\n- Sky: Minor dependency bumps (pnpm/action-setup 6.0.1→6.0.3, @xterm/xterm 6.1.0-beta.197→6.1.0-beta.199)\n\n- Wind: Migrate all 19 service Live layers to use typed Channel registry imports instead of free-text string literals, ensuring compile-time validation. Also extend Channel.ts with new channels for TextFile, WorkingCopy, and QuickInput.\n\nThese changes establish a robust typed IPC surface between Wind frontend and Mountain backend, completing the migration to compile-time validated channel references across all service layers.",
-			"SHA": "a763530b40789b14eb250d9cd01ac4ba422e08c2"
+			"Message": "build(Project): Coordinate Element submodule updates across 7 components\n\nSynchronize Air, Cocoon, Grove, Mist, Mountain, Output, and Rest submodules with the following changes:\n\n- **Air:** Migrate SHA256 checksum generation to hex::encode for sha2 0.11 compatibility — sha2 crate 0.11 changed `Digest::finalize()` output from `GenericArray` to `hybrid_array::Array`, which no longer implements `LowerHex`. Replace format!(\"{:x}\", …) with hex::encode() across Daemon/Manager, Indexing/Scan/ScanFile, Indexing/State/CreateState, Security/ChecksumVerifier, Updates/UpdateManager, and Vine/Server/AirVinegRPCService.\n\n- **Mist:** Update to hickory-server 0.26 API — Migrate from hickory-server 0.25 module reorganization (authority::* → zone_handler::*, InMemoryAuthority → InMemoryZoneHandler<T>, ServerFuture → Server, AXFR bool → AxfrPolicy enum). Added DNS_TCP_RESPONSE_BUFFER_SIZE constant (65,535 bytes) for TCP listener registration.\n\n- **Mountain:** Update build configuration for development profile — Rename binary, lib, and product to include DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain. Add Binary/node to externalBin in tauri.conf.json. Replace deprecated posthog-rs api_endpoint() with host(). Apply sha2 0.11 hex::encode migration to ConfigurationBridge.rs.\n\n- **Rest:** Migrate to OXC 0.127 API for codegen and transform — Replace flat `comments: bool` in CodegenOptions with structured CommentOptions type. Migrate from deprecated `into_symbol_table_and_scope_tree()` / `build_with_symbols_and_scopes()` to unified `into_scoping()` / `build_with_scoping()` returning a single Scoping value.\n\nThis coordinated update delivers dependency compatibility, API migrations, and build configuration alignment while maintaining identical runtime behavior.",
+			"SHA": "d155a37d236b27ef62ffa009ad1e9ce24edc1d33"
 		}
 	],
-	"TimeStamp": 1778855111324
+	"TimeStamp": 1779025678014
 }

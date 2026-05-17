@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:01:25Z",
+			"Date": "2026-04-30T02:20:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				2
+				870,
+				4
 			],
-			"Message": "refactor(Mountain): Use actual SCM provider identifier in replay, add command replay, reduce tree timeout\n\nThree improvements to Sky event replay:\n\n1. **SCM Provider Identifier**: The `ProviderState` DTO now carries the original `Identifier` field from `ProviderData.ID`. SCM replay uses this instead of hardcoded \"git\", enabling multi-SCM support (github, hg, etc.). Pre-existing DTOs default to \"git\" for backward compatibility.\n\n2. **Command Registration Replay**: Add replay for extension-registered commands (`vscode.commands.registerCommand`). Native Rust handlers are excluded since they're not exposed via the Vine notification channel. This ensures `ICommandService` knows about extension commands after bridge install.\n\n3. **Tree-View Timeout**: Reduce `$provideTreeChildren` timeout from 5000ms to 1500ms. User-interactive RPCs should show a spinner and fail gracefully — real workloads (gitlens, rust-analyzer) finish in <500ms. Slow producers fall through to empty-array and retry on scroll.\n\nExtends the sky:replay-events handler added in 1599d766.",
-			"SHA": "1f93b7ef93262b34e18e1109e24268a36e2caf07"
+			"Message": "build(Mountain): Update binary/lib names and Tauri config for development build profile\n\nRename the Mountain binary and library to include the full development environment profile string (DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler_Mountain) to distinguish this build variant from production builds.\n\nUpdate tauri.conf.json productName and identifier to match, and add Binary/node to externalBin for the development node path.\n\nThis configuration supports the multi-profile build pipeline for debugging different environment configurations.",
+			"SHA": "0a0e22ba2ddbef0b3b89c87ac9618f621f993889"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T03:40:35Z",
+			"Date": "2026-04-30T01:34:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				1
 			],
-			"Message": "fix(Mountain): Replay Sky events on listener registration to fix empty sidebar\n\nSkyBridge calls this after installing every `sky://*` Tauri listener because Mountain → Sky `app.emit()` events are NOT buffered — any emit fired before the listener was installed is silently dropped.\n\nIn the bundled-electron profile, extension activation (which triggers `register_scm_provider` and `$tree:register` notifications through Cocoon) starts ~580 log lines before the Sky bundle finishes booting (~1995 lines). Without this replay, all tree-view + SCM register events are lost and the Activity Bar / sidebar comes up empty even though state-side everything registered correctly.\n\nThe new `sky:replay-events` handler iterates through active TreeViews and SCM providers in application state, re-emitting the `sky://tree-view/create` and `sky://scm/register` events that were previously dropped. This restores the sidebar contents on boot.",
-			"SHA": "1599d766f64f50d04aa4b0d73cb193243bbc43b2"
+			"Message": "",
+			"SHA": "e72ff81c94321b324cc469810fac9029bee1428c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:54:50Z",
+			"Date": "2026-04-30T01:34:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				1
+				868,
+				4
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "a934e37a6c3c3ad8a6fc4e118fb8d20ff7bdfe50"
+			"Message": "feat(Mountain): Add Vine notification subscription for Sky/Wind and streaming multiplexer fallback\n\nAdd `VineSubscribeCommand` Tauri command surface that exposes the process-wide Vine notification broadcast to Sky/Wind via a `Channel<NotificationFramePayload>`. This enables the frontend to subscribe to notifications from Cocoon with the same ordering and drop-oldest semantics as in-process Rust subscribers. Effect-TS layer wraps this into a `Stream<NotificationFrame>`.\n\nAlso add conditional streaming multiplexer support in `Vine::Client` for both `SendRequest` and `SendNotification` when `LAND_VINE_STREAMING=1` is set. The multiplexer path attempts h2-multiplexed streaming and falls back to the unary path on any failure, ensuring the editor remains functional while Cocoon's streaming handler tree lands (currently returns Unimplemented).\n\nThis completes the P14.x notification subscription surface, complementing the P14.3/P14.2 multiplexer integration in Client.rs.",
+			"SHA": "f31941aa4bbbc67256d113d8d2788add73d49c7c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:54:18Z",
+			"Date": "2026-04-30T01:24:15Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				2
+				"⡇⠀⠀⠀⠀",
+				867,
+				76
 			],
-			"Message": "fix(Mountain): Improve path security checks and logging for workspace access violations\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "a45bef60ff2021cbc1c5090a2d64b5d8c16efa46"
+			"Message": "feat(Mountain): Implement mmap asset cache, path canon cache, and Vine streaming foundation\n\nThis patch (B7-S6 P2) lands three major infrastructure components:\n\n**Asset Memory Map Cache** (`Cache/AssetMemoryMap.rs`):\n- File-backed mmap cache for bundled workbench assets (~80 MB of JS/CSS/fonts)\n- Eliminates per-request `read(2)` + heap allocation duplication of OS page cache\n- Auto-discovers pre-brotli-compressed `<file>.br` siblings for `Accept-Encoding: br`\n- Uses `DashMap` for lock-free concurrent reads\n\n**Path Canonicalization Cache** (`Cache/PathCanon.rs`):\n- Process-wide canonical path cache keyed by lexical input path\n- Collapses repeated `dunce::canonicalize` calls from fs-scope security gate\n- 60s TTL bounds staleness; moka handles eviction\n- Saves ~150ms cumulative boot time across 113 extensions + 80 chunks\n\n**Vine Streaming Foundation** (`Vine/Multiplexer.rs`, proto changes):\n- Adds `Envelope` protobuf message for multiplexed frame format\n- Adds `OpenChannelFromCocoon`/`OpenChannelFromMountain` bidirectional streaming RPCs\n- Multiplexer owns the h2 stream; notifications fan out via broadcast channel\n- Stub returns Unimplemented until P14 lands streaming handler tree\n- Tuned tonic transport (4 MB stream window) for rust-analyzer diagnostic storms\n\n**Scheme Handler Fixes**:\n- MIME-honesty on 404: swap HTML body → empty text/plain for asset requests\n- Route asset reads through mmap cache\n- Serve Brotli precompressed siblings when client offers `Accept-Encoding: br`\n\n**Air Sidecar Integration** (`Service/AirStart.rs`):\n- Spawns Air daemon at boot alongside Cocoon\n- Connects via gRPC over `[::1]:50053`\n- Graceful degradation if Air unavailable\n\n**Misc Fixes**:\n- `nativeHost:getCursorScreenPoint` stub returns `{x:0, y:0}` to silence IPC spam\n- `FindFilesInWorkspace` diagnostic logging for zero-results debugging\n- HandlerRegistry.json regenerated (111 handlers)",
+			"SHA": "87bdf4c0cc831bcc4b105b190f66f0eb5eefc544"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:54:10Z",
+			"Date": "2026-04-29T22:36:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				859,
-				1
+				3
 			],
-			"Message": "fix(Mountain): Enhance logging for SCM provider registration emit failures\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "660a067a4bfe2e220d4c61c742d31805c92f1e6d"
+			"Message": "fix(Mountain): Extend extensions poll timeout and add gRPC shutdown guard\n\nIncrease the polling timeout in `extensions:getInstalled` from 3s to 5s because cold-cache runs over 113 extensions across 6 paths regularly hit ~2950ms, poisoning the workbench's `IExtensionService` cache with empty results.\n\nAdd a process-wide shutdown flag to the Vine gRPC client that gets marked before SIGKILL of Cocoon. Background tasks (PTY reader, file watchers, diagnostics emitter) that fire `SendNotification` after the sidecar is dead now short-circuit silently instead of logging false-positive `Connection refused` errors during shutdown. `SendRequest` returns an error immediately while `SendNotification` returns `Ok(())` to allow natural unwinding of background tasks.\n\nThis prevents the shutdown tail from being flooded with spurious gRPC errors while keeping the worst-case visible boot delay bounded at 5 seconds.",
+			"SHA": "06be111688dffce33846936c513b1b67504248a5"
 		}
 	],
-	"TimeStamp": 1778855162912
+	"TimeStamp": 1779025689613
 }

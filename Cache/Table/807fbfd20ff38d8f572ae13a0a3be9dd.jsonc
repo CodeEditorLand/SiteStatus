@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:32:06Z",
+			"Date": "2026-04-23T17:02:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				100,
 				1
 			],
-			"Message": "refactor(Mountain): Centralize UriComponents construction with $mid marker\n\nAdd a shared UriComponents helper module ensuring every URI payload sent to the VS Code renderer carries the required `$mid: 1` marshalling marker. Without it, VS Code's IPC reviver leaves URIs as plain objects where `.fsPath` and `.with` are undefined, causing the sidebar and icon loader to silently fail.\n\nIntroduce FromFilePath, FromUrl, StampMidUri, and Normalize helpers that are now used consistently in handle_extensions_install (Extension.rs), handle_file_realpath (WindServiceHandler and WindServiceHandlers FileSystem.rs), and any other IPC handlers returning URI-shaped payloads. This prevents regression of the earlier extension location URI fix — inline json! builders elsewhere risked the same silent break in the renderer's URI revival chain.",
-			"SHA": "954067a89bea76bac0cdeadc44dc0f80237a635a"
+			"Message": "feat(Project): Coordinate performance optimization and diagnostic instrumentation\n\nThree coordinated changes eliminate ~156 unnecessary Tauri IPC round-trips per editor boot and add comprehensive diagnostic capabilities:\n\n- **Performance (Wind/Output):** Add no-op IPC stubs for telemetryAppender (155 calls/boot) and mcpGalleryManifest (1 call/boot). These channels were falling through to Rust invoke with undefined handlers, adding latency to every editor startup. Stubs short-circuit in the TypeScript layer.\n\n- **Diagnostics (Mountain):** Add Git service handlers implementing the full localGit channel (clone, pull, checkout, revParse, fetch, etc.). Add SkyEmit instrumentation logging all Mountain→Wind/Sky emits under the sky-emit tag. Expand provider registration from 8 to 34+ types with scheme extraction.\n\n- **Diagnostics (Sky):** Track cel:* CustomEvent listener registration via document.addEventListener patching. Log consumer-present flag on every dispatch to identify orphan events (Mountain emits but no workbench listener). These are F1.1 indicators where features silently fail.\n\nImpact: Editor startup latency reduced by eliminating ~156 IPC round-trips. Developers can now audit SkyEmit traffic via LAND_DEV_LOG=sky-emit and identify dead event routes via cel-dispatch consumer-present=false.",
+			"SHA": "2d95bc0ae30754abf7c20dabc8b7feb319499429"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:24:27Z",
+			"Date": "2026-04-23T15:58:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				100,
 				1
 			],
-			"Message": "build(Project): Coordinate Element submodule updates across 4 components\n\nSynchronize Mountain, Output, Sky, and Wind submodules with the following changes:\n- Mountain: Fix extension location URI marshalling for VS Code renderer — VS Code's URI revival ignores objects without `$mid === 1` marker. Add Normalize_Location_To_UriComponents, Stamp_Mid_Uri, and Parse_File_Url_To_UriComponents functions. Extend BuildInitialUrl to recognize Mountain's `{uri:\"file://…\"}` format alongside VS Code's historical folderUri/workspace.configPath for backward compatibility.\n- Output: Document CopyNodeModules-StripDanglingSourceMap pairing rationale explaining why they're expressed as separate plugins with role-scoped matching.\n- Sky: Delegate build pipeline to Output plugins (Steps 1-7, 10-12, 14) via reusable plugin system. Move phase advancement from Astro script block into workbench.js to prevent chunk hoisting from delaying phases past Mountain's fallback timers. Remove ext-registry-probe as it's noisy. Gate missing browser bundle warnings behind LAND_WARN_MISSING_BROWSER_BUNDLES env var.\n- Wind: Complete polyfill re-export migration — Target/Polyfills/* files are now minimal re-export proxies delegating to @codeeditorland/output/Polyfill/* implementations.\n\nThis coordinated update delivers extension sidebar location resolution, build pipeline modularity, and polyfill consolidation while maintaining identical runtime behavior.",
-			"SHA": "9cb4ed02baa8e78b5d031e934c3cc00804e0c569"
+			"Message": "feat(Project): Add unified dev-log forwarding from Wind/Sky/Cocoon to Mountain\n\nCoordinate logging infrastructure across Mountain, Output, and Wind to enable filtered dev logging in a single file. Three related changes:\n- **Mountain**: Add `RenderDevLog` Tauri command that bridges TypeScript-side tagged logs into Mountain's `dev_log!` file sink. Also add five diagnostic tags (`notif-drop`, `provider-register`, `channel-stub`, `git`, `tree-view`) to isolate architectural gaps during debugging.\n- **Output**: Add `_DevLogForward` helper to TauriMainProcessService that mirrors IPC channel routing decisions into Mountain's dev-log. Logs channel name, command, route prefix, and hit/miss status in three code paths: fire-and-forget, stub hits, and misses.\n- **Wind**: Add `_DevLogForward` helper mirroring tagged log lines via `RenderDevLog` command, integrated into TauriChannel's three code paths.\n\nThis enables `LAND_DEV_LOG=<tag> tail -f Mountain.dev.log` to capture both TypeScript and Rust logs together, providing complete visibility into extension host integration issues.\n\nImpact: Developers can now filter by subsystem (e.g., `LAND_DEV_LOG=git,tree-view`) and see the full picture of a session in one file rather than cross-referencing browser console and log file.",
+			"SHA": "ba431af6c47cc7cd6694715a65cc97e1ddb1c2a1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:26:22Z",
+			"Date": "2026-04-23T15:36:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				100,
 				1
 			],
-			"Message": "refactor(Project): Consolidate polyfill implementations into Output module\n\nSynchronize Element submodule to dccf43ce bringing a coordinated architectural refactor:\n- Output: Add Plugin module with CopyVSOutput, CopyVSRootFiles, SupplementFromDependency, CopyWorker, CopyNodeModules, StubUnpublishedAddons, CopyTauriMainProcessService copy plugins and StripCSSImport, InjectNameShim, ReplaceElectronIPCService, ReplaceSharedProcess, StaticToDynamicImport, ExtensionScannerIPC transform plugins\n- Sky: Update polyfill imports from @codeeditorland/wind/Target/Polyfills/* to @codeeditorland/output/Polyfill/*\n- Wind: Replace polyfill implementations with thin re-exports pointing to Output (ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill, IPCRendererShim, NativeModulePolyfill, ProcessPolyfill, SharedProcessProxy)\n\nThis eliminates duplicate code across the monorepo — polyfill fixes now only need to be made in Output to propagate to all consumers (Sky, Wind, Cocoon, and any future desktop shells).",
-			"SHA": "9c28721e0d99588f2ee04793ce61415d61ab2e07"
+			"Message": "refactor(Project): Standardize IPC event channel naming to kebab-case\n\nCoordinate refactoring across Common, Mountain, Sky, and Wind to unify IPC event channel naming:\n- Standardize all sky:// event channels to consistent kebab-case format (status-bar → statusbar)\n- Remove duplicate/forked channels: StatusBarMessage, TreeViewRegister, WebviewPostMessageCamelCase, WebviewSetHTMLCamelCase\n- Add test comparing Rust enum wire strings against TypeScript mirror to prevent future drift\n- Emit TreeViewCreate events after TreeDataProvider registration so renderer wires up data providers\n- Add diagnostics stub methods in Wind/Output for getWorkspaceFileExtensions to prevent language detection crashes\n- Bump dev dependencies: effect (3.21.1 → 3.21.2), @effect/platform (0.96.0 → 0.96.1), @cloudflare/workers-types (4.20260422.1 → 4.20260423.1)\n\nImpact: Extension tree views now render correctly, language detection runs without crashes, and IPC channel naming is consistent across the Rust/TypeScript boundary.",
+			"SHA": "d6e148f1a77a6ab8a7b9ed8effd08007db5ed6a8"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:12:30Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				100,
-				3
-			],
-			"Message": "build(Project): Coordinate Element submodule updates with documentation fixes\n\nSynchronize Element submodule from 6b50bc7 to ec42cbd0 bringing coordinated changes across 5 components:\n- Mountain: Initialize PostHog telemetry at boot before CLI parsing for early crash context. Fix #[tauri::command] attribute on internal dispatcher. Restore recently opened folder via BuildInitialUrl to skip Welcome → Open Folder round-trip. Fix macOS window dragging with TitleBarStyle::Overlay + hidden_title(true).\n- Sky: Eliminate early paint flash with inline CSS matching VS Code Dark+. Add client-side PostHog throttling (10s window, 2×/sec limit). Fix lifecycle phase signaling by moving phase 3→4 advancement to separate <script> and correcting Tauri invoke signature.\n- Wind: Route colon-prefixed IPC methods through MountainIPCInvoke for consistency. Fix em dashes to hyphens in LifecycleService and PostHog comments.\n- Output: Route colon-prefixed Tauri commands in polyfills through MountainIPCInvoke.\n- Cocoon: Submodule updated to a5ec2e6d.\n\nAlso normalize en-dashes to hyphens in Maintain/Script/PostHogCapture.sh comments and README.md tables for Keep a Changelog consistency.\n\nThis coordinated update delivers recently opened folder restoration, macOS window drag fixes, IPC routing consistency, and early paint flash elimination while maintaining identical runtime behavior.",
-			"SHA": "9936322000d5ea80c86ba6f01b8d1ed3eba48a88"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:14:14Z",
+			"Date": "2026-04-23T01:47:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				100,
 				1
 			],
-			"Message": "build(Project): Coordinate Element submodule updates across 3 components\n\nSynchronize Element submodule to 6b50bc7 bringing coordinated changes:\n- Mountain: Streamline extension path and NodeResolver module documentation — simplify ScanPathConfigure comments, condense NodeResolver docstring to compact resolution order ladder. No runtime changes.\n- Wind: Split monolithic PostHogBridge.ts into modular components under Source/Telemetry/PostHog/ — Browser.ts (window.posthog lookup), Configuration.ts (import.meta.env config), Fallback.ts (fetch POST fallback), Identifier.ts (distinct_id resolution), Properties.ts (base event properties). PostHogBridge.ts now composes these for improved testability.\n- Cocoon: Submodule updated to 33544546.\n\nThis coordinated update delivers documentation improvements and modular telemetry architecture while maintaining identical runtime behavior.",
-			"SHA": "083837fae5efc9f6c5264746397a010162832760"
+			"Message": "fix(Project): Coordinate submodule updates for extension host reliability\n\nFour submodule updates improve extension activation and webview compatibility:\n- **Mountain**: Treat view registry commands (<viewId>.focus, .resetViewLocation, .removeView) as silent no-ops to eliminate GitLens error spam. Also preserve VSIX executable bits (0o755) during extraction so extensions with native binaries (codex, language servers) can spawn correctly.\n- **Output**: Add StripWebviewIframeSandbox transform plugin to remove sandbox attribute from VS Code's webview iframe. WKWebView blocks custom protocol loads (vscode-webview://, land://) from sandboxed iframes, breaking extension webview panels.\n- **Echo**: Submodule sync for task scheduler alignment.\n- **Cocoon**: Submodule sync for extension host alignment.\n\nImpact: Extensions with native binaries now activate correctly, extension webview panels load in Tauri, and spurious error logs are eliminated.",
+			"SHA": "ae825d2c75e042f9b65ae397c3ea7e0160b43e7b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T01:29:16Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				100,
+				1
+			],
+			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, rather than the flat structure the scanner previously expected. This caused all extensions to appear as 'unknown' with empty names/publishers in the sidebar.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures the @builtin/@installed extension split works correctly in the Extensions sidebar.",
+			"SHA": "cf9e5e4553a92c5bb2acc4525ca38669931e5bd5"
 		}
 	],
-	"TimeStamp": 1778855110769
+	"TimeStamp": 1779025679040
 }

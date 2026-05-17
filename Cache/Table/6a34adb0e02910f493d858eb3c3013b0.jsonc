@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:31:08Z",
+			"Date": "2026-04-27T20:18:22Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				230,
+				2
+			],
+			"Message": "fix(Output): Add DI decorator metadata to ReplaceSearchService transform\n\nThe ReplaceSearchService transform was missing the TypeScript-compiled decorator helpers (__decorate, __param) that VS Code's DI container requires to resolve constructor parameters by their @IService decorator types. Without these, IInstantiationService bound parameters positionally with no type knowledge, causing all dependencies to arrive as undefined and crashing on this.uriIdentityService.extUri.\n\nThis commit adds: the __decorate/__param runtime helpers mirrored from VS Code's compiled output, the IInstantiationService import, the instantiationService parameter storage, and the __decorate([__param(...)]) call that binds each constructor slot to its service token (IModelService, IEditorService, ITelemetryService, ILogService, IExtensionService, IFileService, IInstantiationService, IUriIdentityService). Also changed class export from `export class` to `let` + named export to match TypeScript's parameter-decorator emit shape.\n\nThe search panel now properly delegates to Mountain's search:findFiles/search:findInFiles handlers via Tauri IPC.",
+			"SHA": "46eceea1004c74e6073d68561b04e3ee7694ef49"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-27T19:53:53Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				221,
+				230,
 				6
 			],
-			"Message": "refactor(Output): Use static ES imports instead of runtime require() in ExposeWorkbenchAccessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of web.main.js instead of using runtime require() calls to resolve VS Code service modules. The transform now anchors on the stable `import { mark } from '../../base/common/performance.js'` line and adds IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports.\n\nThis eliminates the AMD require() resolution at runtime which could fail in the WKWebView context, ensuring `__CEL_SERVICES__` is populated synchronously before the microtask queue drains. Also adds the `cel:services-ready` DOM event dispatch and Mountain diagnostic logging on success/failure.\n\nThe transform now includes a guard check for the import marker to avoid matching unrelated files.",
-			"SHA": "ed06cce024f3c78dbd8db6ce7d842748a5094fa7"
+			"Message": "feat(Output): Add ReplaceSearchService transform plugin\n\nAdd a new build-pipeline transform that replaces VS Code's web-worker-\nbacked `RemoteSearchService` with a Tauri-IPC client delegating to\nMountain's `search:findFiles` / `search:findInFiles` Rust handlers.\n\nThe upstream search service uses `LocalFileSearchWorkerClient` which\ndepends on the HTML File System Access API (unavailable under\nTauri/WKWebView) and walks files without respecting `.gitignore`. This\ncaused two problems in Land: (1) the search panel showed files in the\nexplorer but the match counter stayed at 0 because no text-search backend\nran, and (2) ignored folders like `Target/` / `node_modules/` appeared\nin results.\n\nThe transform rewrites `searchService.js` with a `MountainTauriSearchProvider`\nthat invokes `MountainIPCInvoke` with the search channel name, then shapes\nthe response into `ISearchComplete`. It preserves the DI registration so\nthe workbench transparently receives the Mountain-backed implementation.\nBoth `search:findFiles` and `search:findInFiles` are `.gitignore`-aware via\nRust's `ignore::WalkBuilder` and run native (faster than the browser worker).",
+			"SHA": "b769bd954a5d923805706b02221538d95cff3c60"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-27T03:36:56Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				227,
+				1
+			],
+			"Message": "",
+			"SHA": "b15b23fcc0bb6abe76c9a5368f90a6c924b6c1f0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:47:14Z",
+			"Date": "2026-04-26T20:05:00Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				221,
-				3
+				227,
+				5
 			],
-			"Message": "feat(Output): Route VS Code binary IPC channels to Mountain instead of stubs\n\nAdd MapChannelMethodToTauri, MapChannelToMountainPrefix, CoerceTauriParameters, and InvokeMountainRaw to route the VS Code workbench's binary IPC protocol (ChannelClient) to real Mountain backend handlers. Previously, channels like `localFilesystem`, `storage`, and `configuration` returned synchronous stub responses - filesystem ops returned FileNotFound, storage returned empty arrays, and configuration returned empty objects.\n\nNow these channels invoke Mountain asynchronously via the MountainIPCInvoke Tauri command, and the PromiseSuccess/PromiseError responses are relayed back through the binary IPC protocol. This enables the file explorer, search, settings editor, and workspace storage to persist data to the real filesystem and backend instead of operating on in-memory stubs.\n\nThe routing map covers 25+ channels: file, storage, configuration, search, workspaces, terminal, textFile, output, notification, progress, quickInput, environment, decorations, workingCopy, label, model, extensions, extensionHostStarter, localPty, nativeHost, themes, keybinding, lifecycle, url, menubar, encryption, and git.",
-			"SHA": "67176ce21428951e8f07ce8a45ce3252ef478961"
+			"Message": "feat(Output): Add InstrumentVscodeGit transform plugin\n\nAdd the InstrumentVscodeGit transform to the build pipeline, which\ninjects `process.stdout.write('[GIT-MARK-X] ...')` diagnostic markers\ninto the bundled vscode.git extension's main.js and model.js at\nstrategic activation-pipeline points.\n\nThe markers bypass Cocoon's outputChannel routing (which is muted in\nLAND_DEV_LOG=short) to provide unambiguous progress signals during\nthe F6 diagnostic workflow. Each marker has a distinct prefix that can\nbe grepped to identify exactly where vscode.git's activation silently\nbails out, leaving the SCM viewlet empty despite the extension\nactivating within 2814-4173ms.\n\nThe transform is self-idempotent — it skips injection if the marker\nis already present, allowing safe re-runs of the build pipeline.",
+			"SHA": "d70e115fe483bffb3f7391d3692c590b5e525ad6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:51:51Z",
+			"Date": "2026-04-26T20:04:45Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				221,
-				3
+				225,
+				5
 			],
-			"Message": "fix(Output): Suppress benign ENOENT errors in Tauri invoke logging\n\nExtensions probe for optional workspace files (`.vscode/settings.json`,\n`.vscode/tasks.json`, etc.) that don't exist on fresh installs. Each probe\nwas logging a `tauri-invoke-error` entry, flooding the dev log with expected\nENOENT failures. Add logic to detect benign ENOENT errors for the\n`file:stat` and `file:readFile` methods by checking the error message for\n\"No such file or directory\", \"os error 2\", or \"Resource not found\" patterns.\nOnly non-benign errors forward to the log; legitimate errors still surface\nwhile harmless file probes stay quiet.",
-			"SHA": "358f7f7c1c2c6c46b8c24f22cc1baaab6a18ab9a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:37:08Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				221,
-				6
-			],
-			"Message": "feat(Output): Expose IViewsService and TreeViewByViewId in workbench accessor\n\nExtend the ExposeWorkbenchAccessor ESBuild transform to expose IViewsService alongside the existing Statusbar, Commands, CommandRegistry, and Search services. Add a TreeViewByViewId function that resolves ITreeView instances from the ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\nAlso separate error logging in TauriMainProcessService by tagging failed invokes with \"tauri-invoke-error\" instead of \"tauri-invoke\", allowing success logs to be opt-in via LAND_DEV_LOG while errors always forward.",
-			"SHA": "7b0b915803bc81fd576b9f5236ee75d13d0b1052"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T15:37:09Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				221,
-				3
-			],
-			"Message": "feat(Output): Add ISearchService to pre-resolved workbench services\n\nExtend the ExposeWorkbenchAccessor ESBuild transform to expose the ISearchService alongside the existing Statusbar, Commands, and CommandRegistry services.\n\nThis adds a require for `vs/workbench/services/search/common/search` and includes a `Search` entry in the `__CEL_SERVICES__` global object, allowing Sky-side bridge code to access the search service directly without re-entering the workbench's AMD loader.\n\nThe search service is now available at `globalThis.__CEL_SERVICES__.Search` for direct method surface access from the Land editor UI.",
-			"SHA": "f651b48fefe02cafb42eb682b2da760108ceb154"
+			"Message": "feat(Output): Expand workbench service exports + add git instrumentation\n\nExpand the ExposeWorkbenchAccessor transform to export additional\nservices and classes needed by SkyBridge's in-process providers:\n\n- SCM, Debug, CustomEditor service decorators - allow SkyBridge to\n  register providers that mirror Cocoon's extension-host registrations\n  (sky://scm/*, sky://debug/*, sky://customEditor/* events)\n- Emitter, Disposable, toDisposable - required for SCM provider shim's\n  event interface (ISCMService expects onDidChange* events matching\n  vs/base/common/event.js::Emitter's shape)\n- IModelService + ILanguageService - needed to construct real ITextModel\n  for the SCM inputBox (MainThreadSCMProvider rejects null inputBox)\n- ResourceTree + IUriIdentityService - for grouped SCM repository rendering\n\nAlso add InstrumentVscodeGit, a new diagnostic transform that injects\nprocess.stdout.write('[GIT-MARK-X] ...') markers into the bundled\nvscode.git extension's main.js and model.js. This bypasses Cocoon's\noutputChannel routing (muted in LAND_DEV_LOG=short) to diagnose why\nthe SCM viewlet stays empty despite vscode.git activating within\n2814-4173ms. The last visible marker identifies the exact bail point.",
+			"SHA": "a349f4ae1e12e98b33334504832d802cdbf6d3b4"
 		}
 	],
-	"TimeStamp": 1778855108826
+	"TimeStamp": 1779025677647
 }

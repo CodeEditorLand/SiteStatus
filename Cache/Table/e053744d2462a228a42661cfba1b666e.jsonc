@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:33:55Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "feat(Sky): Wire extension tree views into workbench rendering pipeline\n\nAdd native data provider attachment so extension-registered tree views actually render in the workbench pane. Stock VS Code uses ExtHostContext RPC to set `treeView.dataProvider` via `MainThreadTreeViews.$registerTreeViewDataProvider` - we don't have that channel yet (Track A bring-up), so Sky bridges it by:\n\n1. Exposing `TreeViewByViewId(id)` from the Output transform plugin - returns the same `ITreeView` the stock mainThread accesses via `Registry.as(ViewsRegistry).getView(id).treeView`\n\n2. Attaching a data provider in `cel:tree-view:create` that calls `tree:getChildren` via `MountainIPCInvoke`, converting Cocoon's wire shape (`{handle, label, isCollapsed, icon}`) into the workbench's `ITreeItem` shape (`handle, collapsibleState, label: {label}, ...`). Side-panel observers retain access to extended fields like `icon` that the renderer ignores.\n\n3. Retry logic (5 attempts, 150ms spacing) handles the case where the view is registered BEFORE the tree descriptor mounts - covers both async workbench init and collapsed-pane-not-yet-mounted.\n\n4. New `cel:tree-view:refresh` handler calls `treeView.refresh()` so extensions that fire `onDidChangeTreeData` update both the native pane and Sky observers.\n\n5. New `cel:tree-view:dispose` handler clears `dataProvider` so the workbench falls back to empty-state while keeping the pane registered.\n\nDual-emit persists: the DOM CustomEvent `cel:tree-view:items` stays for any Sky/Astro observer (side-panel mirror, diagnostic inspector) to react without going through the workbench pipeline.",
-			"SHA": "3f5eee5f8571c9bb7a48ae27b4c1834c7b1ba66a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T15:36:24Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				81,
-				2
-			],
-			"Message": "feat(Sky): Add land-native search provider and global exception cap\n\nAdd a search result provider that routes VS Code's Search viewlet queries through Mountain's `search:findFiles` / `search:findInFiles` handlers. The stock web's `RemoteSearchService` relies on File System Access API which returns `undefined` for Land's Mountain-based filesystem, causing silent zero-result returns. The new provider registers for both `file` (0) and `text` (1) search types, translating Mountain hits into the `IFileMatch` shape the workbench expects.\n\nAlso add a global exception cap to PostHogBridge to prevent flooding posthog-js's CDN limit. The CDN enforces a hard 10 events/10s cap on `$exception` regardless of signature — a diverse-error boot could blow through this without a global counter. The cap is configurable via `LAND_POSTHOG_SKY_EXCEPTION_GLOBAL_LIMIT` (defaults to 7) and reports global drop metrics in the throttle summary.",
-			"SHA": "b4358aa9cbb5b8231c3b6663778127863e708055"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T14:48:45Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "feat(Sky): Wire status bar and command bridges into workbench services\n\nReplaces the no-op status bar handlers from the previous commit with real integrations using the workbench services exposed via `__CEL_SERVICES__`. Extension-contributed status bar items from `vscode.window.createStatusBarItem(...)` now route through `IStatusbarService.addEntry()`, enabling them to render in the same `.statusbar` DOM as stock VS Code items.\n\nAdds a new command bridge layer that bridges Cocoon → workbench command invocations:\n- `sky://command/execute` calls `ICommandService.executeCommand` and resolves the result back to the extension\n- `sky://command/register` registers extension commands into `CommandsRegistry`, with invocation fan-out back to Cocoon via `ResolveUIRequest`\n- `sky://command/unregister` disposes the registration\n\nThe status bar set-message handler now only dispatches DOM CustomEvents for Sky-side observers rather than dual-routing, as the workbench handles ephemeral messages through its own path.\n\nThis completes the status bar integration that was previously deferred and enables extension commands to execute against the workbench.",
-			"SHA": "ea2932ae02487b23967cbab690a7991ec1d19001"
-		},
-		{
 			"Author": "Auto",
-			"Date": "2026-04-24T02:21:58Z",
+			"Date": "2026-04-26T02:26:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				81,
 				1
 			],
 			"Message": "",
-			"SHA": "d120bcd0a892d275e30a85b1a3fc234117a71d92"
+			"SHA": "7506d7f4f0037644c33c879f2e402dc6275d77a4"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T01:21:59Z",
+			"Author": "Auto",
+			"Date": "2026-04-25T02:04:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				81,
 				1
 			],
-			"Message": "refactor(Sky): Remove fallback status bar bridge and add SCM event bridge\n\nDrops the custom fallback status bar that was overlaying VS Code's native `.statusbar`. Extension-contributed status bar items are now dropped until `MainThreadStatusBar.$setEntry` is properly wired into the workbench's `IStatusbarService`. This restores the native status bar appearance.\n\nAdds SCM event bridge handlers that dispatch `cel:scm:*` CustomEvents when Mountain emits `sky://scm/{register,unregister,updateGroup}`. This gives Sky-side components a consumer for SCM state events that would otherwise report \"0 listeners\" drops in the cel-dispatch logs.\n\nRemoves: StripCodicons, GetOrCreateStatusBarItem, EnsureFallbackStatusBar. Status bar handlers become no-ops.",
-			"SHA": "05efccae90bfa7b81f00ff14a2936f0643165066"
+			"Message": "",
+			"SHA": "bfd743269b6e0c2ee3216b43dc22619c0abb4127"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T02:03:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				84,
+				1
+			],
+			"Message": "fix(Sky): Restore Bundle mode distinction for worker script loading\n\nReintroduce separate code paths for `Bundle=true` and `Bundle=false` build profiles in Electron.astro, after the previous fix collapsed both into identical separate script tags.\n\n- Add `Bundle` environment detection from `process.env.Bundle`\n- `Bundle=true` profiles now use npm-package imports (`@codeeditorland/worker/Target/Worker/*.js`) inside a single `<script>` block, which Vite bundles into one chunk\n- `Bundle=false` profiles continue using separate `<script is:inline type=module src=...>` tags serving static assets from `/Worker/*.js`\n\nThe ordering requirement remains: CSS Load → Policy → Register. Bundle mode relies on declaration order within the bundled chunk; non-bundle mode relies on browser document-order-execute-modules guarantee. This restores compatibility with existing build profiles while maintaining correct execution order.",
+			"SHA": "87d321335829ff7369b3db799184bffa1996e36d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T01:51:59Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				84,
+				3
+			],
+			"Message": "fix(Sky): Fix NLS message loading and worker script execution order\n\nThe workbench bootstrap was failing with `SyntaxError: Unexpected token '<'` because `nls.messages.js` did not exist in the Sky pipeline. When the VS Code loader requested this file, the server fell through to the SPA HTML, and the browser attempted to parse HTML as JavaScript.\n\nChanges:\n- Add stub `Public/Static/Application/nls.messages.js` that seeds an empty `_VSCODE_NLS_MESSAGES` array so `vs/nls.js` falls back to literal fallback strings (the second argument every workbench callsite already passes).\n- Fix `Source/Workbench/NLS.astro` to always load `vs/nls.js` regardless of dev/prod mode; the companion `nls.messages.js` request is now served by the static stub.\n- Fix `Source/pages/Electron.astro` worker script loading: the previous bundle-mode branch collapsed three ordered scripts into one async module, breaking document order guarantees. Both modes now use separate `<script is:inline type=\"module\" src=...>` tags, ensuring browsers serialize execution in document order while permitting parallel fetch.\n\nThe workbench now bootstraps successfully in both dev and production modes.",
+			"SHA": "b62c0127510bd7c79d48bef9eb46942c12d4f102"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T01:28:01Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "fix(Sky): Improve tree view data provider attachment for late-registering extensions\n\nThe original 5-retry × 150ms attachment logic (750ms total budget) times out for extensions like gitlens, clangd, and dependencies that register their views 3-5 seconds into boot.\n\nChanges:\n- Replace fixed retry schedule with exponential-ish backoff (~10s across 12 retries)\n- Add PendingAttaches set to queue views that exhaust their retry budget\n- Add RetryPendingAttaches() to sweep pending views when any successful attach occurs (indicating the workbench bridge is now wired)\n- Extract AttachToDescriptor for reuse across both immediate and pending paths\n\nThis handles the full async boot sequence where view contributions register after the initial tree-view:create event fires.",
+			"SHA": "6de3a52c25e53d309283809f9dcc90b71792485d"
 		}
 	],
-	"TimeStamp": 1778855108680
+	"TimeStamp": 1779025677057
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T22:47:09Z",
+			"Date": "2026-04-29T01:41:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				102,
 				1
 			],
-			"Message": "refactor(Project): Standardize DTO serialization to camelCase and fix SCM provider registration\n\nSubmodule synchronization across Mountain, Mist, and Rest:\n\n1. Mountain: Migrate DTO serialization from PascalCase to camelCase across 13 files (CustomDocumentStateDTO, DocumentStateDTO, MarkerDataDTO, etc.) to match the wire format expected by Wind/Sky.\n\n2. Mountain: Fix SCM provider registration - change PascalCase keys (\"ID\", \"Label\", \"RootUri\") to camelCase (\"id\", \"label\", \"rootUri\") in RegisterScmProvider and add missing \"providerHandle\" field in RegisterScmResourceGroup.\n\n3. Mountain: Add #[allow(dead_code)] to 15 structs used only in specific build configs and set MACOSX_DEPLOYMENT_TARGET=10.13 for broader compatibility.\n\n4. Mist: Add #![allow(non_snake_case)] lint to permit PascalCase naming conventions consistent with CodeEditorLand standards.\n\n5. Rest: Switch binary entry point from Library.rs to Main.rs with proper async tokio runtime.\n\nImpact: Wind/Sky now receive correctly formatted DTOs with camelCase keys, SCM source control providers properly register, and the Rest bundler has correct binary structure.",
-			"SHA": "9203102a8778770cf3de193abaec23edf1e83491"
+			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nSynchronize Mountain submodule with two bug fixes:\n\n1. **FileWatcher.rs**: Handle both numeric and string handle types in `RegisterWatcher` and `UnregisterWatcher`. The newer `NextProviderHandle()` returns a number while older callers pass strings. Previously, numeric handles were silently converted to empty strings causing failures.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without regex string parsing, while `-32000` remains the catch-all for genuine failures.\n\nImpact: File watcher registration now works correctly regardless of handle type. Directory listing 404s are properly distinguished from genuine errors, improving error handling accuracy in Cocoon.",
+			"SHA": "0d6755b26af812f8135b6a51610c3738e357e026"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:30:42Z",
+			"Date": "2026-04-29T01:05:18Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				102,
+				5
+			],
+			"Message": "chore(Land): Refactor env var handling with allow-list and fix errexit bug\n\nMulti-component synchronization and build system improvements:\n\n1. **TierEnvironment**: Switch from regex sweep (`^LAND_*`) to explicit allow-list of PascalCase keys (Pick, Require, Ship, Lodge, Extend, Probe, Skip, Mute, Wire, Install, Authorize, Beam, Report, Throttle, Buffer, Batch, Cap, Replay, Ask, Brand). This prevents unrelated OS/dev environment variables from polluting the diagnostic block. Also fix errexit bug by replacing `&&`-chain with `if [ -n ... ]; then ... fi` form - the `printenv` command exits non-zero for unset variables, which trips `set -e` when captured in command substitution.\n\n2. **turbo.json**: Remove `.env` files from globalDependencies since TierEnvironment.sh now handles env loading with explicit overlay sourcing.\n\n3. **Submodule sync**: Output adds RewritePerfBaselineWorker transform to fix timer service worker bootstrap crashes caused by Vite mangling `__name(...)` decoration in inlined Astro chunks.\n\n4. **Changelog**: Minor wording tweak (\"test suite\" → \"suite\").\n\nImpact: Build diagnostics now display only explicitly-allowlisted runtime variables, debug profiles no longer silently abort under errexit, and timer service worker boots correctly without reference errors.",
+			"SHA": "a72870e9e95eaae2ec835dac7e09af244a6b727a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T23:07:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				103,
 				1
 			],
-			"Message": "feat(Mountain): Add workspace trust handlers for vscode.git and mute API gap logs\n\nSubmodule synchronization bringing two Mountain changes:\n\n1. Workspace Trust Handlers:\n   - Implement Workspace.RequestResourceTrust and Workspace.IsResourceTrusted handlers\n   - Route through Mountain instead of falling back to Cocoon's permissive heuristic\n   - vscode.git's Model.openRepository now calls these before constructing Repository\n   - Enables GenerateRouteManifest.sh to auto-switch Cocoon from heuristic to gRPC routing\n   - Future work can replace trust-by-default with real per-OS trust queries (Gatekeeper/SmartScreen/xattrs)\n\n2. Log Noise Reduction:\n   - Mute vscode-api-gap dev logs in short mode\n   - These log when extensions use unshimmed vscode API methods\n   - Useful for API gap audits but noisy in default dev runs\n   - Enable via LAND_DEV_LOG=all or LAND_DEV_LOG=vscode-api-gap when needed\n\nImpact: vscode.git extension now properly routes through Mountain's trust handlers with future extensibility for real OS-level trust queries.",
-			"SHA": "bd777531a7bf4fdfeb693820ba44cc9efc7237b6"
+			"Message": "chore(Project): Sync Element submodule with diagnostics pipeline and service worker fix\n\nMulti-component synchronization enabling language extension diagnostics to render in the editor UI:\n\n1. **Mountain**: Extend DiagnosticsChanged event with per-URI marker payloads and cap keyring crate logging to Warn level. The new `changedURIs` field enables direct `IMarkerService.changeOne()` calls without extra IPC round-trips.\n\n2. **Output**: Add RewriteNodeModulesPath transform to fix hardcoded `vs/../../node_modules` paths that were causing grammar/tokenization to silently fail (returning SPA fallback). Also expose IMarkerService on `__CEL_SERVICES__.Markers` for SkyBridge to push diagnostics.\n\n3. **Sky**: Add `sky://diagnostics/changed` handler that translates Mountain events into editor markers. Receives `{ owner, changedURIs: [{ uri, markers }] }` and calls `Markers.changeOne()` for each entry - enabling red squiggles and Problems panel population.\n\n4. **Worker**: Remove obsolete precache paths from Service Worker that caused `Failed to fetch` errors on every install (paths moved to Astro chunks).\n\nImpact: Language extension compile errors, lint warnings, and type errors from extensions like rust-analyzer, TypeScript, and ESLint now render as visible markers in the editor.",
+			"SHA": "a630f00bcff2c393d74f5bb16eff01c8a9e73537"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:10:59Z",
+			"Date": "2026-04-28T21:54:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				103,
 				1
 			],
-			"Message": "chore(Project): Sync Element submodule with bug fixes and URI improvements\n\nSubmodule synchronization bringing in latest changes addressing search and URI handling:\n\n1. Sky: Fix text search result mapping to use Mountain's actual response format - `Hit.resource` instead of `Hit.uri`, and `Hit.matches[]` array with `preview` and `line_number` instead of flat hit shape. Add backwards-compat support for old flat `{uri, lineNumber, preview}` format.\n\n2. Sky: Fix search:findFiles IPC call to include required null exclude parameter. Previously MaxResults was shifted into wrong slot, causing glob extractor to ignore max and default to 10000. This resolves empty search results.\n\n3. Output: Add missing URI class import to ExposeWorkbenchAccessor transform, enabling SkyBridge to construct resource objects the workbench accepts directly.\n\n4. Mountain: Use DebugOnce instead of dev_log! for unregistered view-action and workbench-internal commands to reduce log noise.\n\nImpact: Text search and file search now return correct results using Mountain's response format, eliminating empty results from parameter order mismatch.",
-			"SHA": "efc8c47b9443c033122f0f4d22e4086edb1c693f"
+			"Message": "chore(Project): Sync Element submodule with Monaco worker fixes and polyfill telemetry\n\nSubmodule synchronization bringing stability improvements across multiple components:\n1. Mountain: Fix 404s for extension webview assets by extending vscode-file URI handling to support arbitrary authorities beyond \"vscode-app\". Also reduce extension-scanner logging noise by capping ignore-related targets to Warn level.\n2. Output: Fix Monaco worker bootstrap crashes with InjectWorkerBootstrapShim (injects __name/__defProp shim into webWorkerServiceImpl.js blob factory) and RewriteNestedWorkerBootstrap (replaces .toString() pattern with JSON.stringified source). Switch RewriteStaticBlockSelfRef from hardcoded whitelist to auto-detection. Add __LAND_POLYFILL_TELEMETRY__ hook.\n3. Sky: Wire polyfill telemetry through PostHog bridge to capture errors via PH.captureException with categorized properties.\n4. Wind: Remove deprecated Electron polyfill shims as functionality moves to Mountain's native Rust implementations.\n\nImpact: Extension webview assets now load correctly, Monaco language workers no longer crash on startup, production polyfill failures are captured for debugging, and obsolete Electron shims are cleaned up.",
+			"SHA": "cf08b5fec5bd1eead24636eadf43c81f8f5b9584"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T15:41:56Z",
-			"File": [
-				"⣿⣿⣿⣿⣿",
-				102,
-				300
-			],
-			"Message": "chore(cleanup): delete stale target folder\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "ac94e887445add5b3f4bb326b2faa981df51638e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T10:44:29Z",
+			"Date": "2026-04-28T20:56:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
-				2
+				103,
+				1
 			],
-			"Message": "",
-			"SHA": "38b3ba9759c13da31792965004037c4f61c7bd1f"
+			"Message": "fix(CHANGELOG): Replace em dashes with en dashes for consistency\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "d090d6d4030dc99ac4a7bdcb46a4aa1389bed063"
 		}
 	],
-	"TimeStamp": 1778855106061
+	"TimeStamp": 1779025674638
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T19:54:02Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				5
-			],
-			"Message": "feat(Mountain): Implement debug session tracking and DAP adapter spawning\n\nAdd DebugSessionEntry struct and DebugSessions map to DebugState for lifecycle management of active debug sessions. Implement StartDebugging to spawn executable adapters (node, chrome, etc.) with stdin/stdout/stderr pipes, parse DAP frames from adapter stdout, and emit messages on `sky://debug/dap-message`. Implement SendCommand to route DAP requests to the spawned adapter's stdin or fall back to reverse-RPC for inline-implementation adapters. Implement StopDebugging to send DAP disconnect and unregister the session.\n\nAlso implement OnSaveCustomDocument in CustomEditorProvider to reverse-RPC to the extension sidecar via `$onSaveCustomDocument`, replacing the stub.\n\nFix char-aware truncation in WindServiceHandlers and OutputChannelAppend to avoid panics when slicing multi-byte UTF-8 codepoints (e.g., `•` in SCM progress messages).",
-			"SHA": "0b6ac619c4e7e5af9b04d1cd45731dbdd4959176"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T15:54:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				4
-			],
-			"Message": "fix(Mountain): Fix workspace boot seeding from recently-opened list and SCM handle alignment\n\nTwo issues addressed in this commit:\n\n1. **Recently-opened workspace fallback (CliParse.rs)**\n   The webview's initial URL is built from `~/.land/workspaces/RecentlyOpened.json`'s top entry (see `Binary/Build/WindowBuild.rs::BuildInitialUrl`), but Mountain's boot-time seeder previously fell straight through to CWD walk-up. This caused a mismatch: webview title said \"Mountain\" while Cocoon's init payload shipped \"Land\", vscode.git scanned the wrong root, and the SCM panel reported zeros despite uncommitted changes in the actual folder.\n\n   Add a fallback that probes the same source of truth as `BuildInitialUrl`, slotting it between env/CLI (explicit user intent) and CWD walk-up (last resort).\n\n2. **SCM provider handle alignment (3 files)**\n   Mountain was allocating new handles via DJB hash while Cocoon uses sequential handles from `ScmNamespace.ts`. When `UpdateSourceControlGroup` arrived with Cocoon's sequential handle, the lookup in Mountain's marker map failed because it was keyed by the hash instead.\n\n   - Honor caller-supplied `Handle` in `CreateSourceControl` (SourceControlManagementProvider.rs)\n   - Pass the same `Handle` through to `CreateData` in RPC/CocoonService/SCM.rs\n   - Include `handle` on the wire in Vine notification (RegisterScmProvider.rs)\n\nThis ensures all three components key their marker maps under the same identifier, allowing group updates to reach the SCM viewlet correctly.",
-			"SHA": "c6897f8464e700b43fbece81e2be179d6e418623"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T15:18:18Z",
+			"Date": "2026-04-29T02:08:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				859,
 				2
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "dcaa4d503dd7943dcba75ba06c867c9da7377a2d"
+			"Message": "fix(Mountain): Accept absent paths in FileWatcher and varied URI shapes\n\nTwo changes that prevent false circuit breaker trips in Mountain's gRPC service:\n\n1. **FileWatcherProvider.rs**: Extensions frequently register watchers on optional paths (`~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't yet exist. Previously, `notify::Watcher::watch()` failure triggered a gRPC error that counted against Cocoon's circuit breaker — 5 probes at boot trips it open and cascades into 60s of rejected reads. Now Mountain catches benign \"path not found\" errors, records a \"deferred\" entry without a live OS watcher, and still allows Unregister to clean up the handle.\n\n2. **UriParsing.rs**: Cocoon sends URIs in three different shapes — plain strings (e.g., `Diagnostic.Set`), objects with `external` field (VS Code's `URI.toJSON()`), and legacy objects with just `scheme` + `path`. The original code only accepted the `external` field, causing `Diagnostic.Set` from `vscode.languages.createDiagnosticCollection().set` to trip the breaker after 5 publishes, silencing all linters across language extensions. Now all three formats are accepted.\n\nBoth fixes maintain backward compatibility while eliminating spurious error cascades.",
+			"SHA": "9c10fbe92d916db112eb377dcd9f1ab9130c8821"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T14:48:29Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				859,
-				21
-			],
-			"Message": "fix(Mountain): Align event payloads to Sky listener wire shapes and fix silent event drops\n\nThis commit addresses multiple issues where Mountain was emitting events that never reached Sky because of mismatched channel names or payload keys.\n\n**Event Channel Corrections (5 files)**\n- Terminal: `sky://terminal/opened` → `sky://terminal/create`, `sky://terminal/closed` → `sky://terminal/exit` (Sky listens on the new names at SkyBridge.ts:1736,1752)\n- Debug: `sky://debug/stop` → `sky://debug/sessionEnd` (SkyBridge.ts:2234)\n- StatusBar: `sky://statusbar/create` → `sky://statusbar/set-entry` (SkyBridge.ts:744 has no create listener)\n- Webview message: `sky://webview/message` → `sky://webview/post-message` (matches SkyBridge.ts:2344)\n- Progress: `sky://progress/report` → `sky://notification/progress-update` (aligns with notification namespace)\n\n**Payload Key Casing (8 files)**\n- OutputProvider: PascalCase keys (`Id`, `AppendedText`, `Name`, `LanguageId`) → camelCase (`channel`, `text`, `name`, `languageId`)\n- StatusBarProvider: Align all keys to camelCase\n- TreeViewProvider: `ViewIdentifier` → `viewId`, `ElementHandle` → `elementHandle`, `IsExpanded` → `expanded`\n- UserInterfaceProvider: `Severity`, `Message`, `Items` → `severity`, `message`, `items`\n- Window: `panelId` key alignment\n\n**Parameter Key Fallback (4 files)**\n- RegisterCommand/Provider: Probe camelCase first (`languageSelector`, `extensionId`) then snake_case for transitional compatibility\n- RegisterScmProvider/ResourceGroup: Probe camelCase (`scmHandle`, `rootUri`) then legacy snake_case\n\n**SCM RootUri Fix (RegisterScmProvider.rs)**\n- Previous extraction read only `path` component from UriComponents, producing relative URLs that failed to parse\n- Now reconstructs full `<scheme>://<authority><path>` triple from scheme/authority/path/query/fragment components\n- Falls back to `file://` prefix for bare paths, never emits relative URLs\n\n**Command Registry Sync (RegisterCommand.rs, UnregisterCommand.rs)**\n- Add emissions to `sky://command/register` and `sky://command/unregister` so Sky's workbench command palette sees extension-contributed commands\n\nWithout these fixes, terminal panes, tree views, status bar entries, and command palette entries were silently failing to render despite Mountain processing the underlying requests.",
-			"SHA": "ba479c6a5ea13640cdd3164452f55f429472915f"
-		},
-		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-04-27T08:29:12Z",
+			"Date": "2026-04-29T01:40:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
+				859,
+				2
+			],
+			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nTwo changes in Mountain's gRPC service layer:\n\n1. **FileWatcher.rs**: Cocoon's `NextProviderHandle()` returns a number, but older callers pass a string. Handle both shapes in `RegisterWatcher` and `UnregisterWatcher` instead of silently converting numbers to empty string.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without a string-regex round-trip, while `-32000` remains the catch-all for genuine failures.",
+			"SHA": "160b5a4251133f31e4ce99898a02a8d63f8ca19b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T01:03:45Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
 				1
 			],
-			"Message": "Merge pull request #43 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-3.0.0\n\nchore(deps): Bump pozil/auto-assign-issue from 2.2.1 to 3.0.0",
-			"SHA": "324e09923027abb8313f0caea1c8ac037429a3d5"
+			"Message": "docs(Mountain): Update build.rs comments to document PascalCase naming\n\nClarify the build script comments to document the PascalCase environment variable naming convention introduced in the 2026-04-29 migration. The comments now specify that `Profile`, `Pack`, `Bundle`, and `Compiler` (PascalCase) are the current env var names, replacing the legacy `LAND_*` names that were retired. This ensures clarity for developers debugging build configuration resolution at runtime.",
+			"SHA": "de696659a367b81cdc5404e3055fa6837bd94fa7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T23:06:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				2
+			],
+			"Message": "feat(Mountain): Add per-URI marker payloads to diagnostics events and cap keyring logging\n\nTwo changes in Mountain's diagnostic system:\n\n1. **DiagnosticProvider.rs**: Extend the `DiagnosticsChanged` event payload with a new `changedURIs` field containing per-URI marker data alongside the existing `Uris` string array. This enables SkyBridge's `cel:diagnostics:changed` listener to call `IMarkerService.changeOne(owner, uri, markers)` directly without an extra IPC round-trip per diagnostic change. Also adds lowercase `owner` field for consistency. Maintains backward compatibility with listeners expecting the original format.\n\n2. **LoggingPlugin.rs**: Cap the `keyring` crate to Warn level. This dependency (used by Mountain's secret-storage path for license data lookups) emits a 3-line DEBUG block per `get_password` call that fires indefinitely after the workbench paints, similar to the previous `ignore` and `globset` mutes.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "5b111b189f5566e92bce268a48be289d73ef6735"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T22:00:38Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				4
+			],
+			"Message": "refactor: simplify project naming in Cargo.toml and tauri.conf.json\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "7ecd2c78579c71c6c6dbbbb509d52c63b1e771ad"
 		}
 	],
-	"TimeStamp": 1778855168378
+	"TimeStamp": 1779025691006
 }

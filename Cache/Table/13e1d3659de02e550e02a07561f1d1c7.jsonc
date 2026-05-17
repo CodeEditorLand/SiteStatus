@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-13T17:54:16Z",
+			"Date": "2026-04-17T13:32:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				691,
-				1
+				732,
+				9
 			],
-			"Message": "feat(Mountain): Implement extension host message forwarding to Cocoon\n\nReplace the TODO placeholder in the cocoon:extensionHostMessage handler with actual gRPC forwarding logic. The handler now extracts the payload from the Wind IPC args and forwards it to Cocoon's gRPC server using the Vine::Client::SendNotification RPC as a generic notification.\n\nThis completes the Wind → Mountain → Cocoon message relay path, enabling the extension host protocol to flow between the editor frontend (Wind) and the extension host sidecar (Cocoon). The forward is fire-and-forget to maintain async protocol behavior.\n\nAlso applies minor formatting cleanup to the extensions:getAll handler's debug logging.",
-			"SHA": "cb4538625a8fb6049cf60f7fc11e6941fc263557"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-13T15:47:13Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				691,
-				1
-			],
-			"Message": "",
-			"SHA": "bd8ce396f7986f61b57468019bf8b533c9f16d94"
+			"Message": "fix(Mountain): Correct Sky path resolution and add extension scanning instrumentation\n\nThree related improvements to extension management and path resolution:\n\n1. **Fix Sky target path resolution** - The monorepo layout places Sky at `Land/Element/Sky/`, but the code was incorrectly using `Element/Sky/Target` (doubling Element). Change from `../../../Element/Sky/Target` to `../../../Sky/Target` in ScanPathConfigure.rs, AppLifecycle.rs, and InitializationData.rs.\n\n2. **Add dev-only cfg guards** - Wrap dev fallback paths in `#[cfg(debug_assertions)]` to keep release builds lean. Production should fail loudly if the bundle is misconfigured rather than silently falling back to dev paths.\n\n3. **Add extension scanning instrumentation** - Comprehensive logging throughout the scanning pipeline:\n   - ScanAndPopulateExtensions: track inserted vs rejected (empty identifier) counts\n   - Scanner: log directory entries, parse failures, missing package.json\n   - MountainEnvironment: verify serialized non-null extensions\n   - Extension handler: log serialized payload sizes, warn on empty results\n   - Also register native `setContext` command as no-op for VS Code extension compatibility\n\n4. **Implement FileSystem effects** - Add FileSystem.Stat, CreateDirectory, Delete, Rename, Copy effects to CreateEffectForRequest, completing the IPC bridge between Wind requests and Mountain's FileSystemReader/Writer traits.",
+			"SHA": "3ba96f11406420784098879a309de9cd997c2fcf"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-04-13T02:13:02Z",
+			"Date": "2026-04-17T02:08:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				691,
 				1
 			],
 			"Message": "",
-			"SHA": "7e622a9a462843a063b6b5a4f33d71003ab38a70"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-12T02:08:26Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				691,
-				1
-			],
-			"Message": "",
-			"SHA": "e68a9cd9850105320575724e6959b642c0480086"
+			"SHA": "e157f71a4ebacc67e0e5f1c263aac38c45ce57c6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-11T16:40:18Z",
+			"Date": "2026-04-16T20:52:00Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				732,
+				48
+			],
+			"Message": "refactor(Mountain): Split WindServiceHandlers and CocoonService into atomic domain modules\n\nRefactor the IPC layer by splitting monolithic handlers into focused domain modules:\n\n**WindServiceHandler split (24 modules):**\n- Command, Configuration, Decoration, Environment, Extension, FileSystem\n- History, Keybinding, Label, Lifecycle, Model, NativeHost\n- Notification, Output, Progress, QuickInput, Search, Storage\n- Terminal, TextFile, Theme, WorkingCopy, Workspace\n- Each module contains handlers for its domain with proper error handling\n\n**CocoonService split (15 modules):**\n- Auth, Command, Debug, Extension, FileSystem, Output, Provider\n- SCM, Save, Secret, Task, Terminal, TreeView, Window, Workspace\n- Language feature provider handlers consolidated in Provider.rs\n\n**Additional changes:**\n- Fix MutexGuard scope in FeatureMethods.rs (lock held across await point)\n- Remove duplicate dev_log imports in AdvancedFeatures.rs and WindAdvancedSync.rs\n- Simplify TraceLog.rs and ConfigurationInitialize.rs (remove excess docs)\n- Add comprehensive CHANGELOG.md documenting v0.0 through v2.1\n- Update mod.rs to re-export helper functions for submodules\n\nThis modular structure improves maintainability and enables parallel development of domain-specific IPC handlers.",
+			"SHA": "f8dd70ea95583cfeee8936cc7eb8b022b141465f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-16T12:48:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				691,
-				3
+				1
 			],
-			"Message": "",
-			"SHA": "431cc4eed727a3f887ff59fe01ef053b17e1722d"
+			"Message": "fix(Mountain): Fix command registration locking and provider registration path\n\nCorrect the registerCommand handler to properly lock the CommandRegistry before insertion and use the correct CommandHandler::Proxied structure with SideCarIdentifier and CommandIdentifier fields. Also fix the provider registration handler to use self.RunTime.Environment instead of self.Environment for proper runtime state access.\n\nThese changes ensure commands from Cocoon extensions are correctly registered in the command registry and provider registrations flow to the correct runtime state.",
+			"SHA": "4945b47bbc5f6dc146e5d6f625ba0394ddf837d7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-16T12:44:52Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				691,
+				1
+			],
+			"Message": "chore(Mountain): Add json macro import to MountainVinegRPCService\n\nAdd serde_json::json macro to imports in MountainVinegRPCService to enable JSON construction for gRPC message handling. This supports building structured JSON payloads for the Vine protocol service layer.",
+			"SHA": "a2ef2b5714239e43f8f9b3e95dceff8922f4ffcb"
 		}
 	],
-	"TimeStamp": 1778855193170
+	"TimeStamp": 1779025703505
 }

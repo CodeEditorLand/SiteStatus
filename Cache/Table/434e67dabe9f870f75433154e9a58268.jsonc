@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:39:39Z",
+			"Date": "2026-04-26T10:44:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				5214,
-				1
+				2
 			],
-			"Message": "refactor(Project): Wire state handlers to trait implementations\n\nCross-cutting submodule sync wiring Mountain handlers to proper trait implementations for state persistence:\n1. Mountain: Replace direct Sky event emissions with trait methods - SCM handlers use SourceControlManagementProvider to materialize state in ApplicationState::SourceControl, StatusBar handlers use StatusBarProvider::SetStatusBarEntry for ActiveStatusBarItems, Webview handlers use WebviewProvider trait for ApplicationState::WebviewState, Search handlers delegate to WorkspaceProvider::FindFilesInWorkspace and SearchProvider::TextSearch\n2. Output: Remove Configuration directory (ESBuild, Plugin, Polyfill, Service configs and tsconfig)\n3. Cocoon: Submodule sync to cbaf44f1\n\nImpact: SCM providers, status bar items, and webview panels now properly persist in Mountain's ApplicationState. File and text search use ignore-aware implementations.",
-			"SHA": "ef6da240b1d22fe8249f99b2f3955b7bed1a154d"
+			"Message": "",
+			"SHA": "38b3ba9759c13da31792965004037c4f61c7bd1f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:16:30Z",
+			"Date": "2026-04-26T09:59:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				5214,
 				1
 			],
-			"Message": "feat(Project): Add regex and multiline search to TextSearchQuery\n\nSync Mountain and Cocoon submodules with new search capabilities:\n- Mountain: Add `isRegExp` and `isMultiline` fields mirroring VS Code's ITextSearchQuery\n- Escape plain-text search patterns via regex::escape() to prevent crashes on metacharacters like `.`, `(`, `[`, `*`, `?`\n- Add .multi_line() support for multiline regex searches\n- Fixes Search view plain-text mode broken for queries containing `obj.method(` or `file[1].txt`\n- Cocoon: Update to d4763554\n\nImpact: Plain-text search now works correctly for queries containing regex metacharacters without crashing the regex compiler.",
-			"SHA": "955a8545bf99cedb0b1db11ad25ed773a5c4d2b3"
+			"Message": "fix(Project): Fix search result handling with Mountain's response format\n\nSynchronize Element submodule with critical bug fixes:\n\n1. Sky: Fix text search result mapping to use Mountain's actual response format - `Hit.resource` instead of `Hit.uri`, and `Hit.matches[]` array (with `preview` and `line_number`) instead of flat hit shape. Add backwards-compat support for old flat `{uri, lineNumber, preview}` format.\n\n2. Sky: Fix search:findFiles IPC call to include required null exclude parameter. Previously MaxResults was shifted into wrong slot, causing glob extractor to ignore max and default to 10000. This resolves empty search results where previous code produced resource=MakeFileUri(\"\") with empty results array.\n\n3. Cocoon: Submodule sync to latest extension host changes.\n\nImpact: Text search and file search now return correct results using Mountain's response format, eliminating empty results from parameter order mismatch.",
+			"SHA": "fe18d940fdbcd0272f2abe9a594c4b536121704b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:05:50Z",
+			"Date": "2026-04-26T09:51:01Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				5214,
 				1
 			],
-			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to properly-implemented trait methods on MountainEnvironment:\n- handle_search_find_in_files → SearchProvider::TextSearch (grep-searcher + ignore::WalkBuilder with parallel walking)\n- handle_search_find_files → WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive starts_with('.') hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus format!(\"file://{}\") URI constructor, and single-threaded walkers. The trait implementations were reachable only through Environment.Require<dyn SearchProvider>() calls and no IPC handler ever issued those.\n\nAlso change FileReaddirNative.rs log level from vfs-verbose to vfs since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.\n\nImpact: File search and find-files now use proper ignore rules, parallel walking, and regex support instead of naive single-threaded implementations.",
-			"SHA": "ab81979739d237da5c6179b32dcdf7437a7a83ae"
+			"Message": "fix(Project): Resolve URI object construction inconsistencies across editor services\n\nSubmodule synchronization completing the URI handling fix across multiple layers:\n1. Mountain: Use DebugOnce instead of dev_log! for unregistered view-action and workbench-internal commands to reduce log noise\n2. Output: Add missing URI class import to ExposeWorkbenchAccessor transform, enabling SkyBridge to construct resource objects the workbench accepts directly\n3. Sky: Add BuildOpenArg helper that produces real URI instances when URI service is available, falling back to POJO only for code paths that call revive\n\nThis completes the fix from the previous commit for search results deduplication by ensuring open commands (vscode.open, OpenFile) also use proper URI construction rather than manual `{ $mid: 1, path, scheme }` objects that fail when consumers call uri.with() or uri.toString() directly.\n\nImpact: Consistent URI handling across search results and file open commands, eliminating \"uri.with is not a function\" errors and improving workbench result deduplication.",
+			"SHA": "17f93c496ba1aac80c82c0e5cab95e4dc545d485"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:56:21Z",
+			"Date": "2026-04-26T09:31:52Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				5214,
 				1
 			],
-			"Message": "feat(Project): Add DisableUnusedServices transform and sync dependencies across submodules\n\nCross-cutting Element submodule sync with functional improvements and dependency updates:\n\n1. Output: Add DisableUnusedServices ESBuild transform - Replaces upstream VS Code contribution barrels for features Land doesn't back (auto-update, issue reporter, MS account/sync, process explorer) with inert stubs. Removes broken UI surfaces and silences \"service not registered\" warnings, shortening boot time.\n\n2. Output: Fix ExtensionScannerIPC path matching - Now matches BOTH electron-browser AND browser variants of extensionsScannerService.js. Previously only matched electron-browser, but desktop.main.js loads the browser variant.\n\n3. Sky: Sync dependency updates - @xterm/xterm: 6.1.0-beta.202 → 6.1.0-beta.203, @astrojs/compiler-rs: 0.1.9 → 0.1.10, pozil/auto-assign-issue: 2.2.0 → 3.0.0\n\nImpact: Extension scanning now works correctly for desktop profile. Unused VS Code services are stubbed out, reducing boot noise and improving startup time.",
-			"SHA": "4c908a36d5a2b16ff9ab9e0e5dbc8c6964566d17"
+			"Message": "chore(Project): Sync Element submodule with Sky and Output changes\n\nRoutine submodule synchronization bringing in latest changes from the application stack:\n\n1. Sky (c32ec836):\n   - Fix URI object construction for workbench search result deduplication\n   - Previous manual resource object construction (`{ $mid: 1, path, scheme }`) failed when workbench attempted result deduplication via `uri.with({...})` because POJOs lack methods, causing \"uri.with is not a function\" errors\n   - Add CelUriCtor and CelUri interfaces to type VS Code's URI class\n   - Create MakeFileUri that uses actual Ctor.file() method when __CEL_SERVICES__.URI is available\n   - Update both MatchFromHit (text search results) and file search result mapping to use MakeFileUri\n   - Include last-resort POJO fallback for edge cases\n\n2. Output (c7ea59e9):\n   - Expose URI class from vscode-uri to workbench accessor exports, providing full prototype chain (`.with()`, `.fsPath`, `.toString()`) needed by SkyBridge's search provider\n\nImpact: Search results now properly deduplicate in the workbench, eliminating duplicate file entries in quick open and search views.",
+			"SHA": "f64c07f9d67a04d38d6ec2324b1248b4df99299f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:36:12Z",
+			"Date": "2026-04-26T09:01:54Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				5214,
 				1
 			],
-			"Message": "refactor(Output): Replace runtime require() with static ES imports in workbench accessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of both web.main.js and desktop.main.js instead of using runtime require() calls. This eliminates AMD require() resolution that could fail in the WKWebView context.\n\nChanges include:\n- Anchor on stable import markers ('mark' from performance.js for web, 'localize' from nls.js for desktop)\n- Add IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports\n- Extract shared imports into SharedImportLines to avoid duplication\n- Add cel:services-ready DOM event dispatch on successful population\n- Add Mountain diagnostic logging for success/failure tracking\n- Add guard check for import marker to avoid matching unrelated files\n\nImpact: __CEL_SERVICES__ is now populated synchronously before the microtask queue drains, ensuring services are available for both web and Electron/Desktop profiles at runtime.",
-			"SHA": "96667ac6d621541665452df55118710d737719da"
+			"Message": "chore(Project): Sync Element submodule with Sky, Worker, Wind, Cocoon, and Output changes\n\nRoutine submodule synchronization bringing in latest changes across the application stack:\n1. Sky (70de1fdb):\n   - Extract worker script imports into dedicated WorkerBundleImports.astro component to fix Astro compiler hoisting issue in JSX conditionals\n   - Add comprehensive RenderDevLog diagnostics for search operations\n   - Replace single-shot workbench-ready retry with three parallel rescue paths for search provider registration\n   - Add SearchRegistered flag to prevent duplicate registration attempts\n2. Worker (e8bdbb87):\n   - Expand minified ESBuild config files with source maps\n   - Reverse minification to aid debugging ESBuild pipeline issues while preserving configuration logic\n3. Cocoon (ca5878fa), Output (6b389ee0), Wind (56a0603f):\n   - Submodule sync to latest changes\n\nImpact: Bundle-mode build failures resolved. Search provider registration now handles edge cases with parallel fallback paths. ESBuild pipeline debugging improved with source maps in worker configs.",
+			"SHA": "583f5e6b85e88dcfeae25b248e15ec87c7e4af46"
 		}
 	],
-	"TimeStamp": 1778855107590
+	"TimeStamp": 1779025675941
 }

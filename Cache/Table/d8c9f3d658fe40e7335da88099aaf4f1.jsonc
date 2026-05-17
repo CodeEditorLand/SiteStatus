@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:03:13Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				774,
-				12
-			],
-			"Message": "feat(Mountain): Add extension metadata passthrough, IPC round-trip, and Node version checking\n\nThree major improvements for extension handling and IPC reliability:\n\n1. **Extension manifest passthrough (Atom TH1):** Add 14 new fields to ExtensionDescriptionStateDTO for VS Code package.json metadata: Categories, DisplayName, Description, Keywords, Repository, Bugs, Homepage, License, Icon, AiKey, ExtensionKind, Capabilities, ExtensionDependencies, ExtensionPack. Wind's Extensions sidebar filter `@builtin category:themes` now works — previously categories were absent so the filter never matched.\n\n2. **IPC round-trip for applyEdit/showTextDocument (Atom T1):** Replace fire-and-forget event emission with request/response pattern using SendUserInterfaceRequest. Extensions awaiting workspace.applyEdit() now block until Sky actually applies the edit, fixing races with listeners expecting post-apply state. Also made SendUserInterfaceRequest pub(crate) so Track effect creators reuse the same pattern.\n\n3. **Node version checking (Atom N1):** ResolveNodeBinary now queries `node --version` and logs the resolved version. Emits a warning when major version falls below LAND_NODE_MIN_MAJOR (default 20). Helps diagnose extension host boot failures.\n\n4. **Compile-time PostHog config (Atom P2):** PostHogPlugin now reads API key/host/enable flag from env! baked in build.rs via PropagatePostHogSentinel(). Supports LAND_POSTHOG_DISTINCT_ID for CI correlation. Combined with debug_assertions gate for cheaper no-op path.\n\n5. **IPC logging improvement (Atom I13):** Add paired entry/exit lines per invoke. `done: <cmd> ok=... t_ns=...` on the way out enables latency diagnosis via single grep without Jaeger hopping.",
-			"SHA": "f24e444f42f611f00e844728138c5036e8f28793"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T14:19:44Z",
+			"Date": "2026-04-22T23:24:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
+				775,
 				1
 			],
-			"Message": "",
-			"SHA": "12de818c4d637c9baa99ed0690625ee482720398"
+			"Message": "fix(Mountain): Distinguish user vs built-in extension paths during scan\n\nAdd `IsUserExtensionScanPath()` helper to detect whether a scan directory represents the user-writable `~/.land/extensions` root (or `LAND_USER_EXTENSION_DIRECTORY` override) versus bundled paths like `Resources/extensions` and VS Code's submodule.\n\nPreviously every extension was marked `IsBuiltin = true` regardless of source, causing user-installed VSIXes to appear under \"Built-in\" in the Extensions sidebar and leaving `@installed` (which filters for User-scope) empty. Now the scanner checks the canonical scan path upfront and sets `Description.IsBuiltin = !IsUserPath` accordingly.\n\nThis complements the sidebar handler fix in the previous commit by ensuring the underlying scan data is correctly classified at the source.",
+			"SHA": "5eb660dd59f7081898bfa210a94a3c5d39252f8a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T14:19:43Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				774,
-				51
-			],
-			"Message": "feat(Mountain): Add Node binary resolver and extension path environment variables\n\nImplement two significant features for Cocoon sidecar spawning and extension management:\n\n1. **NodeResolver (Atom N1):** New module that resolves Node.js binary for Cocoon spawn, checking in order: explicit override (LAND_NODE_BINARY), shipped runtime (Tauri bundle or dev-tree sibling), version managers (fnm, volta, asdf, nvm), Homebrew, and PATH fallback. Logs source for forensics.\n\n2. **Extension path configuration (Atom U1):** Add support for environment variables controlling extension scan paths:\n  - LAND_DISABLE_BUILTIN_EXTENSIONS: Same effect as LAND_SKIP_BUILTIN_EXTENSIONS\n  - LAND_BUILTIN_EXTENSIONS_DIR: Override bundle path for CI builds\n  - LAND_USER_EXTENSIONS_DIR: Override ~/.land/extensions for sandboxes\n  - LAND_EXTRA_EXTENSIONS_DIRS: Multi-path separator (semicolon Windows, colon elsewhere)\n  - LAND_DEV_EXTENSIONS_DIR: Development extensions that always load\n\n3. **Profile sentinel fix:** Replace runtime std::env::var(\"LAND_PROFILE\") with compile-time option_env! in build.rs so profile resolves correctly after binary launch (previously showed \"unknown\" when run outside Build.sh shell).\n\n4. **IPC handler improvements:** Add extensions:resetPinnedStateForAllUserExtensions handler (Atom P1), improve error handling in showSaveDialog/showMessageBox with proper Join handling.",
-			"SHA": "458377b0d14a3611cc723298645f95d86eebfd80"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T12:58:23Z",
+			"Date": "2026-04-22T22:54:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				773,
-				1
+				775,
+				3
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "edeef4b1eb18a7b9c3bcb7a3cdc2f7a15f48efe4"
+			"Message": "fix(Mountain): Implement extension type filtering and post-install activation\n\nThree related fixes address the \"install succeeded but nothing happened\" symptom:\n\n1. **Extension type filtering** (`Extensions.rs`): VS Code's `getInstalled(type?)` IPC passes an optional `ExtensionType` filter (0=System, 1=User). Previously this filter was silently dropped and every call returned the full list as `type: 0, isBuiltin: true`. Now the handler respects the filter and properly distinguishes VSIX-installed extensions from built-ins based on the scanner's `isBuiltin` field.\n\n2. **Post-install activation burst** (`Extension.rs`): After `$deltaExtensions` adds an extension to Cocoon's registry, we now fire `onStartupFinished` activation events. Without this burst, extensions with `onStartupFinished` (like `Anthropic.claude-code`) register but never activate - their sidebar contributions and commands silently no-op until the next full workbench restart.\n\n3. **Sidebar scan handlers** (`mod.rs`): Forward `extensions:scanSystemExtensions` → `getInstalled(type=0)` and `extensions:scanUserExtensions` → `getInstalled(type=1)`. The VS Code channel client doesn't always pass explicit type filters, so the override ensures User extensions appear under \"Installed\" with an Uninstall action.\n\nImpact: VSIX extensions now show under \"Installed\" with Uninstall, activate immediately after install without reload, and the Extensions sidebar refresh works correctly.",
+			"SHA": "48be85495f9e1cdde53da0b2027e8a0e414ab991"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T12:51:22Z",
+			"Date": "2026-04-22T22:54:37Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				773,
-				24
+				"⠀⠀⠀⠀⠀",
+				775,
+				6
 			],
-			"Message": "",
-			"SHA": "85483ef53b574cfa1ad8bd98fa1d5eb622c8e87e"
+			"Message": "fix(Mountain): Ensure extension manifest fields are always present for renderer\n\nAdd `extensions:getManifest` IPC handler to read `extension/package.json` from a `.vsix` archive without extracting to disk, enabling the \"Install from VSIX…\" preview dialog.\n\nThree changes prevent renderer crashes when VS Code accesses extension manifest fields unconditionally:\n\n1. **DTO serialization**: Remove `skip_serializing_if = \"String::is_empty\"` from `ExtensionDescriptionStateDTO.Name`, `Version`, `Publisher`. VS Code's `extensions.contribution.ts` trusted-publishers migration calls `manifest.publisher.toLowerCase()` at boot—if the key is omitted, the renderer crashes with `TypeError: undefined is not an object`.\n\n2. **IPC handler hardening** (`Extensions.rs`): Handle empty/missing `publisher`/`name` with \"unknown\" fallback, and inject explicit `publisher`, `name`, `version` fields into the manifest object before sending to the renderer. Also guard against non-object manifest values (null) by substituting an empty skeleton.\n\n3. **Log file eager init** (`Entry.rs`, `DevLog.rs`): Call `InitEager()` at binary startup to create the session log before any panic, preserving post-mortem evidence. Also fix `BinarySignature()` to correctly split PascalCase segments (`ElectronProfile` → `electron.profile`) so logs end up in the correct app-data directory.\n\nAlso expand the benign ENOENT ignore list with `chatLanguageModels.json`, `configurationDefaultsOverrides`, and window log files (`network.log`, `renderer.log`, `views.log`, `notebook.rendering.log`).",
+			"SHA": "c61c0b1e751fe76d3f58459087356af5eca7d5d1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T22:16:14Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				3
+			],
+			"Message": "fix(Mountain): Prevent duplicate shutdown and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings trying to notify a dead sidecar.\n\nExtend the static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader (`vscode-oniguruma` → `onig.wasm`) resolves asset URLs relative to the current document, which strips the leading slash before the path reaches the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for: `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.",
+			"SHA": "de7ca5008836ae40b6e5c5969f73a93912ac4cf6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T20:25:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				4
+			],
+			"Message": "build(Mountain): Simplify binary naming and cleanup configuration\n\nShorten the binary, lib, and product names from the verbose development profile identifier to just 'Mountain'. Update the Tauri identifier to 'land.editor.binary' for consistency. Remove the externalBin reference to Binary/node since the Node.js sidecar is now handled differently. Add vscode-file and vscode-file://vscode-app to the img-src Content Security Policy for VS Code file protocol support. Delete the temporary backup files (Cargo.toml.Backup, tauri.conf.json.Backup) as the migration is complete.",
+			"SHA": "8a06b8564cd8ab294e472b4ffb145455fcd80889"
 		}
 	],
-	"TimeStamp": 1778855187454
+	"TimeStamp": 1779025696385
 }

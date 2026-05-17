@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:33:36Z",
+			"Date": "2026-04-23T18:46:55Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				806,
+				47
+			],
+			"Message": "refactor(Mountain): Consolidate WindServiceHandler to WindServiceHandlers atoms\n\nMerge the deprecated singular `WindServiceHandler` module into the plural `WindServiceHandlers` atoms:\n- Delete 24 files from `WindServiceHandler/` (21 were dead duplicates)\n- Re-implement 3 live handlers as atoms: `extensions:install`, `extensions:uninstall`, `nativeHost.showOpenDialog`\n- Move extension handlers to `WindServiceHandlers/Extension/` (Install, Uninstall, NotifyCocoonDeltaExtensions, UserExtensionDirectory, VsixPathFromArgs)\n- Move dialog handlers to `WindServiceHandlers/NativeDialog/` (ShowOpenDialog, ParseDialogFilters, DialogFilter)\n- Add 9 new notification atoms: ExtensionActivated, ExtensionDeactivated, ExtensionHostMessage, LanguagesSetDocumentLanguage, ProgressStart, ProgressReport, ProgressEnd, WebviewReady, WorkspaceApplyEdit\n- Update MountainVinegRPCService to dispatch notifications via atoms (note: outputChannel.* already dispatched from Batch 9)\n\nThe consolidation eliminates code duplication and centralizes all IPC dispatch in the plural module. New notification atoms enable Wind/Sky to receive extension lifecycle events and progress updates from Cocoon.",
+			"SHA": "c8bfb37b939a9d0745929edef864c331c9c8f56e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T18:46:37Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				810,
+				35
+			],
+			"Message": "feat(Mountain): Add notification atom handlers and Cocoon log tag extraction\n\nAdd 25 new notification handlers in `Vine::Server::Notification` to bridge the remaining VS Code API surface from Cocoon to Mountain:\n\n- Output channel lifecycle: create, append, appendLine, clear, dispose, replace, show (both `output.*` and `outputChannel.*` wire names)\n- Status bar text updates: setStatusBarText, disposeStatusBarItem\n- Progress lifecycle: progress.update, progress.complete (routes to existing `sky://progress/*` channels)\n- Webview reverse messaging: webview.postMessage, webview.dispose\n- Provider unregistration: authentication, debug_adapter, file_system, scm, task, uri_handler handlers + updateScmGroup\n- Misc: openExternal (uses `opener` crate), security.incident, set_language_configuration\n\nEach atom is a dedicated file with a single handler, keeping the dispatcher in `MountainVinegRPCService` thin. The atoms access `ApplicationHandle` and `RunTime` via new accessors on the service struct.\n\nAlso add `ExtractDevTag` module to parse Cocoon stdout lines prefixed with `[DEV:<TAG>]` and re-emit them under Mountain's matching tag (e.g., `bootstrap-stage`, `ext-activate`, `config-prime`, `breaker`). This enables `LAND_DEV_LOG=bootstrap-stage` on Mountain's side to surface Cocoon's bootstrap diagnostics without enabling the broad `cocoon` tag.\n\nImpact: Extension output channels, status bar messages, progress indicators, and webview messaging now flow through Mountain to the renderer. Cocoon bootstrap and extension activation logs are tag-filterable end-to-end.",
+			"SHA": "27652fa62ef39c7f187b96f73e086e5a4580cc50"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T17:59:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
+				778,
 				1
 			],
-			"Message": "docs(Mountain): Expand v2.1 changelog with April 17–22 commits",
-			"SHA": "20b00590a313b3e80ebed5d20934344012e107de"
+			"Message": "feat(Mountain): Expand provider registration handlers to full VS Code surface\n\nAdd missing provider type handlers in MountainVinegRPCService to match Cocoon's complete VS Code API shim. New handlers include:\n\n- Authentication, SCM, and resource label providers for extension auth/workspace\n- Full notebook support (notebook_content, notebook_serializer)\n- Advanced editing features (inline_edit, mapped_edits, multi_document_highlight)\n- Debug infrastructure (debug_adapter)\n- Remote workspace features (external_uri_opener, remote_authority_resolver)\n\nAlso adds corresponding ProviderType enum variants to the DTO mapping. The expansion from ~25 to 50+ provider types enables extensions that register these previously-unhandled providers (e.g., GitLens, live share, remote tunnels) to activate successfully.\n\nRefs: b71ab93f22e526a1a9cc961706c66040fd2a9be6",
+			"SHA": "cc8f2a07bd71e36d8eed04d5c377cf52eeeb7e64"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:24:49Z",
+			"Date": "2026-04-23T17:25:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
-				1
+				778,
+				5
 			],
-			"Message": "fix(Mountain): Distinguish user vs built-in extension paths during scan\n\nAdd `IsUserExtensionScanPath()` helper to detect whether a scan directory represents the user-writable `~/.land/extensions` root (or `LAND_USER_EXTENSION_DIRECTORY` override) versus bundled paths like `Resources/extensions` and VS Code's submodule.\n\nPreviously every extension was marked `IsBuiltin = true` regardless of source, causing user-installed VSIXes to appear under \"Built-in\" in the Extensions sidebar and leaving `@installed` (which filters for User-scope) empty. Now the scanner checks the canonical scan path upfront and sets `Description.IsBuiltin = !IsUserPath` accordingly.\n\nThis complements the sidebar handler fix in the previous commit by ensuring the underlying scan data is correctly classified at the source.",
-			"SHA": "5eb660dd59f7081898bfa210a94a3c5d39252f8a"
+			"Message": "feat(Mountain): Wire tree-view children to extension host and add diagnostic tags\n\nImplement the full round-trip for tree-view data providers:\n1. Add `tree:getChildren` invoke handler in WindServiceHandlers - allows Wind/Sky UI to request tree children directly without waiting for Cocoon to ask first\n2. Wire GetTreeChildren gRPC in TreeView.rs to forward requests to the `$provideTreeChildren` handler in Cocoon, returning actual TreeItem data instead of empty stub\n3. Add viewId→handle hashing to match RegisterTreeViewProvider's provider lookup\n\nAlso add two new diagnostic tags per the Batch 3 logging spec in DevLog.rs:\n- `scheme-assets`: logs vscode-file:// request routing, MIME type, byte size\n- `ext-scan`: logs extension scanner accept/skip decisions with is_builtin flag and skip reasons\n\nThese tags catch the subsystems new traffic passes through so regressions surface as silent tag counts going to zero. Extension tree views (GitLens, SCM, debug, tasks) now render with data from providers instead of appearing empty.",
+			"SHA": "b71ab93f22e526a1a9cc961706c66040fd2a9be6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T22:54:51Z",
+			"Date": "2026-04-23T17:00:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
-				3
+				778,
+				2
 			],
-			"Message": "fix(Mountain): Implement extension type filtering and post-install activation\n\nThree related fixes address the \"install succeeded but nothing happened\" symptom:\n\n1. **Extension type filtering** (`Extensions.rs`): VS Code's `getInstalled(type?)` IPC passes an optional `ExtensionType` filter (0=System, 1=User). Previously this filter was silently dropped and every call returned the full list as `type: 0, isBuiltin: true`. Now the handler respects the filter and properly distinguishes VSIX-installed extensions from built-ins based on the scanner's `isBuiltin` field.\n\n2. **Post-install activation burst** (`Extension.rs`): After `$deltaExtensions` adds an extension to Cocoon's registry, we now fire `onStartupFinished` activation events. Without this burst, extensions with `onStartupFinished` (like `Anthropic.claude-code`) register but never activate - their sidebar contributions and commands silently no-op until the next full workbench restart.\n\n3. **Sidebar scan handlers** (`mod.rs`): Forward `extensions:scanSystemExtensions` → `getInstalled(type=0)` and `extensions:scanUserExtensions` → `getInstalled(type=1)`. The VS Code channel client doesn't always pass explicit type filters, so the override ensures User extensions appear under \"Installed\" with an Uninstall action.\n\nImpact: VSIX extensions now show under \"Installed\" with Uninstall, activate immediately after install without reload, and the Extensions sidebar refresh works correctly.",
-			"SHA": "48be85495f9e1cdde53da0b2027e8a0e414ab991"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T22:54:37Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				6
-			],
-			"Message": "fix(Mountain): Ensure extension manifest fields are always present for renderer\n\nAdd `extensions:getManifest` IPC handler to read `extension/package.json` from a `.vsix` archive without extracting to disk, enabling the \"Install from VSIX…\" preview dialog.\n\nThree changes prevent renderer crashes when VS Code accesses extension manifest fields unconditionally:\n\n1. **DTO serialization**: Remove `skip_serializing_if = \"String::is_empty\"` from `ExtensionDescriptionStateDTO.Name`, `Version`, `Publisher`. VS Code's `extensions.contribution.ts` trusted-publishers migration calls `manifest.publisher.toLowerCase()` at boot—if the key is omitted, the renderer crashes with `TypeError: undefined is not an object`.\n\n2. **IPC handler hardening** (`Extensions.rs`): Handle empty/missing `publisher`/`name` with \"unknown\" fallback, and inject explicit `publisher`, `name`, `version` fields into the manifest object before sending to the renderer. Also guard against non-object manifest values (null) by substituting an empty skeleton.\n\n3. **Log file eager init** (`Entry.rs`, `DevLog.rs`): Call `InitEager()` at binary startup to create the session log before any panic, preserving post-mortem evidence. Also fix `BinarySignature()` to correctly split PascalCase segments (`ElectronProfile` → `electron.profile`) so logs end up in the correct app-data directory.\n\nAlso expand the benign ENOENT ignore list with `chatLanguageModels.json`, `configurationDefaultsOverrides`, and window log files (`network.log`, `renderer.log`, `views.log`, `notebook.rendering.log`).",
-			"SHA": "c61c0b1e751fe76d3f58459087356af5eca7d5d1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T22:16:14Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				3
-			],
-			"Message": "fix(Mountain): Prevent duplicate shutdown and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings trying to notify a dead sidecar.\n\nExtend the static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader (`vscode-oniguruma` → `onig.wasm`) resolves asset URLs relative to the current document, which strips the leading slash before the path reaches the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for: `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.",
-			"SHA": "de7ca5008836ae40b6e5c5969f73a93912ac4cf6"
+			"Message": "",
+			"SHA": "0d061de2fe103d84efa38c8c494c45d1fffaf853"
 		}
 	],
-	"TimeStamp": 1778855184427
+	"TimeStamp": 1779025695445
 }

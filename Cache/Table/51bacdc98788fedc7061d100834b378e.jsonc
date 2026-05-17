@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T22:36:34Z",
+			"Date": "2026-04-30T20:27:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				868,
+				2
+			],
+			"Message": "fix(Mountain): Add vscode-webview URI scheme handler for extension webviews\n\nImplement the missing vscode-webview:// URI scheme handler to enable VS Code extension webviews (Roo Code, Claude, GitLens, custom editors) to render in the Tauri WKWebView environment.\n\nVS Code's WebviewElement wraps every extension webview in an iframe with src=vscode-webview://<authority>/index.html?... Without this handler, the iframe stays blank and any extension using webviewView/WebviewPanel/CustomEditor is non-functional.\n\nThe handler serves the three-file pre/ directory (index.html, service-worker.js, fake.html) from the embedded asset resolver or filesystem fallback. Extension HTML itself arrives via the workbench's swMessage postMessage channel after index.html boots.\n\nThis completes the extension webview infrastructure alongside the extension_root allowlist added in commit 320e57a, enabling sideloaded extensions to render their UI properly.",
+			"SHA": "54650acd31bb34c764095c9160eedb19e9a18916"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T20:27:20Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
 				3
 			],
-			"Message": "fix(Mountain): Extend extensions poll timeout and add gRPC shutdown guard\n\nIncrease the polling timeout in `extensions:getInstalled` from 3s to 5s because cold-cache runs over 113 extensions across 6 paths regularly hit ~2950ms, poisoning the workbench's `IExtensionService` cache with empty results.\n\nAdd a process-wide shutdown flag to the Vine gRPC client that gets marked before SIGKILL of Cocoon. Background tasks (PTY reader, file watchers, diagnostics emitter) that fire `SendNotification` after the sidecar is dead now short-circuit silently instead of logging false-positive `Connection refused` errors during shutdown. `SendRequest` returns an error immediately while `SendNotification` returns `Ok(())` to allow natural unwinding of background tasks.\n\nThis prevents the shutdown tail from being flooded with spurious gRPC errors while keeping the worst-case visible boot delay bounded at 5 seconds.",
-			"SHA": "06be111688dffce33846936c513b1b67504248a5"
+			"Message": "fix(Mountain): Fix boot race and close handling for macOS\n\nTwo unrelated but impactful bugs fixed:\n\n1. **Boot race guard for Cocoon IPC**: The renderer dispatches tree:getChildren and cocoon:request (e.g. webview.resolveView) ~700 log lines before Cocoon's gRPC handshake completes. Without a wait, the first call returns ClientNotConnected, the workbench caches an empty result, and the user sees an empty Explorer until manual refresh. Add IsClientConnected() and WaitForClientConnection() to poll the connection pool before dispatching, with a 1500ms budget to keep UI responsive.\n\n2. **Cmd+W intercept for macOS**: Tauri 2.x maps Cmd+W to NSWindow.performClose: which wins the responder chain over the webview's keydown handler. The result: hitting Cmd+W to close a tab nukes the entire editor. Intercept CloseRequested, emit sky://window/close-requested to the webview, and use destroy() instead of close() in nativeHost:closeWindow to avoid re-entering the intercept.\n\n3. **DevTools focus theft**: DevTools auto-opening in debug builds steals macOS keyboard focus the moment it appears, preventing the main webview from becoming first responder. Make auto-open opt-in via LAND_OPEN_DEVTOOLS=1. Cmd+Alt+I and right-click Inspect still work.\n\nThese fixes resolve the \"I can't type or keybind\" issue and the empty Explorer on first launch.",
+			"SHA": "fb254aded503fa1e8ee2e0047bcfca44729e4c67"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T22:18:02Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				859,
-				11
-			],
-			"Message": "refactor(Mountain): Centralize sky event emissions via LogSkyEmit and add defensive guards\n\nThis commit consolidates all Tauri event emissions through `LogSkyEmit` for histogram visibility in the `[DEV:SKY-EMIT]` tracking channel, and adds defensive error handling throughout the provider layer.\n\n**LogSkyEmit migration (7 files):**\n- LifecyclePhaseState, WorkspaceDelta, DiagnosticProvider, OpenDocument, TerminalProvider, RegisterCommand, RegisterScmProvider\n- Previously each file imported `tauri::Emitter` directly; now routes through LogSkyEmit so diagnostic/command/workspace event volume is visible in the histogram for debugging \"panel shows count but no items\" issues.\n\n**Defensive URI handling (DiagnosticProvider):**\n- Batch now tolerates malformed URIs per entry rather than failing the entire batch (mirrors VS Code's `MarkerService._toMarker` returning undefined instead of throwing)\n- Skips entries with empty URI strings with a warning log\n\n**Defensive path guards:**\n- PathSecurity.rs: Reject empty paths upfront to prevent empty-string path from bypassing workspace gating (`Path::starts_with(\"\")` returns true)\n- FileSystem.rs (CreateEffect): Add empty-path guards for ReadFile and StatFile, returning FileNotFound per VS Code's FileSystemProvider contract\n\n**Terminal resilience (WindServiceHandlers):**\n- localPty:createProcess now returns explicit error when id is 0/invalid instead of silently returning 0 (prevents keystrokes being swallowed)\n- localPty:resize clamps cols/rows to minimum of 1 (portable-pty crashes on 0×0 during pane drag-storms)\n- Resize on disposed terminal now logs warn and returns Null instead of error (common race during shutdown)\n- Tree-view data shape check: force `{items: []}` for non-conforming shapes to prevent TypeError in renderer\n\n**Documentation:**\n- MarkerDataDTO: Clarify coordinates are 1-based (matching workbench IMarkerData), noting Cocoon's LanguagesNamespace.ts adds the +1 offset from vscode.Position 0-based convention",
-			"SHA": "51f75f11010ab398a1f34525834f36b792dfbbfd"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T18:51:36Z",
+			"Date": "2026-04-30T18:59:32Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				2
+				868,
+				5
 			],
-			"Message": "fix(Mountain): Fix boot-time extensions race and add missing getLatency\n\nAdd polling to extensions:getInstalled to resolve boot-time race condition where workbench caches empty extension list before ExtensionPopulate completes its scan (~250-500ms). Poll the ScannedExtensions map for up to 3 seconds before returning empty, ensuring 113+ extension contributions appear in the activity bar.\n\nAlso add localPty:getLatency handler returning empty array per VS Code's IPtyHostLatencyMeasurement[] contract. Without this, every poll cycle logged \"Unknown IPC command: localPty:getLatency\" and a failed TauriInvoke.",
-			"SHA": "2b89f60a78bc0322f8e68c9ae88d722fd369416f"
+			"Message": "build(Mountain): Revert to simple Mountain naming and add extension roots allowlist\n\nRevert the binary/library names and Tauri config back to simplified \"Mountain\" identifier, matching the pattern established in commit 20b9363. This removes the verbose production profile string from Cargo.toml (binary, lib, default-run) and tauri.conf.json (identifier, productName), and eliminates the duplicate externalBin entry.\n\nAdditionally, configure the localhost plugin with extension_root allowlist for both Land and VSCode extension directories. This enables the `/Extension/<abs-fs-path>` URL prefix to serve extension-contributed assets (icon fonts from iconsStyleSheet.js, webview resources, images) directly from ~/.land/extensions and ~/.vscode/extensions. Without this, sideloaded extensions like GitLens render icons as blank missing-glyph boxes because WKWebView cannot resolve vscode-file:// URLs.",
+			"SHA": "320e57a2ae6800e40bca9c97e7cb4d52cb49db85"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T18:38:08Z",
+			"Date": "2026-04-30T05:22:22Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				2
+				870,
+				4
 			],
-			"Message": "fix(Mountain): Remove duplicate DevTools window in debug builds\n\nWindowBuild.rs was calling `MainWindow.open_devtools()` independently\nfrom AppLifecycle.rs, causing two DevTools windows to open on every\ndebug launch. Remove the redundant call and document that DevTools\nauto-open lives in AppLifecycle (line 174), gated on debug_assertions\nwith a matching log line.\n\ndocs(Mountain): Clarify diagnostic coordinates are 1-based\n\nUpdate DiagnosticProvider.rs docstring to specify that\nStartLineNumber/StartColumn and EndLineNumber/EndColumn use 1-based\nindexing, matching workbench IMarkerData. Add note explaining that\nCocoon's LanguagesNamespace.ts NormaliseDiagnostic adds the +1 offset\nfrom vscode.Position 0-based convention before sending to Mountain.",
-			"SHA": "c661d669a5f51174397956c2ab363d240e270059"
+			"Message": "build(Mountain): Rename binary and library to verbose production profile name\n\nUpdate Cargo.toml binary, library, and default-run targets to use the full production environment profile string (ProductionNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Compile_ElectronProfile_EsbuildCompiler_Mountain) to distinguish this build variant from development builds.\n\nAlso update tauri.conf.json productName and identifier to match the verbose naming scheme, and add duplicate \"Binary/node\" entry to externalBin for the production node path.\n\nThis configuration supports the multi-profile build pipeline for distinguishing between development and production environment builds.",
+			"SHA": "3f0b690818017b0b8daee59e7f1127a68ac4c329"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:42:51Z",
+			"Date": "2026-04-30T05:15:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				1
+				868,
+				4
 			],
-			"Message": "fix(Mountain): Defer sky://terminal/create event to fix race condition\n\nThe terminal workbench's `LocalTerminalBackend.createProcess` flow has a timing vulnerability: when `sky://terminal/create` emits synchronously during step 1 (RPC in-flight), the Tauri event arrives before step 3 (`_ptys.set(id, pty)`) completes. This causes `_ptys.get(id)` to return `undefined`, skipping `handleReady` and preventing `processManager._onProcessReady` from firing. Since `ptyProcessReady` never resolves, every subsequent `processManager.write(data)` call hangs indefinitely—users see the terminal panel but all keystrokes are silently dropped.\n\nFix by emitting on a deferred tokio task with a 120ms delay, giving the RPC response roundtrip + `_ptys.set` sufficient headroom. Also switch to `LogSkyEmit` for visibility under `[DEV:SKY-EMIT]` histogram tracking.\n\nThis complements the existing `AppendTerminalOutput` replay buffer for data (added in c99ccbe), completing the terminal race-condition fix for both create and data events.",
-			"SHA": "c2d0beca968f600d76ac4d85a436931124cfdf07"
+			"Message": "build(Mountain): Revert production profile names to simple Mountain identifier\n\nComplete the reversion of verbose production build profile names back to simplified \"Mountain\" naming. Update Cargo.toml binary, library, and default-run targets to use \"Mountain\" instead of the full production profile string. Update tauri.conf.json productName and identifier to match, and remove the duplicate \"Binary/node\" entry from externalBin. Also delete the now-redundant Cargo.toml.Backup and tauri.conf.json.Backup files.\n\nThis aligns with the simplified naming scheme for both development and production builds, reducing configuration complexity while maintaining the multi-profile build pipeline functionality.",
+			"SHA": "20b936312a943ce8be8f0a2837225f346b5715af"
 		}
 	],
-	"TimeStamp": 1778855160706
+	"TimeStamp": 1779025688914
 }
