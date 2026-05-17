@@ -1,0 +1,1 @@
+import{i}from"./index.CnrJO23N.js";i();

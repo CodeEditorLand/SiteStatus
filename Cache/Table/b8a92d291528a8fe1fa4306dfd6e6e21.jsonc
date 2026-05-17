@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:57Z",
+			"Date": "2026-05-03T08:20:56Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1477,
-				2
+				1492,
+				9
 			],
-			"Message": "fix(Mountain): Forward OTLP and Capture telemetry env vars to Cocoon\n\nExtend the `LandEnvAllowList` in `CocoonManagement` to explicitly include `Capture`, `OTLPEndpoint`, and `OTLPEnabled`. Previously, these variables were not forwarded from the Mountain backend to the Cocoon extension host, causing the PostHog bridge and other telemetry clients to default to empty strings or fail to initialize.\n\nAdditionally, refactor the error construction in `InitializationData` to wrap the `Description` string generation, ensuring strict adherence to Rust syntax formatting standards and improving readability of the `CommonError::ConfigurationLoad` variant.\n\nThis ensures the extension host receives the full configuration surface required for accurate observability and data reporting, maintaining the single-source-of-truth design for environment variables.",
-			"SHA": "af58c65412e883cedbe77c94a5872fe48286671e"
+			"Message": "refactor(Mountain): Atomize IPC layer and inject W3C trace context\n\nDecompose monolithic IPC handler files (`AdvancedFeatures`, `DevLog`, `StatusReporter`, `WindAirCommands`, `WindServiceAdapters`) into their dedicated sibling directories, aligning with the project's strict file-per-command modularization strategy. This eliminates single-source files exceeding 30KB and prepares the `Source/IPC` layer for granular testing and independent component evolution.\n\nIntroduce `EmitWithTraceparent` to instrument outbound Tauri events with W3C `traceparent` headers. This bridge stamps `_traceparent` fields onto JSON payloads in debug builds, enabling the `Sky` UI layer to correlate frontend event handlers with backend OTLP spans. Release builds bypass this overhead via `cfg!(debug_assertions)` gating.\n\nUpdate remaining modules (`ConfigurationBridge`, `WindAdvancedSync`) to enforce explicit `::Struct` and `::Fn` qualification patterns, resolving potential symbol shadowing during the transition to the atomized architecture.",
+			"SHA": "c96e22222b3ced5e16e63c598d8d953340bd7793"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:53Z",
+			"Date": "2026-05-03T08:20:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1477,
+				1496,
+				3
+			],
+			"Message": "refactor(Mountain): Modularize SCM and TreeView command surfaces\n\nDecompose the monolithic `SourceControlManagement.rs` and `TreeView.rs` command handlers into discrete modules, aligning with the project's strict file-per-command naming convention. The previous implementation bundled all Tauri command logic into single files with extensive inline documentation, violating the separation of concerns required for the growing IPC layer.\n\nKey modifications:\n- **SourceControlManagement.rs**: Replaced 260-line file with a module manifest exporting 7 stub modules (`GetAllSourceControlManagementState`, `ExecuteSCMCommand`, etc.). Retained high-level architectural docs while moving implementation details to dedicated files.\n- **TreeView.rs**: Replaced 302-line file with a module manifest exporting 8 stub modules (`GetTreeViewChildren`, `RefreshTreeView`, etc.). Preserved references to `TreeViewProvider` trait integration points.\n- **Keybinding.rs**: Refactored documentation comments to strictly adhere to the `Command::Function` naming pattern and fix formatting inconsistencies.\n\nThis structural change enables independent development of specific IPC commands, facilitates granular testing, and prevents symbol shadowing issues as the codebase scales. The modular approach mirrors the recent refactorings in `PublishNotification` and `CommandProvider` modules, ensuring consistency across the Mountain binary initialization path.",
+			"SHA": "96e824c731d69abcf06c33c53bb3e17f19b3c8e8"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:20:30Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1496,
+				14
+			],
+			"Message": "feat(Mountain): Introduce modular DevLog subsystem with OTLP tracing\n\nReplace ad-hoc logging in the IPC layer with a dedicated `DevLog` subsystem under `Source/IPC/DevLog/`. This module provides tag-gated console output, file sink mirroring, and fire-and-forget OTLP span exporting.\n\nKey components include:\n- `IsEnabled`/`IsShort`: Tag resolution logic supporting `Trace=all`, `Trace=short`, and specific tag lists.\n- `WriteToFile`: Lazy-initialized file sink writing to `~/Library/Application Support/land.editor.*.mountain/logs/<timestamp>/Mountain.dev.log`.\n- `AliasPath`: Replaces verbose Tauri app-data paths with `$APP` for readability in short mode.\n- `DedupState`/`FlushDedup`: Consecutive duplicate suppression to reduce log noise.\n- `EmitOTLPSpan`: Async HTTP POST implementation for OpenTelemetry data.\n- `IsBenignEnoent`: Filter for known-optional probe paths (VS Code/Copilot artifacts) to downgrade errors to debug logs.\n\nThe implementation follows strict PascalCase naming and explicit `::Fn()` qualification patterns, ensuring zero runtime cost in release builds via `cfg!(debug_assertions)` gating. The new `dev_log!` and `otel_span!` macros provide a unified interface for developers to instrument IPC handlers and boot sequences.",
+			"SHA": "746075e9cc8ee101c809bb67f2628006eb4fa52b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:20:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1481,
+				6
+			],
+			"Message": "refactor(Mountain): Enforce explicit function qualification in IPC command handlers\n\nUpdate Tauri command handlers in `Source/Binary/IPC/` to replace direct module function calls with the explicit `::Fn()` qualification pattern (e.g., `mountain_get_cache_stats::mountain_get_cache_stats`). Apply the same pattern to struct initialization (`CollaborationPermissions::Struct`), aligning with the project's ongoing modularization effort and strict PascalCase naming conventions.\n\nThis change prevents potential symbol shadowing issues within the `IPC::AdvancedFeatures` and `IPC::StatusReporter` modules, ensuring consistent symbol resolution across the binary initialization and command handling architecture. It maintains architectural consistency with recent refactorings in `PublishNotification`, `CommandProvider`, and `Entry` modules.",
+			"SHA": "48e24ab9d9d18b8f3ccbbf499a200d00346671c3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:20:20Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1481,
 				1
 			],
-			"Message": "refactor(Mountain): Format workspace directory traversal condition\n\nReflow the multi-line condition in `ParseWorkspaceFolders` within `Source/Binary/Initialize/CliParse.rs` to a single line. This aligns the Rust syntax with the project's formatting standards and maintains consistency with recent stylistic adjustments across the backend.\n\nThe change affects only whitespace and line breaks; no logic or behavior is altered. The `WalkUpToProjectRoot` traversal logic remains intact.",
-			"SHA": "e2ffe1800caaad0ca09a6ad342b4be61415174a9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1477,
-				1
-			],
-			"Message": "refactor(Mountain): Import security types explicitly in Tauri IPC server\n\nUpdate the import statements in `Source/IPC/TauriIPCServer/Server.rs` to use explicit qualified imports for the `PermissionManager`, `SecurityContext`, `SecurityEvent`, and `SecurityEventType` types from the `Security` module.\n\nThis change aligns with the project's Rust formatting and naming conventions by resolving the types directly as `Manager::Struct`, `SecurityContext::Struct`, etc., replacing the previous generic `use` syntax. This improves type clarity and ensures strict adherence to the explicit qualification style used across the IPC layer.\n\nNo functional logic is altered; this is a pure refactoring to enhance code readability and maintain consistency with recent modularization efforts.",
-			"SHA": "940aac9ca96b60d5cb0deefbf84cd76bf380cd1c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:45Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1477,
-				28
-			],
-			"Message": "feat(Mountain): Implement comprehensive IPC status reporter and service discovery\n\nIntroduce a complete observability subsystem in `Source/IPC/StatusReporter` to bridge the gap between the native Mountain backend and the Sky frontend. This implementation replaces placeholder logic with a robust `Reporter::Struct` aggregator that tracks IPC health, performance metrics, and service lifecycles.\n\nKey additions include:\n- **DTOs:** Define strict serialization shapes for `ComprehensiveStatusReport`, `HealthMonitor`, `ServiceRegistry`, and granular metrics like `PerformanceMetrics` and `MessageStats`.\n- **Health Monitoring:** Implement logic to detect anomalies (latency spikes, queue overflows, connection loss) and calculate a dynamic health score, triggering automatic recovery attempts via `attempt_recovery`.\n- **Service Discovery:** Enable automatic registration and tracking of core services (Editor, ExtensionHost, File, Storage) with dependency mapping and metrics.\n- **Tauri Commands:** Expose the reporting layer via a suite of commands (e.g., `mountain_get_comprehensive_status`, `mountain_start_ipc_status_reporting`, `mountain_discover_services`) allowing the Wind/Sky layers to poll status or initiate background reporting loops.\n- **Event Emission:** Establish periodic Tauri event streams (`ipc-status-report`, `ipc-health-alert`) for real-time telemetry updates in the UI.\n\nThis layer provides the foundational telemetry required for the Feature Parity dashboard and enables self-healing capabilities for the IPC bridge.",
-			"SHA": "882dca7e299c9a1df66926622d6030c9a71b9880"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1450,
-				1
-			],
-			"Message": "refactor(Mountain): Format CheckKeybindingConflicts command signature\n\nReflow the function signature for `CheckKeybindingConflicts` in `Source/Command/Keybinding/CheckKeybindingConflicts.rs` to place all parameters on a single line.\n\nThis change aligns the code with the project's Rust formatting standards and ensures consistency with the recent modularization efforts in `WindServiceHandlers`. The logic and functionality remain unchanged; this is purely a stylistic adjustment to improve readability and maintain a uniform codebase structure.",
-			"SHA": "c71126c2c31b16ebd36602c62fe2f9438ccc81ad"
+			"Message": "refactor(Mountain): Enforce explicit function qualification in PublishNotification\n\nUpdate `Source/Vine/Client/PublishNotification.rs` to replace the direct call `DevLog::NowNano()` with the explicit `DevLog::NowNano::Fn()` pattern. This change aligns the notification timestamp generation with the project's ongoing modularization effort and strict PascalCase naming conventions, ensuring consistent symbol resolution and preventing potential shadowing issues within the `DevLog` module.\n\nThis adjustment maintains architectural consistency with recent refactorings across `CommandProvider`, `StorageProvider`, and `EnhancedIPC` modules.",
+			"SHA": "e3c1860810df355ca6544bc9704bc72af3fbaad0"
 		}
 	],
-	"TimeStamp": 1778855112087
+	"TimeStamp": 1779025676362
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:45:59Z",
+			"Date": "2026-04-24T22:35:47Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				221,
+				1
+			],
+			"Message": "feat(Output): Patch desktop.main.js in addition to web.main.js\n\nExtend the ExposeWorkbenchAccessor ESBuild transform to also patch the Electron/Desktop profile's desktop.main.js entry point, not just the web profile's web.main.js. Both files contain the identical instantiation service startup line, but have different first-import markers - web.main.js uses the 'mark' import from performance.js while desktop.main.js uses localize from nls.js. Extract the shared service decorator imports into SharedImportLines to avoid duplication, and add DesktopMainImportMarker/DesktopMainImportReplacement pairs. The match pattern and transform logic are extended to handle both /vs/workbench/browser/web.main.js and /vs/workbench/electron-browser/desktop.main.js. This ensures __CEL_SERVICES__ is populated correctly for the debug-electron and release-electron profiles used at runtime, not just the web profile.",
+			"SHA": "11093ba8d18c074bbc8d08572454d6eb96304797"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T22:31:08Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				218,
+				221,
 				6
 			],
-			"Message": "feat(Output): Add StripWebviewIframeSandbox transform plugin\n\nAdd Step 16 to the build pipeline that removes the sandbox attribute from VS Code's webview iframe. WKWebView (Tauri on macOS) blocks custom protocol loads (`vscode-webview://`, `land://`) from sandboxed iframes, causing webview panels in extensions to fail with:\n\n  [Error] Ignoring request to load this main resource because it has a custom protocol and comes from a sandboxed iframe (x12)\n\nThe plugin patches `workbench/contrib/webview/browser/pre/index.html` to remove the `setAttribute('sandbox', ...)` call. This is safe for Land because it runs as a single-user desktop editor where the upstream sandbox's threat model (untrusted extension HTML in a browser tab) does not apply.",
-			"SHA": "868f077360f8c7bb3c8af52b2899a1f8631b9ab4"
+			"Message": "refactor(Output): Use static ES imports instead of runtime require() in ExposeWorkbenchAccessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of web.main.js instead of using runtime require() calls to resolve VS Code service modules. The transform now anchors on the stable `import { mark } from '../../base/common/performance.js'` line and adds IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports.\n\nThis eliminates the AMD require() resolution at runtime which could fail in the WKWebView context, ensuring `__CEL_SERVICES__` is populated synchronously before the microtask queue drains. Also adds the `cel:services-ready` DOM event dispatch and Mountain diagnostic logging on success/failure.\n\nThe transform now includes a guard check for the import marker to avoid matching unrelated files.",
+			"SHA": "ed06cce024f3c78dbd8db6ce7d842748a5094fa7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:28:21Z",
+			"Date": "2026-04-24T21:47:14Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				215,
+				221,
 				3
 			],
-			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, not the flat structure the scanner was expecting. This caused all extensions to appear as 'unknown' with empty names/publishers.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility with older backend envelopes. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures @builtin/@installed extension split works correctly in the sidebar.",
-			"SHA": "b95789339ceca34e67c990698cbbae249e435711"
+			"Message": "feat(Output): Route VS Code binary IPC channels to Mountain instead of stubs\n\nAdd MapChannelMethodToTauri, MapChannelToMountainPrefix, CoerceTauriParameters, and InvokeMountainRaw to route the VS Code workbench's binary IPC protocol (ChannelClient) to real Mountain backend handlers. Previously, channels like `localFilesystem`, `storage`, and `configuration` returned synchronous stub responses - filesystem ops returned FileNotFound, storage returned empty arrays, and configuration returned empty objects.\n\nNow these channels invoke Mountain asynchronously via the MountainIPCInvoke Tauri command, and the PromiseSuccess/PromiseError responses are relayed back through the binary IPC protocol. This enables the file explorer, search, settings editor, and workspace storage to persist data to the real filesystem and backend instead of operating on in-memory stubs.\n\nThe routing map covers 25+ channels: file, storage, configuration, search, workspaces, terminal, textFile, output, notification, progress, quickInput, environment, decorations, workingCopy, label, model, extensions, extensionHostStarter, localPty, nativeHost, themes, keybinding, lifecycle, url, menubar, encryption, and git.",
+			"SHA": "67176ce21428951e8f07ce8a45ce3252ef478961"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:19:28Z",
+			"Date": "2026-04-24T20:51:51Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				215,
+				221,
 				3
 			],
-			"Message": "feat(Output): Separate system and user extension scanning in IPC shim\n\nThe ExtensionScannerIPC transform plugin now distinguishes between system and user extensions by calling the appropriate Mountain IPC methods:\n- `extensions:scanSystemExtensions` for built-in extensions (ForceBuiltin=true)\n- `extensions:scanUserExtensions` for user-installed extensions (ForceBuiltin=false)\n\nPreviously the scanner hardcoded `type: 0` and `isBuiltin: true` for all extensions, causing all extensions to appear under @builtin in the sidebar. Now it honours Mountain's ILocalExtension envelope values (type, isBuiltin, source) with ForceBuiltin as fallback for older envelopes.\n\nAlso implements the previously stubbed `scanUserExtensions()` method which was returning an empty array, and makes `scanAllUserExtensions()` delegate to it.",
-			"SHA": "a7b92b8faec7cf334dc5f572fd889561f4703166"
+			"Message": "fix(Output): Suppress benign ENOENT errors in Tauri invoke logging\n\nExtensions probe for optional workspace files (`.vscode/settings.json`,\n`.vscode/tasks.json`, etc.) that don't exist on fresh installs. Each probe\nwas logging a `tauri-invoke-error` entry, flooding the dev log with expected\nENOENT failures. Add logic to detect benign ENOENT errors for the\n`file:stat` and `file:readFile` methods by checking the error message for\n\"No such file or directory\", \"os error 2\", or \"Resource not found\" patterns.\nOnly non-benign errors forward to the log; legitimate errors still surface\nwhile harmless file probes stay quiet.",
+			"SHA": "358f7f7c1c2c6c46b8c24f22cc1baaab6a18ab9a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:28:30Z",
+			"Date": "2026-04-24T20:37:08Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				215,
+				221,
 				6
 			],
-			"Message": "fix(Output): Fix regex for minified code and correct userDataSync channel name\n\nTwo fixes for the Output build pipeline:\n\n1. CatchOutputFolderRejection regex now matches both `() => undefined` and `() => void 0` (the minified form esbuild produces). The appended catch handler also uses `void 0` for consistency with minified output.\n\n2. TauriMainProcessService channel stub keys corrected: `userDataSyncService` → `userDataSync` and `userDataSync` → `userDataSyncAccount`. VS Code registers the channel as `userDataSync` (not `userDataSyncService`), so the stub was unreachable causing sync to fail silently.\n\nRefs: The channel name discovery was confirmed by grepping the VS Code source at `workbench/services/userDataSync/electron-browser/userDataSyncService.ts:13`.",
-			"SHA": "bf9bfcd67bfb89f90fac75177e7465d81f209b0e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:02:00Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				215,
-				3
-			],
-			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object\nargs ({ path, encoding: \"utf8\" }) and the response was assumed to be\na string. Mountain actually returns raw bytes as { buffer: number[] } and\nignores the encoding param entirely.\n\nWhen VS Code loaded binary files (WASM, fonts, images), the response\nbody became \"[object Object]\" which corrupted the data. This broke\nTextMate syntax highlighting with:\n  \"WebAssembly.Module doesn't parse at byte 0: module doesn't start\n   with '\\0asm'\"\n\nFix by:\n1. Invoking file:read with positional array args [path] as expected\n   by MountainIPCInvoke\n2. Adding UnwrapReadResult() to unwrap { buffer: number[] } into\n   Uint8Array for binary-safe Response bodies\n3. Updating content type to Uint8Array | string | Blob | null\n\nAll three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler,\nFileHandler) now use the binary-safe pattern.",
-			"SHA": "2f14553fa6611e381918643364ca6e0c65155a9c"
+			"Message": "feat(Output): Expose IViewsService and TreeViewByViewId in workbench accessor\n\nExtend the ExposeWorkbenchAccessor ESBuild transform to expose IViewsService alongside the existing Statusbar, Commands, CommandRegistry, and Search services. Add a TreeViewByViewId function that resolves ITreeView instances from the ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\nAlso separate error logging in TauriMainProcessService by tagging failed invokes with \"tauri-invoke-error\" instead of \"tauri-invoke\", allowing success logs to be opt-in via LAND_DEV_LOG while errors always forward.",
+			"SHA": "7b0b915803bc81fd576b9f5236ee75d13d0b1052"
 		}
 	],
-	"TimeStamp": 1778855110247
+	"TimeStamp": 1779025679079
 }

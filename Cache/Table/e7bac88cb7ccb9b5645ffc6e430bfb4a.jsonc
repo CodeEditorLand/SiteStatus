@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:52:38Z",
+			"Date": "2026-04-27T15:54:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
-				5
+				859,
+				4
 			],
-			"Message": "refactor(Mountain): Simplify binary and Tauri config naming to \"Mountain\"\n\nRevert verbose development identifiers to simple \"Mountain\" for binary/lib names in Cargo.toml, Tauri identifier (now \"land.editor.binary\"), and productName in tauri.conf.json. Also removes duplicate externalBin entry and deletes obsolete .Backup files.\n\nThis restores clean naming conventions while preserving all build settings and feature flags.",
-			"SHA": "715198ac9eee6c7767e86745a028aae34ab4a9ec"
+			"Message": "fix(Mountain): Fix workspace boot seeding from recently-opened list and SCM handle alignment\n\nTwo issues addressed in this commit:\n\n1. **Recently-opened workspace fallback (CliParse.rs)**\n   The webview's initial URL is built from `~/.land/workspaces/RecentlyOpened.json`'s top entry (see `Binary/Build/WindowBuild.rs::BuildInitialUrl`), but Mountain's boot-time seeder previously fell straight through to CWD walk-up. This caused a mismatch: webview title said \"Mountain\" while Cocoon's init payload shipped \"Land\", vscode.git scanned the wrong root, and the SCM panel reported zeros despite uncommitted changes in the actual folder.\n\n   Add a fallback that probes the same source of truth as `BuildInitialUrl`, slotting it between env/CLI (explicit user intent) and CWD walk-up (last resort).\n\n2. **SCM provider handle alignment (3 files)**\n   Mountain was allocating new handles via DJB hash while Cocoon uses sequential handles from `ScmNamespace.ts`. When `UpdateSourceControlGroup` arrived with Cocoon's sequential handle, the lookup in Mountain's marker map failed because it was keyed by the hash instead.\n\n   - Honor caller-supplied `Handle` in `CreateSourceControl` (SourceControlManagementProvider.rs)\n   - Pass the same `Handle` through to `CreateData` in RPC/CocoonService/SCM.rs\n   - Include `handle` on the wire in Vine notification (RegisterScmProvider.rs)\n\nThis ensures all three components key their marker maps under the same identifier, allowing group updates to reach the SCM viewlet correctly.",
+			"SHA": "c6897f8464e700b43fbece81e2be179d6e418623"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:30:10Z",
+			"Date": "2026-04-27T15:18:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				876,
+				859,
 				2
 			],
-			"Message": "chore(Mountain): Add backup files for Cargo.toml and tauri.conf.json\n\nCreate backup copies of the current Cargo.toml and tauri.conf.json configuration files to preserve the existing Mountain binary configuration, including the Tauri identifier, productName, feature flags, and build settings.",
-			"SHA": "9e16a8e6eeed0abe3adae9fd4d8b9fd208a9b4ea"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "dcaa4d503dd7943dcba75ba06c867c9da7377a2d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:28:10Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				874,
-				2
-			],
-			"Message": "",
-			"SHA": "b3aa14a080bcb688c1c7f1a7edd936b446939b0d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:28:10Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				874,
-				6
-			],
-			"Message": "refactor(Mountain): Add LRU cache for FindFiles and optimize dev_log for release\n\nImplement an LRU cache for FindFilesInWorkspace to reduce latency during\nfuzzy file matching. The cache uses a 2.5s TTL and 128-entry capacity with\nsimple eviction, short-circuiting repeated walks during Cmd+P typing bursts\nthat typically fire 5-10 calls in 200ms.\n\nAdditionally, gate the dev_log! macro body on cfg!(debug_assertions) so it\nbecomes a literal no-op in release builds via LLVM dead-code-elimination.\nThis removes the format!, IsEnabled lookup, file-sink write, and dedup-\nmutex lock from the hot IPC path while preserving compile-time type-checking\nof format arguments.\n\nAlso revert the verbose development naming back to simple \"Mountain\" for\nbinary, lib, identifier, and productName, and remove obsolete .Backup files.",
-			"SHA": "5c123e3aa335f9078086b721f4fbbe75a1651167"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:22:13Z",
+			"Date": "2026-04-27T14:48:29Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				876,
-				11
+				859,
+				21
 			],
-			"Message": "revert(Mountain): Revert Mountain naming to verbose development identifier\n\nRevert the Mountain binary/lib/tauri config from 'Mountain' back to the verbose development identifier 'DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain' to maintain continuity with existing build artifacts and CI configurations.\n\nAdditionally, implement SCM provider registration handlers pulled out of the language-providers catch-all:\n- Add `RegisterScmProvider` notification handler that wires through `SourceControlManagementProvider` trait and emits `sky://scm/register`\n- Add `RegisterScmResourceGroup` notification handler that seeds groups via `UpdateSourceControlGroup` trait and emits `sky://scm/registerGroup`\n- These previously fell through the language-provider OR-block which never populated `ApplicationState::SourceControl`, leaving the SCM viewlet empty\n\nAlso:\n- Add `WalkUpToProjectRoot` to CliParse that walks up from build dirs to find project markers (Cargo.toml, package.json, .git, etc.)\n- Trust Sky/Target, Output/Target, and Dependency paths in PathSecurity for bundled extensions\n- Add benign ENOENT substrings for gitlens, copilot, claude-code, roo-cline, vim registers, and bundled product.json probes\n\nBREAKING CHANGE: Binary and lib names changed from 'Mountain' to the verbose development identifier.",
-			"SHA": "6c908b6eaa9030c30ee11f705f016f38ae2b3428"
+			"Message": "fix(Mountain): Align event payloads to Sky listener wire shapes and fix silent event drops\n\nThis commit addresses multiple issues where Mountain was emitting events that never reached Sky because of mismatched channel names or payload keys.\n\n**Event Channel Corrections (5 files)**\n- Terminal: `sky://terminal/opened` → `sky://terminal/create`, `sky://terminal/closed` → `sky://terminal/exit` (Sky listens on the new names at SkyBridge.ts:1736,1752)\n- Debug: `sky://debug/stop` → `sky://debug/sessionEnd` (SkyBridge.ts:2234)\n- StatusBar: `sky://statusbar/create` → `sky://statusbar/set-entry` (SkyBridge.ts:744 has no create listener)\n- Webview message: `sky://webview/message` → `sky://webview/post-message` (matches SkyBridge.ts:2344)\n- Progress: `sky://progress/report` → `sky://notification/progress-update` (aligns with notification namespace)\n\n**Payload Key Casing (8 files)**\n- OutputProvider: PascalCase keys (`Id`, `AppendedText`, `Name`, `LanguageId`) → camelCase (`channel`, `text`, `name`, `languageId`)\n- StatusBarProvider: Align all keys to camelCase\n- TreeViewProvider: `ViewIdentifier` → `viewId`, `ElementHandle` → `elementHandle`, `IsExpanded` → `expanded`\n- UserInterfaceProvider: `Severity`, `Message`, `Items` → `severity`, `message`, `items`\n- Window: `panelId` key alignment\n\n**Parameter Key Fallback (4 files)**\n- RegisterCommand/Provider: Probe camelCase first (`languageSelector`, `extensionId`) then snake_case for transitional compatibility\n- RegisterScmProvider/ResourceGroup: Probe camelCase (`scmHandle`, `rootUri`) then legacy snake_case\n\n**SCM RootUri Fix (RegisterScmProvider.rs)**\n- Previous extraction read only `path` component from UriComponents, producing relative URLs that failed to parse\n- Now reconstructs full `<scheme>://<authority><path>` triple from scheme/authority/path/query/fragment components\n- Falls back to `file://` prefix for bare paths, never emits relative URLs\n\n**Command Registry Sync (RegisterCommand.rs, UnregisterCommand.rs)**\n- Add emissions to `sky://command/register` and `sky://command/unregister` so Sky's workbench command palette sees extension-contributed commands\n\nWithout these fixes, terminal panes, tree views, status bar entries, and command palette entries were silently failing to render despite Mountain processing the underlying requests.",
+			"SHA": "ba479c6a5ea13640cdd3164452f55f429472915f"
+		},
+		{
+			"Author": "github-actions[bot]",
+			"Date": "2026-04-27T08:29:12Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				1
+			],
+			"Message": "Merge pull request #43 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-3.0.0\n\nchore(deps): Bump pozil/auto-assign-issue from 2.2.1 to 3.0.0",
+			"SHA": "324e09923027abb8313f0caea1c8ac037429a3d5"
+		},
+		{
+			"Author": "dependabot[bot]",
+			"Date": "2026-04-27T08:29:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				1
+			],
+			"Message": "chore(deps): Bump pozil/auto-assign-issue from 2.2.1 to 3.0.0\n\nBumps [pozil/auto-assign-issue](https://github.com/pozil/auto-assign-issue) from 2.2.1 to 3.0.0.\n- [Release notes](https://github.com/pozil/auto-assign-issue/releases)\n- [Commits](https://github.com/pozil/auto-assign-issue/compare/v2.2.1...v3.0.0)\n\n---\nupdated-dependencies:\n- dependency-name: pozil/auto-assign-issue\n  dependency-version: 3.0.0\n  dependency-type: direct:production\n  update-type: version-update:semver-major\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "9fe3d8afd59f66617841ca32138e08aa1e67be22"
 		}
 	],
-	"TimeStamp": 1778855172414
+	"TimeStamp": 1779025692015
 }

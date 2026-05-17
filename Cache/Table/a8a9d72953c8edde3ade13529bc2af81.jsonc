@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:20:49Z",
+			"Date": "2026-04-23T01:20:19Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
-				2
-			],
-			"Message": "fix(Mountain): Fix extension location URI marshalling for VS Code renderer\n\nVS Code's URI revival system ignores objects lacking the `$mid === 1` marshalling marker. Without it, extension locations sent to the renderer become plain `UriComponents` bags where `.fsPath` and `.with` are undefined — the sidebar silently filters the entire batch out.\n\nThis change adds three functions in Extensions.rs:\n- `Normalize_Location_To_UriComponents`: converts the scanner's raw `file://` URL string into VS Code's `UriComponents` object shape\n- `Stamp_Mid_Uri`: attaches `$mid: 1` to any UriComponents that lack it\n- `Parse_File_Url_To_UriComponents`: parses `file:///absolute/path` URLs into the required structure\n\nAlso extends `BuildInitialUrl` to recognize Mountain's own `{ uri: \"file://…\" }` format (written by the recently opened persistence) alongside VS Code's historical `folderUri`/`workspace.configPath` shapes for backward compatibility with imported profiles.\n\nExtension locations in the sidebar now resolve correctly.",
-			"SHA": "07b4da763e4acaec886915effcb6b6c49eb0d689"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:12:01Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				774,
-				3
-			],
-			"Message": "feat(Mountain): Restore recently opened folder on launch, fix macOS window drag\n\nTwo improvements to the window boot sequence:\n\n1. **Recently opened folder restoration (Atom W7):** Add BuildInitialUrl to read `~/.land/workspaces/RecentlyOpened.json` and pass `?folder=<path>` to the initial webview URL. This skips the destructive round-trip where every launch landed on Welcome, forced users to click \"Open Folder\", and triggered a hard reload that wiped workbench state. That reload was the direct cause of the purple splash flash, stuttering paint, empty `@builtin` sidebar, and broken keybindings (every layer boots twice, second pass loses first-pass references).\n\n2. **Fix macOS window dragging:** Remove `maximized(true)` from the window builder. Maximized macOS windows are pinned to the screen and refuse all drag events regardless of `-webkit-app-region: drag` CSS. Replace with `TitleBarStyle::Overlay` + `hidden_title(true)` which keeps traffic lights visible while letting VS Code's custom titlebar paint the drag region. Windows/Linux continue using `decorations(false)` for chrome-less operation.\n\nAlso fix en-dash to hyphen in three documentation comments (ExtensionDescriptionStateDTO, LandFixTier) to match project convention.",
-			"SHA": "aa5eafbd77da6ffa239edf2a45206ae3dfa1e4cc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:11:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				774,
-				5
-			],
-			"Message": "feat(Mountain): Initialize PostHog telemetry client at boot\n\nAdd PostHogPlugin initialization at the start of Entry.rs Fn() to capture any errors during the boot process in telemetry. This runs before all other boot steps, including CLI parsing and state initialization, ensuring crash logs include PostHog context.\n\nAdditional improvements:\n- Remove incorrectly placed #[tauri::command] attribute from internal IPC dispatcher in mod.rs, adding docstring clarifying it's not directly reachable from the frontend\n- Fix en-dash to hyphen in three documentation comments (UI-Backend, timezone offset, lifecycle phase)",
-			"SHA": "4ff7003125814f3d5be66877b4fe2de4c52f2281"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:27:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				774,
+				775,
 				1
 			],
-			"Message": "docs: improve LandFixTier.rs module header",
-			"SHA": "957f84e8bf064fe68b3f05c6cdeca1e1848fa23f"
+			"Message": "fix(Mountain): Strip file:// scheme from paths in FileSystem effect handlers\n\nCocoon sends full URIs like `file:///Users/nikola/.land/extensions/...` through FileSystem.ReadFile/WriteFile/ReadDirectory RPC calls. Creating a PathBuf from such strings treats the scheme literally, causing every file operation to 404.\n\nAdd `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes before constructing PathBuf. Apply to all 8 FileSystem operations: ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, and Copy.\n\nThis fixes the redhat.java extension activation failure (and any other extension that reads its own package.json via the gRPC fs.readFile path) with \"Resource not found: file:///...\".",
+			"SHA": "16b040316eaf284a4d8530a59dee5b4516699c9e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:13:26Z",
+			"Date": "2026-04-23T00:28:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
-				2
+				775,
+				3
 			],
-			"Message": "docs(Mountain): Streamline extension path and NodeResolver module docs\n\nSimplify comments in ScanPathConfigure for extension skip flags and builtin path override to be more concise while preserving the technical details.\n\nCondense the NodeResolver module docstring from verbose prose to a compact ladder list showing the resolution order: LAND_NODE_BINARY → shipped runtime → fnm/volta/asdf/nvm → homebrew → PATH. The resolution behavior is unchanged, only the documentation format is improved for scannability.",
-			"SHA": "bcc45254e06f84f91d17cb58716d12de486805f9"
+			"Message": "fix(Mountain): Return Cocoon PID for debug adapter and register walkthrough commands\n\nTwo related changes to improve extension host integration:\n\n1. **Cocoon PID for debug adapters** (`WindServiceHandlers/mod.rs`, `CocoonManagement.rs`): The `extensionHostStarter:start` IPC handler was incorrectly returning Mountain's own PID. The renderer uses this PID to correlate extension-host-side debug adapters with the actual Node.js process. Now we return the Cocoon child process PID via a new `GetCocoonPid()` function that reads from an atomic static, avoiding the need to take the async `COCOON_STATE` mutex.\n\n2. **Walkthrough command no-ops** (`Bootstrap.rs`): The `claude-code` extension invokes `workbench.action.openWalkthrough` and `claude-vscode.openWalkthrough` at activation. Land has no walkthrough/welcome UI yet. Register both commands as native no-ops that return `null` to prevent \"command not found\" errors during extension activation.\n\nImpact: Debug adapters now attach to the correct Node.js process (Cocoon), and the claude-code extension activates without errors.",
+			"SHA": "66283f9f83e5fc58ea01a4849fc350dec962e327"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T00:04:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				1
+			],
+			"Message": "docs(Mountain): expand CHANGELOG with April 4-13 entries",
+			"SHA": "4dcb366c3a658d9f9e13c9c1f99fcbe3a69c544f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T23:58:22Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				1
+			],
+			"Message": "docs(Mountain): expand CHANGELOG with April 16 entries",
+			"SHA": "192142ecc1c9ea07a13a62e818d51de3895feebb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T23:33:36Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				1
+			],
+			"Message": "docs(Mountain): Expand v2.1 changelog with April 17–22 commits",
+			"SHA": "20b00590a313b3e80ebed5d20934344012e107de"
 		}
 	],
-	"TimeStamp": 1778855186431
+	"TimeStamp": 1779025696068
 }

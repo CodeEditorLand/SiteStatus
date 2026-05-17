@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:18:28Z",
+			"Date": "2026-04-22T18:17:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1041,
-				6
+				1049,
+				7
 			],
-			"Message": "refactor(Wind): Add SkyEvent registry and extend Channel registry with legacy channels\n\nAdd Source/IPC/SkyEvent.ts as a TypeScript mirror of the Rust SkyEvent enum in Element/Common/Source/IPC/SkyEvent.rs. This registry provides type-safe constants for all 95 Tauri event URIs that Mountain emits (e.g., \"sky://extensions/installed\"), replacing free-text strings in Wind service subscriptions.\n\nExtend Channel.ts with three legacy channels that don't follow the `prefix:method` convention:\n- `MountainGetStatus` (\"mountain_get_status\") — snake_case Tauri command\n- `UserInterfaceShowOpenDialog` (\"UserInterface.ShowOpenDialog\") — dotted gRPC name\n- `UserInterfaceShowSaveDialog` (\"UserInterface.ShowSaveDialog\") — dotted gRPC name\n\nRelax the Channel registry type from `${string}:${string}` to `string` to accommodate these historical shapes. Update all call sites:\n- MountainImplementation.ts: `mountain_get_status` → `Channel.MountainGetStatus`\n- Files/Live.ts: ShowOpenDialog/ShowSaveDialog → Channel registry\n- Workspaces/Live.ts: \"sky://workspaces/changed\" → `SkyEvent.WorkspacesChanged`\n\nAlso add ExtensionChangeStream.ts which merges the install/uninstall event streams into a single typed Effect-TS Stream, enabling the sidebar to subscribe to extension lifecycle changes via the SkyEvent registry.\n\nCompile-time validation now catches drift between Mountain's emit URIs and Wind's subscribe calls.",
-			"SHA": "a12e2caea303a8db52560d9eb51f06f768ab74be"
+			"Message": "refactor(Wind): Complete polyfill re-export migration in Wind Target\n\nComplete the migration of Wind polyfills to thin re-exports pointing to the canonical implementations in `@codeeditorland/output/Polyfill/`. The Target/Polyfills/ files are now minimal re-export proxies:\n\n- ChildProcessPolyfill.js\n- FileProtocolShim.js\n- FileSystemPolyfill.js\n- IPCRendererShim.js\n- NativeModulePolyfill.js\n- ProcessPolyfill.js\n- SharedProcessProxy.js\n\nThis follows the pattern established in the previous commit where implementations were moved to Output. Wind now maintains import path compatibility while delegating to the single source of truth. Fixes to polyfills should be made in Output, not Wind.",
+			"SHA": "9bc98774e4e0c5c87bdbb926010d7663285f8a5c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:08:50Z",
+			"Date": "2026-04-22T17:25:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1049,
+				7
+			],
+			"Message": "refactor(Wind): Migrate polyfill implementations to Output as single source of truth\n\nReplace all Wind polyfill files with thin re-exports pointing to `@codeeditorland/output/Polyfill/`. The actual implementations have been moved to Output, eliminating duplicate code across the monorepo.\n\nAffected polyfills:\n- ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill\n- IPCRendererShim, NativeModulePolyfill, ProcessPolyfill\n- SharedProcessProxy\n\nWind's polyfill files now act as re-export proxies, maintaining import path compatibility for existing consumers while directing them to the canonical implementation in Output. Fixes to polyfills should now be made in Output, not in Wind.",
+			"SHA": "690304cb6c64d653ac5d7a1f93137d973424f139"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T17:10:30Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				1039,
-				21
+				1049,
+				19
 			],
-			"Message": "refactor(Wind): Use Channel registry for all IPC invokes across Wind services\n\nRefactor all 19 Wind service Live layers to use the IPC Channel registry instead of free-text string literals, ensuring compile-time validation against typos at every call site.\n\nThis completes the migration started in the previous commit (which added InstallVsix/Uninstall to ExtensionsService using the Channel registry). Now every service layer in Wind uses typed Channel imports:\n- Commands, Decorations, Files, History, Keybinding, Label, Lifecycle, Model\n- Notification, Output, Progress, QuickInput, Search, Storage, Terminal\n- TextFile, Themes, WorkingCopy, Workspaces\n\nAlso extend Source/IPC/Channel.ts with newly-defined channels for TextFile (read/write/save), WorkingCopy (dirty-state tracking), and QuickInput (showInputBox/showQuickPick) to complete the registry coverage.\n\nOne exception remains: `mountain_get_status` in MountainImplementation.ts uses a snake_case wire string that doesn't fit the `prefix:method` convention, documented as TODO for a future coordinated rename.",
-			"SHA": "8244ad244acdea3e3eccfae5c308b697ea2afbfe"
+			"Message": "fix(Wind): Route colon-prefixed IPC methods through MountainIPCInvoke\n\nColon-prefixed method names (e.g., `file:write`, `shared_process:invoke`) cannot be registered as direct Tauri commands because Rust function names cannot contain colons. These methods must route through Mountain's single `MountainIPCInvoke` command, which unwraps the params back into the positional `Vec<Value>` that internal handlers consume.\n\nThis fix adds the routing logic to all Wind polyfills that invoke Tauri:\n- ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill\n- IPCRendererShim, NativeModulePolyfill, ProcessPolyfill\n- SharedProcessProxy\n\nAlso updates TauriIPC.ts to use the consistent PascalCase form `\"MountainIPCInvoke\"` (matching all other call sites in Wind/Sky/Output) instead of the snake-case form. Minor style fixes in LifecycleService and PostHog/Fallback comments (em dash → hyphen).\n\nAll colon-prefixed IPC calls in Wind now route correctly through Mountain.",
+			"SHA": "039f52cd9f8b0a41523b7d96c4e4f5d0d154b229"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T23:37:17Z",
+			"Date": "2026-04-22T16:13:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1039,
+				1049,
+				6
+			],
+			"Message": "refactor(Wind): Split monolithic PostHogBridge into modular components\n\nRefactor the single-file PostHogBridge.ts into separate modules under Source/Telemetry/PostHog/ with distinct responsibilities:\n- Browser.ts: Lookup window.posthog client from Sky\n- Configuration.ts: Read config from import.meta.env/process.env\n- Fallback.ts: Direct fetch POST for node-side fallback\n- Identifier.ts: Resolve distinct_id with seed support\n- Properties.ts: Base event properties ($tier, $component, $lib)\n\nPostHogBridge.ts now imports and composes these modules, reducing complexity while preserving identical runtime behavior. Each module is independently testable and has a single responsibility.",
+			"SHA": "cfe9fbbfa7a47927cdd81e35925f285438e879ce"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T16:02:09Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1043,
 				2
 			],
-			"Message": "feat(Wind): Add InstallVsix and Uninstall to ExtensionsService\n\nImplement the Atom K5 contract by adding InstallVsix and Uninstall methods\nto the ExtensionsService interface and Live layer. InstallVsix accepts a\n.vsix path (plain or file:// URI) and returns the ILocalExtension envelope\nfrom Mountain. Uninstall accepts an extension identifier and resolves with\ntrue after Mountain removes the install directory and broadcasts the\nuninstalled event.\n\nAlso refactor all IPC invokes to use the Channel registry\n(Element/Wind/Source/IPC/Channel.ts) instead of free-text string literals,\nensuring compile-time validation against typos. Affected operations:\nGetExtension, GetAllExtensions, IsActive, Activate.\n\nThe prior implementation was a no-op stub that silently returned null,\nleaving the \"Install from VSIX…\" prompt and sidebar Uninstall button\nnon-functional. These now resolve through real handlers in\nWindServiceHandler/Extension.rs.",
-			"SHA": "86bd4240706a77d5d2cea5337b4006bb9dccf625"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T22:54:42Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1039,
-				1
-			],
-			"Message": "feat(Wind): Add IPC Channel registry TypeScript module\n\nAdd Source/IPC/Channel.ts as a TypeScript mirror of the Rust Channel enum in Element/Common/Source/IPC/Channel.rs. This file provides the authoritative wire string constants for all IPC communication between Wind and Mountain.\n\nThe module exports a default object with all channel names mapped to their wire string format (e.g., \"commands:execute\", \"file:read\"). TypeScript consumers can import and use these channels for type-safe IPC invocations via IPCService.invoke(), ensuring compile-time validation against typos at the call site.\n\nThe file is hand-kept in lockstep with the Rust Channel enum — both must agree on the number and wire strings for correct dispatch.",
-			"SHA": "2164b922070af98d8eac43a46f6c960412dc7b57"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T18:32:07Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1037,
-				12
-			],
-			"Message": "feat(Wind): Load product.json at build time for configuration\n\nImplement Atom I5: refactor ResolveConfiguration to fetch product identity from /product.json (generated by Maintain/Script/ResolveProductConfig.sh from .env.Land variables) instead of hardcoded strings.\n\n- Add LoadProductJson() async function that fetches /product.json with fallback to minimal defaults\n- Update product configuration fields (nameShort, nameLong, applicationName, version, commit, urlProtocol, dataFolderName, serverApplicationName) to use resolved values\n- Preserve backward compatibility: network failures fall through to base defaults allowing degraded boot with version mismatch warning\n\nThis enables single-source-of-truth product identity without hardcoded version strings in the codebase. The Target/ build outputs are regenerated to reflect the new configuration resolution.",
-			"SHA": "cc360e37a2ae2757410b42cc94580bff1eccd8d4"
+			"Message": "feat(Wind): Add PostHog telemetry bridge for Wind-side events\n\nAdd Source/Telemetry/PostHogBridge.ts - a new telemetry module that enables\nWind to emit PostHog events. The bridge reuses Sky's existing window.posthog\ninstance when running in the webview (avoiding double-capture and rate-limit\nissues), with a fallback to direct HTTP POST to the /batch endpoint for\nNode.js environments (e.g., extension dev-loops).\n\nEvery event is tagged with $tier: \"wind\" so downstream analytics can filter\nby source. Provides CaptureEvent, CaptureError, and Initialize functions.\n\nAlso includes a minor style fix in LifecycleService.ts (em dash → hyphen).\n\nEnables Wind to contribute telemetry events to the unified PostHog pipeline.",
+			"SHA": "d36318e9a01c4ec1eb41e6a598f2f0a15ded4568"
 		}
 	],
-	"TimeStamp": 1778855108581
+	"TimeStamp": 1779025677929
 }

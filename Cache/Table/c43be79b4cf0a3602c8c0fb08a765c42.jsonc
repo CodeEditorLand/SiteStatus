@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:22:12Z",
+			"Date": "2026-04-29T18:52:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				102,
 				1
 			],
-			"Message": "feat(Project): Add terminal output buffering for late-listener replay\n\nMulti-component synchronization addressing the PTY reader vs SkyBridge listener race condition:\n\n1. Mountain: Add per-terminal output buffering - `AppendTerminalOutput()` captures PTY bytes into a 64KB bounded buffer (keeps most recent suffix to preserve the prompt), `DrainTerminalOutputBuffer()` retrieves buffered data, `RemoveTerminalOutputBuffer()` cleans up on exit. Extend `sky:replay-events` to emit `sky://terminal/create` for each active terminal AND replay any buffered `sky://terminal/data` bytes.\n\n2. Sky: Extend replay-events log with terminal visibility - Add `terminals?: number` and `terminalDataBytes?: number` to the type definition and include them in the log summary alongside tree-views, SCM providers, and commands. This provides visibility into terminal sessions active during early boot.\n\nThe race: In bundled-electron profile, the shell's first prompt fires ~50ms after `spawn_command` while Sky's bundle still parses for ~1500ms. Without buffering, zsh MOTD, direnv exports, fish greetings are silently dropped.\n\nImpact: Terminal output is now preserved and replayed for late listeners, completing the replay system for all three major feature areas: tree-views, SCM providers, and terminals.",
-			"SHA": "93269905429d9f3e84d6640f85d2bd7290acd572"
+			"Message": "chore(Element): Sync submodule updates completing extensions race fix\n\nSynchronize multiple Element submodules to their latest downstream versions:\n- Mountain (2b89f60a): Fix boot-time extensions race and add missing getLatency handler. Add polling to extensions:getInstalled to resolve race condition where workbench caches empty extension list before ExtensionPopulate completes its scan (~250-500ms). Poll ScannedExtensions map for up to 3 seconds before returning empty, ensuring 113+ extension contributions appear in activity bar. Also add localPty:getLatency handler returning empty array per VS Code's IPtyHostLatencyMeasurement[] contract, eliminating \"Unknown IPC command\" log noise.\n- Output (1f47ba96): Correct ViewContainersRegistry registry ID in ViewRegistrySnapshot diagnostic. The function was using guessed ID 'workbench.view.containersRegistry' which returned null. Fix uses correct stock VS Code registry ID 'workbench.registry.view.containers' from vs/workbench/common/views.ts, enabling SkyBridge diagnostics to correctly report extension view counts.\n- Cocoon (92c434cd): Submodule sync to latest.\n\nThis synchronization completes the extensions race fix cycle and restores diagnostic visibility for extension view registration.",
+			"SHA": "91fceb68b2aab07d1282a84dbabb667dcc899bee"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:02:06Z",
+			"Date": "2026-04-29T18:42:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				102,
 				1
 			],
-			"Message": "refactor(Project): Sync submodules with SCM identifier, command replay, and retry logic\n\nMulti-component synchronization enabling multi-SCM support and improving boot reliability:\n1. Common: Add Identifier field to SourceControlManagementProviderDTO - enables provider identification (\"git\", \"github\", \"hg\") for multi-SCM support, maps to `scmId` in sky://scm/register events.\n2. Mountain: Use actual SCM provider identifier in replay instead of hardcoded \"git\", add command registration replay for extension-registered commands, reduce tree-view timeout from 5000ms to 1500ms for graceful failure.\n3. Output: Mirror retry logic on user extensions scan path (was missing), switch to exponential backoff (100-200-400-800-1500ms), short-circuit Promise protocol probes to eliminate spurious \"Unknown IPC command\" errors.\n4. Sky: Display commands count in replay-events log for visibility into early-boot command replay.\n\nImpact: Multi-SCM providers (github, hg) now replay correctly. User extensions load at boot even when Mountain scan is slow. Promise probes reduced from ~25ms to <1ms per wake cycle.",
-			"SHA": "0fa901f046903c1ea25af8c4f583adb3c90563fa"
+			"Message": "chore(Element): Sync Element submodules with upstream fixes\n\nSynchronize the Element submodule to caa2b47f, bringing multiple downstream updates:\n- Mountain: Fix duplicate DevTools window in debug builds by removing redundant open_devtools() call from WindowBuild.rs, update DiagnosticProvider docstring to clarify 1-based indexing\n- Output: Disable PatchTerminalGpuAcceleration transform due to \"black shadow over text\" artifacts in WKWebView, add ViewRegistrySnapshot() to __CEL_SERVICES__ facade\n- Sky: Add reentrancy guard (_SkyBridgeInstalled, _SkyBridgeInstallPromise) to prevent duplicate Tauri listen() registrations causing double-render \"purple overlays\" bug, update astro.config.ts with static output and disabled prerendering\n- Cocoon: Submodule sync bringing cross-cutting synchronizations\n\nThis synchronization brings in the reentrancy guard fix for the workbench loading twice issue, disables the GPU acceleration transform that introduced visual artifacts, and removes the duplicate DevTools window opening behavior.",
+			"SHA": "02d2e32fffdabcfccc45d1d45b5e13040d5f0800"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T03:41:13Z",
+			"Date": "2026-04-29T17:43:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				102,
 				1
 			],
-			"Message": "fix(Project): Fix empty Activity Bar and user extension loading\n\nMulti-component synchronization addressing Activity Bar emptiness and extension loading:\n1. Sky: Fix Rollup no-external dropping VS Code contribution imports - Activity Bar came up empty because Rollup was dropping side-effect imports (`extensions.contribution`, `scm.contribution`, `files.contribution`, `*.viewlet.js`...). Add normalized path matching for disk paths, package specs, and lowercase variants.\n2. Output: Add retry logic to user extension scan path - User extension paths lacked the retry logic that system paths had, causing silent 0-extension responses. Add exponential backoff (100-200-400-800-1500ms) for async disk scans.\n3. Mountain: Add Sky event replay on listener registration - Mountain emits events before Sky listeners install, causing dropped `sky://tree-view/create` and `sky://scm/register` events. New `sky:replay-events` handler iterates active TreeViews and SCM providers to re-emit. Also adds path security checks and SCM provider emit failure logging.\n4. Cocoon: Refactor code structure for improved readability and maintainability.\n\nImpact: Activity Bar now populates with extension-contributed views (GitLens, jsdebug, SCM providers). User extensions load properly at boot even when Mountain's async scan hasn't completed.",
-			"SHA": "35896d874cc7364cbcd12fb82ab6cd7370602071"
+			"Message": "chore(Element): Complete terminal race-condition fix via submodule sync\n\nSynchronize Element submodules to complete the terminal race-condition fix cycle:\n- Mountain: Complete the terminal race-condition fix by deferring the `sky://terminal/create` event with a 120ms delay. This addresses the timing vulnerability where the Tauri event arrived before `_ptys.set(id, pty)` completed during step 1 (RPC in-flight), causing `_ptys.get(id)` to return undefined and silently dropping keystrokes. Complements the earlier fix that added the `AppendTerminalOutput` replay buffer for data events.\n- Output: Add disabled `PatchTerminalGpuAcceleration` transform that defaults `terminal.integrated.gpuAcceleration` to `'off'` to work around xterm.js WebGL texture atlas font drift in WKWebView.\n- Cocoon: Submodule sync to latest.\n\nThis synchronization completes the terminal race-condition fix cycle that began with bf94e30, restoring proper terminal panel functionality.",
+			"SHA": "e1f9361be392209a7f4b7fed12867c22a908204e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:14:05Z",
+			"Date": "2026-04-29T17:20:43Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
+				"⠁⠀⠀⠀⠀",
 				102,
-				1
+				2
 			],
-			"Message": "fix(Project): Fix circuit breaker trips from URI parsing and service isolation\n\nSubmodule sync bringing two critical fixes:\n\n1. **Mountain**: Fix false circuit breaker trips from URI parsing edge cases. Extensions frequently register file watchers on optional paths (e.g., `~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't exist. Mountain now catches benign \"path not found\" errors and records deferred entries instead of tripping the breaker. Additionally, Cocoon sends URIs in three formats (plain strings, objects with `external` field, legacy `scheme`+`path` objects), but only the `external` field was accepted. This caused `Diagnostic.Set` to trip the circuit breaker after 5 publishes, silencing all linters.\n\n2. **Output**: Fix ExposeWorkbenchAccessor transform silently failing. The import marker used single quotes but esbuild rewrites to double quotes post-bundle, causing the entire `__CEL_SERVICES__` patch to no-op and disabling all SkyBridge hooks. Also wraps each `invokeFunction` in its own try-IIFE so a single missing service doesn't throw the entire facade undefined.\n\nImpact: File watchers no longer fail on fresh workspaces. Language extension diagnostics now publish without triggering circuit breaker. All SkyBridge services (search, SCM, status bar, tree views) now initialize correctly.",
-			"SHA": "0f4dbba95ab041db9b7cf1ec1c3c37151b1bfe74"
+			"Message": "fix(Project): Sync submodules bringing Mountain terminalPTY fix\n\nSynchronize Element and Dependency submodules to bring in the critical Mountain fix (c99ccbe7) for blank terminal panels. The VS Code terminal workbench expects `IPtyService.createProcess` to return a `Promise<number>` (the integer terminal id), but Mountain was incorrectly returning the full `{id, name, pid}` object. This caused the workbench's `_ptys` map lookups to fail, resulting in xterm receiving zero bytes despite data being emitted continuously.\n\nThe fix splits the terminal handler into three paths: spawn preserves full response for Cocoon's Sky bridge, createProcess returns only the integer id per VS Code contract, and start is a no-op for the eager-spawn pattern.\n\nAlso brings Dependency CHANGELOG update (cb1f22c0) documenting version history.\n\nResolves terminal panel blank display issue in the editor workbench.",
+			"SHA": "4fc8e7994bb05c1cea96ae0774573f4dde362b94"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:41:08Z",
+			"Date": "2026-04-29T17:00:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				102,
 				1
 			],
-			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nSynchronize Mountain submodule with two bug fixes:\n\n1. **FileWatcher.rs**: Handle both numeric and string handle types in `RegisterWatcher` and `UnregisterWatcher`. The newer `NextProviderHandle()` returns a number while older callers pass strings. Previously, numeric handles were silently converted to empty strings causing failures.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without regex string parsing, while `-32000` remains the catch-all for genuine failures.\n\nImpact: File watcher registration now works correctly regardless of handle type. Directory listing 404s are properly distinguished from genuine errors, improving error handling accuracy in Cocoon.",
-			"SHA": "0d6755b26af812f8135b6a51610c3738e357e026"
+			"Message": "",
+			"SHA": "804c8ee22fcf284b3fc0d4902ed7f51e77999123"
 		}
 	],
-	"TimeStamp": 1778855104731
+	"TimeStamp": 1779025673272
 }

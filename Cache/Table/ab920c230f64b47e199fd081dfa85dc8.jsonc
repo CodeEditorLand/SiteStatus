@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:37:22Z",
+			"Date": "2026-04-25T01:30:10Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				876,
+				2
+			],
+			"Message": "chore(Mountain): Add backup files for Cargo.toml and tauri.conf.json\n\nCreate backup copies of the current Cargo.toml and tauri.conf.json configuration files to preserve the existing Mountain binary configuration, including the Tauri identifier, productName, feature flags, and build settings.",
+			"SHA": "9e16a8e6eeed0abe3adae9fd4d8b9fd208a9b4ea"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T01:28:10Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				2
+			],
+			"Message": "",
+			"SHA": "b3aa14a080bcb688c1c7f1a7edd936b446939b0d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T01:28:10Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				6
+			],
+			"Message": "refactor(Mountain): Add LRU cache for FindFiles and optimize dev_log for release\n\nImplement an LRU cache for FindFilesInWorkspace to reduce latency during\nfuzzy file matching. The cache uses a 2.5s TTL and 128-entry capacity with\nsimple eviction, short-circuiting repeated walks during Cmd+P typing bursts\nthat typically fire 5-10 calls in 200ms.\n\nAdditionally, gate the dev_log! macro body on cfg!(debug_assertions) so it\nbecomes a literal no-op in release builds via LLVM dead-code-elimination.\nThis removes the format!, IsEnabled lookup, file-sink write, and dedup-\nmutex lock from the hot IPC path while preserving compile-time type-checking\nof format arguments.\n\nAlso revert the verbose development naming back to simple \"Mountain\" for\nbinary, lib, identifier, and productName, and remove obsolete .Backup files.",
+			"SHA": "5c123e3aa335f9078086b721f4fbbe75a1651167"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T01:22:13Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				872,
-				23
+				876,
+				11
 			],
-			"Message": "refactor(Mountain): Reduce high-frequency log noise in default mode\n\nMove per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants that are muted in `short` mode:\n\n1. **DevLog infrastructure** (`DevLog.rs`):\n   - Add `SHORT_MODE_MUTED_TAGS` constant listing tags silenced by `short` mode\n   - Update `IsEnabled()` to respect muted list while preserving explicit tag overrides\n\n2. **gRPC layer** (`MountainVinegRPCService.rs`):\n   - Move per-request banners to `grpc-verbose`: receive, dispatch, params, completion\n   - Move latency timestamps to `rpc-latency` for profiling\n   - Extend 404 downgrade to both `FileSystem.ReadFile` and `FileSystem.Stat`\n   - Move notification receive banners to `grpc-verbose`\n\n3. **VFS operations** (all FileSystem handlers):\n   - Change `vfs` → `vfs-verbose` for stat/read/write/mkdir/delete/copy/move operations\n   - Per-path stat fires thousands of times during workbench boot\n\n4. **Storage operations** (`StorageProvider.rs`, `SecretProvider.rs`):\n   - Change `storage` → `storage-verbose` for updateItems, getAllStorage, setAllStorage\n   - Short-form storage logs also use `storage-verbose` for consistency\n\n5. **IPC routing** (`WindServiceHandlers/mod.rs`):\n   - Expand high-frequency skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme\n   - These fire thousands of times per session and add no signal beyond the IPC summary line\n\n6. **NLS scanning** (`Scanner.rs`):\n   - Change `extensions` → `nls` for NLS placeholder resolution and bundle loading\n\n7. **Tree latency** (`TreeView.rs`, `DispatchSideCarRequest.rs`):\n   - Change `grpc` → `tree-latency` / `grpc-verbose` for dispatch timing\n\nThis reduces default log volume from ~14k+ lines per session to ~500, while preserving full verbosity via `LAND_DEV_LOG=all` or explicit tag matching. The failure paths for each subsystem still log at the default level, so errors remain visible.",
-			"SHA": "9aa00458dcaa47d38fe44223376a186373386db0"
+			"Message": "revert(Mountain): Revert Mountain naming to verbose development identifier\n\nRevert the Mountain binary/lib/tauri config from 'Mountain' back to the verbose development identifier 'DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain' to maintain continuity with existing build artifacts and CI configurations.\n\nAdditionally, implement SCM provider registration handlers pulled out of the language-providers catch-all:\n- Add `RegisterScmProvider` notification handler that wires through `SourceControlManagementProvider` trait and emits `sky://scm/register`\n- Add `RegisterScmResourceGroup` notification handler that seeds groups via `UpdateSourceControlGroup` trait and emits `sky://scm/registerGroup`\n- These previously fell through the language-provider OR-block which never populated `ApplicationState::SourceControl`, leaving the SCM viewlet empty\n\nAlso:\n- Add `WalkUpToProjectRoot` to CliParse that walks up from build dirs to find project markers (Cargo.toml, package.json, .git, etc.)\n- Trust Sky/Target, Output/Target, and Dependency paths in PathSecurity for bundled extensions\n- Add benign ENOENT substrings for gitlens, copilot, claude-code, roo-cline, vim registers, and bundled product.json probes\n\nBREAKING CHANGE: Binary and lib names changed from 'Mountain' to the verbose development identifier.",
+			"SHA": "6c908b6eaa9030c30ee11f705f016f38ae2b3428"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T16:45:53Z",
+			"Date": "2026-04-25T00:42:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				872,
-				4
+				5
 			],
-			"Message": "feat(Mountain): Expand trusted paths and add exec-bit magic-number detection\n\nThree complementary improvements for extension runtime reliability:\n\n1. **Extended trusted paths** (`PathSecurity.rs`):\n   - Add `/tmp`, `/private/tmp`, `/var/tmp` for language servers (ruby-lsp, pyright, etc.)\n   - Add third-party tool state: `~/.gitkraken`, `~/.gk`, `~/.copilot`, `~/.config/git`\n   - Add read-only POSIX OS files (`/etc/os-release`, `/proc/*`, etc.)\n\n2. **Magic-number executable detection** (`VsixInstaller.rs`):\n   - Enhance extraction to probe file headers for ELF, Mach-O fat/thin, and shebang\n   - Detect bin paths (`bin/`, `server/`, `tools/`, `omnisharp`, `adapter`, `native`)\n   - Promote 0o644 → 0o755 for detected executables, fixing EACCES on spawn\n   - Add `HealExecutableBits()` to retroactively fix pre-existing installs\n\n3. **Boot-time exec-bit heal** (`Scanner.rs`):\n   - Walk user extensions (`~/.land/extensions/`) at scan time\n   - Apply same heuristic to recover extensions installed before the fix\n\n4. **Benign ENOENT** (`DevLog.rs`):\n   - Add vim registers, globalStorage probing, chat editing sessions\n\nThese changes unblock extension binaries (rust-analyzer, GitLens, Copilot) that were failing with EACCES due to missing exec bits.",
-			"SHA": "713fc89729f6f995808d00db9ca625cdfc93f906"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T15:07:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				2
-			],
-			"Message": "feat(Mountain): Add trusted system paths bypass and idempotent VSIX installs\n\nImplement two related extension-management improvements:\n\n1. **Trusted system paths** (`PathSecurity.rs`): Add `IsTrustedSystemPath` that defines directories Land owns (`.land/`, Application Support, bundled extension roots, TMPDIR) which bypass the workspace-folder sandbox check. Without this, the extension scanner's read of `~/.land/extensions` was rejected as \"outside workspace\" - user-installed VSIXes never reached the Extensions sidebar.\n\n2. **Idempotent VSIX reinstalls** (`VsixInstaller.rs`): Remove `AlreadyInstalled` error and instead treat re-installs as no-op when the target already exists with a readable manifest. Matches VS Code's semantics and prevents the renderer crash where `ExtensionsWorkbenchService` dereferences a null result. Corrupt/partial installs are wiped and re-extracted.\n\nBoth changes unblock the extension loading pipeline.",
-			"SHA": "e49563563641f0491ec4cb23c2ea1809d455feea"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T14:49:08Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				2
-			],
-			"Message": "chore(Mountain): Add payload preview to notif-drop logging and register benign ENOENT paths\n\nTwo logging improvements for Mountain's developer diagnostics:\n\n1. **Notif-drop payload preview**: When a notification falls through to the Cocoon event handler, include a truncated payload preview (160 bytes max) in the dev log. This helps diagnose which new upstream notifications are reaching the catch-all without needing a second debug run.\n\n2. **Benign ENOENT paths**: Register additional file paths that commonly return ENOENT but aren't errors:\n   - MCP config files (.vscode/mcp.json, .mcp.json)\n   - User snippets and keybindings (/User/snippets, /User/keybindings.json)\n   - AI-generated workspace storage (aiGeneratedWorkspaces.json)\n   - Git config for non-repo folders (/.git/config)\n\nThese paths reduce noise in dev logs while preserving signal for genuine file-access issues.",
-			"SHA": "f1de83d594ad1a3f7c893f0ecbf92581f8029abb"
-		},
-		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-04-24T07:53:45Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				1
-			],
-			"Message": "Merge pull request #42 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-2.2.1\n\nchore(deps): Bump pozil/auto-assign-issue from 2.2.0 to 2.2.1",
-			"SHA": "77025119a1c3843e843bcaa42b0a31fabcad5bb7"
+			"Message": "refactor(Mountain): Implement configuration target support and clean up naming\n\nImplement missing ConfigurationTarget handling in UpdateValue.rs:\n- UserLocal now maps to User settings.json (Land has no sync backend)\n- WorkspaceFolder writes to <folder>/.vscode/settings.json for first folder\n- Memory target stores in-memory only (no disk write)\n- Default and Policy targets return read-only errors per spec\n\nAdditionally:\n- Revert binary/lib names from verbose dev identifier back to \"Mountain\"\n- Simplify Tauri identifier to \"land.editor.binary\" and productName to \"Mountain\"\n- Remove duplicate externalBin entry and obsolete .Backup files\n\nThis completes the ConfigurationProvider trait implementation for all VS Code configuration targets, enabling extensions to persist settings to user preferences, workspace .vscode folders, and in-memory session state.",
+			"SHA": "1c3dd9e7d4dde40184a53712500b91c447eb2197"
 		}
 	],
-	"TimeStamp": 1778855175481
+	"TimeStamp": 1779025693087
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T22:39:48Z",
+			"Date": "2026-04-24T23:05:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				872,
-				6
+				2
 			],
-			"Message": "feat(Mountain): Implement hidden-until-ready window pattern\n\nEliminate the visual flash on startup by creating the main window with\n.visible(false) and revealing it only when Sky reports phase 3 (Restored).\nThe previous approach allowed Tauri's default immediate visibility, causing\na four-repaint cascade: native chrome → #1e1e1e inline background → VS Code\ntheme CSS → workbench DOM, observed as \"purple/dark flash\" and panel-pop\nflicker over ~200ms.\n\nChanges:\n- WindowBuild.rs: Add .visible(false) to WebviewWindowBuilder chain\n- AppLifecycle.rs: Add 3s safety timer to force-reveal if Sky crashes\n  before phase 3 (matches observed cold-boot p95 timing)\n- WindServiceHandlers/mod.rs: Show window on phase 3 + set_focus()\n- CommandProvider.rs: Handle missing workbench commands as silent no-ops\n  (getTelemetrySenderObject, testing.clearTestResults)\n- DevLog.rs: Document Batch 4 fs-route/cmd-route diagnostic tags\n- CocoonManagement.rs: Forward LAND_* env vars to Cocoon (fixes PostHog\n  bridge fallback)\n\nThe 3s safety timer guarantees the window appears even if Sky crashes before\nsignalling phase 3, preventing invisible-window lockup while rarely firing\non a healthy startup path.",
-			"SHA": "993a69a785aedb36bfd1501e52960eccc08ab288"
+			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to the properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those - the \"dead code that needs to be connected\" the user flagged.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.",
+			"SHA": "5f23bca601cb496e0c86114e0aaf8db93c22cde4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T21:18:23Z",
+			"Date": "2026-04-24T21:47:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				872,
-				6
+				4
 			],
-			"Message": "refactor(Mountain): Simplify binary names and remove PostHog API keys\n\nRevert binary and library names from the verbose development profile format back to 'Mountain' in Cargo.toml and tauri.conf.json, continuing the simplification from recent commits.\n\nAlso remove the PostHog API key from build.rs and scripts/cocoon/bootstrap-fork.js by replacing with empty strings for development safety. Clean up tauri.conf.json identifier from the long verbose format to 'land.editor.binary' and productName to 'Mountain'.\n\nDelete obsolete Cargo.toml.Backup and tauri.conf.json.Backup files. Remove duplicate externalBin entry for Binary/node in tauri.conf.json.\n\nThese changes consolidate the naming simplification and remove sensitive API keys from the repository.",
-			"SHA": "5140a38948860dee4209069e3d0110001474a9e9"
+			"Message": "feat(Mountain): Add VS Code IPC command aliases and stub handlers\n\nAdd command aliases in WindServiceHandlers to bridge Mountain's native Effect-TS IPC layer with VS Code's binary IPC bridge (DiskFileSystemProviderClient, ConfigurationService):\n- Configuration: `configuration:getValue` / `configuration:updateValue` → `configuration:get` / `configuration:update`\n- File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`\n- Add stub handlers for `file:watch` / `file:unwatch` that return Null to prevent channel promise leaks\n- Add `configuration:onDidChange` handler that acks the channel listener with Null\n\nAlso enhance Cocoon stderr filtering to suppress follow-up stack frames from extension errors (EntryNotFound, FileNotFound) that Node.js prints across multiple stderr lines. This keeps the main cocoon channel clean while routing benign extension path-probing to verbose.",
+			"SHA": "661fe2405f2f71c5710b1b1e6dfb59272896fd30"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T21:18:15Z",
+			"Date": "2026-04-24T21:25:18Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				4
+			],
+			"Message": "feat(Mountain): Fire workspaceContains and onStartupFinished extension activation\n\nImplement comprehensive startup extension activation matching VS Code's behavior:\n\n1. **Extension activation phases**: Fire three bursts at startup:\n   - `*` - unconditional activation (existing)\n   - `workspaceContains:<pattern>` - for each pattern matched by workspace\n   - `onStartupFinished` - after 2s delay for late-binding extensions\n\n2. **Pattern matching**: Add `FindMatchingWorkspaceContainsPatterns` that walks\n   workspace folders (depth 3, 4096 entries max) and matches against extension-\n   contributed `workspaceContains:` patterns using a minimal glob matcher.\n\n3. **Stderr filtering**: Downgrade benign Node.js/macOS noise to `cocoon-stderr-verbose`:\n   - macOS codesign messages (\"is already signed\", \"replacing existing signature\")\n   - Node deprecation warnings (DeprecationWarning, --trace-deprecation)\n   - Keeps main cocoon channel clean for actionable errors only.\n\n4. **Rust edition**: Upgrade from 2021 to 2024.\n\nThis fixes extensions that never activated without user interaction because they\ngate on `workspaceContains:package.json`, `onStartupFinished`, or similar events.",
+			"SHA": "72db08550a3a7b20669947fe3bac64deb2e0300d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T20:52:00Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				874,
-				27
+				872,
+				11
 			],
-			"Message": "refactor(Mountain): Decompose Utilities module into explicit submodules\n\nSplit the monolithic Utilities.rs into 7 domain-specific modules under WindServiceHandlers/Utilities/: ApplicationRoot, ChannelPriority, JsonValueHelpers, MetadataEncoding, PathExtraction, RecentlyOpened, and UserdataDir. Update all call sites in FileSystem/Native handlers, Scheme.rs, WindowBuild.rs, and AppLifecycle.rs to use explicit module paths (e.g., `Utilities::PathExtraction::extract_path_from_arg`) instead of flat imports.\n\nThis continues the module decomposition pattern from recent commits, replacing the catch-all Utilities module with granular domain-specific handlers. The explicit reverse-hierarchical paths make dependency relationships clear at every call site, consistent with CLAUDE.md requirements.\n\nAlso reverts binary/lib names in Cargo.toml and tauri.conf.json to the verbose development profile format, matching the pre-simplification state.",
-			"SHA": "8cba79c0ae380c97ef1709c4a1c12df9e87017aa"
+			"Message": "refactor(Mountain): Move high-frequency logging to verbose/opt-in tags\n\nContinue reducing default log volume by routing per-operation lines to dedicated verbose tags that are muted in `short` mode:\n\n1. **Command registration**: `commands` → `commands-verbose` for setContext (~130/session) and command execution in CommandProvider\n2. **Output channels**: `grpc` → `output-verbose` for append/create events (200+ appends per boot from language servers)\n3. **Command registry**: `grpc` → `command-register` for register/unregister notifications (~100 commands/session)\n4. **Provider registration**: `grpc`/extensions → `grpc-verbose`/`provider-register` for duplicate provider registration logs\n5. **Extension scanning**: `extensions` → `ext-scan-verbose` for per-candidate package.json probes (203/session)\n6. **Scheme assets**: `lifecycle` → `scheme-assets` for per-asset vscode-file:// requests (worker/wasm/font loading)\n\nNew tags added to SHORT_MODE_MUTED_TAGS: output-verbose, command-register, provider-register, ext-scan-verbose, channel-stub, commands-verbose, scheme-assets.",
+			"SHA": "7d046f166e341789c3445eb14c727db2ed044a11"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T20:54:21Z",
+			"Date": "2026-04-24T20:37:22Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				864,
-				3
+				"⠁⠀⠀⠀⠀",
+				872,
+				23
 			],
-			"Message": "refactor(Mountain): Decompose FileSystem module and add native readdir handler\n\nReplace the FileSystem glob import with explicit submodule paths for all Managed (trait-based) and Native (tokio::fs) file operations. Add new FileReaddirNative handler under FileSystem/Native/ implementing the file:readdir wire method using tokio::fs.\n\nThis continues the module decomposition pattern from recent commits, replacing the monolithic FileSystem.rs with granular domain-specific handlers. The explicit paths follow CLAUDE.md requirements, making dependency relationships clear at every call site.\n\nNo functional changes - this is a pure refactoring for code organization and maintainability.",
-			"SHA": "70c31747d3943f857b4c7bc9644f8fd469b0dd76"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T20:54:15Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				864,
-				42
-			],
-			"Message": "refactor(Mountain): Simplify binary names and split monolithic IPC handlers\n\nRename the Cargo binary and lib from the verbose development profile name to simply 'Mountain', matching the tauri.conf.json productName simplification. Concurrently, decompose the monolithic NativeHost.rs into 10 domain-specific handler files under WindServiceHandlers/NativeHost/ (FindFreePort, GetColorScheme, IsFullscreen, IsMaximized, OpenExternal, OSProperties, OSStatistics, PickFolder, ShowItemInFolder, ShowOpenDialog).\n\nAlso introduce a new FileSystem module split into Managed (trait-based) and Native (tokio::fs) tiers, each with their own atom handlers. Update mod.rs to replace the NativeHost glob import with explicit submodule paths, consistent with the reverse-hierarchical path pattern enforced in recent commits.",
-			"SHA": "fb4a24fd951420127e59e433b3a268432fbcf6da"
+			"Message": "refactor(Mountain): Reduce high-frequency log noise in default mode\n\nMove per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants that are muted in `short` mode:\n\n1. **DevLog infrastructure** (`DevLog.rs`):\n   - Add `SHORT_MODE_MUTED_TAGS` constant listing tags silenced by `short` mode\n   - Update `IsEnabled()` to respect muted list while preserving explicit tag overrides\n\n2. **gRPC layer** (`MountainVinegRPCService.rs`):\n   - Move per-request banners to `grpc-verbose`: receive, dispatch, params, completion\n   - Move latency timestamps to `rpc-latency` for profiling\n   - Extend 404 downgrade to both `FileSystem.ReadFile` and `FileSystem.Stat`\n   - Move notification receive banners to `grpc-verbose`\n\n3. **VFS operations** (all FileSystem handlers):\n   - Change `vfs` → `vfs-verbose` for stat/read/write/mkdir/delete/copy/move operations\n   - Per-path stat fires thousands of times during workbench boot\n\n4. **Storage operations** (`StorageProvider.rs`, `SecretProvider.rs`):\n   - Change `storage` → `storage-verbose` for updateItems, getAllStorage, setAllStorage\n   - Short-form storage logs also use `storage-verbose` for consistency\n\n5. **IPC routing** (`WindServiceHandlers/mod.rs`):\n   - Expand high-frequency skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme\n   - These fire thousands of times per session and add no signal beyond the IPC summary line\n\n6. **NLS scanning** (`Scanner.rs`):\n   - Change `extensions` → `nls` for NLS placeholder resolution and bundle loading\n\n7. **Tree latency** (`TreeView.rs`, `DispatchSideCarRequest.rs`):\n   - Change `grpc` → `tree-latency` / `grpc-verbose` for dispatch timing\n\nThis reduces default log volume from ~14k+ lines per session to ~500, while preserving full verbosity via `LAND_DEV_LOG=all` or explicit tag matching. The failure paths for each subsystem still log at the default level, so errors remain visible.",
+			"SHA": "9aa00458dcaa47d38fe44223376a186373386db0"
 		}
 	],
-	"TimeStamp": 1778855177471
+	"TimeStamp": 1779025693807
 }
