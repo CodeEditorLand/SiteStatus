@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-16T20:52:00Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				732,
+				48
+			],
+			"Message": "refactor(Mountain): Split WindServiceHandlers and CocoonService into atomic domain modules\n\nRefactor the IPC layer by splitting monolithic handlers into focused domain modules:\n\n**WindServiceHandler split (24 modules):**\n- Command, Configuration, Decoration, Environment, Extension, FileSystem\n- History, Keybinding, Label, Lifecycle, Model, NativeHost\n- Notification, Output, Progress, QuickInput, Search, Storage\n- Terminal, TextFile, Theme, WorkingCopy, Workspace\n- Each module contains handlers for its domain with proper error handling\n\n**CocoonService split (15 modules):**\n- Auth, Command, Debug, Extension, FileSystem, Output, Provider\n- SCM, Save, Secret, Task, Terminal, TreeView, Window, Workspace\n- Language feature provider handlers consolidated in Provider.rs\n\n**Additional changes:**\n- Fix MutexGuard scope in FeatureMethods.rs (lock held across await point)\n- Remove duplicate dev_log imports in AdvancedFeatures.rs and WindAdvancedSync.rs\n- Simplify TraceLog.rs and ConfigurationInitialize.rs (remove excess docs)\n- Add comprehensive CHANGELOG.md documenting v0.0 through v2.1\n- Update mod.rs to re-export helper functions for submodules\n\nThis modular structure improves maintainability and enables parallel development of domain-specific IPC handlers.",
+			"SHA": "f8dd70ea95583cfeee8936cc7eb8b022b141465f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-16T12:48:36Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				691,
+				1
+			],
+			"Message": "fix(Mountain): Fix command registration locking and provider registration path\n\nCorrect the registerCommand handler to properly lock the CommandRegistry before insertion and use the correct CommandHandler::Proxied structure with SideCarIdentifier and CommandIdentifier fields. Also fix the provider registration handler to use self.RunTime.Environment instead of self.Environment for proper runtime state access.\n\nThese changes ensure commands from Cocoon extensions are correctly registered in the command registry and provider registrations flow to the correct runtime state.",
+			"SHA": "4945b47bbc5f6dc146e5d6f625ba0394ddf837d7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-16T12:44:52Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				691,
+				1
+			],
+			"Message": "chore(Mountain): Add json macro import to MountainVinegRPCService\n\nAdd serde_json::json macro to imports in MountainVinegRPCService to enable JSON construction for gRPC message handling. This supports building structured JSON payloads for the Vine protocol service layer.",
+			"SHA": "a2ef2b5714239e43f8f9b3e95dceff8922f4ffcb"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-16T12:44:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "feat(Mountain): Implement remaining language feature provider methods\n\nReplace all remaining TODO stubs in the LanguageFeatureProviderRegistry trait with actual implementations. This completes the set of 14 language feature provider methods:\n\n- Rename edits, document/workspace symbols, signature help\n- Folding ranges, selection ranges, semantic tokens (full)\n- Inlay hints, type hierarchy (super/subtypes)\n- Call hierarchy (incoming/outgoing), linked editing ranges\n- On-type formatting edits\n\nEach method now delegates to FeatureMethods module which looks up the appropriate provider via ProviderLookup::get_matching_provider and invokes it with the correct parameters via invoke_provider.\n\nAlso fixes:\n- InsertText handling in completion items to properly extract string from JSON value\n- DTO mapping for type hierarchy and call hierarchy (extract name/uri fields directly)\n- Minor import formatting consistency across 20 files\n\nThis enables full language server functionality including rename, find all symbols, code folding, semantic highlighting, inlay hints, type hierarchies, call hierarchies, and on-type formatting through the Mountain ↔ Cocoon gRPC bridge.",
 			"SHA": "df053a5d9e842f760f93f2540ab13cd13b16cfa5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-16T12:26:26Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				691,
-				1
-			],
-			"Message": "feat(Mountain): Implement language feature provider delegations in CocoonService\n\nReplace stub implementations for 18 language feature provider RPC methods with actual delegations to the LanguageFeatureProviderRegistry via self.environment. Methods now extract request parameters (URI, position, range, etc.), convert to DTOs, invoke the corresponding environment method, and return the result or error.\n\nImplemented features:\n- Document highlights, symbols, and workspace symbols\n- Rename edits and document/range/on-type formatting\n- Signature help, code lenses, and folding ranges\n- Selection ranges and semantic tokens (full)\n- Inlay hints and type hierarchy (super/subtypes)\n- Call hierarchy (incoming/outgoing) and linked editing ranges\n\nThese were previously TODO stubs returning empty responses. The changes enable VS Code language extensions to provide full language server functionality through the Mountain ↔ Cocoon gRPC bridge.",
-			"SHA": "0532a1b47f475d64d1c77135fa037e8f1ad1398e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-16T12:19:05Z",
-			"File": [
-				"⣿⠃⠀⠀⠀",
-				691,
-				170
-			],
-			"Message": "refactor(Mountain): Replace log crate with dev_log macro for categorized logging\n\nReplace all instances of log::{info, debug, error, warn, trace} with the custom dev_log! macro across the Mountain codebase. The new macro accepts a category string as the first argument (e.g., dev_log!(\"lifecycle\", \"message\")) enabling better log filtering and analysis. Categories include: lifecycle, grpc, ipc, cocoon, extensions, config, model, storage, commands, output, terminal, and others.\n\nAdditional changes:\n- Fix node_modules path resolution in vscode-file scheme handler (Static/node_modules/ → Static/Application/node_modules/)\n- Add filesystem fallback for dev mode when assets aren't embedded\n- Change Vine gRPC binding from IPv6 [::1] to IPv4 127.0.0.1\n- Add startup extension activation trigger ($activateByEvent(\"*\")) after Cocoon handshake\n- Add get_static_application_root() helper for Sky Target path access\n- Increase Cocoon connection retry intervals and add delay for race condition prevention\n- Update Tauri CSP to include vscode-file: protocol in connect-src\n- Fix README.md: correct Tauri badge image URL and NLnet URL casing",
-			"SHA": "b27a154a2b2fa0f559a524c6abba1dc6d5cafe40"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-16T02:12:20Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				691,
-				1
-			],
-			"Message": "",
-			"SHA": "a2a9fbc3ae0b4354db90228cb50686cd4b3b6ed9"
 		}
 	],
-	"TimeStamp": 1779025704773
+	"TimeStamp": 1779119439365
 }

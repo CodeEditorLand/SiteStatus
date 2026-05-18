@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T20:54:21Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				864,
+				3
+			],
+			"Message": "refactor(Mountain): Decompose FileSystem module and add native readdir handler\n\nReplace the FileSystem glob import with explicit submodule paths for all Managed (trait-based) and Native (tokio::fs) file operations. Add new FileReaddirNative handler under FileSystem/Native/ implementing the file:readdir wire method using tokio::fs.\n\nThis continues the module decomposition pattern from recent commits, replacing the monolithic FileSystem.rs with granular domain-specific handlers. The explicit paths follow CLAUDE.md requirements, making dependency relationships clear at every call site.\n\nNo functional changes - this is a pure refactoring for code organization and maintainability.",
+			"SHA": "70c31747d3943f857b4c7bc9644f8fd469b0dd76"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T20:54:15Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				864,
+				42
+			],
+			"Message": "refactor(Mountain): Simplify binary names and split monolithic IPC handlers\n\nRename the Cargo binary and lib from the verbose development profile name to simply 'Mountain', matching the tauri.conf.json productName simplification. Concurrently, decompose the monolithic NativeHost.rs into 10 domain-specific handler files under WindServiceHandlers/NativeHost/ (FindFreePort, GetColorScheme, IsFullscreen, IsMaximized, OpenExternal, OSProperties, OSStatistics, PickFolder, ShowItemInFolder, ShowOpenDialog).\n\nAlso introduce a new FileSystem module split into Managed (trait-based) and Native (tokio::fs) tiers, each with their own atom handlers. Update mod.rs to replace the NativeHost glob import with explicit submodule paths, consistent with the reverse-hierarchical path pattern enforced in recent commits.",
+			"SHA": "fb4a24fd951420127e59e433b3a268432fbcf6da"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T19:11:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				829,
+				4
+			],
+			"Message": "refactor(Mountain): Complete explicit module path migration in state and IPC\n\nContinue the refactoring from commit 10feb14ec to eliminate implicit module namespace reliance by fully qualifying internal paths:\n\n- Add explicit `TextProcessing` segment in DocumentStateDTO import for `AnalyzeTextLinesAndEOL`\n- Prefix ConfigurationState, UIState, and WorkspaceState type paths with their module name (e.g., `UIState::UIState::State`)\n- Update WorkspaceDelta function signatures with full `WorkspaceState::WorkspaceState::State` paths\n- Migrate AppLifecycle call site from `WindServiceHandlers::set_static_application_root` to `WindServiceHandlers::Utilities::set_static_application_root`\n\nThis ensures all internal references use the reverse-hierarchical path pattern that makes dependency relationships explicit in every call site, consistent with the CLAUDE.md module path requirements.",
+			"SHA": "e3135b994ecc9c8cbedf24de93c125e810437122"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T19:05:06Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "refactor(Mountain): Split monolithic UI.rs into domain-specific modules\n\nExtract the 32 handlers from the single `UI.rs` (~670 LoC) into 9 separate domain modules under `WindServiceHandlers/UI/`:\n- `Decoration.rs` - URI badge/tooltip/colour providers\n- `Keybinding.rs` - dynamic runtime keybinding registry\n- `Lifecycle.rs` - app phase get/wait/shutdown\n- `Notification.rs` - toast messages and notification-scoped progress\n- `Progress.rs` - window/status-bar progress indicators\n- `QuickInput.rs` - QuickPick and InputBox dialogs\n- `Theme.rs` - colour theme get/list/set\n- `Workspace.rs` - workspace folder lifecycle\n- `WorkingCopy.rs` - dirty-state tracking\n\nEach file contains focused handlers for one UI concern, improving discoverability with `grep pub async fn`. The `mod.rs` re-exports all handlers flat to preserve the existing dispatcher call sites.\n\nThis follows the same pattern as recent Batch 15/16 notification atom migrations, further decomposing Mountain's IPC surface for better maintainability.",
 			"SHA": "285e8d1e67f19bb8f8c520665197d620d792cb5a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:52:25Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				817,
-				12
-			],
-			"Message": "refactor(Mountain): Migrate Batch 16 notification handlers to atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to 10 new atom functions in `Vine::Server::Notification::*`:\n\n- webview lifecycle (setTitle, setIconPath, setHtml) → WebviewLifecycle\n- window.createTerminal → WindowCreateTerminal\n- terminal lifecycle (sendText, show, hide, dispose) → TerminalLifecycle\n- decoration lifecycle (createTextEditorDecorationType, disposeTextEditorDecorationType) → DecorationTypeLifecycle\n- debug lifecycle (addBreakpoints, removeBreakpoints, consoleAppend) → DebugLifecycle\n- statusBar lifecycle (update, dispose) → StatusBarLifecycle\n- statusBar.message → StatusBarMessage\n- window.showMessage → WindowShowMessage\n- registerCommand → RegisterCommand\n- unregisterCommand → UnregisterCommand\n\nTerminalLifecycle is a \"group atom\" covering 4 wire methods that share both the `sky://terminal/*` relay and provider-side PTY drive. StatusBarLifecycle similarly groups 2 methods. This keeps MountainVinegRPCService thin with one-line delegations.",
-			"SHA": "1699cfca4a8e3c70bcf0b1d355097788d7a0068b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:52:16Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				807,
-				2
-			],
-			"Message": "refactor(Mountain): Migrate remaining notification handlers to Batch 15 atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to the Batch 15 atom functions in `Vine::Server::Notification::*`. The migrated handlers include:\n- extensionHostMessage → ExtensionHostMessage\n- ExtensionActivated/ExtensionDeactivated → ExtensionActivated/ExtensionDeactivated\n- WebviewReady → WebviewReady\n- progress.start/report/end → ProgressStart/ProgressReport/ProgressEnd\n- languages.setDocumentLanguage → LanguagesSetDocumentLanguage\n- workspace.applyEdit → WorkspaceApplyEdit\n- window.showTextDocument → WindowShowTextDocument (new atom file)\n\nAlso removes the dead handler bodies at the bottom of the match arm that were unreachable after Rust selected the first matching arm for each wire name. This consolidates all notification dispatch to the atom layer, keeping MountainVinegRPCService thin with one-line delegations.",
-			"SHA": "c834d103d4fc2f2002a1e55093df536bf58031c1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:46:55Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				806,
-				1
-			],
-			"Message": "",
-			"SHA": "6dfa4be105691b49a93eb4e42a2bef8eb772ee4d"
 		}
 	],
-	"TimeStamp": 1779025695084
+	"TimeStamp": 1779119433542
 }

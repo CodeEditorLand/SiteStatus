@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T14:49:36Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				28,
-				6
-			],
-			"Message": "feat(Project): Wire status bar and command bridges, enhance dev diagnostics\n\nCross-cutting integration across Output, Sky, and Mountain submodules:\n\n- **Output (354c448c):** Enhance ExposeWorkbenchAccessor transform to pre-resolve concrete service instances (IStatusbarService, ICommandService, CommandRegistry) into globalThis.__CEL_SERVICES__ during workbench startup. Allows Sky-side bridge code to call methods directly without re-entering the AMD loader.\n\n- **Sky (ea2932ae):** Wire status bar and command bridges into workbench services. Extension-contributed status bar items (from `vscode.window.createStatusBarItem()`) now route through `IStatusbarService.addEntry()`. Add command bridge layer: `sky://command/execute` invokes `ICommandService.executeCommand`, `sky://command/register` registers into CommandsRegistry with fan-out back to Cocoon, `sky://command/unregister` disposes.\n\n- **Mountain (f1de83d5):** Add payload preview (160 bytes max) to notification-drop logging for diagnostic clarity. Register benign ENOENT paths: MCP config files, user snippets/keybindings, AI workspace storage, git config for non-repos.\n\n- **Common + Maintain:** Dependency bumps for pozil/auto-assign-issue (2.2.0→3.0.0) and @cloudflare/workers-types.\n\nImpact: Extension status bar items now render in native VS Code DOM. Extension commands execute against the workbench with proper bidirectional binding.",
-			"SHA": "c8d8c6d920b73f5f434c53c659ab2ebb01f4ed74"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T12:36:23Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "",
-			"SHA": "d91cefa8472012d220ca9106e73e3be470108e40"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T12:28:33Z",
-			"File": [
-				"⣿⣿⠁⠀⠀",
-				28,
-				12
-			],
-			"Message": "",
-			"SHA": "468d49f05b4c032a8d2f91a713d29a582f90aec5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T01:47:16Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "feat(Project): Add ExposeWorkbenchAccessor transform plugin\n\nUpdate Cocoon and Output submodules to include the new ESBuild transform plugin that exposes VS Code's IInstantiationService and IWorkbench facade on globalThis. This enables Sky-side bridge code to resolve internal services (IStatusbarService, ISCMService, ICommandService, etc.) via __CEL_INSTANTIATION_SERVICE.invokeFunction() without re-implementing a parallel UI surface.\n\nThe transform patches web.main.js to stash the IInstantiationService after workbench.startup() and web.factory.js to expose the IWorkbench facade after workbenchPromise.complete(). Both injections are idempotent (short-circuit on existing marker) so re-running the transform on an already-patched tree is a no-op.\n\nImpact: Sky can now access VS Code's internal services directly, enabling proper integration of extension-contributed UI elements like status bar items and SCM providers.",
-			"SHA": "f577e14dde8645c746c774043a104d37847326ad"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T01:22:45Z",
+			"Date": "2026-04-24T20:52:42Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
 				28,
 				3
 			],
-			"Message": "feat(Project): Add workspace folders to extension host init, remove fallback status bar\n\nCoordinate init data and UI updates across Mountain and Sky submodules:\n\n- **Mountain (e10a5c04):** Add `folders` array inline to WorkspaceDTO in InitData so extensions reading `vscode.workspace.workspaceFolders` synchronously (vscode.git, eamodio.gitlens, typescript) see real folders immediately instead of `[]`. Also add `configuration` field for workspace config path. Enable CWD-autoload by default in debug builds (OFF in release) to support git repository scanning.\n\n- **Sky (05efccae):** Remove custom fallback status bar that was overlaying VS Code's native `.statusbar`. Extension-contributed status bar items are now dropped until `MainThreadStatusBar.$setEntry` is properly wired into the workbench. Add SCM event bridge handlers that dispatch `cel:scm:*` CustomEvents when Mountain emits `sky://scm/{register,unregister,updateGroup}`.\n\n- **Cocoon:** Submodule pointer update.\n\nImpact: Extensions like vscode.git and gitlens now surface tree-views on cold boot in debug builds. SCM state events are properly routed to Sky-side consumers.",
-			"SHA": "21ddbb2453f9fd6da04c91cc929d7104a695cbfd"
+			"Message": "refactor(Project): Reduce logging noise across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
+			"SHA": "786efde99dc3922147183375645841751ecd3fc2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T20:37:45Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "feat(Project): Reduce Mountain log noise and wire extension tree views\n\nCross-cutting sync across four submodules:\n\n1. **Mountain (refactor):** Reduce high-frequency log noise in default mode by moving per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants muted in `short` mode. Expand IPC skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme. Reduces default log volume from ~14k+ lines per session to ~500 while preserving error visibility.\n\n2. **Output (feat):** Expose IViewsService and TreeViewByViewId in workbench accessor ESBuild transform. Enables Sky to resolve ITreeView instances from ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\n3. **Sky (feat):** Wire extension tree views into workbench rendering pipeline. Attach data providers to tree views that call `tree:getChildren` via MountainIPCInvoke, converting Cocoon wire shape into workbench ITreeItem. Add retry logic (5 attempts, 150ms spacing) for async workbench init. Implement `cel:tree-view:refresh` and `cel:tree-view:dispose` handlers.\n\n4. **Cocoon (sync):** Submodule update.\n\nImpact: Extension-registered tree views (from extensions like GitLens, Debugger) now render in the workbench pane. Default logs are actionable rather than noisy.",
+			"SHA": "ec447b98f146279aa5547aac15f54bc73d744fe0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T17:08:27Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				28,
+				1
+			],
+			"Message": "chore(Cocoon): Sync submodule to cb1a38823f1ee6b4b9386aedc19677e262547920\n\nUpdate Cocoon submodule to the latest commit, bringing in upstream changes to the extension host runtime.",
+			"SHA": "e792634e04de30735905243f7c3ea3eff4a51284"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T16:46:08Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				28,
+				2
+			],
+			"Message": "feat(Mountain): Expand trusted paths and add executable magic-number detection\n\nSubmodule sync bringing three complementary improvements for extension runtime reliability:\n\n1. **Extended trusted paths** (`PathSecurity.rs`):\n   - Add `/tmp`, `/private/tmp`, `/var/tmp` for language servers (ruby-lsp, pyright, etc.)\n   - Add third-party tool state: `~/.gitkraken`, `~/.gk`, `~/.copilot`, `~/.config/git`\n   - Add read-only POSIX OS files (`/etc/os-release`, `/proc/*`, etc.)\n\n2. **Magic-number executable detection** (`VsixInstaller.rs`):\n   - Probe file headers for ELF, Mach-O fat/thin, and shebang\n   - Detect bin paths (`bin/`, `server/`, `tools/`, `omnisharp`, `adapter`, `native`)\n   - Promote 0o644 → 0o755 for detected executables, fixing EACCES on spawn\n   - Add `HealExecutableBits()` to retroactively fix pre-existing installs\n\n3. **Boot-time exec-bit heal** (`Scanner.rs`):\n   - Walk user extensions (`~/.land/extensions/`) at scan time\n   - Apply same heuristic to recover extensions installed before the fix\n\n4. **Benign ENOENT** (`DevLog.rs`): Add vim registers, globalStorage probing, chat editing sessions.\n\nImpact: Extension binaries (rust-analyzer, GitLens, Copilot) that were failing with EACCES due to missing exec bits now run correctly.",
+			"SHA": "991e3b34886434902061a9b60f74bf790222c473"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T15:37:49Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "feat(Project): Add land-native search provider and expose ISearchService\n\nCross-cutting search integration across Sky, Output, and Mountain:\n\n- **Sky (b4358aa9):** Add search result provider routing VS Code's Search viewlet queries through Mountain's `search:findFiles` / `search:findInFiles` handlers. The stock web's `RemoteSearchService` relies on File System Access API which returns `undefined` for Mountain-based filesystem, causing silent zero-result returns. New provider registers for both `file` (0) and `text` (1) search types, translating Mountain hits into `IFileMatch` shape. Also add global exception cap to PostHogBridge to prevent CDN limit flooding (configurable via `LAND_POSTHOG_SKY_EXCEPTION_GLOBAL_LIMIT`, defaults to 7).\n\n- **Output (f651b48f):** Extend ExposeWorkbenchAccessor ESBuild transform to expose ISearchService alongside existing Statusbar, Commands, and CommandRegistry services. Adds require for `vs/workbench/services/search/common/search` and includes `Search` entry in `__CEL_SERVICES__` global, enabling Sky-side bridge code to access search service without re-entering AMD loader.\n\n- **Cocoon (5bc55a9f):** Submodule sync.\n\nImpact: Search functionality now works in the Land editor with Mountain-based filesystem. PostHog exception telemetry respects CDN rate limits.",
+			"SHA": "b0c61117bc38976c071b8690baa6017a75eec5c4"
 		}
 	],
-	"TimeStamp": 1779025676386
+	"TimeStamp": 1779119406269
 }

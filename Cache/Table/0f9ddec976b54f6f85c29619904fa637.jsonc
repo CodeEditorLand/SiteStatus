@@ -2,6 +2,50 @@
 {
 	"Set": [
 		{
+			"Author": "Auto",
+			"Date": "2026-04-23T02:51:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1049,
+				1
+			],
+			"Message": "",
+			"SHA": "a5a9a63ed3161cee33b63a089215a565dbca78f5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T00:39:58Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1049,
+				2
+			],
+			"Message": "fix(Wind): Align FileSystemProviderError names with VS Code's token format\n\nWind's FileSystemErrorCode uses key-like values ('FileNotFound', 'FileExists'), but VS Code's toFileSystemProviderErrorCode extracts the token from error.name and switches on 'EntryNotFound', 'EntryExists', etc. Add a mapping function VsCodeErrorCodeToken to translate between the two formats.\n\nAlso set this.name to the '<code> (FileSystemError)' pattern that VS Code's markAsFileSystemProviderError() expects. Remove individual name assignments from subclasses since the base class now handles naming.\n\nWithout this fix, mkdirp and validateWriteFile treat missing-file/dir errors as unknown and rethrow, surfacing as unhandled rejections like 'Unable to write file .../tasks.log (Error: Failed to stat file ...)'.",
+			"SHA": "4e2e6bdf2faa8cad9556c62d1788a1c34b9ebf4b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T00:28:18Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1049,
+				1
+			],
+			"Message": "fix(Wind): Correct userDataSync channel names in IPC stubs\n\nThe previous commit used incorrect IPC channel names for the userDataSync stubs:\n- `userDataSyncService` renamed to `userDataSync` (matches workbench/services/userDataSync/electron-browser/userDataSyncService.ts:13)\n- `userDataSync` renamed to `userDataSyncAccount` (matches userDataSyncIpc.ts:51)\n\nThe channel names now align with the actual VS Code IPC registration, ensuring calls route to the correct stub handlers.",
+			"SHA": "671d83254b54b385da95e4e12d8acd7ec4d995e3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T23:24:34Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1049,
+				1
+			],
+			"Message": "fix(Wind): Add IPC stubs for unimplemented VS Code services\n\nSeveral VS Code services invoked at runtime lack Mountain-side implementations,\ncausing IPC calls to return undefined. Downstream code then crashes when\nattempting operations like .forEach(), .map(), or destructuring on undefined.\n\nAdd stub handlers in TauriMainProcessService for:\n- extensionTipsService: Return empty arrays for recommendation queries\n- mcpManagement/mcpWorkbenchManagement: Return empty arrays for server lists\n- userDataSyncService: Return 'Uninitialised' status tuple [0, [], null]\n- userDataSync: Return undefined for account/not-signed-in state\n- userDataSyncStoreManagement: Return null\n- userDataAutoSync: Return undefined for trigger/turnOn/turnOff\n- languageDetection: Return null and empty extensions for detection\n\nThese stubs match the absence of corresponding backends in Land while\npreventing crashes in VS Code code paths that expect valid return shapes.",
+			"SHA": "f0d6ccbe685fb74c28b788eedfd5533be49afb03"
+		},
+		{
 			"Author": "Nikola Hristov",
 			"Date": "2026-04-22T18:17:41Z",
 			"File": [
@@ -11,51 +55,7 @@
 			],
 			"Message": "refactor(Wind): Complete polyfill re-export migration in Wind Target\n\nComplete the migration of Wind polyfills to thin re-exports pointing to the canonical implementations in `@codeeditorland/output/Polyfill/`. The Target/Polyfills/ files are now minimal re-export proxies:\n\n- ChildProcessPolyfill.js\n- FileProtocolShim.js\n- FileSystemPolyfill.js\n- IPCRendererShim.js\n- NativeModulePolyfill.js\n- ProcessPolyfill.js\n- SharedProcessProxy.js\n\nThis follows the pattern established in the previous commit where implementations were moved to Output. Wind now maintains import path compatibility while delegating to the single source of truth. Fixes to polyfills should be made in Output, not Wind.",
 			"SHA": "9bc98774e4e0c5c87bdbb926010d7663285f8a5c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:25:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1049,
-				7
-			],
-			"Message": "refactor(Wind): Migrate polyfill implementations to Output as single source of truth\n\nReplace all Wind polyfill files with thin re-exports pointing to `@codeeditorland/output/Polyfill/`. The actual implementations have been moved to Output, eliminating duplicate code across the monorepo.\n\nAffected polyfills:\n- ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill\n- IPCRendererShim, NativeModulePolyfill, ProcessPolyfill\n- SharedProcessProxy\n\nWind's polyfill files now act as re-export proxies, maintaining import path compatibility for existing consumers while directing them to the canonical implementation in Output. Fixes to polyfills should now be made in Output, not in Wind.",
-			"SHA": "690304cb6c64d653ac5d7a1f93137d973424f139"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:10:30Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1049,
-				19
-			],
-			"Message": "fix(Wind): Route colon-prefixed IPC methods through MountainIPCInvoke\n\nColon-prefixed method names (e.g., `file:write`, `shared_process:invoke`) cannot be registered as direct Tauri commands because Rust function names cannot contain colons. These methods must route through Mountain's single `MountainIPCInvoke` command, which unwraps the params back into the positional `Vec<Value>` that internal handlers consume.\n\nThis fix adds the routing logic to all Wind polyfills that invoke Tauri:\n- ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill\n- IPCRendererShim, NativeModulePolyfill, ProcessPolyfill\n- SharedProcessProxy\n\nAlso updates TauriIPC.ts to use the consistent PascalCase form `\"MountainIPCInvoke\"` (matching all other call sites in Wind/Sky/Output) instead of the snake-case form. Minor style fixes in LifecycleService and PostHog/Fallback comments (em dash → hyphen).\n\nAll colon-prefixed IPC calls in Wind now route correctly through Mountain.",
-			"SHA": "039f52cd9f8b0a41523b7d96c4e4f5d0d154b229"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:13:10Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1049,
-				6
-			],
-			"Message": "refactor(Wind): Split monolithic PostHogBridge into modular components\n\nRefactor the single-file PostHogBridge.ts into separate modules under Source/Telemetry/PostHog/ with distinct responsibilities:\n- Browser.ts: Lookup window.posthog client from Sky\n- Configuration.ts: Read config from import.meta.env/process.env\n- Fallback.ts: Direct fetch POST for node-side fallback\n- Identifier.ts: Resolve distinct_id with seed support\n- Properties.ts: Base event properties ($tier, $component, $lib)\n\nPostHogBridge.ts now imports and composes these modules, reducing complexity while preserving identical runtime behavior. Each module is independently testable and has a single responsibility.",
-			"SHA": "cfe9fbbfa7a47927cdd81e35925f285438e879ce"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:02:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1043,
-				2
-			],
-			"Message": "feat(Wind): Add PostHog telemetry bridge for Wind-side events\n\nAdd Source/Telemetry/PostHogBridge.ts - a new telemetry module that enables\nWind to emit PostHog events. The bridge reuses Sky's existing window.posthog\ninstance when running in the webview (avoiding double-capture and rate-limit\nissues), with a fallback to direct HTTP POST to the /batch endpoint for\nNode.js environments (e.g., extension dev-loops).\n\nEvery event is tagged with $tier: \"wind\" so downstream analytics can filter\nby source. Provides CaptureEvent, CaptureError, and Initialize functions.\n\nAlso includes a minor style fix in LifecycleService.ts (em dash → hyphen).\n\nEnables Wind to contribute telemetry events to the unified PostHog pipeline.",
-			"SHA": "d36318e9a01c4ec1eb41e6a598f2f0a15ded4568"
 		}
 	],
-	"TimeStamp": 1779025677929
+	"TimeStamp": 1779119406579
 }

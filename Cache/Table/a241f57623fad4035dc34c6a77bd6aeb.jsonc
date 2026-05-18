@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-13T22:23:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1490,
+				1
+			],
+			"Message": "fix(Mountain): Wrap webview scheme handler closure in AssertUnwindSafe\n\nUpdate the `catch_unwind` invocation in `VscodeWebviewSchemeHandler` within `Scheme.rs` to explicitly wrap the closure in `AssertUnwindSafe`. The previous implementation omitted this trait requirement, causing compilation failures when attempting to catch panics inside the async closure passed to the panic handler.\n\nThis restores the ability to gracefully handle panics within the VS Code webview asset loading path, ensuring that errors in MIME resolution or file reading return HTTP 500 responses rather than crashing the editor process. The change aligns `VscodeWebviewSchemeHandler` with the established panic recovery pattern used in `VscodeFileSchemeHandler`.",
+			"SHA": "01422c257e48f4a9f8a8fb32093daf2a7d283073"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-13T22:16:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1490,
+				1
+			],
+			"Message": "fix(Mountain): Consolidate panic recovery logic in scheme handlers\n\nMigrate the panic recovery implementation in `VscodeWebviewSchemeHandler` to match the established pattern in `VscodeFileSchemeHandler`. The previous implementation attempted to use `catch_unwind` but failed to handle the `AssertUnwindSafe` trait requirement and redundantly implemented the result matching logic inside the closure.\n\nUpdate `VscodeWebviewSchemeHandler` to use `catch_unwind` with `AssertUnwindSafe` for the closure wrapper and move the `match` result handling and `dev_log` error reporting to the function scope. This ensures that panics within the webview asset loading path (e.g., in MIME type resolution or file reading) are caught, logged with backtrace details, and converted to HTTP 500 responses without crashing the editor process.\n\nAlign the import structure in `Scheme.rs` to group `panic` imports correctly. This change unifies the error handling strategy for both file and webview scheme handlers, ensuring consistent graceful degradation across the native backend's asset serving layer.",
+			"SHA": "139de360adc2c0b17a5adbef32cee1d8d6e06c54"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-13T22:10:11Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1490,
+				2
+			],
+			"Message": "fix(Mountain): Migrate VS Code webview scheme handler to internal panic wrapper\n\nMove the VS Code webview scheme handler logic into a private `_VscodeWebviewSchemeHandler` function and wrap the public entry point with `std::panic::catch_unwind`. This mirrors the protective pattern recently implemented for the file scheme handler to prevent editor crashes caused by panics crossing the Objective-C FFI boundary.\n\nConcurrently, remove the `LSEnvironment` dictionary from `Info.plist`. These runtime configuration values (including network ports and feature tiers) were previously stored in the property list but are now generated and injected at build time via `build.rs` and `Scheme.rs`. Removing the dead XML nodes cleans up the configuration file and aligns the binary structure with the current build process.\n\nThis change ensures graceful error recovery for webview asset requests and resolves configuration drift by centralizing environment setup in the Rust build logic.",
+			"SHA": "230ca02557a152875ce896802af0b4c5ec9d5929"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-13T22:05:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "chore(Mountain): Align documentation structure with recent refactoring and cleanup configuration\n\nUpdate README.md to reflect the current source directory structure following the recent migration from `Binary.rs` to the `Binary/` module folder and the addition of new components like `IPC/`, `RPC/`, `Telemetry/`, and `Cache/`. Correct the architectural diagram and module descriptions to match the actual file layout in `Source/`.\n\nAdditionally, clean up `Info.plist` by removing extraneous indentation and empty XML nodes around the `LSEnvironment` key to ensure a valid, consistent property list format. Remove trailing whitespace to maintain formatting standards.\n\nThis change synchronizes the project documentation with the current codebase state and resolves formatting inconsistencies in the build configuration.",
 			"SHA": "4ce8e735fd7551cdf8c3d5c41f2820eaef15eefc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T21:13:48Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1490,
-				33
-			],
-			"Message": "refactor(Mountain): Consolidate imports and reformat Rust code across core modules\n\nStandardize multi-line import blocks to use brace-compressed syntax in CertificateManager.rs. Apply consistent line-wrapping and removal of unnecessary vertical whitespace across the Environment provider modules, Command handlers, and Track effect handlers.\n\nThis change focuses purely on formatting and code style alignment. No functional logic, business rules, or error handling flows are altered. The modifications ensure uniform indentation and line length compliance (typically wrapping comments and long method chains at 100 characters) across the Mountain native backend codebase.\n\nThis improves readability and prepares the codebase for automated linting enforcement.",
-			"SHA": "c8a486c1635ccee407de53db21f6127a3cce049b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T20:46:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				1
-			],
-			"Message": "fix(Mountain): Add default configuration options to Info.plist\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "4b43c376835eb7089928494f7ed9090eeb9e5737"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T17:48:34Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				2
-			],
-			"Message": "feat(Mountain): Enable telemetry collection defaults and enforce consent gates\n\nReverse the default build-time values for PostHog (`Report`), OTLP (`OTLPEnabled`), and trace capture (`Capture`) from 'false' to 'true' in `build.rs`. This enables telemetry by default for the current development cycle, allowing the team to collect diagnostic data unless explicitly disabled via environment variables.\n\nSimultaneously, reinforce runtime safety in `scripts/cocoon/bootstrap-fork.js` by adding explicit environment variable checks before any network request. The `PostHogCapture` and `OTLPFlush` functions now verify that `Report`, `Capture`, and `OTLPEnabled` are strictly set to 'true' before proceeding. This ensures that even with production builds enabled in the build script, no data is sent without explicit runtime consent, maintaining the privacy barrier for production environments while facilitating data collection during development.\n\nThis change aligns the build defaults with the telemetry requirements for the current `Current` branch while preserving the logical gatekeeping in the Extension Host sidecar.",
-			"SHA": "dfe7c6e4e60e8d589ce3eccb516e905a78c45cee"
 		}
 	],
-	"TimeStamp": 1779025667426
+	"TimeStamp": 1779119395745
 }
