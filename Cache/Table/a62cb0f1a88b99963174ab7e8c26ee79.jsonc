@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:31:03Z",
+			"Date": "2026-04-23T22:39:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
-				5
+				872,
+				6
 			],
-			"Message": "refactor(Mountain): Centralize UriComponents construction with $mid marker\n\nAdd a shared UriComponents helper module that ensures every URI payload sent to the VS Code renderer carries the required `$mid: 1` marshalling marker. Without it, VS Code's IPC reviver leaves URIs as plain objects where `.fsPath` and `.with` are undefined, causing the sidebar and icon loader to silently fail.\n\nThe recent fix for extension location URI marshalling addressed one call site, but inline `json!` builders elsewhere risked regressing the same issue. This change introduces:\n\n- `FromFilePath`: constructs a `file://` UriComponents with `$mid` from a filesystem path\n- `FromUrl`: parses arbitrary URL strings (file://, other schemes) into UriComponents\n- `StampMidUri`: injects `$mid: 1` into any UriComponents lacking it\n- `Normalize`: handles mixed input formats (string, object, null) uniformly\n\nNow used consistently in:\n- `handle_extensions_install` (Extension.rs) - fixes location URI\n- `handle_file_realpath` (both WindServiceHandler and WindServiceHandlers FileSystem.rs)\n\nThe Extensions.rs handler continues using the existing `Normalize` import. All IPC handlers that return URI-shaped payloads now emit through the centralized helpers, preventing silent breaks in the renderer's URI revival chain.",
-			"SHA": "e632bde43d9e101210c074a094bf0db9c5d0f69f"
+			"Message": "feat(Mountain): Implement hidden-until-ready window pattern\n\nEliminate the visual flash on startup by creating the main window with\n.visible(false) and revealing it only when Sky reports phase 3 (Restored).\nThe previous approach allowed Tauri's default immediate visibility, causing\na four-repaint cascade: native chrome → #1e1e1e inline background → VS Code\ntheme CSS → workbench DOM, observed as \"purple/dark flash\" and panel-pop\nflicker over ~200ms.\n\nChanges:\n- WindowBuild.rs: Add .visible(false) to WebviewWindowBuilder chain\n- AppLifecycle.rs: Add 3s safety timer to force-reveal if Sky crashes\n  before phase 3 (matches observed cold-boot p95 timing)\n- WindServiceHandlers/mod.rs: Show window on phase 3 + set_focus()\n- CommandProvider.rs: Handle missing workbench commands as silent no-ops\n  (getTelemetrySenderObject, testing.clearTestResults)\n- DevLog.rs: Document Batch 4 fs-route/cmd-route diagnostic tags\n- CocoonManagement.rs: Forward LAND_* env vars to Cocoon (fixes PostHog\n  bridge fallback)\n\nThe 3s safety timer guarantees the window appears even if Sky crashes before\nsignalling phase 3, preventing invisible-window lockup while rarely firing\non a healthy startup path.",
+			"SHA": "993a69a785aedb36bfd1501e52960eccc08ab288"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:20:49Z",
+			"Date": "2026-04-23T21:18:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
-				2
+				872,
+				6
 			],
-			"Message": "",
-			"SHA": "040bfbacb2ba90145b5feb6c5b41cd11e5e2f120"
+			"Message": "refactor(Mountain): Simplify binary names and remove PostHog API keys\n\nRevert binary and library names from the verbose development profile format back to 'Mountain' in Cargo.toml and tauri.conf.json, continuing the simplification from recent commits.\n\nAlso remove the PostHog API key from build.rs and scripts/cocoon/bootstrap-fork.js by replacing with empty strings for development safety. Clean up tauri.conf.json identifier from the long verbose format to 'land.editor.binary' and productName to 'Mountain'.\n\nDelete obsolete Cargo.toml.Backup and tauri.conf.json.Backup files. Remove duplicate externalBin entry for Binary/node in tauri.conf.json.\n\nThese changes consolidate the naming simplification and remove sensitive API keys from the repository.",
+			"SHA": "5140a38948860dee4209069e3d0110001474a9e9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:20:49Z",
+			"Date": "2026-04-23T21:18:15Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				774,
-				2
+				"⠁⠀⠀⠀⠀",
+				874,
+				27
 			],
-			"Message": "fix(Mountain): Fix extension location URI marshalling for VS Code renderer\n\nVS Code's URI revival system ignores objects lacking the `$mid === 1` marshalling marker. Without it, extension locations sent to the renderer become plain `UriComponents` bags where `.fsPath` and `.with` are undefined — the sidebar silently filters the entire batch out.\n\nThis change adds three functions in Extensions.rs:\n- `Normalize_Location_To_UriComponents`: converts the scanner's raw `file://` URL string into VS Code's `UriComponents` object shape\n- `Stamp_Mid_Uri`: attaches `$mid: 1` to any UriComponents that lack it\n- `Parse_File_Url_To_UriComponents`: parses `file:///absolute/path` URLs into the required structure\n\nAlso extends `BuildInitialUrl` to recognize Mountain's own `{ uri: \"file://…\" }` format (written by the recently opened persistence) alongside VS Code's historical `folderUri`/`workspace.configPath` shapes for backward compatibility with imported profiles.\n\nExtension locations in the sidebar now resolve correctly.",
-			"SHA": "07b4da763e4acaec886915effcb6b6c49eb0d689"
+			"Message": "refactor(Mountain): Decompose Utilities module into explicit submodules\n\nSplit the monolithic Utilities.rs into 7 domain-specific modules under WindServiceHandlers/Utilities/: ApplicationRoot, ChannelPriority, JsonValueHelpers, MetadataEncoding, PathExtraction, RecentlyOpened, and UserdataDir. Update all call sites in FileSystem/Native handlers, Scheme.rs, WindowBuild.rs, and AppLifecycle.rs to use explicit module paths (e.g., `Utilities::PathExtraction::extract_path_from_arg`) instead of flat imports.\n\nThis continues the module decomposition pattern from recent commits, replacing the catch-all Utilities module with granular domain-specific handlers. The explicit reverse-hierarchical paths make dependency relationships clear at every call site, consistent with CLAUDE.md requirements.\n\nAlso reverts binary/lib names in Cargo.toml and tauri.conf.json to the verbose development profile format, matching the pre-simplification state.",
+			"SHA": "8cba79c0ae380c97ef1709c4a1c12df9e87017aa"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:12:01Z",
+			"Date": "2026-04-23T20:54:21Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
+				864,
 				3
 			],
-			"Message": "feat(Mountain): Restore recently opened folder on launch, fix macOS window drag\n\nTwo improvements to the window boot sequence:\n\n1. **Recently opened folder restoration (Atom W7):** Add BuildInitialUrl to read `~/.land/workspaces/RecentlyOpened.json` and pass `?folder=<path>` to the initial webview URL. This skips the destructive round-trip where every launch landed on Welcome, forced users to click \"Open Folder\", and triggered a hard reload that wiped workbench state. That reload was the direct cause of the purple splash flash, stuttering paint, empty `@builtin` sidebar, and broken keybindings (every layer boots twice, second pass loses first-pass references).\n\n2. **Fix macOS window dragging:** Remove `maximized(true)` from the window builder. Maximized macOS windows are pinned to the screen and refuse all drag events regardless of `-webkit-app-region: drag` CSS. Replace with `TitleBarStyle::Overlay` + `hidden_title(true)` which keeps traffic lights visible while letting VS Code's custom titlebar paint the drag region. Windows/Linux continue using `decorations(false)` for chrome-less operation.\n\nAlso fix en-dash to hyphen in three documentation comments (ExtensionDescriptionStateDTO, LandFixTier) to match project convention.",
-			"SHA": "aa5eafbd77da6ffa239edf2a45206ae3dfa1e4cc"
+			"Message": "refactor(Mountain): Decompose FileSystem module and add native readdir handler\n\nReplace the FileSystem glob import with explicit submodule paths for all Managed (trait-based) and Native (tokio::fs) file operations. Add new FileReaddirNative handler under FileSystem/Native/ implementing the file:readdir wire method using tokio::fs.\n\nThis continues the module decomposition pattern from recent commits, replacing the monolithic FileSystem.rs with granular domain-specific handlers. The explicit paths follow CLAUDE.md requirements, making dependency relationships clear at every call site.\n\nNo functional changes - this is a pure refactoring for code organization and maintainability.",
+			"SHA": "70c31747d3943f857b4c7bc9644f8fd469b0dd76"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:11:44Z",
+			"Date": "2026-04-23T20:54:15Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				774,
-				5
+				"⠃⠀⠀⠀⠀",
+				864,
+				42
 			],
-			"Message": "feat(Mountain): Initialize PostHog telemetry client at boot\n\nAdd PostHogPlugin initialization at the start of Entry.rs Fn() to capture any errors during the boot process in telemetry. This runs before all other boot steps, including CLI parsing and state initialization, ensuring crash logs include PostHog context.\n\nAdditional improvements:\n- Remove incorrectly placed #[tauri::command] attribute from internal IPC dispatcher in mod.rs, adding docstring clarifying it's not directly reachable from the frontend\n- Fix en-dash to hyphen in three documentation comments (UI-Backend, timezone offset, lifecycle phase)",
-			"SHA": "4ff7003125814f3d5be66877b4fe2de4c52f2281"
+			"Message": "refactor(Mountain): Simplify binary names and split monolithic IPC handlers\n\nRename the Cargo binary and lib from the verbose development profile name to simply 'Mountain', matching the tauri.conf.json productName simplification. Concurrently, decompose the monolithic NativeHost.rs into 10 domain-specific handler files under WindServiceHandlers/NativeHost/ (FindFreePort, GetColorScheme, IsFullscreen, IsMaximized, OpenExternal, OSProperties, OSStatistics, PickFolder, ShowItemInFolder, ShowOpenDialog).\n\nAlso introduce a new FileSystem module split into Managed (trait-based) and Native (tokio::fs) tiers, each with their own atom handlers. Update mod.rs to replace the NativeHost glob import with explicit submodule paths, consistent with the reverse-hierarchical path pattern enforced in recent commits.",
+			"SHA": "fb4a24fd951420127e59e433b3a268432fbcf6da"
 		}
 	],
-	"TimeStamp": 1779119436012
+	"TimeStamp": 1779241328316
 }

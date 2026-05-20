@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T21:17:00Z",
+			"Date": "2026-05-19T22:22:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1498,
-				5
-			],
-			"Message": "refactor(Mountain): Decouple console log capture from debug server\n\nSeparate the JavaScript console log interception logic into `WindowBuild.rs` and remove it from `WebkitServer.rs`. The window builder now injects a script on page load to populate `window.__MOUNTAIN_DEBUG_CONSOLE` when `DEBUG_SERVER=1` is set, ensuring logs are captured before the TCP server initializes.\n\nRefactor `WebkitServer.rs` to rely on the injected JavaScript buffer instead of the Tauri `ConsoleEvent` listener. This eliminates the dependency on the internal Tauri console event API for log retrieval, allowing the HTTP server to simply query the DOM via `eval`.\n\nUpdate the request handling to support a new GET `/eval` endpoint for arbitrary script execution, replacing the removed `/dom` endpoint. Consolidate error handling and improve type safety using `once_cell::sync::Lazy` for global window storage and `BufReader` for HTTP parsing.",
-			"SHA": "fd6648d17f6c0f7846eb45b9080b999506e186dc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T21:16:54Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1491,
-				3
-			],
-			"Message": "feat(Mountain): Introduce HTTP debug server for WKWebView inspection\n\nImplement a native debug server in `Source/Binary/Debug/WebkitServer.rs` to facilitate automated inspection of the native WKWebView instance on macOS. This component runs a lightweight HTTP server on `127.0.0.1:9933` (configurable) when `DEBUG_SERVER=1` is set, exposing endpoints for JavaScript evaluation, DOM querying, iframe enumeration, and console log retrieval.\n\nThe implementation installs a console event listener on the Tauri `WebviewWindow` to capture logs and spawns a background thread to handle incoming TCP connections. New routes include `GET /console`, `GET /dom`, `GET /iframes`, and `POST /execute`, allowing external tools or scripts to interact with the editor's runtime state.\n\nIntegrate the module into `Source/Binary/Debug/mod.rs` and invoke `WebkitServer::install` within `Source/Binary/Main/AppLifecycle.rs` after window creation. This complements the existing conditional devtools flag by providing programmatic access to the WebView for advanced debugging scenarios.",
-			"SHA": "f14f21a072eaf20ed73ec9d69cb6da22c75fe3a0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T18:38:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
+				1517,
 				1
 			],
-			"Message": "feat(Mountain): Enable conditional WKWebView inspection in debug builds\n\nAdd a conditional check in `Source/Binary/Build/WindowBuild.rs` to enable the `devtools` flag for the Tauri `WindowBuilder` when running in `debug_assertions` mode and the `Inspect` environment variable is set to a non-empty, non-zero value.\n\nThis modification allows external inspection tools (such as Safari Web Inspector or MCP) to attach to the native WKWebView instance on macOS during development, facilitating deep debugging of the editor's UI layer. The change preserves the existing behavior of disabling decorations on non-macOS platforms while introducing a gated mechanism for developer tooling on macOS.\n\nThe implementation leverages Wry's underlying `devtools` configuration to expose the native inspection interface only when explicitly requested.",
-			"SHA": "6e51ac8b9e213cd70f7a379fd3d3ba091f41e54f"
+			"Message": "feat(Mountain): Wire workspace save/saveAs/saveAll through to Sky\n\nAdd three IPC handler arms to the Workspace dispatch table in CreateEffectForRequest so Cocoon's vscode.workspace.save() and related extension API calls reach the workbench textfile service running in Sky.\n\n- `Workspace.Save` — extracts the URI from parameter position 0 or the \"uri\" key, routes to `sky://workspace/save`, and returns the URI on success so the caller can confirm persistence.\n- `Workspace.SaveAs` — mirrors the Save path but dispatches to `sky://workspace/saveAs`; the Sky handler can later drive a standalone Save-As dialog.\n- `saveAll` / `Workspace.SaveAll` — accepts the legacy `saveAll` method name (used by gRPC/Client.ts) and routes to `sky://workspace/saveAll`, returning null on failure instead of crashing the workbench.\n\nAll three handlers degrade gracefully: if Sky does not respond, they log a warning and return the original URI (for Save/SaveAs) or null (for SaveAll), preventing extension host crashes on missing handlers.",
+			"SHA": "5afb710dc67ede34e2939e573ca97cf05f3e8590"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T16:50:21Z",
+			"Date": "2026-05-19T21:53:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1517,
 				4
 			],
-			"Message": "refactor(Mountain): Reorder resources block and fix documentation links\n\nCorrect the ordering of files within the Tauri `resources` configuration in `tauri.conf.json` to group JavaScript bootstrap files prior to static assets and configuration manifests. This restores the logical dependency sequence expected during the application bundle initialization process.\n\nUpdate GitHub documentation URLs in `README.md` and `Documentation/GitHub/NamingConventions.md` from the legacy `blob` path to the canonical `tree` path, ensuring links correctly resolve to directory listings and file views on the `Current` branch.\n\nAlign dash formatting in `Source/Binary/Build/Scheme.rs` comments to use standard hyphens instead of en-dashes for code path descriptions.\n\nThese changes ensure consistent configuration loading and accurate external documentation references.",
-			"SHA": "53fdb1751c9017d8a5dcc41e9007e44d52464cc2"
+			"Message": "perf(Mountain): Cache OS properties and Rosetta; track active document\n\nReduce redundant OS syscalls and system-info queries while keeping Cocoon's\nactiveTextEditor shim in sync when Wind opens a document.\n\n**Cached OS Properties (OSProperties.rs):**\nWrap sysinfo::System-based OS attribute collection (type, release, arch,\nCPU topology) behind a OnceLock, extracting the computation into a\ncompute_os_properties() helper. Spawning sw_vers/uname and refreshing CPU\ndata on every IPC call was wasting ~10 ms per invocation.\n\n**Cached Rosetta Detection (mod.rs):**\nMove the sysctl.proc_translated subprocess behind a OnceLock — a process\neither runs under Rosetta 2 or it does not for its entire lifetime.\n\n**Active Document Tracking (ModelOpen.rs):**\nAfter opening a document, call SetActiveDocumentURI on the application\nstate and fire a fire-and-forget gRPC notification\nwindow.didChangeActiveTextEditor to Cocoon so its\nvscode.window.activeTextEditor shim updates immediately.\n\n**Terminal Layout Persistence (mod.rs):**\nRefactor localPty:getTerminalLayoutInfo and\nlocalPty:setTerminalLayoutInfo to use\nGetStorageValue(true, ...)/UpdateStorageValue(true, ...) on\nStorageProvider, eliminating manual JSON serialization and improving\nerror resilience.\n\nImpact: Reduced IPC latency for OS queries, correct active editor state\nfor extensions, simpler terminal layout persistence code.",
+			"SHA": "2a0e335eb7bc17b03b24d928c97dfd124542cd12"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-05-14T02:44:25Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:46:15Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				1517,
+				2
 			],
-			"Message": "",
-			"SHA": "0fda20430898ee73c92c7fb362b98c436fc96b8f"
+			"Message": "feat(Mountain): Wire terminal layout persistence and cache color scheme detection\n\nComplete the terminal state restoration cycle and optimize startup performance by implementing missing IPC handlers and caching expensive OS queries.\n\n**Terminal Layout Persistence:**\nImplement `localPty:getTerminalLayoutInfo` and `localPty:setTerminalLayoutInfo` to bridge the workbench's terminal panel state. These handlers now delegate to the `StorageProvider` service to read/write the `terminal:layoutInfo` key, enabling the restoration of active tabs and dimensions after window reloads (replacing previous `Value::Null` no-ops).\n\n**Color Scheme Caching:**\nIntroduce a `OnceLock` cache for the `NativeGetColorScheme` result. The underlying `detect_dark_mode` function now executes only once per process lifetime, reducing the ~5–15 ms OS syscall overhead on subsequent calls during boot and window focus events. This aligns Mountain's behavior with stock VS Code's expectation that users restart the editor to apply system theme changes.\n\nImpact: Terminal layouts persist across reloads; cold-start performance improves for theme detection calls.",
+			"SHA": "123d5b073d0bdec64ccbae19fe9b245979ea5141"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:44:44Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1517,
+				21
+			],
+			"Message": "refactor(Mountain): Extract shared notification relay/unregister helpers\n\nSixteen Cocoon-to-Mountain notification handler files contained nearly\nduplicated inline code — every output, progress, channel, and\nprovider-unregistration atom repeated the same three-step pattern\n(emit a Tauri sky:// event + dev_log, or extract a u32 handle +\nunregister + dev_log).\n\nCollapse all of them into two shared helpers under a new\n`Support/` submodule:\n\n- `RelayToSky` — calls `ApplicationHandle.emit(SkyEvent, Parameter)`\n  and optionally writes a dev-log line. Used by OutputAppend,\n  OutputClear, OutputCreate, OutputDispose, OutputShow,\n  OutputChannelClear, OutputChannelCreate, OutputChannelDispose,\n  OutputChannelShow, ProgressComplete, and ProgressUpdate — each now\n  a single delegation call.\n- `UnregisterByHandle` — reads a `handle` u64 from the parameter,\n  guards against zero, calls\n  `ProviderRegistration::UnregisterProvider`, and logs the provider\n  kind. Used by UnregisterAuthenticationProvider,\n  UnregisterDebugAdapter, UnregisterDebugConfigurationProvider,\n  UnregisterFileSystemProvider, UnregisterTaskProvider, and\n  UnregisterUriHandler.\n\n`UnregisterFileSystemProvider` and `UnregisterUriHandler` additionally\nlog their scheme field before delegating, preserving the traceability\ninformation that was unique to those atoms.\n\n21 files changed, 67 insertions, 231 deletions.\n\nNo behavioural changes — every handler produces the same Tauri\nsky:// event and the same dev-log output as before.",
+			"SHA": "3427a0c39e6129a8df9ff50b6b1015a70c4dd2e2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:41:36Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1513,
+				13
+			],
+			"Message": "feat(Mountain): Terminal serialization/revival, fill IPC gaps\n\nComplete the terminal window-reload persistence cycle and close multiple VS Code Workbench IPC compatibility gaps:\n\n**Terminal state persistence (window reload):**\n- Add `SerializeTerminalState` — snapshot all active PTYs to `ISerializedTerminalState[]` with `shellLaunchConfig`, `processDetails`, and replay metadata, called by `localPty:serializeTerminalState` just before reload.\n- Add `ReviveTerminalProcesses` — respawn shells from the snapshot array, forwarding each entry to `TerminalCreate` and emitting `sky://terminal/create` for the xterm panel. Skips entries with an empty executable.\n- Wire `localPty:getRevivedPtyNewId` to `GetNextTerminalIdentifier()` (no longer a no-op) so the workbench pre-allocates collision-free IDs before revival.\n\n**Configuration/Theme IPC completeness:**\n- Alias `configuration:lookup` → `ConfigurationGet` — needed by `IConfigurationService.getValue(key)` in the Workbench singleton.\n- Implement `configuration:inspect` — returns `{value, default, user, workspace, workspaceFolder, memory}` with the current effective value in both `value` and `default`, null for all scope overrides (correct for Land where no user/workspace JSON overrides exist).\n- Alias `themes:getColorTheme` → `ThemesGetActive` — `IThemeService.getColorTheme()` Workbench channel method.\n- Extend `ThemesGetActive` response with numeric `ColorThemeKind` enum (`type`: 1-4) and `semanticHighlighting: false` so tokenization and colour-picker internals have the expected shape.\n\n**Dialog unwrapping for Wind consumption:**\n- `UserInterface.ShowOpenDialog` — unwrap `{canceled, filePaths}` envelope to bare `string[]` so Wind's `Array.isArray(result)` guard finds the paths.\n- `UserInterface.ShowSaveDialog` — unwrap `{canceled, filePath}` envelope to bare path string so Wind's `typeof result === \"string\"` guard succeeds.\n\n**Path format fix in sandbox config:**\n- Convert `appRoot`, `homeDir`, `tmpDir`, `userDataDir`, `backupPath` from `file://` URLs to plain OS filesystem paths. VS Code's `URI.file(path)` receives these via `AbstractNativeEnvironmentService` and double-encodes a `file://` string, producing broken `path.join` bases.\n\n**Provider registration for VS Code ≥1.87 APIs:**\n- Add `register_inline_completion_item_provider`, `register_inline_edit_provider`, `register_multi_document_highlight_provider`, `register_mapped_edits_provider`, `register_document_paste_edit_provider`, `register_document_drop_edit_provider` — each wires through `CreateProviderEffect` into the existing ProviderRegistration map so the Language Feature dispatch layer can proxy `$provideXxx` requests back to Cocoon.\n\n**Terminal show/hide via gRPC provider path:**\n- Wire `$terminal:show`/`$terminal:hide` and `Terminal.Show`/`Terminal.Hide` through `TerminalProvider` — Cocoon's window namespace shim calls these when extensions invoke `terminal.show(preserveFocus)` or `terminal.hide()`, and both call sites now share one implementation.\n\n**Debug configuration provider cleanup:**\n- Add gRPC notification `unregister_debug_configuration_provider` with `UnregisterDebugConfigurationProvider` handler — mirrors `UnregisterDebugAdapter` for the DebugConfiguration slot, invoked when an extension disposes a `vscode.debug.registerDebugConfigurationProvider` registration.\n\n**Stub-ack additions:**\n- Add `log:registerLogger`/`log:createLogger` alongside the existing `logger:*` stubs — VS Code 1.87+ calls both prefixes and was crashing on every boot with \"registered but no dispatch arm\".\n\n13 files changed, 479 insertions, 23 deletions.",
+			"SHA": "7d6b949d24c36559cb084154ef6c4be20b9a716e"
 		}
 	],
-	"TimeStamp": 1779119395016
+	"TimeStamp": 1779241286526
 }

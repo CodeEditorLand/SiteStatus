@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-17T15:29:22Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				732,
-				1
-			],
-			"Message": "",
-			"SHA": "e0bd6b0e19198a07a945748e879f26097de9b83d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-17T15:29:21Z",
+			"Date": "2026-04-22T16:03:13Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				732,
-				19
+				774,
+				12
 			],
-			"Message": "refactor(Mountain): Adopt PascalCase naming and simplify binary configuration\n\nRename all snake_case module files to PascalCase throughout the Mountain codebase:\n- LanguageFeature: code_actions.rs → CodeActions.rs, invoke_provider.rs → InvokeProvider.rs\n- FileSystemProvider: read_operations.rs → ReadOperations.rs, write_operations.rs → WriteOperations.rs\n- StatusBarProvider: entry_management.rs → EntryManagement.rs, message_management.rs → MessageManagement.rs\n- RPC: echo_action.rs → EchoAction.rs\n\nAlso simplify the binary/library names in Cargo.toml and tauri.conf.json from the verbose development identifier `DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_Mountain` back to `Mountain`, and remove the externalBin reference to Binary/node.\n\nThis aligns with the CodeEditorLand PascalCase naming convention and removes development-specific configuration artifacts.",
-			"SHA": "3461db4f7ae8b09eacca0216c8fa85521797b25f"
+			"Message": "feat(Mountain): Add extension metadata passthrough, IPC round-trip, and Node version checking\n\nThree major improvements for extension handling and IPC reliability:\n\n1. **Extension manifest passthrough (Atom TH1):** Add 14 new fields to ExtensionDescriptionStateDTO for VS Code package.json metadata: Categories, DisplayName, Description, Keywords, Repository, Bugs, Homepage, License, Icon, AiKey, ExtensionKind, Capabilities, ExtensionDependencies, ExtensionPack. Wind's Extensions sidebar filter `@builtin category:themes` now works — previously categories were absent so the filter never matched.\n\n2. **IPC round-trip for applyEdit/showTextDocument (Atom T1):** Replace fire-and-forget event emission with request/response pattern using SendUserInterfaceRequest. Extensions awaiting workspace.applyEdit() now block until Sky actually applies the edit, fixing races with listeners expecting post-apply state. Also made SendUserInterfaceRequest pub(crate) so Track effect creators reuse the same pattern.\n\n3. **Node version checking (Atom N1):** ResolveNodeBinary now queries `node --version` and logs the resolved version. Emits a warning when major version falls below LAND_NODE_MIN_MAJOR (default 20). Helps diagnose extension host boot failures.\n\n4. **Compile-time PostHog config (Atom P2):** PostHogPlugin now reads API key/host/enable flag from env! baked in build.rs via PropagatePostHogSentinel(). Supports LAND_POSTHOG_DISTINCT_ID for CI correlation. Combined with debug_assertions gate for cheaper no-op path.\n\n5. **IPC logging improvement (Atom I13):** Add paired entry/exit lines per invoke. `done: <cmd> ok=... t_ns=...` on the way out enables latency diagnosis via single grep without Jaeger hopping.",
+			"SHA": "f24e444f42f611f00e844728138c5036e8f28793"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-17T15:19:41Z",
+			"Date": "2026-04-22T14:19:44Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				734,
-				8
-			],
-			"Message": "feat(Mountain): Configure dev node environment and add extension scanning/user stub handlers\n\nConfigure Mountain for development node environment with verbose binary/library naming and add extension scanning improvements:\n\n1. **Dev Node Environment Setup**: Rename binary and library to `DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_Mountain` with corresponding tauri.conf.json changes including externalBin reference to `Binary/node`.\n\n2. **Extension Scanning Enhancements** (ScanPathConfigure.rs):\n   - Add VS Code-style bundle path: `.app/Contents/Resources/app/extensions`\n   - Add user-scope paths: `~/.codeeditorland/extensions` and `~/.land/extensions`\n   - Mirrors VS Code's `~/.vscode-oss/extensions` convention\n\n3. **Cocoon Health Monitor Fix** (CocoonManagement.rs):\n   - Stop flooding logs with \"No Cocoon process to monitor\" after crashes\n   - Monitor now exits quietly once process is gone instead of looping forever\n\n4. **Hover Provider Logging** (Provider.rs):\n   - Enhanced logging with handle, URI, position, and result details\n\n5. **IPC Stub Handlers** (CreateEffectForRequest.rs):\n   - Debug.Stop, Task.Fetch, Task.Execute\n   - Authentication.GetSession, Authentication.GetAccounts\n   - Clipboard.Read, Clipboard.Write, NativeHost.OpenExternal\n   - Languages.GetAll\n   These stubs return safe defaults (null/[]/\"\") to prevent extensions from crashing on unimplemented VS Code APIs.\n\nThese changes enable proper development workflow with user extension directories and prevent log flooding while providing foundation for future full implementations.",
-			"SHA": "62187df95ab59673fc80a98c9e3bfdc8dc4342d2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-17T13:32:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				732,
-				9
-			],
-			"Message": "fix(Mountain): Correct Sky path resolution and add extension scanning instrumentation\n\nThree related improvements to extension management and path resolution:\n\n1. **Fix Sky target path resolution** - The monorepo layout places Sky at `Land/Element/Sky/`, but the code was incorrectly using `Element/Sky/Target` (doubling Element). Change from `../../../Element/Sky/Target` to `../../../Sky/Target` in ScanPathConfigure.rs, AppLifecycle.rs, and InitializationData.rs.\n\n2. **Add dev-only cfg guards** - Wrap dev fallback paths in `#[cfg(debug_assertions)]` to keep release builds lean. Production should fail loudly if the bundle is misconfigured rather than silently falling back to dev paths.\n\n3. **Add extension scanning instrumentation** - Comprehensive logging throughout the scanning pipeline:\n   - ScanAndPopulateExtensions: track inserted vs rejected (empty identifier) counts\n   - Scanner: log directory entries, parse failures, missing package.json\n   - MountainEnvironment: verify serialized non-null extensions\n   - Extension handler: log serialized payload sizes, warn on empty results\n   - Also register native `setContext` command as no-op for VS Code extension compatibility\n\n4. **Implement FileSystem effects** - Add FileSystem.Stat, CreateDirectory, Delete, Rename, Copy effects to CreateEffectForRequest, completing the IPC bridge between Wind requests and Mountain's FileSystemReader/Writer traits.",
-			"SHA": "3ba96f11406420784098879a309de9cd997c2fcf"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-17T02:08:42Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				691,
+				774,
 				1
 			],
 			"Message": "",
-			"SHA": "e157f71a4ebacc67e0e5f1c263aac38c45ce57c6"
+			"SHA": "12de818c4d637c9baa99ed0690625ee482720398"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T14:19:43Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				774,
+				51
+			],
+			"Message": "feat(Mountain): Add Node binary resolver and extension path environment variables\n\nImplement two significant features for Cocoon sidecar spawning and extension management:\n\n1. **NodeResolver (Atom N1):** New module that resolves Node.js binary for Cocoon spawn, checking in order: explicit override (LAND_NODE_BINARY), shipped runtime (Tauri bundle or dev-tree sibling), version managers (fnm, volta, asdf, nvm), Homebrew, and PATH fallback. Logs source for forensics.\n\n2. **Extension path configuration (Atom U1):** Add support for environment variables controlling extension scan paths:\n  - LAND_DISABLE_BUILTIN_EXTENSIONS: Same effect as LAND_SKIP_BUILTIN_EXTENSIONS\n  - LAND_BUILTIN_EXTENSIONS_DIR: Override bundle path for CI builds\n  - LAND_USER_EXTENSIONS_DIR: Override ~/.land/extensions for sandboxes\n  - LAND_EXTRA_EXTENSIONS_DIRS: Multi-path separator (semicolon Windows, colon elsewhere)\n  - LAND_DEV_EXTENSIONS_DIR: Development extensions that always load\n\n3. **Profile sentinel fix:** Replace runtime std::env::var(\"LAND_PROFILE\") with compile-time option_env! in build.rs so profile resolves correctly after binary launch (previously showed \"unknown\" when run outside Build.sh shell).\n\n4. **IPC handler improvements:** Add extensions:resetPinnedStateForAllUserExtensions handler (Atom P1), improve error handling in showSaveDialog/showMessageBox with proper Join handling.",
+			"SHA": "458377b0d14a3611cc723298645f95d86eebfd80"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T12:58:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				773,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "edeef4b1eb18a7b9c3bcb7a3cdc2f7a15f48efe4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T12:51:22Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				773,
+				24
+			],
+			"Message": "",
+			"SHA": "85483ef53b574cfa1ad8bd98fa1d5eb622c8e87e"
 		}
 	],
-	"TimeStamp": 1779119438998
+	"TimeStamp": 1779241332654
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:27:19Z",
+			"Date": "2026-04-23T19:11:54Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
-				1
+				829,
+				4
 			],
-			"Message": "docs: improve LandFixTier.rs module header",
-			"SHA": "957f84e8bf064fe68b3f05c6cdeca1e1848fa23f"
+			"Message": "refactor(Mountain): Complete explicit module path migration in state and IPC\n\nContinue the refactoring from commit 10feb14ec to eliminate implicit module namespace reliance by fully qualifying internal paths:\n\n- Add explicit `TextProcessing` segment in DocumentStateDTO import for `AnalyzeTextLinesAndEOL`\n- Prefix ConfigurationState, UIState, and WorkspaceState type paths with their module name (e.g., `UIState::UIState::State`)\n- Update WorkspaceDelta function signatures with full `WorkspaceState::WorkspaceState::State` paths\n- Migrate AppLifecycle call site from `WindServiceHandlers::set_static_application_root` to `WindServiceHandlers::Utilities::set_static_application_root`\n\nThis ensures all internal references use the reverse-hierarchical path pattern that makes dependency relationships explicit in every call site, consistent with the CLAUDE.md module path requirements.",
+			"SHA": "e3135b994ecc9c8cbedf24de93c125e810437122"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:13:26Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				774,
-				2
-			],
-			"Message": "docs(Mountain): Streamline extension path and NodeResolver module docs\n\nSimplify comments in ScanPathConfigure for extension skip flags and builtin path override to be more concise while preserving the technical details.\n\nCondense the NodeResolver module docstring from verbose prose to a compact ladder list showing the resolution order: LAND_NODE_BINARY → shipped runtime → fnm/volta/asdf/nvm → homebrew → PATH. The resolution behavior is unchanged, only the documentation format is improved for scannability.",
-			"SHA": "bcc45254e06f84f91d17cb58716d12de486805f9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:03:13Z",
+			"Date": "2026-04-23T19:05:06Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				774,
+				829,
+				14
+			],
+			"Message": "refactor(Mountain): Enforce explicit module paths, eliminate pub use re-exports\n\nPer CLAUDE.md requirements, replace `pub use` glob re-exports with local `use` statements throughout Mountain's IPC and state modules. This enforces that callers spell full qualified paths like `WindServiceHandlers::Utilities::get_static_application_root()` rather than relying on flattened namespace imports.\n\nChanges:\n- Remove `pub use *` from WindServiceHandlers/mod.rs, UI/mod.rs, and ApplicationState modules\n- Convert to local `use X::*` scoped to the dispatcher file only\n- Update call sites in Scheme.rs, AppLifecycle.rs, and Search.rs to use explicit paths\n- Reorganize module declaration order in FeatureState and Internal modules\n\nThe reverse-hierarchical path is load-bearing - it tells the reader which file owns the handler. This change prevents accidental namespace pollution and makes dependency relationships explicit in every call site.\n\nAlso updates tauri.conf.json to include externalBin for node binary.",
+			"SHA": "10feb14ec590c0361e9a0038e0833bf752bf447e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T19:04:49Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				827,
+				11
+			],
+			"Message": "refactor(Mountain): Split monolithic UI.rs into domain-specific modules\n\nExtract the 32 handlers from the single `UI.rs` (~670 LoC) into 9 separate domain modules under `WindServiceHandlers/UI/`:\n- `Decoration.rs` - URI badge/tooltip/colour providers\n- `Keybinding.rs` - dynamic runtime keybinding registry\n- `Lifecycle.rs` - app phase get/wait/shutdown\n- `Notification.rs` - toast messages and notification-scoped progress\n- `Progress.rs` - window/status-bar progress indicators\n- `QuickInput.rs` - QuickPick and InputBox dialogs\n- `Theme.rs` - colour theme get/list/set\n- `Workspace.rs` - workspace folder lifecycle\n- `WorkingCopy.rs` - dirty-state tracking\n\nEach file contains focused handlers for one UI concern, improving discoverability with `grep pub async fn`. The `mod.rs` re-exports all handlers flat to preserve the existing dispatcher call sites.\n\nThis follows the same pattern as recent Batch 15/16 notification atom migrations, further decomposing Mountain's IPC surface for better maintainability.",
+			"SHA": "285e8d1e67f19bb8f8c520665197d620d792cb5a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T18:52:25Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				817,
 				12
 			],
-			"Message": "feat(Mountain): Add extension metadata passthrough, IPC round-trip, and Node version checking\n\nThree major improvements for extension handling and IPC reliability:\n\n1. **Extension manifest passthrough (Atom TH1):** Add 14 new fields to ExtensionDescriptionStateDTO for VS Code package.json metadata: Categories, DisplayName, Description, Keywords, Repository, Bugs, Homepage, License, Icon, AiKey, ExtensionKind, Capabilities, ExtensionDependencies, ExtensionPack. Wind's Extensions sidebar filter `@builtin category:themes` now works — previously categories were absent so the filter never matched.\n\n2. **IPC round-trip for applyEdit/showTextDocument (Atom T1):** Replace fire-and-forget event emission with request/response pattern using SendUserInterfaceRequest. Extensions awaiting workspace.applyEdit() now block until Sky actually applies the edit, fixing races with listeners expecting post-apply state. Also made SendUserInterfaceRequest pub(crate) so Track effect creators reuse the same pattern.\n\n3. **Node version checking (Atom N1):** ResolveNodeBinary now queries `node --version` and logs the resolved version. Emits a warning when major version falls below LAND_NODE_MIN_MAJOR (default 20). Helps diagnose extension host boot failures.\n\n4. **Compile-time PostHog config (Atom P2):** PostHogPlugin now reads API key/host/enable flag from env! baked in build.rs via PropagatePostHogSentinel(). Supports LAND_POSTHOG_DISTINCT_ID for CI correlation. Combined with debug_assertions gate for cheaper no-op path.\n\n5. **IPC logging improvement (Atom I13):** Add paired entry/exit lines per invoke. `done: <cmd> ok=... t_ns=...` on the way out enables latency diagnosis via single grep without Jaeger hopping.",
-			"SHA": "f24e444f42f611f00e844728138c5036e8f28793"
+			"Message": "refactor(Mountain): Migrate Batch 16 notification handlers to atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to 10 new atom functions in `Vine::Server::Notification::*`:\n\n- webview lifecycle (setTitle, setIconPath, setHtml) → WebviewLifecycle\n- window.createTerminal → WindowCreateTerminal\n- terminal lifecycle (sendText, show, hide, dispose) → TerminalLifecycle\n- decoration lifecycle (createTextEditorDecorationType, disposeTextEditorDecorationType) → DecorationTypeLifecycle\n- debug lifecycle (addBreakpoints, removeBreakpoints, consoleAppend) → DebugLifecycle\n- statusBar lifecycle (update, dispose) → StatusBarLifecycle\n- statusBar.message → StatusBarMessage\n- window.showMessage → WindowShowMessage\n- registerCommand → RegisterCommand\n- unregisterCommand → UnregisterCommand\n\nTerminalLifecycle is a \"group atom\" covering 4 wire methods that share both the `sky://terminal/*` relay and provider-side PTY drive. StatusBarLifecycle similarly groups 2 methods. This keeps MountainVinegRPCService thin with one-line delegations.",
+			"SHA": "1699cfca4a8e3c70bcf0b1d355097788d7a0068b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T14:19:44Z",
+			"Date": "2026-04-23T18:52:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
-				1
+				807,
+				2
 			],
-			"Message": "",
-			"SHA": "12de818c4d637c9baa99ed0690625ee482720398"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T14:19:43Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				774,
-				51
-			],
-			"Message": "feat(Mountain): Add Node binary resolver and extension path environment variables\n\nImplement two significant features for Cocoon sidecar spawning and extension management:\n\n1. **NodeResolver (Atom N1):** New module that resolves Node.js binary for Cocoon spawn, checking in order: explicit override (LAND_NODE_BINARY), shipped runtime (Tauri bundle or dev-tree sibling), version managers (fnm, volta, asdf, nvm), Homebrew, and PATH fallback. Logs source for forensics.\n\n2. **Extension path configuration (Atom U1):** Add support for environment variables controlling extension scan paths:\n  - LAND_DISABLE_BUILTIN_EXTENSIONS: Same effect as LAND_SKIP_BUILTIN_EXTENSIONS\n  - LAND_BUILTIN_EXTENSIONS_DIR: Override bundle path for CI builds\n  - LAND_USER_EXTENSIONS_DIR: Override ~/.land/extensions for sandboxes\n  - LAND_EXTRA_EXTENSIONS_DIRS: Multi-path separator (semicolon Windows, colon elsewhere)\n  - LAND_DEV_EXTENSIONS_DIR: Development extensions that always load\n\n3. **Profile sentinel fix:** Replace runtime std::env::var(\"LAND_PROFILE\") with compile-time option_env! in build.rs so profile resolves correctly after binary launch (previously showed \"unknown\" when run outside Build.sh shell).\n\n4. **IPC handler improvements:** Add extensions:resetPinnedStateForAllUserExtensions handler (Atom P1), improve error handling in showSaveDialog/showMessageBox with proper Join handling.",
-			"SHA": "458377b0d14a3611cc723298645f95d86eebfd80"
+			"Message": "refactor(Mountain): Migrate remaining notification handlers to Batch 15 atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to the Batch 15 atom functions in `Vine::Server::Notification::*`. The migrated handlers include:\n- extensionHostMessage → ExtensionHostMessage\n- ExtensionActivated/ExtensionDeactivated → ExtensionActivated/ExtensionDeactivated\n- WebviewReady → WebviewReady\n- progress.start/report/end → ProgressStart/ProgressReport/ProgressEnd\n- languages.setDocumentLanguage → LanguagesSetDocumentLanguage\n- workspace.applyEdit → WorkspaceApplyEdit\n- window.showTextDocument → WindowShowTextDocument (new atom file)\n\nAlso removes the dead handler bodies at the bottom of the match arm that were unreachable after Rust selected the first matching arm for each wire name. This consolidates all notification dispatch to the atom layer, keeping MountainVinegRPCService thin with one-line delegations.",
+			"SHA": "c834d103d4fc2f2002a1e55093df536bf58031c1"
 		}
 	],
-	"TimeStamp": 1779119436420
+	"TimeStamp": 1779241328848
 }

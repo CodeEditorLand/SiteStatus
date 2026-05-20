@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:28:10Z",
+			"Author": "Auto",
+			"Date": "2026-04-29T02:33:55Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
-				6
+				859,
+				1
 			],
-			"Message": "refactor(Mountain): Add LRU cache for FindFiles and optimize dev_log for release\n\nImplement an LRU cache for FindFilesInWorkspace to reduce latency during\nfuzzy file matching. The cache uses a 2.5s TTL and 128-entry capacity with\nsimple eviction, short-circuiting repeated walks during Cmd+P typing bursts\nthat typically fire 5-10 calls in 200ms.\n\nAdditionally, gate the dev_log! macro body on cfg!(debug_assertions) so it\nbecomes a literal no-op in release builds via LLVM dead-code-elimination.\nThis removes the format!, IsEnabled lookup, file-sink write, and dedup-\nmutex lock from the hot IPC path while preserving compile-time type-checking\nof format arguments.\n\nAlso revert the verbose development naming back to simple \"Mountain\" for\nbinary, lib, identifier, and productName, and remove obsolete .Backup files.",
-			"SHA": "5c123e3aa335f9078086b721f4fbbe75a1651167"
+			"Message": "",
+			"SHA": "cce2516555660983de4287c47ab94daaa710b02a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:22:13Z",
+			"Date": "2026-04-29T02:08:42Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				876,
-				11
+				"⠀⠀⠀⠀⠀",
+				859,
+				2
 			],
-			"Message": "revert(Mountain): Revert Mountain naming to verbose development identifier\n\nRevert the Mountain binary/lib/tauri config from 'Mountain' back to the verbose development identifier 'DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain' to maintain continuity with existing build artifacts and CI configurations.\n\nAdditionally, implement SCM provider registration handlers pulled out of the language-providers catch-all:\n- Add `RegisterScmProvider` notification handler that wires through `SourceControlManagementProvider` trait and emits `sky://scm/register`\n- Add `RegisterScmResourceGroup` notification handler that seeds groups via `UpdateSourceControlGroup` trait and emits `sky://scm/registerGroup`\n- These previously fell through the language-provider OR-block which never populated `ApplicationState::SourceControl`, leaving the SCM viewlet empty\n\nAlso:\n- Add `WalkUpToProjectRoot` to CliParse that walks up from build dirs to find project markers (Cargo.toml, package.json, .git, etc.)\n- Trust Sky/Target, Output/Target, and Dependency paths in PathSecurity for bundled extensions\n- Add benign ENOENT substrings for gitlens, copilot, claude-code, roo-cline, vim registers, and bundled product.json probes\n\nBREAKING CHANGE: Binary and lib names changed from 'Mountain' to the verbose development identifier.",
-			"SHA": "6c908b6eaa9030c30ee11f705f016f38ae2b3428"
+			"Message": "fix(Mountain): Accept absent paths in FileWatcher and varied URI shapes\n\nTwo changes that prevent false circuit breaker trips in Mountain's gRPC service:\n\n1. **FileWatcherProvider.rs**: Extensions frequently register watchers on optional paths (`~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't yet exist. Previously, `notify::Watcher::watch()` failure triggered a gRPC error that counted against Cocoon's circuit breaker — 5 probes at boot trips it open and cascades into 60s of rejected reads. Now Mountain catches benign \"path not found\" errors, records a \"deferred\" entry without a live OS watcher, and still allows Unregister to clean up the handle.\n\n2. **UriParsing.rs**: Cocoon sends URIs in three different shapes — plain strings (e.g., `Diagnostic.Set`), objects with `external` field (VS Code's `URI.toJSON()`), and legacy objects with just `scheme` + `path`. The original code only accepted the `external` field, causing `Diagnostic.Set` from `vscode.languages.createDiagnosticCollection().set` to trip the breaker after 5 publishes, silencing all linters across language extensions. Now all three formats are accepted.\n\nBoth fixes maintain backward compatibility while eliminating spurious error cascades.",
+			"SHA": "9c10fbe92d916db112eb377dcd9f1ab9130c8821"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T00:42:35Z",
+			"Date": "2026-04-29T01:40:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
-				5
+				859,
+				2
 			],
-			"Message": "refactor(Mountain): Implement configuration target support and clean up naming\n\nImplement missing ConfigurationTarget handling in UpdateValue.rs:\n- UserLocal now maps to User settings.json (Land has no sync backend)\n- WorkspaceFolder writes to <folder>/.vscode/settings.json for first folder\n- Memory target stores in-memory only (no disk write)\n- Default and Policy targets return read-only errors per spec\n\nAdditionally:\n- Revert binary/lib names from verbose dev identifier back to \"Mountain\"\n- Simplify Tauri identifier to \"land.editor.binary\" and productName to \"Mountain\"\n- Remove duplicate externalBin entry and obsolete .Backup files\n\nThis completes the ConfigurationProvider trait implementation for all VS Code configuration targets, enabling extensions to persist settings to user preferences, workspace .vscode folders, and in-memory session state.",
-			"SHA": "1c3dd9e7d4dde40184a53712500b91c447eb2197"
+			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nTwo changes in Mountain's gRPC service layer:\n\n1. **FileWatcher.rs**: Cocoon's `NextProviderHandle()` returns a number, but older callers pass a string. Handle both shapes in `RegisterWatcher` and `UnregisterWatcher` instead of silently converting numbers to empty string.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without a string-regex round-trip, while `-32000` remains the catch-all for genuine failures.",
+			"SHA": "160b5a4251133f31e4ce99898a02a8d63f8ca19b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T00:32:43Z",
+			"Date": "2026-04-29T01:03:45Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
-				6
+				859,
+				1
 			],
-			"Message": "refactor(Mountain): Revert development naming and implement core file operations\n\nRevert the Mountain binary/lib/config naming from \"Mountain\" back to the verbose development identifier to maintain continuity with the existing build artifacts and CI configurations.\n\nImplement two missing trait implementations:\n\n1. **FileSystemProvider::Copy for directories** (WriteOperations.rs):\n   - Previously returned NotImplemented for directory copies\n   - New `copy_directory_recursive` uses an iterative stack (avoids async recursion stack overflow on deep trees)\n   - Symlinks are followed to match VS Code's IFileService.copy semantics\n   - Prevents copy-to-self which would truncate files or explode recursively\n   - Creates parent directories as needed; uses tokio::fs::copy for fast file copying\n\n2. **WorkspaceEditApplier::ApplyWorkspaceEdit** (WorkspaceProvider.rs):\n   - Two-tier approach: emit `sky://editor/applyEdits` for open documents (preserves undo/dirty state), then apply edits directly to disk for closed files\n   - Converts VS Code's line/character positions to byte offsets with UTF-16 code unit counting (matches VS Code Range semantics)\n   - Edits sorted by descending offset to maintain validity during splicing\n   - Atomic writes via tempfile+rename to prevent torn writes on crash\n   - Handles file:// URIs with percent-encoding decode\n\nBREAKING CHANGE: Binary and lib names changed from \"Mountain\" to \"DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain\"",
-			"SHA": "8c25573710b3a7ec50c4312a7c1f99bfdd2a2739"
+			"Message": "docs(Mountain): Update build.rs comments to document PascalCase naming\n\nClarify the build script comments to document the PascalCase environment variable naming convention introduced in the 2026-04-29 migration. The comments now specify that `Profile`, `Pack`, `Bundle`, and `Compiler` (PascalCase) are the current env var names, replacing the legacy `LAND_*` names that were retired. This ensures clarity for developers debugging build configuration resolution at runtime.",
+			"SHA": "de696659a367b81cdc5404e3055fa6837bd94fa7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T00:25:31Z",
+			"Date": "2026-04-28T23:06:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
-				6
+				859,
+				2
 			],
-			"Message": "refactor(Mountain): Clean up development naming and complete stub implementations\n\nRename the binary, lib, and Tauri config from the verbose development name\n(`DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain`)\nto simply `Mountain` for cleaner builds and debugging.\n\nImplement two previously-stubbed trait methods:\n\n1. **OutputProvider::CloseChannel**: Properly sets `IsVisible = false` in\nApplicationState and emits a SkyEvent so the renderer collapses the panel.\nThe channel remains in state to preserve buffered content for later reveal.\n\n2. **WorkspaceProvider::OpenFile**: Converts the path to a file:// URI via\nUrl::from_file_path (with percent-encoding for unicode), emits the\n`sky://editor/openDocument` event that Sky's bridge listens on, and adds\nthe file to the recently-opened list (capped at 50 entries).\n\nAlso remove the now-obsolete `.Backup` files. These changes complete the\nIPC wiring for output channel management and editor document opening.",
-			"SHA": "2d330dbf776b664caa2426a9bee51c703619062a"
+			"Message": "feat(Mountain): Add per-URI marker payloads to diagnostics events and cap keyring logging\n\nTwo changes in Mountain's diagnostic system:\n\n1. **DiagnosticProvider.rs**: Extend the `DiagnosticsChanged` event payload with a new `changedURIs` field containing per-URI marker data alongside the existing `Uris` string array. This enables SkyBridge's `cel:diagnostics:changed` listener to call `IMarkerService.changeOne(owner, uri, markers)` directly without an extra IPC round-trip per diagnostic change. Also adds lowercase `owner` field for consistency. Maintains backward compatibility with listeners expecting the original format.\n\n2. **LoggingPlugin.rs**: Cap the `keyring` crate to Warn level. This dependency (used by Mountain's secret-storage path for license data lookups) emits a 3-line DEBUG block per `get_password` call that fires indefinitely after the workbench paints, similar to the previous `ignore` and `globset` mutes.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "5b111b189f5566e92bce268a48be289d73ef6735"
 		}
 	],
-	"TimeStamp": 1779119431661
+	"TimeStamp": 1779241322101
 }

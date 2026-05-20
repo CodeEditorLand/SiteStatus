@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:59:24Z",
+			"Date": "2026-04-25T00:42:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				778,
-				1
-			],
-			"Message": "feat(Mountain): Expand provider registration handlers to full VS Code surface\n\nAdd missing provider type handlers in MountainVinegRPCService to match Cocoon's complete VS Code API shim. New handlers include:\n\n- Authentication, SCM, and resource label providers for extension auth/workspace\n- Full notebook support (notebook_content, notebook_serializer)\n- Advanced editing features (inline_edit, mapped_edits, multi_document_highlight)\n- Debug infrastructure (debug_adapter)\n- Remote workspace features (external_uri_opener, remote_authority_resolver)\n\nAlso adds corresponding ProviderType enum variants to the DTO mapping. The expansion from ~25 to 50+ provider types enables extensions that register these previously-unhandled providers (e.g., GitLens, live share, remote tunnels) to activate successfully.\n\nRefs: b71ab93f22e526a1a9cc961706c66040fd2a9be6",
-			"SHA": "cc8f2a07bd71e36d8eed04d5c377cf52eeeb7e64"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:25:07Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				778,
+				872,
 				5
 			],
-			"Message": "feat(Mountain): Wire tree-view children to extension host and add diagnostic tags\n\nImplement the full round-trip for tree-view data providers:\n1. Add `tree:getChildren` invoke handler in WindServiceHandlers - allows Wind/Sky UI to request tree children directly without waiting for Cocoon to ask first\n2. Wire GetTreeChildren gRPC in TreeView.rs to forward requests to the `$provideTreeChildren` handler in Cocoon, returning actual TreeItem data instead of empty stub\n3. Add viewId→handle hashing to match RegisterTreeViewProvider's provider lookup\n\nAlso add two new diagnostic tags per the Batch 3 logging spec in DevLog.rs:\n- `scheme-assets`: logs vscode-file:// request routing, MIME type, byte size\n- `ext-scan`: logs extension scanner accept/skip decisions with is_builtin flag and skip reasons\n\nThese tags catch the subsystems new traffic passes through so regressions surface as silent tag counts going to zero. Extension tree views (GitLens, SCM, debug, tasks) now render with data from providers instead of appearing empty.",
-			"SHA": "b71ab93f22e526a1a9cc961706c66040fd2a9be6"
+			"Message": "refactor(Mountain): Implement configuration target support and clean up naming\n\nImplement missing ConfigurationTarget handling in UpdateValue.rs:\n- UserLocal now maps to User settings.json (Land has no sync backend)\n- WorkspaceFolder writes to <folder>/.vscode/settings.json for first folder\n- Memory target stores in-memory only (no disk write)\n- Default and Policy targets return read-only errors per spec\n\nAdditionally:\n- Revert binary/lib names from verbose dev identifier back to \"Mountain\"\n- Simplify Tauri identifier to \"land.editor.binary\" and productName to \"Mountain\"\n- Remove duplicate externalBin entry and obsolete .Backup files\n\nThis completes the ConfigurationProvider trait implementation for all VS Code configuration targets, enabling extensions to persist settings to user preferences, workspace .vscode folders, and in-memory session state.",
+			"SHA": "1c3dd9e7d4dde40184a53712500b91c447eb2197"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:00:37Z",
+			"Date": "2026-04-25T00:32:43Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				778,
-				2
+				874,
+				6
 			],
-			"Message": "",
-			"SHA": "0d061de2fe103d84efa38c8c494c45d1fffaf853"
+			"Message": "refactor(Mountain): Revert development naming and implement core file operations\n\nRevert the Mountain binary/lib/config naming from \"Mountain\" back to the verbose development identifier to maintain continuity with the existing build artifacts and CI configurations.\n\nImplement two missing trait implementations:\n\n1. **FileSystemProvider::Copy for directories** (WriteOperations.rs):\n   - Previously returned NotImplemented for directory copies\n   - New `copy_directory_recursive` uses an iterative stack (avoids async recursion stack overflow on deep trees)\n   - Symlinks are followed to match VS Code's IFileService.copy semantics\n   - Prevents copy-to-self which would truncate files or explode recursively\n   - Creates parent directories as needed; uses tokio::fs::copy for fast file copying\n\n2. **WorkspaceEditApplier::ApplyWorkspaceEdit** (WorkspaceProvider.rs):\n   - Two-tier approach: emit `sky://editor/applyEdits` for open documents (preserves undo/dirty state), then apply edits directly to disk for closed files\n   - Converts VS Code's line/character positions to byte offsets with UTF-16 code unit counting (matches VS Code Range semantics)\n   - Edits sorted by descending offset to maintain validity during splicing\n   - Atomic writes via tempfile+rename to prevent torn writes on crash\n   - Handles file:// URIs with percent-encoding decode\n\nBREAKING CHANGE: Binary and lib names changed from \"Mountain\" to \"DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain\"",
+			"SHA": "8c25573710b3a7ec50c4312a7c1f99bfdd2a2739"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:00:37Z",
+			"Date": "2026-04-25T00:25:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				778,
-				7
+				872,
+				6
 			],
-			"Message": "feat(Mountain): Add Git service handlers and expand diagnostic instrumentation\n\nThree major additions to Mountain's diagnostic and service capabilities:\n\n1. **Git service handlers** (`WindServiceHandlers/Git.rs`): Implement the full `localGit` channel mirroring VS Code's `ILocalGitService` API - clone, pull, checkout, revParse, fetch, revListCount, cancel, exec, and isAvailable. Uses process PIDs for cancellation (SIGTERM on Unix, taskkill on Windows) and logs all operations under the existing `git` tag.\n\n2. **SkyEmit instrumentation** (`SkyEmit.rs`): New `LogSkyEmit` wrapper around `tauri::Emitter::emit` that logs every Mountain→Wind/Sky emit under the `sky-emit` tag. Records channel name, payload bytes, and ok/fail status. Enables traffic-volume auditing via `LAND_DEV_LOG=sky-emit`.\n\n3. **Provider registration expansion** (`MountainVinegRPCService.rs`): Extend the register_* notification handler from 8 to 34+ provider types - debug_configuration, text_document_content, folding_range, document_link, code_lens, selection_range, document_range_formatting, debug_adapter, rename, file_system, uri_handler, document_paste_edit, task, signature_help, semantic_tokens, document_highlight, workspace_symbol, on_type_formatting, inlay_hints, document_drop_edit, color, type_hierarchy, type_definition, notebook_serializer, linked_editing_range, implementation, terminal_profile, terminal_link, inline_values, inline_completion_item, file_decoration, external_uri_opener, declaration, call_hierarchy. Also extracts and logs the scheme for scheme-bound providers, and includes options in the DTO.\n\nPlus: Flexible `RenderDevLog` command now accepts both PascalCase (Tag/Message) and snake_case (tag/message) params, supporting any JS caller convention.",
-			"SHA": "de6e0f842ce46f14a18508dc143e2a456644f76f"
+			"Message": "refactor(Mountain): Clean up development naming and complete stub implementations\n\nRename the binary, lib, and Tauri config from the verbose development name\n(`DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain`)\nto simply `Mountain` for cleaner builds and debugging.\n\nImplement two previously-stubbed trait methods:\n\n1. **OutputProvider::CloseChannel**: Properly sets `IsVisible = false` in\nApplicationState and emits a SkyEvent so the renderer collapses the panel.\nThe channel remains in state to preserve buffered content for later reveal.\n\n2. **WorkspaceProvider::OpenFile**: Converts the path to a file:// URI via\nUrl::from_file_path (with percent-encoding for unicode), emits the\n`sky://editor/openDocument` event that Sky's bridge listens on, and adds\nthe file to the recently-opened list (capped at 50 entries).\n\nAlso remove the now-obsolete `.Backup` files. These changes complete the\nIPC wiring for output channel management and editor document opening.",
+			"SHA": "2d330dbf776b664caa2426a9bee51c703619062a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:57:33Z",
+			"Date": "2026-04-25T00:21:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				776,
+				874,
+				1
+			],
+			"Message": "feat(Mountain): Implement FindFilesInWorkspace with ignore-aware parallel walking\n\nReplace the stub implementation that returned empty results with a complete `WorkspaceProvider::FindFilesInWorkspace` using:\n- `ignore::WalkBuilder::build_parallel()` for OS-thread-parallel directory traversal respecting `.gitignore` / `.ignore` / `.git/info/exclude`\n- `globset::GlobBuilder` for include/exclude pattern matching\n- Support for VS Code's RelativePattern shape (`{ base, pattern }`) to restrict walks to subfolders\n- Thread-safe result collection via `Arc<Mutex<Vec<Url>>>` capped at MaxResults (default 10,000)\n- Proper hidden-directory handling and symlink follow control\n\nThis complements the recent wiring of search IPC handlers to trait implementations, completing the file search path from Wind → Mountain → WorkspaceProvider::FindFilesInWorkspace for quick file open, symbol search, and fuzzy file matching features.",
+			"SHA": "044fdb7c156598f3081093012d5e5ac21cf8395b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:39:12Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
 				8
 			],
-			"Message": "feat(Mountain): Add RenderDevLog command and diagnostic logging tags\n\nAdd a new Tauri command `RenderDevLog` that bridges TypeScript-side tagged logs (Wind/Sky/Cocoon) into Mountain's `dev_log!` file sink. This enables a single `Mountain.dev.log` to carry the complete tag-filterable picture of a session, rather than requiring cross-referencing between browser console and log file.\n\nAlso add five new diagnostic tags to isolate architectural gaps during debugging:\n- `notif-drop`: Notifications hitting the default arm (no handler)\n- `provider-register`: Accepted register_*_provider notifications with extension IDs\n- `channel-stub`: Wind/Output TauriMainProcessService.call stub hits vs route vs miss\n- `git`: localGit channel, GitExec RPC, SCM provider group updates\n- `tree-view`: tree.register, GetTreeChildren, sky://tree-view/create events\n\nApply tags across SCM.rs, TreeView.rs, CreateEffectForRequest/TreeView.rs, and MountainVinegRPCService.rs to provide visibility into extension host integration issues.\n\nImpact: Developers can now filter `LAND_DEV_LOG=git,tree-view` to isolate specific subsystem issues, and TS-originated logs appear in the same file with `[RenderDevLog]` prefix for grep separation.",
-			"SHA": "f7625f320666cca6bfe3d74fb87c4fc09444ddb3"
+			"Message": "refactor(Mountain): Wire Cocoon RPC handlers to trait implementations for state tracking\n\nReplace direct Sky event emissions with proper trait implementations across SCM, StatusBar, Webview, and Search handlers:\n\n1. **SCM**: RegisterScmProvider and UpdateScmGroup now use SourceControlManagementProvider trait to materialize state in ApplicationState::SourceControl. Previously the direct Sky emit bypassed state tracking, so SCM providers (gitlens, svn) never appeared in Sky's SCM view until UpdateScmGroup - and the header row never materialized.\n\n2. **StatusBar**: CreateStatusBarItem and SetStatusBarText now use StatusBarProvider::SetStatusBarEntry to store entries in ActiveStatusBarItems. Without registration, the workbench had no memory of entries and set_status_bar_text calls leaked state.\n\n3. **Webview**: CreateWebviewPanel and SetWebviewHtml now use WebviewProvider trait to register panels in ApplicationState::WebviewState. Previously the extension got a handle but Mountain never knew about the panel - DisposeWebviewPanel failed with \"unknown handle\" and webviews leaked DOM.\n\n4. **Search**: findFiles delegates to WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker); findTextInFiles delegates to SearchProvider::TextSearch. This replaces naive inline fs-walk implementations that lacked .gitignore support, regex engine, parallel walks, and proper Url construction.\n\nAll handlers retain fallback to direct Sky emit on trait failure to preserve existing behavior for callers that don't depend on state tracking.",
+			"SHA": "f8de3e0f52def4658f2be37feceb8ce43e035bca"
 		}
 	],
-	"TimeStamp": 1779119434289
+	"TimeStamp": 1779241325091
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:03:44Z",
+			"Date": "2026-05-01T01:18:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				107,
+				109,
 				1
 			],
-			"Message": "feat(Wind): Add LandWorkbench composition layer and WorkbenchWorkspace service\n\nSynchronize Wind submodule to deliver a new LandWorkbench composition layer merging all previously-added workbench-tier services (Clipboard, Command, Dialog, Host, Keybinding, Lifecycle, Notification, Storage, Theme) plus the new WorkbenchWorkspace service into a single Layer for convenient consumption by Sky. The WorkbenchWorkspaceService bridges VS Code's native IWorkspaceService, providing Snapshot (workspace id, folders, configuration), Folders (array of workspace folders), FolderForResource (lookup folder by URI), and OnFolderChange (stream of folder add/remove/change events). The LandWorkbenchLayer uses Layer.mergeAll so a failure in one service doesn't poison others, and LandWorkbenchRuntime provides a lazy singleton ManagedRuntime for efficient per-webview instantiation.\n\nRefs: Land/.claude/tauri/Patches/14-StreamingGRPC.md",
-			"SHA": "4b54c85e41012383576819cbcf9c5e792da6c05a"
+			"Message": "perf(Element): Batch command registration to eliminate IPC saturation during extension boot\n\nSynchronize four Element submodules with coordinated performance fixes addressing keystroke lag during extension boot:\n- Mountain: Add CommandEmitBatch to buffer 1000+ registerCommand notifications and flush after 16ms, reducing individual emit storms to a single batched IPC round-trip\n- Output: Revert DisableLazyPaint opt-in gate (regressed editor mount) and remove PartZIndexCSS `isolation: isolate` rule that blocked input events under WKWebView\n- Sky: Accept batched `{ commands: [...] }` format alongside legacy single-command shape via new RegisterOneCommand helper\n- Cocoon: Sync to latest\n\nThese changes prevent 1000+ Tauri events per extension boot from saturating the shared WKWebView IPC channel that also delivers keystrokes, restoring input responsiveness during the most resource-intensive phase.\n\nRefs: Related to #10785a0 (IPC channel saturation), #9cae17e (lazy paint RAF/IO overrides)",
+			"SHA": "ee7ae2629ee433d18040d6fd237bf9d2e1c28c70"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:02:09Z",
+			"Date": "2026-05-01T00:36:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				107,
+				109,
 				1
 			],
-			"Message": "feat(Element): Sync submodule with Workbench clipboard/host/keybinding services\n\nSynchronize Element submodule to deliver the final tier of Wind workbench services, completing the service layer coverage for VS Code integration:\n\n- Wind: Add WorkbenchClipboardService (read/write text and resources), WorkbenchHostService (reload, restart, close, focus operations), and WorkbenchKeybindingService (keybinding lookup and resolution). Each follows the established Wind pattern with Context.Tag, interface, Live implementation, and Problem ADT.\n- Output, Worker, Rest, SideCar, Sky: Submodule pointer updates.\n\nThis synchronization completes the workbench service surface expansion for VS Code integration, adding the last three service layers to the Wind Effect-TS architecture.",
-			"SHA": "4e6bb532240cdb0ef20741ec927ad3ca0bab955f"
+			"Message": "refactor(Output): Make DisableLazyPaint RAF/IO overrides opt-in\n\nWrap the requestAnimationFrame and IntersectionObserver overrides in a conditional guard, requiring `__LAND_AGGRESSIVE_LAZY_PAINT__ = true` to be set BEFORE workbench bootstrap. These overrides redirect Monaco's rAF callbacks to the macrotask queue and replace native IntersectionObserver with a fire-on-observe stub that calls getBoundingClientRect() synchronously. The problem: both bypass WKWebView's compositor-frame coordination—which also delivers keyboard input. Once Monaco starts rendering (theme load, decorations, cursor blink, minimap, scrollbars), the macrotask queue floods and keystrokes starve, causing the input lag symptom this polyfill was meant to solve. Keep the CSS lazy-paint kill (content-visibility: visible) always applied—it solves the original \"panels invisible until hover/scroll\" WKWebView bug without affecting input latency. This complements the recent IPC logging fix (2588fe4) and EditContext polyfill (44e160c) in addressing WKWebView input starvation.",
+			"SHA": "9cae17ed70c86ca51f9b79df42ce6ccf4e14a1b7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T04:59:49Z",
+			"Date": "2026-05-01T00:16:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				107,
+				109,
 				1
 			],
-			"Message": "feat(Wind): Add Workbench* Effect-TS service layers\n\nAdd six new workbench-tier service layers bridging VS Code's native workbench services to Wind's Effect-TS architecture:\n- WorkbenchCommandService: Execute/list/filter commands, stream command execution events\n- WorkbenchDialogService: Confirm dialogs, pick choices, show info/warn/error\n- WorkbenchLifecycleService: Phase tracking (Starting/Ready/Restored/Eventually), shutdown streams\n- WorkbenchNotificationService: Dispatch notifications, stream dispatched events\n- WorkbenchStorageService: Scope-aware (Application/Profile/Workspace) storage with targets\n- WorkbenchThemeService: Get/set color themes, token color queries, theme change streams\n\nEach service provides a typed Effect-TS interface with Live implementation (runtime bridge via globalThis.__CEL_SERVICES__) and Problem ADT for error handling.\n\nThis synchronization delivers B7-S6 P14.5 workbench service surface expansion.",
-			"SHA": "7e945553a816783b6f16b5fec69ff52cc4020afc"
+			"Message": "perf(Element): Reduce IPC channel saturation to fix keystroke lag during extension boot\n\nSynchronize five Element submodules with performance optimizations addressing input lag caused by IPC channel saturation:\n- Mountain: Gate mountain_sync_status_update and mountain_performance_update events behind LAND_SYNC_STATUS_EMIT and LAND_PERF_EMIT env vars. Add subscriber fast-path to skip lock-and-drain when Subscribers.is_empty().\n- Output: Remove success-case tauri-invoke logging in InvokeMountain and fire-and-forget channel stub logging. Only log drift disposition.\n- Sky: Remove per-fire _CelDispatchLog traces (now requires __LAND_TRACE_CEL_DISPATCH__=true). Diagnostic bridges for markers-bridge and webview-bridge now only log on pushable=false or hasRegister=false.\n- Wind: Remove success-case tauri-invoke forward (failures still forwarded). Only forward drift disposition case.\n\nThese changes prevent 50-100 log/emits per second during extension boot from saturating Tauri's invoke channel and starving keystroke delivery on the shared WebKit message channel.",
+			"SHA": "10785a06a6996e30792a4a1818f5be6db75fd5c3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T04:55:09Z",
+			"Date": "2026-04-30T23:35:10Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				107,
-				1
+				"⠃⠀⠀⠀⠀",
+				109,
+				6
 			],
-			"Message": "build(Element): Sync submodule with WKWebView font fixes and service layers\n\nSynchronize Element submodule to deliver B7-S6 P14.5 maintenance:\n- Mountain: Add explicit font MIME type mappings for WKWebView. Add TTF, OTF, WOFF, WOFF2, EOT mappings to resolve silent font loading failures where codicon font and extension assets (KaTeX, Seti) render as blank squares.\n- Output: Expand workbench service exposure with 21 new handles (Configuration, Storage, Lifecycle, Theme, etc.) for Wind consumption. Add InjectConfigurationOverlay and InjectStorageOverlay transforms for runtime config/storage overrides via globalThis.__CEL_OVERRIDE_CONFIG__ and __CEL_OVERRIDE_STORAGE__. Also fix worker URL rewriting and CSS loader handling.\n- Wind: Add UserSettings and WorkbenchStorage Effect-TS services. UserSettingsService bridges VS Code's IConfigurationService with memory target support; WorkbenchStorageService provides scope-aware storage with change streams.\n- Cocoon, Mountain, Output, Wind: Submodule pointer updates.\n\nThis synchronization resolves font rendering issues in the webview while expanding the service layer surface available to the Wind frontend.",
-			"SHA": "c8cbc570e483fc538032e9cf9501b57460562850"
+			"Message": "build(Land): Add diagnostics overlay and generated-artifact clean script\n\nAdd a new `.env.Land.Diagnostics` overlay exposing debug-only knobs: Inspect (WKWebView DevTools), Smoke (CommandCatalog test harness), Trace (dev-log tag selection), Record (dev-log file sink), and Disable (master kill-switch to bypass all Land customisations).\n\nShip `.env.Land.Diagnostics.Sample` as the canonical comment block; TierEnvironment.sh now sources the new overlay after PostHog.\n\nAdd `Maintain/Script/CleanGenerated.sh` to wipe source-side generated artefacts (Wind/Cocoon/Sky codegen, tonic-prost output, proto mtimes) that `cargo:rerun-if-changed` can't detect when `Generated/` is deleted by hand. Build.sh sources this helper when Clean=true.\n\nSync Element submodule to latest downstream versions which add Disable=true for bisecting typing/input regressions and refine Output/Sky with CSP loosening, icon URL fixes, and input routing options.\n\nThis enables developers to bisect whether regressions originate in Land's customizations or upstream/Tauri/WKWebView by running with Disable=true.",
+			"SHA": "11c3c5905596a97db0349cd8d27c65ccd111b05f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T03:49:29Z",
+			"Date": "2026-04-30T20:27:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				107,
 				1
 			],
-			"Message": "build(Element): Sync ESBuild config refactor and minification across submodules\n\nSynchronize multiple Element submodules to their latest downstream versions:\n- Output: Switch from esbuild transform to byte-copy for VS Code sources. Change VSCode.ts ESBuild config to use `loader: { \".js\": \"copy\" }` instead of parsing/transforming VS Code's out/ tree. This byte-copies .js/.cjs/.mjs files directly, preserving tsc's original identifiers and fixing transform plugins that were silently no-oping due to esbuild's minification.\n- Wind: Minify ESBuild configuration and Target output files. Compress configuration from multi-line readable format to single-line minified output, rebuild Target/ with reduced file sizes.\n- Worker: Minify ESBuild configuration files. Replace descriptive variable names with single letters, remove whitespace and comments.\n- Mountain, Cocoon, Common, Maintain: Submodule pointer updates.\n\nThis synchronization fixes the Output transform pipeline while reducing bundle sizes through minification across Wind and Worker.",
-			"SHA": "248ff9db7564596c9910fd7b17e96a412f853578"
+			"Message": "chore(Element): Sync submodule updates with macOS UX fixes and extension webview support\n\nSynchronize five Element submodules to their latest downstream versions delivering critical macOS UX improvements and extension webview infrastructure:\n- Mountain: Fix boot race and close handling for macOS (Cmd+W intercept, DevTools focus opt-in) and add vscode-webview:// URI scheme handler for extension webviews (Roo Code, Claude, GitLens)\n- Output: Add macOS titlebar offset and z-index CSS transforms, expand sandbox stripping to both iframe sites, rewrite webview shell CSP\n- Sky: Add window close handler (Cmd+W closes active editor first), lifecycle focus after restoration, and opt-in command catalog smoke test\n- Wind: Update service layer with latest Effect-TS changes\n\nThese fixes resolve the \"I can't type or keybind\" issue, empty Explorer on first launch, and enable sideloaded extension webviews to render properly.",
+			"SHA": "b03e792bcab717d62f36fa3211adfc37e9e147cb"
 		}
 	],
-	"TimeStamp": 1779119401766
+	"TimeStamp": 1779241291510
 }

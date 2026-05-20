@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:36:08Z",
+			"Date": "2026-05-02T09:13:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1128,
-				10
+				1213,
+				2
 			],
-			"Message": "feat(Mountain): Introduce AirClient DTOs and streaming wrapper\n\nCreate the `AirClient` module within Mountain to define Data Transfer Objects for communicating with the Air sidecar daemon. This includes structures for metrics (`AirMetrics`), status (`AirStatus`), file operations (`FileInfo`, `ExtendedFileInfo`, `FileResult`), resource monitoring (`ResourceUsage`), and update metadata (`UpdateInfo`).\n\nAdditionally, implement `DownloadStream` and `DownloadStreamChunk` to wrap the Tonic streaming API. This adapter converts the raw gRPC stream into an idiomatic `next().await` iterator, handling error propagation and metadata extraction for binary payload downloads.\n\nAll structs utilize the project's `Struct` naming convention and include `#[allow(non_snake_case)]` where appropriate to align with legacy gRPC protobuf naming. These additions provide the necessary client-side representation for the Air daemon's file transfer and monitoring capabilities via the Vine protocol.",
-			"SHA": "5cf0e601ab8ac6be24f713b469a207ef5c98655d"
+			"Message": "feat(Mountain): Inject user shell environment for GUI launches\n\nImplement a boot-time utility in `Source/Environment/Utility/EnhanceShellEnvironment` to resolve the minimal environment problem inherent in macOS/Linux GUI app launches (e.g., Finder, Dock, Spotlight).\n\nWhen launched non-interactively, the app receives a bare `PATH` missing user customizations like `NVM_DIR`, `HOMEBREW_PREFIX`, and `JAVA_HOME`. This previously caused child processes (Cocoon's Node, language servers, Git extensions) to fail or use outdated system binaries.\n\nThe solution spawns the user's login shell with `-ilc env` to capture their full runtime environment, then safely merges new variables into the parent process environment. It includes:\n- A 2-second timeout to prevent boot hangs from misbehaving `.rc` files.\n- A check to skip injection if already running from a TTY.\n- A safety filter (`IsPortableEnvName`) to reject non-standard variable names.\n- A strict policy to preserve existing environment variables unless they are unset, ensuring no overwrites of deliberate user overrides.\n\nThis ensures Mountain and its sidecars (Cocoon, Air) operate with the same environment context as a user's terminal session.",
+			"SHA": "240102ddfe032c28ba28bd65c16ce7412642abf1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:36:04Z",
+			"Date": "2026-05-02T09:12:27Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1212,
+				16
+			],
+			"Message": "feat(Mountain): Introduce service registry and feature flag subsystem\n\nImplement the foundational runtime control plane within Mountain, consisting of a service discovery registry and a feature flag management system.\n\nIn `Source/IPC/Common/ServiceInfo`, define the data models for service lifecycle management: `ServiceState::Enum` (Running, Degraded, etc.), `ServicePerformance::Struct` (request/error counters with rolling mean latency), `ServiceEndpoint::Struct` (network/UDS metadata), and `ServiceInfo::Struct` (aggregated health state). The `ServiceRegistry::Struct` provides a thread-safe map for registering services, tracking heartbeat intervals, and filtering by health status (operational state, <30s heartbeat, <10% error rate).\n\nIn `Source/Telemetry/FeatureFlags`, refactor the existing monolithic module into a modular architecture adhering to the project's PascalCase naming convention. Extract `FeatureFlag::Struct`, `FlagCategory::Enum`, and `FeatureFlagError::Enum` into their own files. The `FeatureFlagRegistry::Struct` maintains a process-wide thread-safe registry (backed by `parking_lot::RwLock`) seeded with defaults like `ipc-compression` and `experimental-webgl`. Expose functional accessors (`IsEnabled::Fn`, `Enable::Fn`, `Disable::Fn`) via `GlobalRegistry` to allow the rest of the backend to gate experimental features without recompiling.\n\nThese additions enable the backend to dynamically monitor service health across the IPC landscape and toggle performance or experimental features at runtime.",
+			"SHA": "1e9d527a0900769df28f60221d7282d7f3744a10"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:07:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1117,
+				1196,
+				4
+			],
+			"Message": "feat(Mountain): Define core IPC message types and priority system\n\nIntroduce the foundational data structures for the Inter-Process Communication layer within `Source/IPC/Common/MessageType`. This commit establishes the contract for request, response, and message handling across the Mountain backend and connected services.\n\nThe implementation adds:\n- `MessagePriority::Enum`: A four-tier priority ladder (Low, Normal, High, Critical) supporting comparison and ordering for scheduling logic.\n- `IPCCommand::Struct`: A builder-pattern command request allowing positional `Args`, named `Params`, and explicit priority assignment.\n- `IPCMessage::Struct`: A generic transport envelope including a UUID, timestamp, optional correlation ID for request tracking, and a priority field.\n- `IPCResponse::Struct`: A standardized response type with `Success`/`Error` constructors, preserving the correlation ID for async matching and capturing execution results or failure reasons.\n\nAll types derive `Serialize` and `Deserialize` to enable JSON transmission over the gRPC (Vine) protocol and Tauri IPC channels. These models unify the messaging interface, enabling the `Wind` service layer and `Cocoon` extension host to exchange structured data with explicit priority handling and traceability.",
+			"SHA": "b95a7333e3b00c5c13850fdaeb0ad7e5ef0efa37"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:07:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1191,
 				1
 			],
-			"Message": "fix(Mountain): Invoke Vine gRPC ConnectToSideCar via explicit Fn method\n\nUpdate the Air sidecar launch logic in `AirStart.rs` to explicitly call the `::Fn` associated method for `ConnectToSideCar` on the `Vine::Client` gRPC stub. This change aligns with the updated calling convention for the Vine protocol client established in recent refactors, ensuring proper method resolution and preventing potential compilation errors or runtime mismatches when establishing the gRPC connection to the Air daemon.\n\nThis ensures consistent RPC communication with the Air sidecar across the Mountain backend.",
-			"SHA": "1ec8fe99d021b78ad6a2d1b4d4316d4581878394"
+			"Message": "refactor(Mountain): Align ApplicationState import with PascalState DTO naming\n\nUpdate the import statement in `ApplicationState` to use the full type path `TestProviderState::Struct` instead of the raw module reference. This aligns with the project's strict PascalCase naming convention where state data structures are explicitly named `...::Struct` (as defined in recent commits for `TestProviderState`).\n\nEnsures the type signature correctly resolves the aggregated state manager for test execution contexts, maintaining consistency with other DTO definitions and preventing potential compiler ambiguity when `ApplicationState` is cloned or accessed across threads.",
+			"SHA": "d61a52c94a249624bbc77eefa14d3a2678ba43ce"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:35:59Z",
+			"Date": "2026-05-02T09:06:55Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1117,
-				2
+				1191,
+				1
 			],
-			"Message": "style(Mountain): Compact import and macro formatting in PathCanon module\n\nConsolidate multi-line `use` statements and `dev_log!` macro invocations into single-line blocks within `Source/Cache/PathCanon/Cache.rs` and `SpawnDiagnosticLogger.rs`.\n\nThese stylistic adjustments reduce vertical whitespace in the PathCanon cache implementation and diagnostic logging logic. The changes maintain full functional equivalence while adhering to a more compact Rust formatting convention, ensuring the code remains readable without unnecessary line breaks for simple constructs.",
-			"SHA": "223c09489a18c1679ff49fc34d48615be451198a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:35:54Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1117,
-				5
-			],
-			"Message": "fix(Mountain): Correct import paths for state types and IPC modules\n\nUpdate import statements across the registration modules in `Source/Binary/Register/` to resolve types via their new granular paths. Specifically, change `ApplicationState` to `ApplicationState::State::ApplicationState::ApplicationState` to align with the recent atomic module refactoring. Additionally, update IPC function imports to reference the new sub-modules (`AdvancedFeatures`, `StatusReporter`, `WindAdvancedSync`) under `IPC` and adjust the IPC server reference to explicitly use the legacy `TauriIPCServer_Old` implementation during the transition.\n\nThese changes ensure the binary registration logic correctly resolves all dependencies, preventing compilation failures caused by outdated import paths following the module restructuring.",
-			"SHA": "f5c9c54e3eb34b0908de969b852b449bf47f585c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:35:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1117,
-				2
-			],
-			"Message": "fix(Mountain): Correct ApplicationState import paths in Extension module\n\nUpdate the import statements in `Source/Binary/Extension/ExtensionPopulate.rs` and `ScanPathConfigure.rs` to resolve the `ApplicationState` type via the new nested path `ApplicationState::State::ApplicationState::ApplicationState`.\n\nAlign with the recent refactoring of the `ApplicationState` module, which reduced the root module to an atomic placeholder and shifted type definitions to granular sub-modules. This ensures the Extension logic correctly resolves the `ApplicationState` struct and `MapLockError` type, preventing compilation failures caused by the legacy flat import path.",
-			"SHA": "a67458952138f9e4d9c48362e2943e328fafd8e4"
+			"Message": "fix(Mountain): Correct import path for URI normalization utility\n\nResolve a broken import path in `Source/IPC/WindServiceHandlers/Extensions.rs` where the `Normalize` module was referenced incorrectly. Update the path from `IPC::UriComponents::Normalize` to `IPC::UriComponents::Normalize::Fn` to align with the actual module structure and expose the normalization function required for processing extension URIs.\n\nThis ensures the extension management handlers can correctly resolve URI components during the filtering of installed extensions, preventing potential runtime panics or logic errors when interacting with the `Wind` service layer.",
+			"SHA": "27f727498c52bb68469eda25b9df43e452c463e8"
 		}
 	],
-	"TimeStamp": 1779119418530
+	"TimeStamp": 1779241307912
 }

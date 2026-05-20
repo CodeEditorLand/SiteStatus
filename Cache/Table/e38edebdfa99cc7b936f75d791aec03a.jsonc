@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-02-08T10:39:58Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				58,
+				1
+			],
+			"Message": "test(Grove): Add comprehensive integration test suite for extension host\n\nThis commit introduces the initial integration test suite for the `Grove` Rust extension host, validating the stability and interoperability of the core subsystems implemented in recent development iterations (WASM Runtime, Transport Layer, Host Orchestration, and Protocol).\n\nThe new `Tests/integration/extension_loading_test.rs` module provides coverage for:\n- **Lifecycle & Orchestration**: Verifying `ExtensionHost` initialization, state transitions, and `ExtensionManager` operations (discovery/listing).\n- **WASM Runtime**: Testing the creation of the `Wasmtime` engine and instance tracking.\n- **Transport Strategies**: Validating the initialization of gRPC, IPC, and WASM transport types.\n- **Protocol & Connectivity**: Checking `SpineConnection` state management (Disconnected vs. Connected).\n- **Services**: Testing the `ConfigurationService` for scoped setting storage and retrieval.\n- **API Surface**: Validating core DTOs (`Position`, `Range`, `TextEdit`) and the availability of the VS Code API facade.\n\n**Impact**: This establishes a regression baseline for the `Grove` subsystem, ensuring the newly implemented \"WASM Strategy\" and \"Spine\" communication layers function correctly within the broader Land architecture.",
+			"SHA": "15ba658499230ad6fdd3a061e407f48200acfca9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-02-08T10:35:52Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				55,
+				6
+			],
+			"Message": "feat(Grove/WASM): Implement core WebAssembly runtime engine and execution environment\n\nThis commit establishes the foundational execution infrastructure for the Grove extension host, enabling the loading, sandboxing, and execution of WebAssembly modules using Wasmtime. It completes the \"WASM Strategy\" capability introduced in the recent Transport layer refactoring.\n\nThe implementation provides a comprehensive subsystem composed of five core modules:\n\n- **`Runtime`**: Encapsulates the `wasmtime::Engine` and configuration (`WasmConfig`). It manages the lifecycle of WASM stores, handles fuel metering for execution throttling, and enforces compilation settings (WASI, SIMD, multi-memory support).\n\n- **`ModuleLoader`**: Handles the ingestion of WASM artifacts from file paths, memory buffers, or remote URLs. It manages the compilation process, extracts module metadata (exports/imports), and coordinates instantiation via the Wasmtime linker.\n\n- **`MemoryManager`**: Enforces strict isolation and resource limits. It tracks allocation/deallocation, validates memory growth requests against global caps, and prevents OOM conditions within the host process.\n\n- **`HostBridge`**: Defines the communication protocol (marshalling/unmarshalling) between the Rust host and WASM guest. It manages type conversions (JSON/Bytes to Wasmtime `Val`) and provides the async-safe channels for bi-directional messaging.\n\n- **`FunctionExport`**: Implements the registry for exposing Rust host functions to WASM modules. It integrates with the Wasmtime `Linker` to wrap host callbacks, managing function signatures and call statistics.\n\n**Impact**: This subsystem transforms Grove from a message-passing orchestrator into a fully functional WASM runtime, providing the secure sandbox required to execute high-performance extensions within the Land architecture.",
+			"SHA": "e49e36848a2ce1fb0df9e7900430c65c1d18d992"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-02-08T10:33:22Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Grove/Protocol): Implement Spine connection driver and messaging layer\n\nThis commit establishes the client-side implementation of the Spine protocol, enabling the `Grove` extension host to communicate with the `Mountain` backend.\n\nThe implementation introduces the `SpineConnection` driver, which manages the full lifecycle of the gRPC link, including connection establishment, state transitions (`Disconnected`, `Connecting`, `Connected`), and resilience mechanisms like automatic reconnection with configurable backoff. It also defines the core messaging contract via `SpineMessage` (supporting Request/Response/Event patterns with correlation IDs) and `MessageType` enums.\n\nKey components added:\n- **`SpineConnection`**: Orchestrates async connectivity using `tokio`, manages connection state, and handles heartbeat loops to maintain liveness with `Mountain`.\n- **`ProtocolConfig` & `SpineConfig`**: Builder-pattern configurations for endpoint details, timeouts, TLS, and auto-reconnect strategies.\n- **`SpineStats`**: Tracks metrics such as messages sent/received, uptime, and reconnection attempts for observability.\n- **`ProtocolError`**: Defines error types for connection, serialization, and protocol violations.\n\n**Impact**: This layer forms the critical `Transport` infrastructure for `Grove`, allowing it to register itself, proxy API calls, and receive events from the Land editor environment.",
 			"SHA": "e8f0d37edd4d6f458f6ef22de98c31fec554f3ba"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:29:54Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				34,
-				6
-			],
-			"Message": "feat(Grove/Host): Implement core orchestration, activation, and lifecycle management\n\nThis commit introduces the central nervous system of the Grove extension host, bridging the `WasmRuntime` and `Transport` layers to manage extension execution within the Land ecosystem.\n\n**Why:** To provide a functional runtime environment for WASM extensions that mirrors the capabilities of `Cocoon` but leverages Rust's performance. This implementation orchestrates the discovery of extension artifacts, evaluates activation conditions, and manages state transitions, ensuring extensions are loaded and executed efficiently within the `Grove` architecture.\n\n**What:**\n- **`ExtensionHost`**: The main controller coordinating `ExtensionManager`, `ActivationEngine`, and `WasmRuntime`. Manages global host states (`Created`, `Ready`, `Running`) and handles high-level lifecycle commands (load, activate, shutdown).\n- **`ExtensionManager`**: Handles discovery of extensions in configured paths, parsing `package.json` manifests, and identifying extension types (`Wasm`, `Native`, `JavaScript`). Maintains the registry of loaded extensions, their capabilities, and dependencies.\n- **`Activation`**: Implements the `ActivationEngine` to process VS Code-compatible activation events (`onCommand:`, `onLanguage:`, `*`). Includes logic for wildcard matching and tracks activation history and statistics.\n- **`Lifecycle`**: Defines a finite state machine for individual extensions (`Created` -> `Initializing` -> `Running` -> `Stopped`). Manages state transitions and records event logs for observability.\n- **`APIBridge`**: Establishes the communication infrastructure for the VS Code API surface, defining `APICallRequest/Response` DTOs, `APIContext` for session management, and the registry for API method handlers.\n- **`mod.rs`**: Consolidates the Host modules and defines `HostConfig` for customizable runtime behavior (e.g., discovery paths, activation timeouts).\n\n**Impact:** This completes the core orchestration layer for `Grove`, enabling the host to load artifacts from disk, evaluate activation conditions, and manage the lifecycle of WASM extensions within the Land editor environment.",
-			"SHA": "0804b3652f9218ddfd22e72d15d136c7a53bb855"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:28:51Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				27,
-				3
-			],
-			"Message": "feat(Grove/API): Implement VS Code API facade and core types\n\nThis commit introduces the foundational API surface for the Grove extension host, defining the contract that WASM extensions will consume to interact with the editor environment.\n\n**Why:** To align Grove's capabilities with the standard VS Code extension API, ensuring compatibility and a familiar development model for extension authors moving from Cocoon or VS Code.\n\n**What:**\n- **`types.rs`**: Implements a comprehensive set of Data Transfer Objects (DTOs) including `Position`, `Range`, `Diagnostic`, `CompletionItem`, `WorkspaceEdit`, and `TextDocumentItem`. These types are fully serializable via `serde` to facilitate communication across the WASM bridge and internal host logic.\n- **`vscode.rs`**: Establishes the `VSCodeAPI` facade struct, exposing core namespaces (`commands`, `window`, `workspace`, `languages`, `extensions`, `env`). Contains placeholder implementations for registration, diagnostics, and window interaction that currently log to `tracing` or return default values, providing the structural skeleton for future implementation.\n- **`mod.rs`**: Configures the API module, defines version compatibility constants (targeting VS Code API 1.85.0), and provides utility functions for `semver` validation and JSON value conversion.\n\n**Impact:** This layer abstracts the complexity of the underlying host, providing a clean, strongly-typed interface for WASM extensions and completing a critical prerequisite for loading and executing user code.",
-			"SHA": "14b552bac17b46061a71994d2ef791b9f3056e33"
 		}
 	],
-	"TimeStamp": 1779119401637
+	"TimeStamp": 1779241291516
 }

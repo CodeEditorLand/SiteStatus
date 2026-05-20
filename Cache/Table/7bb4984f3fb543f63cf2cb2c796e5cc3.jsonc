@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-04-25T02:54:41Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T21:54:01Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				261,
+				45
+			],
+			"Message": "feat(Output): Fix Monaco worker bootstrap crashes and add polyfill telemetry\n\nAdd two new build transforms that fix worker bootstrap crashes in the bundled editor:\n\n1. InjectWorkerBootstrapShim: Injects `__name`/`__defProp` shim into `webWorkerServiceImpl.js::getWorkerBootstrapUrl` blob factory so Monaco's language workers (TS/CSS/HTML/JSON services, semantic tokens) inherit the helpers in their module scope. Without this, workers crash with `ReferenceError: Can't find variable: $4e` when Vite/OXC mangling renames `__name` to `$4e`.\n\n2. RewriteNestedWorkerBootstrap: Replaces `polyfillNestedWorker.js`'s `(function... ).toString()` pattern with a literal JSON.stringified source that omits the cosmetic `__name(...)` decorations. The `.toString()` approach returns mangled source (`$4e`) which the blob worker can't evaluate since the identifier isn't defined in its scope.\n\n3. RewriteStaticBlockSelfRef: Replace hardcoded 2-file whitelist with auto-detection across all `vs/*.js` files - the whitelist silently failed because VS Code's out-build mangler emits different class names than expected.\n\n4. InstrumentVscodeGit: Add markers F (createModel done) and L (openRepository getRepositoryRoot done) for finer-grained Git extension activation diagnostics.\n\n5. Telemetry: Add global `__LAND_POLYFILL_TELEMETRY__` hook and wire it into ChildProcessPolyfill, IPCRendererShim, ProcessPolyfill, and SharedProcessProxy to route silently-caught failures to PostHog for monitoring.",
+			"SHA": "e0fda068f1befeb3a76f470689b34bd8378fe554"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T20:56:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				172,
+				266,
 				1
 			],
-			"Message": "",
-			"SHA": "c2d3422523eb8dc1a8dc08ad0575ac7cc5aa8605"
+			"Message": "refactor(Output): Update RewriteStaticBlockSelfRef to auto-detect affected files and remove manual whitelist\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "4fab2bb7a34e298cf9ea9c00697fedeedbacb2ac"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T02:03:58Z",
+			"Date": "2026-04-28T20:48:41Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				172,
-				2
+				"⠃⠀⠀⠀⠀",
+				266,
+				16
 			],
-			"Message": "refactor(Output): Expand CopyVSRootFiles candidate resolution\n\nThe plugin now checks both `<root>/<file>` and `<root>/vs/<file>` for every location because nls.* files and other VS Code outputs live at different paths depending on which TSC pass produced them - some at the root, some under `vs/`.\n\nAlso adds proper NODE_ENV-aware ordering: production builds prioritize `out-build/` (release TSC flat layout) before `out/` (debug TSC source layout), while development builds do the reverse. An `OnDevelopment` override parameter allows tests to force the ordering.\n\nThe inline stub fallback for missing NLS files (tier 4) is preserved - stock VS Code generates `nls.messages.js` only during localization which our pipeline doesn't run.",
-			"SHA": "36ce8f4a8863e03d3688d0cd644855cb6fdacfbc"
+			"Message": "feat(Output): Add HoistFunctionDeclarations and RewriteStaticBlockSelfRef transforms\n\nAdd two new build transforms to Output's ApplyPipeline that fix TDZ errors in bundled VS Code:\n\n1. HoistFunctionDeclarations: Moves top-level `function NAME(...) {...}` declarations and ESBuild helper vars (`__defProp`, `__name`, `__decorate`, `__param`) to the top of each file, before any calls. After Rollup concatenation converts function declarations to `let NAME; NAME = function(){...}`, calls before the assignment hit a TDZ. Pre-hoisting preserves the unbundled semantics.\n\n2. RewriteStaticBlockSelfRef: Rewrites class-name self-references (`ClassName.member`) inside `static {...}` blocks to `this.member`. After bundling, `class X {...}` becomes `let X; X = class{...}` so static block self-references resolve to undefined. Inside a static block, `this` IS the class.\n\nAlso update InjectNameShim to add 'unsafe-inline' to the iframe's CSP - the name shim injection invalidates the SHA256 hash. Update RewriteWorkbenchBaseURL to use a literal import string instead of runtime-computed URL, enabling Vite/Rollup to follow the module graph for bundling.\n\nThese transforms enable the bundled workbench to boot correctly after Output's tree shake + bundle pass.",
+			"SHA": "3c4cbf07803c8b20cfceed4186ca2dd24682c052"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:52:21Z",
+			"Date": "2026-04-28T05:26:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				172,
+				260,
 				1
 			],
-			"Message": "feat(Output): Add inline stub fallback for missing NLS files\n\nAdd tier 4 fallback mechanism using inline `data:text/javascript` stubs for files that stock VS Code generates only during the localization step. The build pipeline doesn't run the per-locale NLS generation, so `nls.messages.js`, `nls.keys.json`, `nls.messages.json`, and `nls.metadata.json` don't exist on disk.\n\nWithout this fallback, the webview 404s to the SPA fallback and the browser reports `Unexpected token '<'` on the HTML response - the exact cold-boot failure mode this plugin step exists to prevent.\n\nThe stub bodies are valid modules/JSON: the empty NLS array causes the runtime to fall through to the per-call fallback string every `localize(id, fallback, ...)` callsite already passes.",
-			"SHA": "57d46b488683302c04bef581c1f855775e63cf0a"
+			"Message": "refactor(Output): Exclude StaticToDynamicImport and CSS transforms from ApplyPipeline\n\nRemove CSSStrategy (InlineCSSImport/StripCSSImport) and StaticToDynamicImport from Output's ApplyPipeline. These transforms rewrite static imports into runtime forms (`await import(...)` for JS, `_LOAD_CSS_WORKER(...)` for CSS) which suit the `/Static/Application/` path where files are individually loaded via the Worker SW.\n\nFor Output's bundled tree where Vite walks Target, we WANT static imports so Rollup can follow the module graph and emit a single hashed chunk. CSS is handled by Vite's native pipeline which extracts and hashes CSS assets into `_astro/`, with `cssCodeSplit: false` in astro.config.ts to fold every CSS module into one file.\n\nSky's `astro:build:done` hook still runs the full BuildPipeline (including these transforms) over Sky/Target/Static/Application/, so the existing path maintains its runtime-load behavior. The two output trees diverge intentionally.",
+			"SHA": "5b9e387695fc9812e24274d0b447d42550613243"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:30:00Z",
+			"Date": "2026-04-28T04:53:25Z",
 			"File": [
-				"⣿⣿⣿⠀⠀",
-				172,
-				104
+				"⠀⠀⠀⠀⠀",
+				260,
+				1
 			],
-			"Message": "build(Output): Minify Configuration files in Output element\n\nThe Configuration directory contains ESBuild configs (Editor, Exclude, Microsoft, Output, RestPlugin), Plugin configs (Apply, Copy, Index, Transform, Type), Polyfill configs (ChildProcess, FileProtocol, FileSystem, IPCRenderer, NativeModule, Process, SharedProcess), and Service configs (DevLog, TauriMainProcess, Trace) that were previously in verbose source form.\n\nThis commit minifies all Configuration JS files and removes the corresponding source map files, converting the configuration from development-readable format to production-optimized build artifacts. The minified versions maintain identical functionality while reducing bundle size and improving load times.\n\nThe configuration files are now ready to be consumed by the Output element's build pipeline for bundling the VS Code platform code.",
-			"SHA": "0b1561ccb77d0ba6a6ef714585f5b570bf6bbb47"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T00:25:23Z",
-			"File": [
-				"⣿⣿⠇⠀⠀",
-				224,
-				108
-			],
-			"Message": "",
-			"SHA": "36dbc44e8e18e6eca5c3ec295e114f1b964783ff"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
+			"SHA": "ae22fae83e8e83ac908e8af3a3159e2340b00435"
 		}
 	],
-	"TimeStamp": 1779119406008
+	"TimeStamp": 1779241298337
 }

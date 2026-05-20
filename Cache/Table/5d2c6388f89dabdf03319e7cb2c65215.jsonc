@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-18T13:02:35Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				725,
-				159
-			],
-			"Message": "refactor(Mountain): Standardize dev_log! macro formatting across codebase\n\nReformat all dev_log! macro invocations from single-line to multi-line format for improved readability. This affects ~150+ call sites across Air, ApplicationState, Binary, Environment, IPC, RPC, RunTime, Telemetry, and Vine modules.\n\nAdditional improvements:\n- Add .js.map 204 handling in vscode-file scheme handler (DevTools compatibility)\n- Improve extension scanner logging for first-run scenarios (non-existent directory is debug-level, not warn)\n- Add NLS placeholder resolution logging to extension scanner\n\nNo functional changes aside from the DevTools .js.map fix and improved logging levels for first-run extension directories.",
-			"SHA": "f0449be512c142adb02fd0397b03a2f4c5f79623"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-18T01:59:36Z",
+			"Date": "2026-04-22T18:20:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				691,
+				774,
+				2
+			],
+			"Message": "fix(Mountain): Fix extension location URI marshalling for VS Code renderer\n\nVS Code's URI revival system ignores objects lacking the `$mid === 1` marshalling marker. Without it, extension locations sent to the renderer become plain `UriComponents` bags where `.fsPath` and `.with` are undefined — the sidebar silently filters the entire batch out.\n\nThis change adds three functions in Extensions.rs:\n- `Normalize_Location_To_UriComponents`: converts the scanner's raw `file://` URL string into VS Code's `UriComponents` object shape\n- `Stamp_Mid_Uri`: attaches `$mid: 1` to any UriComponents that lack it\n- `Parse_File_Url_To_UriComponents`: parses `file:///absolute/path` URLs into the required structure\n\nAlso extends `BuildInitialUrl` to recognize Mountain's own `{ uri: \"file://…\" }` format (written by the recently opened persistence) alongside VS Code's historical `folderUri`/`workspace.configPath` shapes for backward compatibility with imported profiles.\n\nExtension locations in the sidebar now resolve correctly.",
+			"SHA": "07b4da763e4acaec886915effcb6b6c49eb0d689"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T17:12:01Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				774,
+				3
+			],
+			"Message": "feat(Mountain): Restore recently opened folder on launch, fix macOS window drag\n\nTwo improvements to the window boot sequence:\n\n1. **Recently opened folder restoration (Atom W7):** Add BuildInitialUrl to read `~/.land/workspaces/RecentlyOpened.json` and pass `?folder=<path>` to the initial webview URL. This skips the destructive round-trip where every launch landed on Welcome, forced users to click \"Open Folder\", and triggered a hard reload that wiped workbench state. That reload was the direct cause of the purple splash flash, stuttering paint, empty `@builtin` sidebar, and broken keybindings (every layer boots twice, second pass loses first-pass references).\n\n2. **Fix macOS window dragging:** Remove `maximized(true)` from the window builder. Maximized macOS windows are pinned to the screen and refuse all drag events regardless of `-webkit-app-region: drag` CSS. Replace with `TitleBarStyle::Overlay` + `hidden_title(true)` which keeps traffic lights visible while letting VS Code's custom titlebar paint the drag region. Windows/Linux continue using `decorations(false)` for chrome-less operation.\n\nAlso fix en-dash to hyphen in three documentation comments (ExtensionDescriptionStateDTO, LandFixTier) to match project convention.",
+			"SHA": "aa5eafbd77da6ffa239edf2a45206ae3dfa1e4cc"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T17:11:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				774,
+				5
+			],
+			"Message": "feat(Mountain): Initialize PostHog telemetry client at boot\n\nAdd PostHogPlugin initialization at the start of Entry.rs Fn() to capture any errors during the boot process in telemetry. This runs before all other boot steps, including CLI parsing and state initialization, ensuring crash logs include PostHog context.\n\nAdditional improvements:\n- Remove incorrectly placed #[tauri::command] attribute from internal IPC dispatcher in mod.rs, adding docstring clarifying it's not directly reachable from the frontend\n- Fix en-dash to hyphen in three documentation comments (UI-Backend, timezone offset, lifecycle phase)",
+			"SHA": "4ff7003125814f3d5be66877b4fe2de4c52f2281"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T16:27:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				774,
 				1
 			],
-			"Message": "",
-			"SHA": "1882da9ccc9697b2cc7a81986cc7516c05f7174f"
+			"Message": "docs: improve LandFixTier.rs module header",
+			"SHA": "957f84e8bf064fe68b3f05c6cdeca1e1848fa23f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-17T23:07:55Z",
+			"Date": "2026-04-22T16:13:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				718,
-				8
+				774,
+				2
 			],
-			"Message": "fix(Mountain): Fix vscode-file:// URI resolution for extension assets\n\nAdd handling for absolute OS paths in the vscode-file:// scheme handler.\nVS Code extensions generate URIs like `vscode-file://vscode-app/Volumes/.../seti.woff`\nafter `FileAccess.uriToBrowserUri` rewrites extension paths. Detect common\nmacOS/Linux absolute path roots (Volumes, Users, Library, etc.) and serve\nfiles directly from disk instead of trying to resolve against Sky/Target.\n\nAlso add NLS placeholder resolution to the extension scanner. VS Code extensions\nuse `%key%` placeholders in package.json referencing `package.nls.json` entries.\nWithout this, the Command Palette and menus displayed literal `%command.clone%`,\n`%displayName%` strings. The scanner now loads NLS bundles and recursively replaces\nplaceholders in all string fields before parsing as ExtensionDescriptionStateDTO.\n\nAdditional improvements:\n- Downgrade benign \"Resource not found\" 404s in FileSystem.ReadFile to info-level\n  (extensions probe for optional cache files on activate)\n- Remove unused empty_ticks counter in Cocoon health monitor\n- Fix remaining PascalCase module references (ReadOperations, Messaging)\n- Simplify user extension path to only `.land/extensions`\n\nThese fixes enable proper loading of extension-contributed icon themes,\ngrammars, and localization.",
-			"SHA": "336b21a62b258af6641298869881ccc293cd610c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-17T16:11:37Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				718,
-				21
-			],
-			"Message": "refactor(Mountain): Complete PascalCase naming migration for RPC modules\n\nRename all remaining snake_case module files to PascalCase throughout the RPC layer:\n- commands.rs → Commands.rs\n- configuration.rs → Configuration.rs\n- debug.rs → Debug.rs\n- processes.rs → Processes.rs\n- scm.rs → SCM.rs\n- telemetry.rs → Telemetry.rs\n- terminals.rs → Terminals.rs\n- types.rs → Types.rs\n- vine.rs → Vine.rs\n- windows.rs → Windows.rs\n- workspace.rs → Workspace.rs\n\nAlso remove deprecated/unused service modules that have been refactored elsewhere:\n- CommandService.rs, Command/Validation/mod.rs\n- SecretStorageService.rs, SecretStorageState.rs\n- WindowService.rs, WindowState.rs\n- WorkspaceService.rs\n- Telemetry/Metrics/mod.rs, Telemetry/Spans/mod.rs\n\nUpdate mod.rs to use explicit #[path] attributes for all modules, replacing implicit snake_case resolution. This completes the PascalCase migration for the RPC subsystem, following the pattern established in previous commits for Environment, LanguageFeature, and other modules.",
-			"SHA": "5ba4958acbcc759748ae3037a2f0e75bdbf81d88"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-17T16:05:39Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				732,
-				15
-			],
-			"Message": "refactor(Mountain): Complete PascalCase naming migration for Environment and LanguageFeature modules\n\nRename remaining snake_case module files to PascalCase throughout the Mountain codebase:\n\n- LanguageFeature: validation.rs → Validation.rs, hover.rs → Hover.rs, highlights.rs → Highlights.rs, completions.rs → Completions.rs, definition.rs → Definition.rs, references.rs → References.rs\n- StatusBarProvider: tooltip.rs → Tooltip.rs\n- WebviewProvider: lifecycle.rs → Lifecycle.rs, configuration.rs → Configuration.rs, messaging.rs → Messaging.rs\n\nUpdate all module references and function calls in parent modules to use the new PascalCase names. Also standardize function names to PascalCase (provide_Tooltip_impl).\n\nThis completes the PascalCase migration started in the previous commit, ensuring consistent naming conventions across the entire Mountain codebase.",
-			"SHA": "9c0dce8c1b67b442e5ec12ad638d9f6f5baa263f"
+			"Message": "docs(Mountain): Streamline extension path and NodeResolver module docs\n\nSimplify comments in ScanPathConfigure for extension skip flags and builtin path override to be more concise while preserving the technical details.\n\nCondense the NodeResolver module docstring from verbose prose to a compact ladder list showing the resolution order: LAND_NODE_BINARY → shipped runtime → fnm/volta/asdf/nvm → homebrew → PATH. The resolution behavior is unchanged, only the documentation format is improved for scannability.",
+			"SHA": "bcc45254e06f84f91d17cb58716d12de486805f9"
 		}
 	],
-	"TimeStamp": 1779119438618
+	"TimeStamp": 1779241331428
 }

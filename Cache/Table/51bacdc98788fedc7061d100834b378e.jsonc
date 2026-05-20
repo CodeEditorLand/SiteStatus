@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:17:29Z",
+			"Date": "2026-05-02T05:08:42Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				939,
+				12
+			],
+			"Message": "refactor(Mountain): Decompose RPC modules into file-per-struct submodules\n\nRefactor all `Source/RPC/*.rs` files to align with the project-wide PascalCase module path convention enforced in recent `Track` and `RunTime` refactors. Replace inline struct definitions and `pub use` re-exports with explicit `pub mod` declarations that delegate to sibling files (e.g., `CommandService.rs`, `EchoActionServer.rs`).\n\nThis change ensures that every struct and implementation resides in a file matching its PascalCase name, allowing Tauri's `generate_handler!` macro to correctly resolve `__cmd__` symbols via the full module path. Placeholder services (Debug, Processes, SCM, Terminals, Windows) are updated to use the `Struct` naming pattern within their feature gates, while active services (Commands, Configuration, EchoAction, Telemetry, Workspace, Types, Vine) are split into their constituent DTOs and service handles. The `EchoAction` module retains its complex logic but now delegates to dedicated sub-files for `EchoActionServer`, `ExtensionHostRegistry`, `ExtensionRouter`, and priority resolution.\n\nThis establishes a consistent architectural pattern across the entire RPC layer, eliminating flat imports and ensuring strict path resolution for IPC generation.",
+			"SHA": "6816476bd1c4c5f0047725acc343bcdfe592a750"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:05:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
+				939,
 				2
 			],
-			"Message": "perf(Mountain): Batch command registration emits to reduce IPC saturation\n\nDuring extension boot, 1000+ `registerCommand` notifications fire in a tight burst (113 extensions × ~10 commands each). Each notification was emitting a separate Tauri event, saturating the shared WKWebView IPC channel that also carries keystroke delivery. Users could type for a split second before the burst hit, then nothing.\n\nAdd a `CommandEmitBatch` struct that buffers commands and flushes after 16ms (one frame), reducing 1000+ individual emits to a single batched `{ commands: [...] }` emit. SkyBridge's listener already accepts both shapes (single `{ id, commandId, kind }` or batch `{ commands: [...] }`), so no Sky changes required.\n\nThis keeps the IPC channel free for keystrokes during extension boot when the renderer is most busy.",
-			"SHA": "f304bd408f391d1848c357b909b09e5f5906ae99"
+			"Message": "refactor(Mountain): Collapse ApplicationRunTime struct into mod.rs\n\nRemove the `RuntimeStruct.rs` submodule and the associated `pub use` re-export pattern in `ApplicationRunTime/mod.rs`. Inline the `ApplicationRunTime` struct definition and its `HasEnvironment` and `Environment` trait implementations directly into `mod.rs`.\n\nThis change eliminates unnecessary indirection for the core runtime struct, ensuring callers must reference the full path `RunTime::ApplicationRunTime::ApplicationRunTime`. This aligns with the project-wide enforcement of PascalCase module paths required for `tauri::generate_handler!` symbol resolution and consistency across the Mountain crate. The struct now resides directly in the module file alongside its constructor, while method implementations remain delegated to sibling modules (`Execute`, `Shutdown`) as per architectural design.",
+			"SHA": "5e3eaaba2130f3e48c04d41f12106b25ddea322c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T00:15:58Z",
+			"Date": "2026-05-02T05:00:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
-				1
-			],
-			"Message": "perf(Mountain): Gate sync/performance emits behind env vars and add subscriber fast-path\n\nTwo optimizations to reduce IPC channel contention:\n\n1. **Env var gating**: The `mountain_sync_status_update` and `mountain_performance_update` events were emitting on every tick even though Sky has no subscriber. Every emit now waits behind keystrokes on the shared Tauri IPC pipe. Gate both behind `LAND_SYNC_STATUS_EMIT=1` and `LAND_PERF_EMIT=1` respectively for debugging or future Sky consumers.\n\n2. **Subscriber fast-path**: The 100ms real-time updates tick was acquiring the lock and draining pending updates even with zero subscribers. Add an early check to skip the entire lock-and-drain path when `Subscribers.is_empty()`, making the tick a true no-op until a subscriber registers.\n\nTogether these keep the shared IPC channel free for keystrokes during extension boot when the renderer is most busy.",
-			"SHA": "75d2f1dbe4d77d92e1f679c84aa4885ce355a12d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:34:46Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
-				2
-			],
-			"Message": "feat(Mountain): Add Disable env var and fix first-click focus issue\n\nTwo unrelated but complementary fixes:\n\n1. **accept_first_mouse(true)**: Fix the \"I clicked, I'm typing, nothing's happening\" bug where WKWebView swallows the first click on an unfocused window as a \"make me key\" no-op. The user had to click twice - first to focus the NSWindow, second to focus the Monaco textarea. This change flips the responder chain so the first click already reaches WKWebView's content.\n\n2. **Disable environment variable**: Add master \"disable Land customisations\" gate via `Disable=true` env var. When enabled, Mountain skips: WindowEvent::CloseRequested intercept (Cmd+W routes natively), Cocoon/Air sidecar spawn, and Wind/SkyBridge registration. This is useful for bisecting whether typing-input regressions originate in the extension host or upstream/Tauri/WKWebView. Also rename DevTools auto-open from LAND_OPEN_DEVTOOLS to `Inspect=1` to follow Land's PascalCase env var convention.",
-			"SHA": "14b86efb22e841a2d2fa91ea12ba33c37b6cec33"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T20:27:26Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
-				2
-			],
-			"Message": "fix(Mountain): Add vscode-webview URI scheme handler for extension webviews\n\nImplement the missing vscode-webview:// URI scheme handler to enable VS Code extension webviews (Roo Code, Claude, GitLens, custom editors) to render in the Tauri WKWebView environment.\n\nVS Code's WebviewElement wraps every extension webview in an iframe with src=vscode-webview://<authority>/index.html?... Without this handler, the iframe stays blank and any extension using webviewView/WebviewPanel/CustomEditor is non-functional.\n\nThe handler serves the three-file pre/ directory (index.html, service-worker.js, fake.html) from the embedded asset resolver or filesystem fallback. Extension HTML itself arrives via the workbench's swMessage postMessage channel after index.html boots.\n\nThis completes the extension webview infrastructure alongside the extension_root allowlist added in commit 320e57a, enabling sideloaded extensions to render their UI properly.",
-			"SHA": "54650acd31bb34c764095c9160eedb19e9a18916"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T20:27:20Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
+				940,
 				3
 			],
-			"Message": "fix(Mountain): Fix boot race and close handling for macOS\n\nTwo unrelated but impactful bugs fixed:\n\n1. **Boot race guard for Cocoon IPC**: The renderer dispatches tree:getChildren and cocoon:request (e.g. webview.resolveView) ~700 log lines before Cocoon's gRPC handshake completes. Without a wait, the first call returns ClientNotConnected, the workbench caches an empty result, and the user sees an empty Explorer until manual refresh. Add IsClientConnected() and WaitForClientConnection() to poll the connection pool before dispatching, with a 1500ms budget to keep UI responsive.\n\n2. **Cmd+W intercept for macOS**: Tauri 2.x maps Cmd+W to NSWindow.performClose: which wins the responder chain over the webview's keydown handler. The result: hitting Cmd+W to close a tab nukes the entire editor. Intercept CloseRequested, emit sky://window/close-requested to the webview, and use destroy() instead of close() in nativeHost:closeWindow to avoid re-entering the intercept.\n\n3. **DevTools focus theft**: DevTools auto-opening in debug builds steals macOS keyboard focus the moment it appears, preventing the main webview from becoming first responder. Make auto-open opt-in via LAND_OPEN_DEVTOOLS=1. Cmd+Alt+I and right-click Inspect still work.\n\nThese fixes resolve the \"I can't type or keybind\" issue and the empty Explorer on first launch.",
-			"SHA": "fb254aded503fa1e8ee2e0047bcfca44729e4c67"
+			"Message": "refactor(Mountain): Condense error construction in RunTime execution module\n\nRefactor `RunWithRetry` and `RunWithTimeout` in the `Source/RunTime/Execute` module to align with project style guidelines for error handling. Condense multi-line `CommonError::Unknown` constructions into single-line constructs for `Description` fields, improving readability and reducing vertical spacing. Additionally, format the import statements in `Run.rs`, `RunWithRetry.rs`, and `RunWithTimeout.rs` to remove unnecessary line breaks within the `CommonLibrary` import block.\n\nThis ensures consistent code style across the runtime execution logic and maintains parity with recent refactoring efforts in the shutdown and tracking modules.",
+			"SHA": "9435437a93f0a8d813df0081e95393d9e6023ad2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T04:58:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				940,
+				3
+			],
+			"Message": "refactor(Mountain): Consolidate shutdown logic formatting and correct Vine client call\n\nRefactor the shutdown sequence in `SaveApplicationState`, `ShutdownCocoonWithRetry`, and `ShutdownWithRecovery` to align with project style guidelines. Condense multi-line error mapping chains in `SaveApplicationState` and `ShutdownCocoonWithRetry` into single-line constructs for improved readability. Simplify the `dev_log!` macro invocation in `ShutdownWithRecovery` by removing unnecessary line breaks.\n\nCrucially, correct the invocation of the Vine client's shutdown marker in `ShutdownCocoonWithRetry`. Update the call from `MarkShutdown()` to `MarkShutdown::Fn()` to strictly adhere to the enforced PascalCase module path resolution pattern required by the Tauri command macros and the project's strict naming convention.\n\nThis ensures consistent code style across the runtime shutdown module and resolves the symbol resolution for the shutdown lifecycle hook.",
+			"SHA": "cbc65d5f77fe835108f17fc251e6ecd6308c7c0e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T04:56:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				940,
+				5
+			],
+			"Message": "refactor(Mountain): Enforce PascalCase paths in Effect module tree\n\nUpdate the `Track::Effect` module to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `CreateEffectForRequest/mod.rs`, rename the exported function from `CreateEffectForRequest` to `Fn` to match the import pattern used in `DispatchFrontendCommand` and other callers. In `mod.rs`, remove legacy `pub use` re-exports and the `pub mod` exposure pattern that allowed flat imports. Replace them with an explicit `#![allow(non_snake_case)]` directive and documentation comments.\n\nThis enforces that callers must spell out the full double-segment paths (e.g., `Track::Effect::CreateEffectForRequest::Fn`). This structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names, ensuring consistency across the Mountain crate and resolving potential symbol resolution issues in the IPC layer.\n\nAdditionally, format function signatures in `Keybinding.rs` and `NativeHost.rs` to single lines and expand comments in `Webview.rs` for clarity.",
+			"SHA": "79ccc6e73929c310801a2bb948723eeeb689f471"
 		}
 	],
-	"TimeStamp": 1779119426164
+	"TimeStamp": 1779241316362
 }

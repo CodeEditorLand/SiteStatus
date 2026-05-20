@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:34:39Z",
+			"Date": "2026-05-04T15:09:36Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				368,
-				12
+				397,
+				6
 			],
-			"Message": "fix(Output): Disable EditContext and refine WKWebView input polyfills\n\nAdd ForceTextAreaInput transform that flips Monaco's `editor.editContext`\ndefault from `true` to `false`, routing keyboard input through the legacy\n`<textarea class=\"inputarea\">` rather than the EditContext API. WKWebView's\nEditContext support is flaky enough that focused divs silently swallow\nkeystrokes - users see the cursor blink but typing produces nothing.\n\nRefine WorkbenchInteractivityCSS polyfill (V2):\n- Remove blanket `visibility: visible` and `opacity: 1` on workbench parts.\n  These forced invisible click-capturing rectangles over the editor that\n  absorbed clicks before Monaco's mousedown handler fired, presenting as\n  \"I clicked the editor but typing doesn't work\".\n- Add explicit `pointer-events: auto` rules for Monaco's textarea input\n  chain (.overflow-guard, .lines-content, .inputarea) to survive stacking\n  context interactions with our `InjectPartZIndexCSS` `isolation:isolate`.\n\nRefine WorkbenchPaintPrime polyfill (V2):\n- Remove `keydown` and `focus` capture-phase listeners. Each keystroke\n  triggered a synchronous `FindPartAncestor` + forced reflow BEFORE the\n  event reached Monaco's textarea, and the oninput queue could drop the\n  keystroke. Keeping only `pointerdown` still primes paint on first click\n  without breaking the input path.\n\nAdd LandDisableAll gate: when `process.env.Disable` is `\"true\"`, skip all\ntransform plugins and run only Copy plugins. Produces \"vanilla VS Code on\nTauri\" useful for bisecting whether regressions are in our polyfills or\nin upstream/Tauri/WKWebView.",
-			"SHA": "44e160c6b8a8de6aaa693bc8e4b6e3fcd56d49c6"
+			"Message": "feat(Output): Fix webview iframe hanging by patching ServiceWorker and event activation\n\nAddress critical UI stalls where extension webviews and sidebar panes remain stuck at the bare chrome (`pre/index.html`).\n\n1. **Webview Shell Patch (Plugin):** Add `PatchWebviewIframeServiceWorker` to the ESBuild pipeline. Under Tauri 2 + WKWebView, the custom `vscode-webview://` protocol rejects ServiceWorker registration, causing the bootstrap script to await a rejected promise and bail with `fatal-error`. This plugin forces `disableServiceWorker = true` and soft-fails strict `parentOrigin` hash checks that fail on custom protocols, ensuring the iframe renders correctly.\n\n2. **Extension Activation Patch (Service):** Enhance `CELExposeAccessor` to short-circuit `IExtensionService.activateByEvent` for `onView:*` events. Since Land's `*` activation pass loads all extensions at boot, waiting for specific view events (which block `WebviewViewPane.activate`) creates a deadlock in Cocoon. Immediate resolution prevents sidebar stalls.\n\nThese changes resolve hangs in extension webviews and sidebar views without forking the upstream workbench bootstrap logic.",
+			"SHA": "57b2a1a56c41c5e61dcc2dd421aaf5a555a80d37"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:34:25Z",
+			"Date": "2026-05-04T11:29:14Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				365,
-				7
-			],
-			"Message": "feat(Output): Add RewriteWebviewShellCSP transform and fix icon URL rewriting\n\nAdd a new transform plugin that loosens the webview shell's CSP script-src from a stale sha256 hash to `'unsafe-inline' 'self' blob:`. Stock VS Code pins the hash; WKWebView computes it differently from Chromium, and any transform that touches the inline script body silently invalidates it. This matches Land's single-user desktop threat model and lets every extension webview boot.\n\nAlso fix RewriteIconsStyleSheetURLs to handle a third URL scheme that leaks through under Tauri/WKWebView: plain `file:///` URLs. Stock VS Code's FileAccess.uriToBrowserUri only converts file→vscode-file when process.versions.node exists, but the shim isn't always installed before iconsStyleSheet.getCSS() runs. The @font-face rule then fetches a 0-byte mixed-scheme response and codicons render as missing-glyph boxes. Add a third replace: `file:///...` → `<origin>/Extension/...`.\n\nBump marker version to _V2 so prior builds get re-patched rather than skipped. Update regex patterns to handle trailing replace chains from previous transform versions.",
-			"SHA": "8a3e8d281a0c6815422cea9dd2278e24923ff677"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T20:27:12Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				363,
-				19
-			],
-			"Message": "feat(Output): Add macOS titlebar offset and z-index CSS transforms\n\nAdd two new Output transforms that inject runtime CSS to fix WKWebView visual issues:\n\n- InjectMacTitlebarOffsetCSS: Reserve ~80px on the left of the workbench titlebar so the in-window menubar (`File / Edit / View / ...`) and command-center quick-pick stop overlapping with macOS traffic lights. Targets `.monoco-workbench.mac` only via the standard marker pattern.\n\n- InjectPartZIndexCSS: Establish explicit z-index hierarchy for every workbench part (`isolation: isolate` + numeric z-indexes) so a sibling that accidentally creates a stacking context (transform, opacity) can't hide the activity bar, sidebar, panel resize handle, status bar badges, or command-center dropdown.\n\nAlso expand StripWebviewIframeSandbox to patch BOTH the outer iframe creation site (`webviewElement.js`'s `element.sandbox.add(...)`) AND the pending-frame-swap site (`pre/index.html`'s `setAttribute('sandbox', ...)`). The earlier single-file patch wasn't sufficient - the outer iframe remained sandboxed and blocked all webview loads with the \"custom protocol from sandboxed iframe\" error.\n\nAdd RewriteWebviewShellCSP: loosen the webview shell's CSP script-src from a stale sha256 hash (WKWebView normalizes CR/LF differently) to `'unsafe-inline' 'self' blob:`. Matches Land's single-user desktop threat model; every extension webview now boots.",
-			"SHA": "0d47460778c1a546313b88539815d6ebde3bb03e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T18:59:27Z",
-			"File": [
-				"⣿⣿⡟⠀⠀",
-				350,
-				189
+				"⡇⠀⠀⠀⠀",
+				396,
+				36
 			],
 			"Message": "",
-			"SHA": "fc91741983660b9ae401dd22f9fbfa1fa3a1301f"
+			"SHA": "6133a6f806529b2c4b77047190c1e9da4c4dc7ce"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:00:23Z",
+			"Date": "2026-05-04T10:40:35Z",
+			"File": [
+				"⣿⡏⠀⠀⠀",
+				380,
+				120
+			],
+			"Message": "refactor(Output): Reformat build configuration and plugin pipeline for readability\n\nReformat the entire Output element's ESBuild configuration, plugin definitions, exclusion patterns, and polyfill scripts to align with the project's PascalCase naming conventions and readability standards. This change follows the previous minification commits by restoring source formatting without altering logical behavior.\n\nKey modifications:\n- Revert minified variable names in entry points (`Configuration/ESBuild/CodeEditorLand/Editor.js`, `Bundle.js`) and exclusion scripts (`Bootstrap`, `Electron`, `Telemetry`, etc.) to explicit identifiers and expand dense block structures.\n- Refactor plugin definitions (`Configuration/Plugin/Index.js`, `Apply.js`) and transform logic (`Configuration/Plugin/Transform/`) to use multi-line structures and detailed comments explaining the rationale for each excluded path or transform.\n- Expand polyfill implementations (`Configuration/Plugin/Polyfill/`) and service modules (`Configuration/Service/`) to restore whitespace, indentation, and function names.\n- Reformat the Rest plugin (`Configuration/ESBuild/RestPlugin.js`) and output configuration (`Configuration/ESBuild/Output.js`) to align with the project's style guide.\n\nThe logical behavior of the build pipeline remains unchanged; this commit solely addresses source formatting, documentation consistency, and the introduction of new service modules like `CELExposeAccessor`.\n\nRefs #65058a0e1555a69544fbef42ff813a85eaab7f07",
+			"SHA": "0de0ae14ad1d9d191f1a82016950854b04954f91"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-04T10:40:16Z",
+			"File": [
+				"⣿⣿⡟⠀⠀",
+				369,
+				202
+			],
+			"Message": "refactor(Output): Reformat build configuration and plugin pipeline for readability\n\nReformat the entire Output element's ESBuild configuration, plugin definitions, polyfills, and service modules to align with the project's PascalCase naming conventions and readability standards. This change follows the previous minification commits by restoring source formatting without altering logical behavior.\n\nKey modifications:\n- Rename minified bindings (e.g., `t` → `Prefix`, `e` → `Current`, `o` → `Browser`) and expand dense block structures in `Configuration/ESBuild/CodeEditorLand/Editor.js` and `Bundle.js`.\n- Refactor exclusion patterns (`Configuration/ESBuild/Exclude/` scripts like `Bootstrap`, `ChromiumIPC`, `Electron`, `Network`, `Telemetry`) to include detailed comments explaining the rationale for each excluded path and restore whitespace.\n- Refactor plugin definitions (`Configuration/Plugin/Index.js`, `Apply.js`, `Copy.js`) and transform logic (`Configuration/Plugin/Transform/`) to use explicit variable names and multi-line structures for clarity.\n- Expand polyfill implementations (`Configuration/Polyfill/`) and service modules (`Configuration/Service/TauriMainProcessService.js`, `DevLog.js`) to restore whitespace, indentation, and function names (e.g., `DisableLazyPaint`, `EagerExtensionActivation`).\n- Rename `Configuration/ESBuild/Output.js` from `Source/ESBuild/Output.js` (deleted) and reformat its content.\n- Add source map files (`.js.map`) for all modified configurations to support debugging.\n\nThe logical behavior of the build pipeline remains unchanged; this commit solely addresses source formatting, documentation consistency, and the introduction of the `CELExposeAccessor` service and its supporting TypeScript source in `Source/Service/`.",
+			"SHA": "65058a0e1555a69544fbef42ff813a85eaab7f07"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-04T03:44:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				255,
+				269,
 				1
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "151dce184be08ba55c2f5dc406c5ff914a82ea70"
+			"Message": "",
+			"SHA": "c2a9f5db83f905ba0a4aba743649cc9058631908"
 		}
 	],
-	"TimeStamp": 1779119402542
+	"TimeStamp": 1779241294734
 }

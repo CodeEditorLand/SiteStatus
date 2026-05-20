@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:52:25Z",
+			"Date": "2026-04-25T01:52:38Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				817,
-				12
+				"⠀⠀⠀⠀⠀",
+				874,
+				5
 			],
-			"Message": "refactor(Mountain): Migrate Batch 16 notification handlers to atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to 10 new atom functions in `Vine::Server::Notification::*`:\n\n- webview lifecycle (setTitle, setIconPath, setHtml) → WebviewLifecycle\n- window.createTerminal → WindowCreateTerminal\n- terminal lifecycle (sendText, show, hide, dispose) → TerminalLifecycle\n- decoration lifecycle (createTextEditorDecorationType, disposeTextEditorDecorationType) → DecorationTypeLifecycle\n- debug lifecycle (addBreakpoints, removeBreakpoints, consoleAppend) → DebugLifecycle\n- statusBar lifecycle (update, dispose) → StatusBarLifecycle\n- statusBar.message → StatusBarMessage\n- window.showMessage → WindowShowMessage\n- registerCommand → RegisterCommand\n- unregisterCommand → UnregisterCommand\n\nTerminalLifecycle is a \"group atom\" covering 4 wire methods that share both the `sky://terminal/*` relay and provider-side PTY drive. StatusBarLifecycle similarly groups 2 methods. This keeps MountainVinegRPCService thin with one-line delegations.",
-			"SHA": "1699cfca4a8e3c70bcf0b1d355097788d7a0068b"
+			"Message": "refactor(Mountain): Simplify binary and Tauri config naming to \"Mountain\"\n\nRevert verbose development identifiers to simple \"Mountain\" for binary/lib names in Cargo.toml, Tauri identifier (now \"land.editor.binary\"), and productName in tauri.conf.json. Also removes duplicate externalBin entry and deletes obsolete .Backup files.\n\nThis restores clean naming conventions while preserving all build settings and feature flags.",
+			"SHA": "715198ac9eee6c7767e86745a028aae34ab4a9ec"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:52:16Z",
+			"Date": "2026-04-25T01:30:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				807,
+				876,
 				2
 			],
-			"Message": "refactor(Mountain): Migrate remaining notification handlers to Batch 15 atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to the Batch 15 atom functions in `Vine::Server::Notification::*`. The migrated handlers include:\n- extensionHostMessage → ExtensionHostMessage\n- ExtensionActivated/ExtensionDeactivated → ExtensionActivated/ExtensionDeactivated\n- WebviewReady → WebviewReady\n- progress.start/report/end → ProgressStart/ProgressReport/ProgressEnd\n- languages.setDocumentLanguage → LanguagesSetDocumentLanguage\n- workspace.applyEdit → WorkspaceApplyEdit\n- window.showTextDocument → WindowShowTextDocument (new atom file)\n\nAlso removes the dead handler bodies at the bottom of the match arm that were unreachable after Rust selected the first matching arm for each wire name. This consolidates all notification dispatch to the atom layer, keeping MountainVinegRPCService thin with one-line delegations.",
-			"SHA": "c834d103d4fc2f2002a1e55093df536bf58031c1"
+			"Message": "chore(Mountain): Add backup files for Cargo.toml and tauri.conf.json\n\nCreate backup copies of the current Cargo.toml and tauri.conf.json configuration files to preserve the existing Mountain binary configuration, including the Tauri identifier, productName, feature flags, and build settings.",
+			"SHA": "9e16a8e6eeed0abe3adae9fd4d8b9fd208a9b4ea"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:46:55Z",
+			"Date": "2026-04-25T01:28:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				806,
-				1
+				874,
+				2
 			],
 			"Message": "",
-			"SHA": "6dfa4be105691b49a93eb4e42a2bef8eb772ee4d"
+			"SHA": "b3aa14a080bcb688c1c7f1a7edd936b446939b0d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:46:55Z",
+			"Date": "2026-04-25T01:28:10Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				806,
-				47
+				"⠀⠀⠀⠀⠀",
+				874,
+				6
 			],
-			"Message": "refactor(Mountain): Consolidate WindServiceHandler to WindServiceHandlers atoms\n\nMerge the deprecated singular `WindServiceHandler` module into the plural `WindServiceHandlers` atoms:\n- Delete 24 files from `WindServiceHandler/` (21 were dead duplicates)\n- Re-implement 3 live handlers as atoms: `extensions:install`, `extensions:uninstall`, `nativeHost.showOpenDialog`\n- Move extension handlers to `WindServiceHandlers/Extension/` (Install, Uninstall, NotifyCocoonDeltaExtensions, UserExtensionDirectory, VsixPathFromArgs)\n- Move dialog handlers to `WindServiceHandlers/NativeDialog/` (ShowOpenDialog, ParseDialogFilters, DialogFilter)\n- Add 9 new notification atoms: ExtensionActivated, ExtensionDeactivated, ExtensionHostMessage, LanguagesSetDocumentLanguage, ProgressStart, ProgressReport, ProgressEnd, WebviewReady, WorkspaceApplyEdit\n- Update MountainVinegRPCService to dispatch notifications via atoms (note: outputChannel.* already dispatched from Batch 9)\n\nThe consolidation eliminates code duplication and centralizes all IPC dispatch in the plural module. New notification atoms enable Wind/Sky to receive extension lifecycle events and progress updates from Cocoon.",
-			"SHA": "c8bfb37b939a9d0745929edef864c331c9c8f56e"
+			"Message": "refactor(Mountain): Add LRU cache for FindFiles and optimize dev_log for release\n\nImplement an LRU cache for FindFilesInWorkspace to reduce latency during\nfuzzy file matching. The cache uses a 2.5s TTL and 128-entry capacity with\nsimple eviction, short-circuiting repeated walks during Cmd+P typing bursts\nthat typically fire 5-10 calls in 200ms.\n\nAdditionally, gate the dev_log! macro body on cfg!(debug_assertions) so it\nbecomes a literal no-op in release builds via LLVM dead-code-elimination.\nThis removes the format!, IsEnabled lookup, file-sink write, and dedup-\nmutex lock from the hot IPC path while preserving compile-time type-checking\nof format arguments.\n\nAlso revert the verbose development naming back to simple \"Mountain\" for\nbinary, lib, identifier, and productName, and remove obsolete .Backup files.",
+			"SHA": "5c123e3aa335f9078086b721f4fbbe75a1651167"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:46:37Z",
+			"Date": "2026-04-25T01:22:13Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				810,
-				35
+				"⠁⠀⠀⠀⠀",
+				876,
+				11
 			],
-			"Message": "feat(Mountain): Add notification atom handlers and Cocoon log tag extraction\n\nAdd 25 new notification handlers in `Vine::Server::Notification` to bridge the remaining VS Code API surface from Cocoon to Mountain:\n\n- Output channel lifecycle: create, append, appendLine, clear, dispose, replace, show (both `output.*` and `outputChannel.*` wire names)\n- Status bar text updates: setStatusBarText, disposeStatusBarItem\n- Progress lifecycle: progress.update, progress.complete (routes to existing `sky://progress/*` channels)\n- Webview reverse messaging: webview.postMessage, webview.dispose\n- Provider unregistration: authentication, debug_adapter, file_system, scm, task, uri_handler handlers + updateScmGroup\n- Misc: openExternal (uses `opener` crate), security.incident, set_language_configuration\n\nEach atom is a dedicated file with a single handler, keeping the dispatcher in `MountainVinegRPCService` thin. The atoms access `ApplicationHandle` and `RunTime` via new accessors on the service struct.\n\nAlso add `ExtractDevTag` module to parse Cocoon stdout lines prefixed with `[DEV:<TAG>]` and re-emit them under Mountain's matching tag (e.g., `bootstrap-stage`, `ext-activate`, `config-prime`, `breaker`). This enables `LAND_DEV_LOG=bootstrap-stage` on Mountain's side to surface Cocoon's bootstrap diagnostics without enabling the broad `cocoon` tag.\n\nImpact: Extension output channels, status bar messages, progress indicators, and webview messaging now flow through Mountain to the renderer. Cocoon bootstrap and extension activation logs are tag-filterable end-to-end.",
-			"SHA": "27652fa62ef39c7f187b96f73e086e5a4580cc50"
+			"Message": "revert(Mountain): Revert Mountain naming to verbose development identifier\n\nRevert the Mountain binary/lib/tauri config from 'Mountain' back to the verbose development identifier 'DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain' to maintain continuity with existing build artifacts and CI configurations.\n\nAdditionally, implement SCM provider registration handlers pulled out of the language-providers catch-all:\n- Add `RegisterScmProvider` notification handler that wires through `SourceControlManagementProvider` trait and emits `sky://scm/register`\n- Add `RegisterScmResourceGroup` notification handler that seeds groups via `UpdateSourceControlGroup` trait and emits `sky://scm/registerGroup`\n- These previously fell through the language-provider OR-block which never populated `ApplicationState::SourceControl`, leaving the SCM viewlet empty\n\nAlso:\n- Add `WalkUpToProjectRoot` to CliParse that walks up from build dirs to find project markers (Cargo.toml, package.json, .git, etc.)\n- Trust Sky/Target, Output/Target, and Dependency paths in PathSecurity for bundled extensions\n- Add benign ENOENT substrings for gitlens, copilot, claude-code, roo-cline, vim registers, and bundled product.json probes\n\nBREAKING CHANGE: Binary and lib names changed from 'Mountain' to the verbose development identifier.",
+			"SHA": "6c908b6eaa9030c30ee11f705f016f38ae2b3428"
 		}
 	],
-	"TimeStamp": 1779119433906
+	"TimeStamp": 1779241324634
 }

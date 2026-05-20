@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-20T14:29:15Z",
+			"Date": "2026-04-22T23:33:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				729,
-				2
+				775,
+				1
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "777bd8fe5033e7bcc9c447c1bc587277114c04a2"
+			"Message": "docs(Mountain): Expand v2.1 changelog with April 17–22 commits",
+			"SHA": "20b00590a313b3e80ebed5d20934344012e107de"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-20T14:21:03Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				729,
-				23
-			],
-			"Message": "",
-			"SHA": "f42cde92e1e8f48d69034b04cd1fa40a1a9948b4"
-		},
-		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-04-20T08:12:13Z",
+			"Date": "2026-04-22T23:24:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
+				775,
 				1
 			],
-			"Message": "Merge pull request #41 from CodeEditorLand/dependabot/github_actions/dependabot/fetch-metadata-3.1.0\n\nchore(deps): Bump dependabot/fetch-metadata from 3.0.0 to 3.1.0",
-			"SHA": "8b9a962b74e34e18369195fa9948f180dd2e9bd8"
+			"Message": "fix(Mountain): Distinguish user vs built-in extension paths during scan\n\nAdd `IsUserExtensionScanPath()` helper to detect whether a scan directory represents the user-writable `~/.land/extensions` root (or `LAND_USER_EXTENSION_DIRECTORY` override) versus bundled paths like `Resources/extensions` and VS Code's submodule.\n\nPreviously every extension was marked `IsBuiltin = true` regardless of source, causing user-installed VSIXes to appear under \"Built-in\" in the Extensions sidebar and leaving `@installed` (which filters for User-scope) empty. Now the scanner checks the canonical scan path upfront and sets `Description.IsBuiltin = !IsUserPath` accordingly.\n\nThis complements the sidebar handler fix in the previous commit by ensuring the underlying scan data is correctly classified at the source.",
+			"SHA": "5eb660dd59f7081898bfa210a94a3c5d39252f8a"
 		},
 		{
-			"Author": "dependabot[bot]",
-			"Date": "2026-04-20T08:12:00Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T22:54:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
-				1
+				775,
+				3
 			],
-			"Message": "chore(deps): Bump dependabot/fetch-metadata from 3.0.0 to 3.1.0\n\nBumps [dependabot/fetch-metadata](https://github.com/dependabot/fetch-metadata) from 3.0.0 to 3.1.0.\n- [Release notes](https://github.com/dependabot/fetch-metadata/releases)\n- [Commits](https://github.com/dependabot/fetch-metadata/compare/v3.0.0...v3.1.0)\n\n---\nupdated-dependencies:\n- dependency-name: dependabot/fetch-metadata\n  dependency-version: 3.1.0\n  dependency-type: direct:production\n  update-type: version-update:semver-minor\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
-			"SHA": "1f89959b30eac246dd52bc10461e86b2306e29c7"
+			"Message": "fix(Mountain): Implement extension type filtering and post-install activation\n\nThree related fixes address the \"install succeeded but nothing happened\" symptom:\n\n1. **Extension type filtering** (`Extensions.rs`): VS Code's `getInstalled(type?)` IPC passes an optional `ExtensionType` filter (0=System, 1=User). Previously this filter was silently dropped and every call returned the full list as `type: 0, isBuiltin: true`. Now the handler respects the filter and properly distinguishes VSIX-installed extensions from built-ins based on the scanner's `isBuiltin` field.\n\n2. **Post-install activation burst** (`Extension.rs`): After `$deltaExtensions` adds an extension to Cocoon's registry, we now fire `onStartupFinished` activation events. Without this burst, extensions with `onStartupFinished` (like `Anthropic.claude-code`) register but never activate - their sidebar contributions and commands silently no-op until the next full workbench restart.\n\n3. **Sidebar scan handlers** (`mod.rs`): Forward `extensions:scanSystemExtensions` → `getInstalled(type=0)` and `extensions:scanUserExtensions` → `getInstalled(type=1)`. The VS Code channel client doesn't always pass explicit type filters, so the override ensures User extensions appear under \"Installed\" with an Uninstall action.\n\nImpact: VSIX extensions now show under \"Installed\" with Uninstall, activate immediately after install without reload, and the Extensions sidebar refresh works correctly.",
+			"SHA": "48be85495f9e1cdde53da0b2027e8a0e414ab991"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-04-20T02:13:16Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T22:54:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
-				1
+				775,
+				6
 			],
-			"Message": "",
-			"SHA": "568fc42f87c1b09346370c127f9d9890fafaaf11"
+			"Message": "fix(Mountain): Ensure extension manifest fields are always present for renderer\n\nAdd `extensions:getManifest` IPC handler to read `extension/package.json` from a `.vsix` archive without extracting to disk, enabling the \"Install from VSIX…\" preview dialog.\n\nThree changes prevent renderer crashes when VS Code accesses extension manifest fields unconditionally:\n\n1. **DTO serialization**: Remove `skip_serializing_if = \"String::is_empty\"` from `ExtensionDescriptionStateDTO.Name`, `Version`, `Publisher`. VS Code's `extensions.contribution.ts` trusted-publishers migration calls `manifest.publisher.toLowerCase()` at boot—if the key is omitted, the renderer crashes with `TypeError: undefined is not an object`.\n\n2. **IPC handler hardening** (`Extensions.rs`): Handle empty/missing `publisher`/`name` with \"unknown\" fallback, and inject explicit `publisher`, `name`, `version` fields into the manifest object before sending to the renderer. Also guard against non-object manifest values (null) by substituting an empty skeleton.\n\n3. **Log file eager init** (`Entry.rs`, `DevLog.rs`): Call `InitEager()` at binary startup to create the session log before any panic, preserving post-mortem evidence. Also fix `BinarySignature()` to correctly split PascalCase segments (`ElectronProfile` → `electron.profile`) so logs end up in the correct app-data directory.\n\nAlso expand the benign ENOENT ignore list with `chatLanguageModels.json`, `configurationDefaultsOverrides`, and window log files (`network.log`, `renderer.log`, `views.log`, `notebook.rendering.log`).",
+			"SHA": "c61c0b1e751fe76d3f58459087356af5eca7d5d1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T22:16:14Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				3
+			],
+			"Message": "fix(Mountain): Prevent duplicate shutdown and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings trying to notify a dead sidecar.\n\nExtend the static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader (`vscode-oniguruma` → `onig.wasm`) resolves asset URLs relative to the current document, which strips the leading slash before the path reaches the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for: `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.",
+			"SHA": "de7ca5008836ae40b6e5c5969f73a93912ac4cf6"
 		}
 	],
-	"TimeStamp": 1779119437909
+	"TimeStamp": 1779241330648
 }

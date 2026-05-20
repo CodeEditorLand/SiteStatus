@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:28Z",
+			"Date": "2026-05-03T08:17:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1219,
-				2
+				1373,
+				10
 			],
-			"Message": "fix(Mountain): Ensure workspace auto-seed defaults to HOME on GUI launch\n\nAddress a boot-time regression where releasing Mountain via Finder (macOS `.app` launch) resulted in an empty workspace because `current_dir` defaults to `/`. The previous debug-only autoload logic left release builds with no folder, causing tree views and SCM panels to remain empty.\n\nRefactor `Source/Binary/Initialize/CliParse.rs` to:\n- Unconditionally attempt CWD autoload (overridable via `Walk=0`).\n- Skip CWD if it is the filesystem root `/` (safety check against full-disk scans).\n- Add a final fallback to the user's `$HOME` directory when no workspace is detected, ensuring a visible directory tree on first launch.\n\nAdditionally, restructure `Source/Binary/Initialize/RuntimeBuild.rs` to align with the project's modular naming conventions. The file now serves as an index exporting submodules (`SchedulerConfig`, `Build`, `BuildDebug`, etc.) for the Echo scheduler configuration, as the primary usage has moved inline to `Binary::Main`.\n\nThis change guarantees a consistent user experience across debug and release profiles regardless of the launch method (CLI vs. GUI).",
-			"SHA": "c9ba82bedba46712b6b4b21def8272290ce7087a"
+			"Message": "feat(Mountain): Implement native Git IPC service handlers\n\nIntroduce a complete suite of Tauri command handlers under `Source/IPC/WindServiceHandlers/Git` to bridge the Mountain backend with the Wind/Sky frontend for version control operations. This implementation fulfills the `localGit` service contract required for the editor's SCM integration.\n\nThe commit adds:\n- **Shared Runtime (`Shared.rs`):** A `RunningProcesses` map to track PIDs per `OperationId`, enabling cross-invocation cancellation. `RunGit` handles spawning `git` with `kill_on_drop`, logging, and result parsing.\n- **Lifecycle & Discovery:** `HandleIsAvailable` (cached `git --version` check), `HandleClone` (with optional branch), and `HandleCheckout` (supporting detached heads).\n- **Remote Operations:** `HandleFetch` and `HandlePull` (enforcing `--ff-only` with HEAD diff validation).\n- **Inspection:** `HandleRevParse` and `HandleRevListCount` for commit history and ahead/behind badges.\n- **Execution & Control:** `HandleExec` for arbitrary Git CLI arguments and `HandleCancel` (SIGTERM/TaskKill) to terminate in-flight processes.\n\nAll handlers adhere to PascalCase naming, strict error handling, and the project's modular architecture, ensuring reliable asynchronous Git operations from the native backend.",
+			"SHA": "2152034f2d8c2f3973951b61c59bcda758010e53"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:22Z",
+			"Date": "2026-05-03T08:17:15Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1219,
+				1362,
+				7
+			],
+			"Message": "feat(Mountain): Implement enhanced IPC connection pool with health monitoring\n\nIntroduce a robust, bounded connection pool subsystem under `Source/IPC/Enhanced/ConnectionPool` to manage IPC backend resources efficiently. This module replaces ad-hoc connection handling with a scalable architecture featuring automatic lifecycle management, health scoring, and statistical telemetry.\n\nThe implementation adheres to the project's PascalCase naming and 'one struct per file' architecture:\n- `ConnectionHandle::Struct`: Tracks per-connection metadata including UUID, timestamps, error counts, and a dynamic health score that decays on failures and recovers on success.\n- `ConnectionHealth::Enum`: Defines states (`Healthy`, `Unhealthy`, `Degraded`) for precise resource filtering.\n- `HealthChecker::Struct`: Implements asynchronous health probes with configurable timeouts to validate connection viability.\n- `Pool::Struct`: The core aggregator managing a bounded semaphore, a wait queue for contention handling, and background Tokio tasks for periodic health monitoring and stale connection cleanup.\n- `PoolConfig::Struct` & `PoolStats::Struct`: Provide serialization support for tunable parameters (timeouts, bounds) and runtime telemetry (error rates, active counts).\n\nThis enhancement ensures the Mountain backend can sustain high-throughput IPC operations with automatic failover and resource recycling, crucial for the editor's stability during heavy extension host activity.",
+			"SHA": "abce84b95074b8849ebd1542814a776d4541f0d5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:17:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1354,
+				8
+			],
+			"Message": "feat(Mountain): Implement Tauri command handlers for text model lifecycle and file I/O\n\nIntroduce a comprehensive suite of Wind IPC service handlers under `Source/IPC/WindServiceHandlers/Model/` to bridge the Mountain backend with the editor's document registry and filesystem operations. These handlers fulfill the contract required by Wind's text model service to manage the full lifecycle of open files.\n\nThe implementation covers the core CRUD operations for in-memory document models and raw file access:\n- **Model Lifecycle:** `ModelOpen` reads content from disk, infers language ID from extensions, and registers a `DocumentStateDTO` in `ApplicationState.Feature.Documents` with correct EOL handling. `ModelClose` removes entries idempotently.\n- **Model State:** `ModelGet` and `ModelGetAll` return snapshots of open documents (content, version, language ID) for UI restoration and cache hydration. `ModelUpdateContent` applies edits, increments version numbers, and marks documents as dirty.\n- **File I/O:** `TextfileRead` and `TextfileWrite` provide direct verbatim file access for tooling and resolvers without polluting the document registry. `TextfileSave` acts as a save-intent hint to clear dirty markers and log traces.\n\nAll handlers adhere to PascalCase naming, strict error handling, and the project's modular architecture, ensuring the native backend can reliably synchronize state with the Wind/Sky frontend.",
+			"SHA": "4f13441eff41ba8384cc274c2eca1a8d0377bac7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:16:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1345,
 				5
 			],
-			"Message": "feat(Mountain): Expose keybinding management commands to Tauri frontend\n\nAdd the initial Tauri command layer for the keybinding subsystem to enable communication between the `Wind` service and the `Mountain` backend. Implement five new command handlers in `Source/Command/Keybinding/` to support the Keyboard Shortcuts UI:\n\n- `CheckKeybindingConflicts`: Detect chord-sequence overlaps (stub implementation).\n- `GetResolvedKeybindings`: Fetch the weighted aggregation of defaults and user overrides.\n- `GetUserKeybindings`: Return user-defined overrides (stub pending persistence).\n- `RegisterExtensionKeybindings`: Accept contribution payloads from the extension host.\n- `UnregisterExtensionKeybindings`: Remove bindings contributed by a specific extension.\n\nEach command retrieves the `KeybindingProvider` from the shared `ApplicationRunTime` state via the `Requires` trait, establishing the contract for future logic implementation. While most handlers currently return stub JSON responses or pass-through errors, this commit completes the IPC interface required for the frontend to manage and visualize keybinding states.",
-			"SHA": "c0b7bc5676e38b05ef0199ea3d46838fff4cde32"
+			"Message": "feat(Mountain): Implement output channel lifecycle handlers for Sky\n\nIntroduce a complete suite of Tauri command handlers under `Source/IPC/WindServiceHandlers/Output/` to manage the editor's output panel lifecycle. This bridges the Wind service layer with the Sky frontend for displaying and manipulating output streams.\n\nThe implementation adds five new modules adhering to the project's PascalCase naming and `one struct per file` architecture:\n- `OutputCreate`: Acknowledges channel creation and logs to the dev console.\n- `OutputAppend` & `OutputAppendLine`: Emit `sky://output/append` events to stream text into the Sky scroll buffer, with the latter automatically appending newlines.\n- `OutputClear` & `OutputShow`: Emit `sky://output/clear` and `sky://output/show` events respectively, allowing the frontend to reset buffers or bring a specific channel to focus.\n\nThese handlers utilize the `CommonLibrary::IPC::SkyEvent` system to trigger reactive updates in the Sky UI, completing the native backend support for the integrated output terminal.",
+			"SHA": "70253806a73d36c1bcc9269c4d4c468497bf3be7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:04Z",
+			"Date": "2026-05-03T08:16:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1213,
-				2
+				1339,
+				5
 			],
-			"Message": "feat(Mountain): Inject user shell environment for GUI launches\n\nImplement a boot-time utility in `Source/Environment/Utility/EnhanceShellEnvironment` to resolve the minimal environment problem inherent in macOS/Linux GUI app launches (e.g., Finder, Dock, Spotlight).\n\nWhen launched non-interactively, the app receives a bare `PATH` missing user customizations like `NVM_DIR`, `HOMEBREW_PREFIX`, and `JAVA_HOME`. This previously caused child processes (Cocoon's Node, language servers, Git extensions) to fail or use outdated system binaries.\n\nThe solution spawns the user's login shell with `-ilc env` to capture their full runtime environment, then safely merges new variables into the parent process environment. It includes:\n- A 2-second timeout to prevent boot hangs from misbehaving `.rc` files.\n- A check to skip injection if already running from a TTY.\n- A safety filter (`IsPortableEnvName`) to reject non-standard variable names.\n- A strict policy to preserve existing environment variables unless they are unset, ensuring no overwrites of deliberate user overrides.\n\nThis ensures Mountain and its sidecars (Cocoon, Air) operate with the same environment context as a user's terminal session.",
-			"SHA": "240102ddfe032c28ba28bd65c16ce7412642abf1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:12:27Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1212,
-				16
-			],
-			"Message": "feat(Mountain): Introduce service registry and feature flag subsystem\n\nImplement the foundational runtime control plane within Mountain, consisting of a service discovery registry and a feature flag management system.\n\nIn `Source/IPC/Common/ServiceInfo`, define the data models for service lifecycle management: `ServiceState::Enum` (Running, Degraded, etc.), `ServicePerformance::Struct` (request/error counters with rolling mean latency), `ServiceEndpoint::Struct` (network/UDS metadata), and `ServiceInfo::Struct` (aggregated health state). The `ServiceRegistry::Struct` provides a thread-safe map for registering services, tracking heartbeat intervals, and filtering by health status (operational state, <30s heartbeat, <10% error rate).\n\nIn `Source/Telemetry/FeatureFlags`, refactor the existing monolithic module into a modular architecture adhering to the project's PascalCase naming convention. Extract `FeatureFlag::Struct`, `FlagCategory::Enum`, and `FeatureFlagError::Enum` into their own files. The `FeatureFlagRegistry::Struct` maintains a process-wide thread-safe registry (backed by `parking_lot::RwLock`) seeded with defaults like `ipc-compression` and `experimental-webgl`. Expose functional accessors (`IsEnabled::Fn`, `Enable::Fn`, `Disable::Fn`) via `GlobalRegistry` to allow the rest of the backend to gate experimental features without recompiling.\n\nThese additions enable the backend to dynamically monitor service health across the IPC landscape and toggle performance or experimental features at runtime.",
-			"SHA": "1e9d527a0900769df28f60221d7282d7f3744a10"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:07:10Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1196,
-				4
-			],
-			"Message": "feat(Mountain): Define core IPC message types and priority system\n\nIntroduce the foundational data structures for the Inter-Process Communication layer within `Source/IPC/Common/MessageType`. This commit establishes the contract for request, response, and message handling across the Mountain backend and connected services.\n\nThe implementation adds:\n- `MessagePriority::Enum`: A four-tier priority ladder (Low, Normal, High, Critical) supporting comparison and ordering for scheduling logic.\n- `IPCCommand::Struct`: A builder-pattern command request allowing positional `Args`, named `Params`, and explicit priority assignment.\n- `IPCMessage::Struct`: A generic transport envelope including a UUID, timestamp, optional correlation ID for request tracking, and a priority field.\n- `IPCResponse::Struct`: A standardized response type with `Success`/`Error` constructors, preserving the correlation ID for async matching and capturing execution results or failure reasons.\n\nAll types derive `Serialize` and `Deserialize` to enable JSON transmission over the gRPC (Vine) protocol and Tauri IPC channels. These models unify the messaging interface, enabling the `Wind` service layer and `Cocoon` extension host to exchange structured data with explicit priority handling and traceability.",
-			"SHA": "b95a7333e3b00c5c13850fdaeb0ad7e5ef0efa37"
+			"Message": "feat(Mountain): Implement RBAC enforcement engine with audit logging\n\nIntroduce the `PermissionManager` subsystem within `Source/IPC/Security` to enforce Role-Based Access Control (RBAC) on all IPC operations. This module provides the `Manager::Struct` enforcement core, which validates operations against user `SecurityContext` data (roles and permissions) before dispatch.\n\nKey components include:\n- `Manager::Struct`: Maintains role/permission tables and a rolling 1,000-entry audit log. Implements `validate_permission` to gate access and `log_security_event` for telemetry.\n- `SecurityContext::Struct`: The request envelope carrying user identity, roles, and origin IP.\n- `SecurityEvent::Struct` & `SecurityEventType::Enum`: Standardized audit log entries for access grants, denials, and violations.\n- `initialize_defaults`: Bootstraps standard roles (User, Developer, Admin) and permission definitions (file, config, storage, system).\n\nThe implementation adheres to PascalCase naming and the project's modular architecture, ensuring the native backend can strictly enforce least-privilege principles for file I/O, configuration updates, and system extensions.",
+			"SHA": "429102af223fb0f5403463c95f8e492f94e7e879"
 		}
 	],
-	"TimeStamp": 1779119415033
+	"TimeStamp": 1779241304966
 }

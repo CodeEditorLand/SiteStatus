@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:54:18Z",
+			"Date": "2026-05-01T23:02:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				2
 			],
-			"Message": "fix(Mountain): Improve path security checks and logging for workspace access violations\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "a45bef60ff2021cbc1c5090a2d64b5d8c16efa46"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:54:10Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				1
-			],
-			"Message": "fix(Mountain): Enhance logging for SCM provider registration emit failures\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "660a067a4bfe2e220d4c61c742d31805c92f1e6d"
+			"Message": "perf(Mountain): Batch decoration and progress emits to reduce IPC load\n\nExtend the 16ms coalescing strategy to two additional high-frequency Vine notification handlers, following the `CommandEmitBatch` pattern established for command registration.\n\n`DecorationTypeLifecycle`: Extension activation generates ~650 create/dispose calls per session, mostly registering syntax-highlight decorations. Previously each call fired an individual Tauri event on `sky://decoration/<suffix>`. Add `DecorationEmitBatch`, grouping payloads by channel and emitting a single `{ batch: [...] }` per channel per 16ms frame. SkyBridge demultiplexes these back into individual `cel:decoration:*` CustomEvents.\n\n`ProgressReport`: The git extension alone fires 6000+ `progress.report` calls per session during repository scans. Add `ProgressEmitBatch`, accumulating per-handle `increment` deltas and keeping the latest non-empty `message` over a 16ms window. Each progress handle receives one coalesced update per frame preserving the same final cumulative state, instead of dozens of individual emits.\n\nBoth use `OnceLock`-initialised static singletons with atomic flush scheduling to prevent duplicate timer tasks. This keeps the shared WKWebView IPC channel clear for keystrokes during extension boot and repository scanning when the renderer is most busy.",
+			"SHA": "644b96ee46ecc92796e2b34d2dcce2dc1c9be91f"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-04-29T02:33:55Z",
+			"Date": "2026-05-01T02:40:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				1
 			],
 			"Message": "",
-			"SHA": "cce2516555660983de4287c47ab94daaa710b02a"
+			"SHA": "51d4bddbf442268c76e36e70ef9e176c98fe2c3b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:08:42Z",
+			"Date": "2026-05-01T01:32:25Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				2
+				"⠇⠀⠀⠀⠀",
+				868,
+				55
 			],
-			"Message": "fix(Mountain): Accept absent paths in FileWatcher and varied URI shapes\n\nTwo changes that prevent false circuit breaker trips in Mountain's gRPC service:\n\n1. **FileWatcherProvider.rs**: Extensions frequently register watchers on optional paths (`~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't yet exist. Previously, `notify::Watcher::watch()` failure triggered a gRPC error that counted against Cocoon's circuit breaker — 5 probes at boot trips it open and cascades into 60s of rejected reads. Now Mountain catches benign \"path not found\" errors, records a \"deferred\" entry without a live OS watcher, and still allows Unregister to clean up the handle.\n\n2. **UriParsing.rs**: Cocoon sends URIs in three different shapes — plain strings (e.g., `Diagnostic.Set`), objects with `external` field (VS Code's `URI.toJSON()`), and legacy objects with just `scheme` + `path`. The original code only accepted the `external` field, causing `Diagnostic.Set` from `vscode.languages.createDiagnosticCollection().set` to trip the breaker after 5 publishes, silencing all linters across language extensions. Now all three formats are accepted.\n\nBoth fixes maintain backward compatibility while eliminating spurious error cascades.",
-			"SHA": "9c10fbe92d916db112eb377dcd9f1ab9130c8821"
+			"Message": "refactor(Mountain): Rename IPC handler functions to follow PascalCase convention\n\nRename all `handle_*` IPC handler functions in WindServiceHandlers, ConfigurationBridge, TauriIPCServer, and related modules to match the PascalCase naming convention specified in CLAUDE.md. Functions like `handle_commands_execute` → `CommandsExecute`, `handle_configuration_get` → `ConfigurationGet`, `handle_incoming_message` → `IncomingMessage`, etc. The new names align with the command/channel names they service (e.g., `commands:execute` → `CommandsExecute`), improving code clarity and consistency across the Mountain IPC layer.\n\nThis is a pure refactor with no functional changes.",
+			"SHA": "9134f4bf64e3333b62d9591a5c58b4764b8d5b47"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:40:26Z",
+			"Date": "2026-05-01T01:17:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				2
 			],
-			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nTwo changes in Mountain's gRPC service layer:\n\n1. **FileWatcher.rs**: Cocoon's `NextProviderHandle()` returns a number, but older callers pass a string. Handle both shapes in `RegisterWatcher` and `UnregisterWatcher` instead of silently converting numbers to empty string.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without a string-regex round-trip, while `-32000` remains the catch-all for genuine failures.",
-			"SHA": "160b5a4251133f31e4ce99898a02a8d63f8ca19b"
+			"Message": "perf(Mountain): Batch command registration emits to reduce IPC saturation\n\nDuring extension boot, 1000+ `registerCommand` notifications fire in a tight burst (113 extensions × ~10 commands each). Each notification was emitting a separate Tauri event, saturating the shared WKWebView IPC channel that also carries keystroke delivery. Users could type for a split second before the burst hit, then nothing.\n\nAdd a `CommandEmitBatch` struct that buffers commands and flushes after 16ms (one frame), reducing 1000+ individual emits to a single batched `{ commands: [...] }` emit. SkyBridge's listener already accepts both shapes (single `{ id, commandId, kind }` or batch `{ commands: [...] }`), so no Sky changes required.\n\nThis keeps the IPC channel free for keystrokes during extension boot when the renderer is most busy.",
+			"SHA": "f304bd408f391d1848c357b909b09e5f5906ae99"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T00:15:58Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				1
+			],
+			"Message": "perf(Mountain): Gate sync/performance emits behind env vars and add subscriber fast-path\n\nTwo optimizations to reduce IPC channel contention:\n\n1. **Env var gating**: The `mountain_sync_status_update` and `mountain_performance_update` events were emitting on every tick even though Sky has no subscriber. Every emit now waits behind keystrokes on the shared Tauri IPC pipe. Gate both behind `LAND_SYNC_STATUS_EMIT=1` and `LAND_PERF_EMIT=1` respectively for debugging or future Sky consumers.\n\n2. **Subscriber fast-path**: The 100ms real-time updates tick was acquiring the lock and draining pending updates even with zero subscribers. Add an early check to skip the entire lock-and-drain path when `Subscribers.is_empty()`, making the tick a true no-op until a subscriber registers.\n\nTogether these keep the shared IPC channel free for keystrokes during extension boot when the renderer is most busy.",
+			"SHA": "75d2f1dbe4d77d92e1f679c84aa4885ce355a12d"
 		}
 	],
-	"TimeStamp": 1779119428528
+	"TimeStamp": 1779241318855
 }

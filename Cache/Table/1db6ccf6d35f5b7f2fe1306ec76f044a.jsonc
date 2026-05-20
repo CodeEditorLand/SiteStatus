@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:07:00Z",
+			"Date": "2026-05-03T08:16:46Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1191,
-				1
+				1333,
+				16
 			],
-			"Message": "refactor(Mountain): Align ApplicationState import with PascalState DTO naming\n\nUpdate the import statement in `ApplicationState` to use the full type path `TestProviderState::Struct` instead of the raw module reference. This aligns with the project's strict PascalCase naming convention where state data structures are explicitly named `...::Struct` (as defined in recent commits for `TestProviderState`).\n\nEnsures the type signature correctly resolves the aggregated state manager for test execution contexts, maintaining consistency with other DTO definitions and preventing potential compiler ambiguity when `ApplicationState` is cloned or accessed across threads.",
-			"SHA": "d61a52c94a249624bbc77eefa14d3a2678ba43ce"
+			"Message": "feat(Mountain): Implement IPC message compression and RBAC role engine\n\nIntroduce two critical subsystems within the Mountain backend's `Source/IPC` layer to optimize bandwidth and enforce access control.\n\n**Message Compression & Batching:**\nAdd the `Enhanced::MessageCompressor` module to aggregate IPC payloads before transmission. The `Compressor::Struct` buffers messages until size or time thresholds are met, then flushes using configurable algorithms (Brotli, Gzip, Zlib) and levels. Supporting DTOs (`BatchConfig`, `CompressedBatch`, `CompressionInfo`) provide telemetry and serialization support, reducing network overhead for high-frequency native-to-extension communications.\n\n**Role-Based Access Control (RBAC):**\nEstablish the `Permission::Role::ManageRole` engine with strict `category.action` naming validation. Define the `Role::Struct` and `Permission::Struct` with support for sensitivity flags (e.g., `system.execute`, `role.manage`) to trigger elevated audit logging. Implement factory functions (`CreateAdminRole`, `CreateDeveloperRole`, `CreateUserRole`) to bootstrap the standard security hierarchy, ensuring the IPC layer enforces least-privilege principles across the editor's distributed components.\n\nBoth modules adhere to PascalCase naming and the project's modular 'one struct per file' architecture.",
+			"SHA": "a74d4b330ceea060804b0ab8fd5957ac1676f1a8"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:55Z",
+			"Date": "2026-05-03T08:16:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1191,
-				1
-			],
-			"Message": "fix(Mountain): Correct import path for URI normalization utility\n\nResolve a broken import path in `Source/IPC/WindServiceHandlers/Extensions.rs` where the `Normalize` module was referenced incorrectly. Update the path from `IPC::UriComponents::Normalize` to `IPC::UriComponents::Normalize::Fn` to align with the actual module structure and expose the normalization function required for processing extension URIs.\n\nThis ensures the extension management handlers can correctly resolve URI components during the filtering of installed extensions, preventing potential runtime panics or logic errors when interacting with the `Wind` service layer.",
-			"SHA": "27f727498c52bb68469eda25b9df43e452c463e8"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1191,
-				3
-			],
-			"Message": "feat(Common): Introduce health monitoring data models and score logic\n\nDefine the core data structures for the editor's health monitoring subsystem within `Source/IPC/Common/HealthStatus`. This commit adds `SeverityLevel::Enum` to classify issue criticality, `HealthIssue::Enum` as a tagged union for specific failure modes (e.g., MemoryPressure, ConnectionLoss), and `HealthMonitor::Struct` to aggregate state.\n\nThe `HealthMonitor` calculates a dynamic `HealthScore` (0-100) based on a deterministic penalty system derived from issue severities (Low: -5, Medium: -15, High: -25, Critical: -40). It provides methods for adding/removing issues, filtering by severity, and determining overall system health status (`IsHealthy`, `IsCritical`). All types derive `Serialize`/`Deserialize` to enable transmission over the gRPC (Vine) and Tauri IPC channels for real-time status propagation to the Wind and Sky layers.\n\nThese models lay the foundation for the backend to expose service liveness metrics to the frontend without blocking the main thread.",
-			"SHA": "23d6eddefce6d663ef87fdd01e468309c773f80d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1187,
+				1315,
 				6
 			],
-			"Message": "feat(Mountain): Implement LSP command stubs for code intelligence\n\nIntroduce a suite of new Tauri commands under `Source/Command/LanguageFeature` to expose core language server protocol capabilities to the Wind service layer. These commands act as the IPC bridge for code actions, completions, go-to-definition, document highlights, hover information, and reference finding.\n\nEach command (`MountainProvideCodeActions`, `MountainProvideCompletions`, `MountainProvideDefinition`, `MountainProvideDocumentHighlights`, `MountainProvideHover`, `MountainProvideReferences`) adheres to the project's PascalCase naming convention and delegates execution to the corresponding concrete implementation within `Command::LanguageFeature::<Feature>::provide_<feature>_impl`. The functions accept document URIs, cursor positions, and context payloads as JSON `Value` types, deferring strict deserialization to the downstream implementation logic to ensure a flexible interface during early development.\n\nThis commit expands the backend's LSP surface area, enabling the frontend to request and render intelligent coding assistance features without blocking the main thread.",
-			"SHA": "17c441b85904b7aac47fecdcfd0150b57ac56ca0"
+			"Message": "feat(Mountain): Implement Tauri command handlers for global and workspace storage\n\nIntroduce a comprehensive suite of Wind IPC service handlers under `Source/IPC/WindServiceHandlers/Storage/` to bridge the Mountain backend with the editor's persistent storage system. These handlers fulfill the contract required by Wind's `NativeWorkbenchStorageService` to manage state across workspaces.\n\nThe implementation covers the full CRUD lifecycle for both global (cross-workspace) and workspace-scoped storage:\n- **Basic Operations:** `StorageGet` (workspace), `StorageSet` (workspace), `StorageDelete` (global).\n- **Bulk Operations:** `StorageGetItems` (hydrates the UI cache with all global key/value pairs), `StorageKeys` (returns all global keys), and `StorageUpdateItems` (atomic batch insert/delete).\n\nHandlers strictly adhere to PascalCase naming, resolve the `StorageProvider` via `ApplicationRunTime.Environment`, and include atomic locking guarantees for concurrent access. This scaffolding enables the editor to persist extension state, user settings, and workbench configuration reliably on the native filesystem.",
+			"SHA": "a03f56da8cabe6362445181dcf079001584a61de"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:25Z",
+			"Date": "2026-05-03T08:16:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1181,
-				5
+				1308,
+				7
 			],
-			"Message": "feat(Mountain): Define hover command data models and DTOs\n\nIntroduce the foundational data structures for the Hover subsystem within `Source/Command/Hover/Interface`. This commit establishes the contract for LSP-compatible hover requests and responses, adhering to the project's strict PascalCase naming conventions.\n\nThe implementation adds:\n- `Position::Struct`: Zero-based line and character offset.\n- `Range::Struct`: Inclusive range bounded by start/end positions.\n- `HoverRequest::Struct`: Inbound DTO capturing document URI and cursor position.\n- `HoverContent::Enum`: Tagged union for plain text, markdown, and markup with language hints.\n- `HoverResponse::Struct`: Outbound DTO containing an ordered list of content items and an optional range.\n\nAll types derive `Serialize` and `Deserialize` to enable JSON transmission over the Tauri IPC event bus. These models prepare the `Wind` service layer to request and render code documentation overlays without blocking the main thread.",
-			"SHA": "8c97e9610fb18bcb7c930ab071089290d80aab28"
+			"Message": "feat(Mountain): Implement initial Tauri command handlers for Source Control Management\n\nIntroduce the foundational Tauri command suite under `Source/Command/SourceControlManagement/` to enable the Wind UI to interact with version control systems. This initial batch covers seven core operations: `CheckoutSCMBranch`, `ExecuteSCMCommand`, `GetAllSourceControlManagementState`, `GetSCMBranches`, `GetSCMCommitHistory`, `GetSCMResourceChanges`, and `StageSCMResource`.\n\nThe implementation establishes the Tauri command interface adhering to the project's PascalCase naming convention. While the current logic returns mocked success responses or stubbed data structures (as noted in `TODO` comments), the handlers correctly resolve the `ApplicationState` from the Tauri `State` and access the `SourceControlManagementProviders`, `SourceControlManagementGroups`, and `SourceControlManagementResources` markers.\n\nThis scaffolding bridges the gap between the Sky/Wind frontend and the native backend, paving the way for integrating the `SourceControlManagementProvider` trait implementation to handle real Git operations, uncommitted change prompts, and branch management logic.",
+			"SHA": "64057baae447ee1b3540d2f99f9a0fefee8ab2a4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:16:21Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1300,
+				8
+			],
+			"Message": "feat(Mountain): Implement terminal lifecycle and profile management handlers\n\nAdd a comprehensive suite of Wind IPC service handlers under `Source/IPC/WindServiceHandlers/Terminal/` to bridge the Mountain backend with the editor's terminal subsystem. This implementation fulfills the contract for local PTY management, enabling the Wind service layer to spawn, control, and profile interactive shells.\n\nThe new handlers adhere to the project's PascalCase naming convention and modular 'one export per file' pattern:\n- **Core Lifecycle:** `TerminalCreate`, `TerminalDispose`, `TerminalHide`, `TerminalShow`, and `TerminalSendText` map directly to VS Code's terminal API, interacting with `CommonLibrary::Terminal::TerminalProvider` via `ApplicationRunTime.Environment`.\n- **Profile & Environment Discovery:** `LocalPTYGetProfiles` probes standard Unix shells (`/etc/shells`) and Windows paths (PowerShell, Git Bash, WSL, Cygwin) to construct the profile list used by the terminal picker. `LocalPTYGetDefaultShell` and `LocalPTYGetEnvironment` resolve the system default shell and snapshot the process environment, ensuring inherited variables like `PATH` and `NVM_DIR` are available to new sessions.\n\nThis work completes the native backend support for the integrated terminal, allowing extensions and the workbench to manage PTY sessions with full lifecycle control and environment inheritance.",
+			"SHA": "2a64757142e1ed34f1dbbe9c2a5839c84b84302b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:16:14Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1291,
+				2
+			],
+			"Message": "refactor(Mountain): Align extension IPC handlers with PascalCase invocation\n\nUpdate `ExtensionInstall` and `ExtensionUninstall` handlers in the Wind IPC service layer to strictly follow the project's PascalCase naming convention for method calls.\n\nReplace direct function-style invocations of `NowNano` (`crate::IPC::DevLog::NowNano()`) with explicit static method syntax (`crate::IPC::DevLog::NowNano::Fn()`). This aligns with the modularized `DevLog` crate architecture and the 'one export per file' pattern where utility functions are exposed as static methods on their respective structs.\n\nThis change ensures consistency with recent IPC refactorings (navigation, performance, and security modules) and maintains the native backend's adherence to Rust idiom requirements for the Mountain crate.",
+			"SHA": "769e6c2942fb09b888ae83a29d5756c01e54e51c"
 		}
 	],
-	"TimeStamp": 1779119415426
+	"TimeStamp": 1779241305359
 }

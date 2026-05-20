@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:39:48Z",
+			"Date": "2026-04-23T17:00:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				773,
-				3
-			],
-			"Message": "refactor(Mountain): Split monolithic IPC handlers into modular domain structure\n\nBreak up the 167KB WindServiceHandlers.rs into domain-specific modules:\n- Commands, Configuration, Extensions, FileSystem, Model, NativeHost\n- Navigation, Output, Search, Storage, Terminal, UI, Utilities\n\nSimilarly refactor CocoonService/mod.rs from a 2800-line monolithic impl to delegate to domain modules:\n- Auth, Command, Debug, Extension, FileSystem, Initialization\n- Output, Provider, Save, SCM, Secret, Task, Terminal\n- TreeView, Window, Workspace\n\nEach domain module now owns its specific RPCs, improving maintainability and enabling parallel development on different handler domains. The dispatch remains a thin one-line delegate per typed RPC.",
-			"SHA": "346842c23cbf13208a7afc941aad7ae08f4f301a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:18:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				773,
-				1
-			],
-			"Message": "chore(Mountain): Remove accidental .bak backup file\n\nDelete Source/Track/Effect/CreateEffectForRequest.rs.bak which was\ninadvertently staged in the Source/Track/Effect directory. The file\nwas zero bytes and appears to be a leftover from development work.\n\nThis cleans up the Mountain source tree.",
-			"SHA": "f92b8538e62527ef86a7d474b794795054528edd"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:09:31Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				774,
-				43
-			],
-			"Message": "feat(Mountain): Add comprehensive IPC handlers and Effect creators\n\nAdd WindServiceHandlers for IPC bridge between Wind frontend services and Mountain backend:\n- Commands, Configuration, Extensions, FileSystem (legacy + native), Model, NativeHost\n- Navigation history, Output channels, Search, Storage, Terminal/PTY, UI features\n- Including Utilities for path resolution, percent-decoding, metadata conversion\n\nAdd CreateEffectForRequest effect creators for the Effect-TS system:\n- Domain modules: Authentication, Clipboard, Commands, Configuration, Debug\n- Diagnostics, Documents, FileSystem, FileWatcher, Git, Keybinding, Languages\n- NativeHost, SCM, Search, Secrets, StatusBar, Storage, Task, Terminal\n- TreeView, UserInterface, Webview, WindowUI, Workspace\n\nThese handlers expose VS Code-compatible IPC surface to the Wind frontend and enable the Effect-TS service layer to dispatch typed effects through Mountain's backend.",
-			"SHA": "94e759aa4c612ec4829f8de6108cff4451338db7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T23:42:43Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				730,
-				46
+				778,
+				2
 			],
 			"Message": "",
-			"SHA": "054e429dbde5b70cebc96fee8ae1c829711ba18a"
+			"SHA": "0d061de2fe103d84efa38c8c494c45d1fffaf853"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T22:56:17Z",
+			"Date": "2026-04-23T17:00:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				730,
+				778,
 				7
 			],
-			"Message": "feat(Mountain): Implement local VSIX install and kernel profiles\n\nAdd VSIX installer module (Atom K2/K3) to handle local .vsix file installation:\n- New VsixInstaller.rs unpacks VSIX archives (ZIP with extension/ prefix) to ~/.land/extensions\n- Two-pass extraction: read manifest for install path before writing files\n- Handles zip-slip protection and produces ExtensionDescriptionStateDTO for the registry\n- Install and uninstall IPC handlers in WindServiceHandler/Extension.rs\n- Notifies Cocoon via $deltaExtensions for hot-activation without reload\n- Broadcasts sky://extensions/installed|uninstalled for Wind sidebar refresh\n\nAdd kernel/minimal profile support (Atom J3):\n- LAND_SKIP_BUILTIN_EXTENSIONS env var skips built-in extension scan paths\n- User-extensions path (~/.land/extensions) still scanned for VSIX-installed extensions\n\nAdd debug-mountain-only/release-mountain-only profiles (Atom N1):\n- LAND_SPAWN_COCOON=false skips extension host spawn entirely\n- Useful for Mountain-only integration tests and minimal shippable surface\n\nForward environment to Cocoon (Atom I11):\n- NODE_ENV, LAND_DEV_LOG, TAURI_ENV_DEBUG now propagate to Cocoon subprocess\n\nImprove gRPC connection logging (Atom I12):\n- Distinguish expected startup race from real failures in Cocoon connection attempts\n\nBetter unknown command logging (Atom L2):\n- Distinguish typos from registered-but-unimplemented channels\n\nCloses #",
-			"SHA": "43b39fff66082a09f3f75e888268bd9c5d9273a4"
+			"Message": "feat(Mountain): Add Git service handlers and expand diagnostic instrumentation\n\nThree major additions to Mountain's diagnostic and service capabilities:\n\n1. **Git service handlers** (`WindServiceHandlers/Git.rs`): Implement the full `localGit` channel mirroring VS Code's `ILocalGitService` API - clone, pull, checkout, revParse, fetch, revListCount, cancel, exec, and isAvailable. Uses process PIDs for cancellation (SIGTERM on Unix, taskkill on Windows) and logs all operations under the existing `git` tag.\n\n2. **SkyEmit instrumentation** (`SkyEmit.rs`): New `LogSkyEmit` wrapper around `tauri::Emitter::emit` that logs every Mountain→Wind/Sky emit under the `sky-emit` tag. Records channel name, payload bytes, and ok/fail status. Enables traffic-volume auditing via `LAND_DEV_LOG=sky-emit`.\n\n3. **Provider registration expansion** (`MountainVinegRPCService.rs`): Extend the register_* notification handler from 8 to 34+ provider types - debug_configuration, text_document_content, folding_range, document_link, code_lens, selection_range, document_range_formatting, debug_adapter, rename, file_system, uri_handler, document_paste_edit, task, signature_help, semantic_tokens, document_highlight, workspace_symbol, on_type_formatting, inlay_hints, document_drop_edit, color, type_hierarchy, type_definition, notebook_serializer, linked_editing_range, implementation, terminal_profile, terminal_link, inline_values, inline_completion_item, file_decoration, external_uri_opener, declaration, call_hierarchy. Also extracts and logs the scheme for scheme-bound providers, and includes options in the DTO.\n\nPlus: Flexible `RenderDevLog` command now accepts both PascalCase (Tag/Message) and snake_case (tag/message) params, supporting any JS caller convention.",
+			"SHA": "de6e0f842ce46f14a18508dc143e2a456644f76f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:57:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				776,
+				8
+			],
+			"Message": "feat(Mountain): Add RenderDevLog command and diagnostic logging tags\n\nAdd a new Tauri command `RenderDevLog` that bridges TypeScript-side tagged logs (Wind/Sky/Cocoon) into Mountain's `dev_log!` file sink. This enables a single `Mountain.dev.log` to carry the complete tag-filterable picture of a session, rather than requiring cross-referencing between browser console and log file.\n\nAlso add five new diagnostic tags to isolate architectural gaps during debugging:\n- `notif-drop`: Notifications hitting the default arm (no handler)\n- `provider-register`: Accepted register_*_provider notifications with extension IDs\n- `channel-stub`: Wind/Output TauriMainProcessService.call stub hits vs route vs miss\n- `git`: localGit channel, GitExec RPC, SCM provider group updates\n- `tree-view`: tree.register, GetTreeChildren, sky://tree-view/create events\n\nApply tags across SCM.rs, TreeView.rs, CreateEffectForRequest/TreeView.rs, and MountainVinegRPCService.rs to provide visibility into extension host integration issues.\n\nImpact: Developers can now filter `LAND_DEV_LOG=git,tree-view` to isolate specific subsystem issues, and TS-originated logs appear in the same file with `[RenderDevLog]` prefix for grep separation.",
+			"SHA": "f7625f320666cca6bfe3d74fb87c4fc09444ddb3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:33:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				5
+			],
+			"Message": "refactor(Mountain): Standardize Tauri event channel naming to kebab-case\n\nConsolidate all `sky://` event channel names to a consistent kebab-case format and emit TreeView registration events to the canonical path.\n\nChanges:\n- `sky://treeView/register` → `SkyEvent::TreeViewCreate` (canonical path)\n- `sky://webview/setHtml` → `sky://webview/set-html`\n- `sky://webview/postMessage` → `sky://webview/post-message`\n- `sky://status-bar/*` → `sky://statusbar/*` (remove hyphen to match family)\n- `sky://status-bar/message` → `sky://statusbar/set-message`\n\nAlso emit `SkyEvent::TreeViewCreate` after a TreeDataProvider is registered so the renderer can wire up the data provider to the matching ITreeView instance. Without this, VS Code's treeView.ts keeps `_dataProvider === undefined` and all extension tree views (GitLens, debug, SCM, tasks) render empty.\n\nThe previous diverged channel names were parallel forks that no downstream listener ever subscribed to. Impact: Extension tree views now render correctly with data from providers.",
+			"SHA": "85bd2a487c73623310182363d6a35dfbe8e9c57d"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-23T02:11:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				1
+			],
+			"Message": "",
+			"SHA": "4531024429c05b7c8ad1209cc562acb2d956bde3"
 		}
 	],
-	"TimeStamp": 1779119437125
+	"TimeStamp": 1779241329782
 }

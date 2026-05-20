@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:19:24Z",
+			"Date": "2026-04-24T01:46:35Z",
 			"File": [
-				"⡿⠀⠀⠀⠀",
-				213,
-				37
+				"⠁⠀⠀⠀⠀",
+				221,
+				3
 			],
-			"Message": "docs(Output): Document CopyNodeModules-StripDanglingSourceMap pairing rationale\n\nAdd rationale to Plugin/Index.ts explaining why the node_modules copy\nand sourcemap strip are expressed as separate plugins with role-scoped\nmatching rather than using the CopyPlugin.AfterCopy hook.\n\nStripDanglingSourceMap's Match is scoped to Role === \"app\" and\nCopyNodeModules writes into the app root, so the transform pass\nnaturally covers every file the copy emits. Leaving AfterCopy unused\nkeeps it available for future siblings (e.g., a copy that produces\nfiles outside the app root and still needs strip).\n\nThis clarifies the architectural decision made in the previous\nextraction commit.",
-			"SHA": "fbdf5352b1da3752cc680b5e44fe11c9d3b4a7f2"
+			"Message": "feat(Output): Add ExposeWorkbenchAccessor transform plugin\n\nAdd a new ESBuild transform plugin that patches VS Code's web.main.js\nand web.factory.js to expose the workbench's IInstantiationService and\nIWorkbench facade on globalThis. This enables Sky-side bridge code to\nresolve internal services (IStatusbarService, ISCMService, ICommandService,\netc.) via __CEL_INSTANTIATION_SERVICE__.invokeFunction() without\nre-implementing a parallel UI surface.\n\nThe transform makes two narrow additive patches:\n1. web.main.js - after workbench.startup(), stash the live\n   IInstantiationService on globalThis.__CEL_INSTANTIATION_SERVICE__\n2. web.factory.js - after workbenchPromise.complete(), expose the IWorkbench\n   facade on globalThis.__CEL_WORKBENCH__ and dispatch cel:workbench-ready\n\nBoth injections are idempotent (short-circuit on existing marker) so\nre-running the transform on an already-patched tree is a no-op.",
+			"SHA": "358449c0d10f262c5b4869d7088c5a0ccf2a9f23"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:25:29Z",
+			"Date": "2026-04-24T00:08:56Z",
 			"File": [
-				"⡇⠀⠀⠀⠀",
-				174,
-				19
+				"⣿⠃⠀⠀⠀",
+				218,
+				55
 			],
-			"Message": "feat(Output): Extract Sky's inline build plugins into reusable module\n\nMove all copy and transform plugins previously inlined in Sky's `astro.config.ts` into a dedicated `Plugin` module under Output. This enables reuse across Sky, future desktop shells, and test harnesses without esbuild dependencies.\n\nNew plugins added:\n- Copy: CopyVSOutput, CopyVSRootFiles, SupplementFromDependency, CopyWorker, CopyNodeModules, StubUnpublishedAddons, CopyTauriMainProcessService\n- Transform: StripCSSImport, InjectNameShim, ReplaceElectronIPCService, ReplaceSharedProcess, StaticToDynamicImport, StripDanglingSourceMap, ExtensionScannerIPC\n\nThe Apply.ts runner walks roots, executes copy plugins then transform plugins, and provides a BuildPipeline factory matching Sky's ordered Steps 1-14. Type.ts defines the Plugin contract with TransformPlugin and CopyPlugin shapes.\n\nThis extraction maintains the same behavior while making the logic portable and testable.",
-			"SHA": "4c879094fd169c2fdf5dc0164e818a4e95f08769"
+			"Message": "build(Output): Remove Configuration source directory\n\nDelete the entire Configuration/Source directory from the Output element. This includes ESBuild configs, TypeScript configs, build plugins, polyfills, and service modules.\n\nThe Output element should contain only the final bundled JS artifacts consumed by Cocoon at runtime, not source build configuration files. These configuration files should be regenerated from their source definitions during the build process.",
+			"SHA": "51de686e76fe8bbdaf8c8bca938d3d79fc793522"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:11:26Z",
+			"Date": "2026-04-24T00:08:35Z",
 			"File": [
-				"⡏⠀⠀⠀⠀",
-				153,
-				21
+				"⣿⠀⠀⠀⠀",
+				290,
+				55
 			],
-			"Message": "feat(Output): Route colon-prefixed Tauri commands through MountainIPCInvoke\n\nThe polyfill modules (ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill, IPCRendererShim, NativeModulePolyfill, ProcessPolyfill, SharedProcessProxy) were attempting to invoke commands with colons in the name (e.g., file:read, file:write, shared_process:invoke) directly via Tauri invoke.\n\nHowever, Rust function names cannot contain colons. These commands dispatch through Mountain's single MountainIPCInvoke command, which unwraps the method name and params back into the positional Vec<Value> that internal handlers consume.\n\nUpdate invokeTauri in all polyfills to detect colon-prefixed commands and route them through MountainIPCInvoke. Also update sendTauri in IPCRendererShim to maintain consistency between async and fire-and-forget forms.\n\nThis ensures all polyfills behave consistently with the rest of Wind/Sky/Output.",
-			"SHA": "e6a8a93234866009796415ecc121f2d2d226cb7a"
+			"Message": "revert(Output): Restore Configuration build directory\n\nThe previous commit removed the Configuration directory as \"intermediate artifacts\", but these are actually source configuration files (ESBuild configs, TypeScript configs, build plugins, polyfills, and service modules) that define how the VS Code source is transformed for Land.\n\nThese files were incorrectly classified as intermediate build artifacts. They are essential source configurations that:\n- Define ESBuild bundling rules for CodeEditorLand/Editor and Microsoft/VSCode targets\n- Provide TypeScript compilation configs with proper path mappings\n- Implement build plugins for code transformation (IPC shims, CSS handling, electron replacements)\n- Supply browser polyfills (fs, child_process, ipcRenderer, etc.)\n- Define Tauri main process service stubs\n\nThe Output element requires these configuration files to produce the bundled JS artifacts consumed by Cocoon at runtime.",
+			"SHA": "9ea46755c9ab13a25e53afb3b1929eaf801db7ff"
 		},
 		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-04-22T15:06:15Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T21:18:06Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				153,
-				1
+				"⣿⣿⠇⠀⠀",
+				218,
+				106
 			],
-			"Message": "Merge pull request #136 from CodeEditorLand/dependabot/github_actions/pnpm/action-setup-6.0.3\n\nBump pnpm/action-setup from 4.2.0 to 6.0.3",
-			"SHA": "14e93748d553f4e76c867ce895560a0cd104f468"
+			"Message": "",
+			"SHA": "da8d5269012a9b2eb886c4ff868cde805e2cbecc"
 		},
 		{
-			"Author": "dependabot[bot]",
-			"Date": "2026-04-22T15:06:01Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T19:04:31Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				153,
-				1
+				"⣿⣿⣿⣿⣿",
+				97,
+				104
 			],
-			"Message": "Bump pnpm/action-setup from 4.2.0 to 6.0.3\n\nBumps [pnpm/action-setup](https://github.com/pnpm/action-setup) from 4.2.0 to 6.0.3.\n- [Release notes](https://github.com/pnpm/action-setup/releases)\n- [Commits](https://github.com/pnpm/action-setup/compare/v4.2.0...v6.0.3)\n\n---\nupdated-dependencies:\n- dependency-name: pnpm/action-setup\n  dependency-version: 6.0.3\n  dependency-type: direct:production\n  update-type: version-update:semver-major\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
-			"SHA": "3aa9a14044272d6a8128deb7819d79eed478eba1"
+			"Message": "chore(Output): Remove Configuration build directory\n\nDelete the entire Configuration directory from Output element. These build configuration files (ESBuild configs, plugins, polyfills, service modules, tsconfigs) were intermediate artifacts that should be regenerated from source during the build process rather than persisted in the Output tree.\n\nThis reduces confusion between source build configs and output artifacts, and ensures the Output directory contains only the final bundled JS artifacts consumed by Cocoon at runtime.",
+			"SHA": "d0b23daeb49a7f2516c8b520bafccc22be4cc44f"
 		}
 	],
-	"TimeStamp": 1779119409210
+	"TimeStamp": 1779241301749
 }

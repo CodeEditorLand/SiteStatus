@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-19T05:34:11Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				728,
-				17
-			],
-			"Message": "feat(Mountain): Implement tier-gating system and native file watcher\n\nAdd compile-time tier selection system (Plan A §Rust feature flags) with runtime banner:\n- New Cargo.toml features for experimental tiers (SharedMemory, Hyper, Ring, Layer4, Native, etc.)\n- build.rs propagates .env.Land settings to env!(\"Tier…\") compile-time constants\n- LandFixTier logs resolved tiers at boot for diagnostics\n- EmitTierDefaults ensures env!() resolves even without .env.Land\n\nAdd native file watcher (TierFileWatcherLayer4):\n- FileWatcherProvider backed by notify crate (FSEvents/inotify/ReadDirectoryChangesW)\n- Debouncing, glob→regex pattern filtering\n- IPC forwarding to Cocoon as $fileWatcher:event notifications\n- Integrated into CreateEffectForRequest (FileWatcher.Register/Unregister)\n\nAdd workspace folder runtime management:\n- WorkspaceFolderCommand Tauri commands (MountainWorkspaceOpenFolder, List, CloseAll)\n- CLI parsing via ParseWorkspaceFolders (--folder flags, positional dirs, LAND_WORKSPACE_FOLDER env)\n- Boot seeding in Entry::Fn before extension activation\n\nComplete previously-stubbed IPC handlers:\n- Terminal.Resize (uses PTY master handle from TerminalStateDTO)\n- Clipboard.Read/Write (arboard crate, async via spawn_blocking)\n- NativeHost.OpenExternal (open crate with scheme validation)\n- Webview operations (forwarded as sky://webview/* Tauri events)\n- Tree operations (register/unregister)\n- Task.Fetch/Execute (forwarded to ExtHostTaskService)\n- Authentication.GetSession/GetAccounts (forwarded to ExtHostAuthentication)\n- Languages.GetAll (walks scanned extensions for contributes.languages)\n- Debug.Stop (implemented in DebugProvider)\n- showOpenDialog (implemented in NativeHost with tauri-plugin-dialog)\n\nAdd DevLog file sink:\n- Logs to ~/Library/Application Support/<bundle>/logs/<timestamp>/Mountain.dev.log\n- Enabled via LAND_DEV_LOG_FILE=1 or auto-enabled in debug builds\n- Mirrors every dev_log! line with flush-per-line for tail -f\n\nBREAKING CHANGE: TierFileWatcher=Layer4 now requires TierFileWatcherLayer4 feature",
-			"SHA": "bf7535e92015b805497198451900915cee9e2a8c"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-19T02:12:58Z",
+			"Date": "2026-04-22T20:25:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
-				1
+				775,
+				4
 			],
-			"Message": "",
-			"SHA": "a612c4df9b6307141ae78cea0e3bf3e19e96941c"
+			"Message": "build(Mountain): Simplify binary naming and cleanup configuration\n\nShorten the binary, lib, and product names from the verbose development profile identifier to just 'Mountain'. Update the Tauri identifier to 'land.editor.binary' for consistency. Remove the externalBin reference to Binary/node since the Node.js sidecar is now handled differently. Add vscode-file and vscode-file://vscode-app to the img-src Content Security Policy for VS Code file protocol support. Delete the temporary backup files (Cargo.toml.Backup, tauri.conf.json.Backup) as the migration is complete.",
+			"SHA": "8a06b8564cd8ab294e472b4ffb145455fcd80889"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-18T15:48:35Z",
+			"Date": "2026-04-22T19:43:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
+				777,
 				6
 			],
+			"Message": "build(Mountain): Update build configuration for development profile\n\nRename the binary, lib, and product to include the development environment profile identifier (DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain) in Cargo.toml and tauri.conf.json. This aligns with the development build pipeline requirements.\n\nAdditionally:\n- Add Binary/node to externalBin in tauri.conf.json for the Node.js sidecar\n- Update posthog-rs 0.5 API: replace deprecated api_endpoint() with host() in PostHogPlugin.rs\n- Replace sha2 0.11's removed LowerHex impl with hex::encode() in ConfigurationBridge.rs for session ID generation\n\nThe backup files (Cargo.toml.Backup, tauri.conf.json.Backup) are retained for recovery during this configuration migration.",
+			"SHA": "f632a4ac2e3e3a7e2f94ac4697219d03aa1b0da3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T18:46:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				2
+			],
 			"Message": "",
-			"SHA": "49ef2a1458d3b808a555845700f84d3ddcd60d25"
+			"SHA": "3bcce20c33084d735c6a7f446f39e56c37bfbe9a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-18T14:28:04Z",
+			"Date": "2026-04-22T18:31:03Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
-				6
+				775,
+				5
 			],
-			"Message": "refactor(Mountain): Remove pub use re-exports from module public interfaces\n\nRemove wildcard and specific public re-exports from ApplicationState internal modules and the Air module. These re-exports were providing convenience access to internal types but violated encapsulation principles:\n\n- Air: Remove re-exports of AirClient, AirMetrics, AirStatus, and related types\n- ExtensionScanner: Remove ScanAndPopulateExtensions re-export\n- PathResolution: Remove ResolveMementoStorageFilePath re-export\n- Persistence: Remove MementoLoader and MementoSaver re-exports\n- Recovery: Remove RecoverState re-export\n- Serialization: Remove URLSerializer and URLDeserializer re-exports\n\nTypes should now be accessed via their explicit module paths rather than through re-exported shortcuts. This improves code clarity, prevents implicit dependencies, and enforces proper module boundaries.",
-			"SHA": "8f12359311b56898cb7ee85280a905527c751ea4"
+			"Message": "refactor(Mountain): Centralize UriComponents construction with $mid marker\n\nAdd a shared UriComponents helper module that ensures every URI payload sent to the VS Code renderer carries the required `$mid: 1` marshalling marker. Without it, VS Code's IPC reviver leaves URIs as plain objects where `.fsPath` and `.with` are undefined, causing the sidebar and icon loader to silently fail.\n\nThe recent fix for extension location URI marshalling addressed one call site, but inline `json!` builders elsewhere risked regressing the same issue. This change introduces:\n\n- `FromFilePath`: constructs a `file://` UriComponents with `$mid` from a filesystem path\n- `FromUrl`: parses arbitrary URL strings (file://, other schemes) into UriComponents\n- `StampMidUri`: injects `$mid: 1` into any UriComponents lacking it\n- `Normalize`: handles mixed input formats (string, object, null) uniformly\n\nNow used consistently in:\n- `handle_extensions_install` (Extension.rs) - fixes location URI\n- `handle_file_realpath` (both WindServiceHandler and WindServiceHandlers FileSystem.rs)\n\nThe Extensions.rs handler continues using the existing `Normalize` import. All IPC handlers that return URI-shaped payloads now emit through the centralized helpers, preventing silent breaks in the renderer's URI revival chain.",
+			"SHA": "e632bde43d9e101210c074a094bf0db9c5d0f69f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-18T13:02:37Z",
+			"Date": "2026-04-22T18:20:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
-				1
+				774,
+				2
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "b727de321fbc4c1d200579e8afdde7df5c191e10"
+			"Message": "",
+			"SHA": "040bfbacb2ba90145b5feb6c5b41cd11e5e2f120"
 		}
 	],
-	"TimeStamp": 1779119438263
+	"TimeStamp": 1779241331058
 }

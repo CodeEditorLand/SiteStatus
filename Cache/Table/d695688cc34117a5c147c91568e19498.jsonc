@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T01:24:00Z",
+			"Date": "2026-04-24T21:25:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5213,
+				5214,
+				2
+			],
+			"Message": "feat(Project): Implement workspaceContains activation and improve route manifest script\n\nElement submodule sync bringing two complementary improvements:\n\n1. **Extension Activation (Mountain/Cocoon)**: Implement VS Code-style workspaceContains and onStartupFinished activation. Mountain now fires three activation bursts: `*`, `workspaceContains:<pattern>` (glob matching against workspace folders, depth 3, 4096 entries max), and `onStartupFinished` (2s delay). Add FindMatchingWorkspaceContainsPatterns for glob matching. Filter benign stderr noise (macOS codesign, Node.js deprecation warnings) to cocoon-stderr-verbose channel. Upgrade Rust edition from 2021 to 2024.\n\n2. **Route Manifest Script (Maintain)**: Reformat pipe chains in GenerateRouteManifest.sh to use `|` at line ends consistently instead of trailing backslashes. Fix variable redirections to remove spaces after `<` (e.g., `< \"$file\"` → <\"$file\").\n\nImpact: Extensions gated on workspaceContains:package.json and workspaceContains:**/now activate correctly. Default stderr is cleaner while preserving error visibility. Route manifest generation script follows consistent shell style.",
+			"SHA": "1353aed19c582c4cb1a6ff9ac69462e69032705b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T20:52:48Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				5214,
 				1
 			],
-			"Message": "chore(Project): Update Element submodule with workspace folders, status bar removal, SCM events\n\nSynchronize Element submodule reference from 31cf2b5f to 21ddbb2. This pulls in coordinated changes across Mountain, Sky, and Cocoon:\n\n- **Mountain:** Add `folders` array inline to WorkspaceDTO in InitData so extensions reading `vscode.workspace.workspaceFolders` synchronously (vscode.git, gitlens, typescript) see real folders immediately instead of `[]`. Also add `configuration` field for workspace config path. Enable CWD-autoload by default in debug builds to support git repository scanning.\n\n- **Sky:** Remove custom fallback status bar that was overlaying VS Code's native `.statusbar`. Extension-contributed status bar items now display properly through the native mechanism. Add SCM event bridge handlers that dispatch `cel:scm:*` CustomEvents when Mountain emits `sky://scm/{register,unregister,updateGroup}`.\n\n- **Cocoon:** Submodule pointer update.\n\nImpact: Extensions like vscode.git and gitlens now surface tree-views on cold boot in debug builds. SCM state events properly route to Sky-side consumers.",
-			"SHA": "57037f91c30cb6ae84bcd0ca48ddbeb7a21a1ccb"
+			"Message": "refactor(Project): Continue logging noise reduction across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
+			"SHA": "1271d7fded155a605359db1131df59c7eaf6be5f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T00:10:00Z",
+			"Date": "2026-04-24T20:37:56Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5213,
-				4
-			],
-			"Message": "feat(Project): Add route manifest generation for dual-track RPC routing\n\nAdd GenerateRouteManifest.sh script that scans Mountain Rust handlers, StockLift exports, and Cocoon fallback functions to emit a TypeScript manifest consumed by DualTrack.ts at runtime. The manifest enables smart tier selection for method dispatch - Mountain gRPC for tier-1 methods, StockLift pure functions for tier-2, bespoke Node fallbacks for tier-3 - and identifies tier-4 (unavailable) methods.\n\nIntegrate the script into both Debug and Release build pipelines. Idempotent execution completes in <500ms.\n\nAlso update Element submodule to pull in Mountain reliability improvements (exponential backoff for Cocoon gRPC handshake, child-exit detection, activation-race TOCTOU handling, pre-flight bundle probe), Output configuration cleanup (remove source directory from bundle artifacts), and Sky status bar codicon stripping.",
-			"SHA": "3cf802b2a5ca05e9396aceff75403a929a7e2103"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T22:42:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				5212,
-				4
-			],
-			"Message": "feat(Project): Eliminate startup visual flash and add compiled debug profiles\n\nCoordinate startup sequence improvements across Mountain, Sky, and Wind to eliminate the \"purple/dark flash\" and panel-pop flicker observed on cold boot:\n\n- **Mountain:** Implement hidden-until-ready window pattern using WebviewWindowBuilder.visible(false), reveal only when Sky reports phase 3 (Restored). Add 3s safety timer to force-reveal if Sky crashes before phase 3 (prevents invisible-window lockup).\n- **Sky:** Add missing SkyBridge initialization to Electron Layout to subscribe to cel:* Tauri events (tree-view, SCM, debug, extensions). Previously, panels painted empty on first frame then re-rendered with data.\n- **Wind:** Add PostHogDefines to TargetConfig.ts mapping LAND_POSTHOG_* environment variables to esbuild define directives, completing the hardcoded-key removal work.\n\nAdditionally, add two new debug profiles for single-binary embedded resource testing:\n- `debug-electron-compiled` - Electron workbench with all Sky/Output assets embedded via Tauri's resource table, preserving debug symbols and dev-log tags\n- `debug-mountain-compiled` - Same embedded-resource layout on the lighter Mountain workbench\n\nAlso update turbo.json to declare global dependencies (.env files) and globalEnv variables (LAND_POSTHOG_*, Product*, Tier*, etc.) for proper cache invalidation.\n\nImpact: Eliminates four-repaint startup cascade. All panels now render with data on first paint.",
-			"SHA": "ee6a383737da87d261c60b7d46466ae249c89981"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T21:18:55Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				5212,
-				300
-			],
-			"Message": "",
-			"SHA": "9abb5023d636985a9649c66290c1b7b8d27f81d2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T20:54:37Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				100,
+				5214,
 				1
 			],
-			"Message": "chore(Project): Update Element submodule to 056425e324d08252ff9aae17882dfbf2be311659\n\nSynchronize Element submodule reference from a7b5aff3 to 056425e3. This pulls in the latest coordinated changes across the Element components.",
-			"SHA": "018016f11584d8d92fb9a501832af176136f3225"
+			"Message": "feat(Project): Wire extension tree views and reduce Mountain log noise\n\nCross-cutting sync across four submodules:\n\n1. **Mountain (refactor):** Reduce high-frequency log noise in default mode by moving per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants muted in `short` mode. Expand IPC skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme. Reduces default log volume from ~14k+ lines per session to ~500 while preserving error visibility.\n\n2. **Output (feat):** Expose IViewsService and TreeViewByViewId in workbench accessor ESBuild transform. Enables Sky to resolve ITreeView instances from ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\n3. **Sky (feat):** Wire extension tree views into workbench rendering pipeline. Attach data providers to tree views that call `tree:getChildren` via MountainIPCInvoke, converting Cocoon wire shape into workbench ITreeItem. Add retry logic (5 attempts, 150ms spacing) for async workbench init. Implement `cel:tree-view:refresh` and `cel:tree-view:dispose` handlers.\n\n4. **Cocoon (sync):** Submodule update.\n\nImpact: Extension-registered tree views (from extensions like GitLens, Debugger) now render in the workbench pane. Default logs are actionable rather than noisy.",
+			"SHA": "c26be973866e6bcb67c7da99093ef59e06ba2d0a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T20:35:03Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				5214,
+				1
+			],
+			"Message": "VS Code API Coverage Matrix\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "e9ca317693c51acb95c66c8df11556c35b625ab0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T17:08:49Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				5214,
+				1
+			],
+			"Message": "chore(Land): Sync Element submodule to e792634e04de\n\nUpdate Element from 991e3b3 to e792634e, pulling in upstream Cocoon extension host runtime improvements.\n\nThis sync brings the latest Cocoon submodule state (cb1a388) into the Land build, ensuring the extension host has access to recent runtime changes.",
+			"SHA": "83083f528b4c94eb04130b730863979183254a87"
 		}
 	],
-	"TimeStamp": 1779119409370
+	"TimeStamp": 1779241299506
 }

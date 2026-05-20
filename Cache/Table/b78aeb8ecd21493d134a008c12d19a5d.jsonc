@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:28:50Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, not the flat structure the scanner was expecting. This caused all extensions to appear as 'unknown' with empty names/publishers.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures @builtin/@installed extension split works correctly in the sidebar.",
-			"SHA": "0a994328767963658121b9a37c38ca896ef7819a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:20:51Z",
+			"Date": "2026-04-24T01:22:45Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
 				28,
 				3
 			],
-			"Message": "fix(Project): Coordinate extension scanning and file URI handling fixes\n\nThree related fixes improve extension host integration:\n\n- **Mountain:** Add `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes from URIs before creating PathBuf. Applies to all 8 FileSystem operations (ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, Copy). This fixes redhat.java extension activation failure with \"Resource not found: file:///...\" errors.\n\n- **Output:** Separate system and user extension scanning in ExtensionScannerIPC. Now calls `extensions:scanSystemExtensions` for ForceBuiltin=true and `extensions:scanUserExtensions` for ForceBuiltin=false. Previously all extensions were hardcoded as builtin, causing user VSIXes to appear under @builtin in the sidebar. Also implements the stubbed `scanUserExtensions()` method.\n\n- **Cocoon:** Minor submodule sync.\n\nImpact: User-installed extensions now appear under \"Installed\" (not \"Built-in\") and file operations correctly resolve paths from gRPC FileSystem calls.",
-			"SHA": "3b8390aef4f7de9ea413273d2829f52b1a8bc17c"
+			"Message": "feat(Project): Add workspace folders to extension host init, remove fallback status bar\n\nCoordinate init data and UI updates across Mountain and Sky submodules:\n\n- **Mountain (e10a5c04):** Add `folders` array inline to WorkspaceDTO in InitData so extensions reading `vscode.workspace.workspaceFolders` synchronously (vscode.git, eamodio.gitlens, typescript) see real folders immediately instead of `[]`. Also add `configuration` field for workspace config path. Enable CWD-autoload by default in debug builds (OFF in release) to support git repository scanning.\n\n- **Sky (05efccae):** Remove custom fallback status bar that was overlaying VS Code's native `.statusbar`. Extension-contributed status bar items are now dropped until `MainThreadStatusBar.$setEntry` is properly wired into the workbench. Add SCM event bridge handlers that dispatch `cel:scm:*` CustomEvents when Mountain emits `sky://scm/{register,unregister,updateGroup}`.\n\n- **Cocoon:** Submodule pointer update.\n\nImpact: Extensions like vscode.git and gitlens now surface tree-views on cold boot in debug builds. SCM state events are properly routed to Sky-side consumers.",
+			"SHA": "21ddbb2453f9fd6da04c91cc929d7104a695cbfd"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:40:14Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "fix(Wind): Align FileSystemProviderError names with VS Code's token format\n\nWind's FileSystemErrorCode uses key-like values ('FileNotFound', 'FileExists'), but VS Code's toFileSystemProviderErrorCode extracts the token from error.name and switches on 'EntryNotFound', 'EntryExists', etc. Add a mapping function VsCodeErrorCodeToken to translate between the two formats. Also set this.name to the '<code> (FileSystemError)' pattern that VS Code's markAsFileSystemProviderError() expects. Remove individual name assignments from subclasses since the base class now handles naming.\n\nWithout this fix, mkdirp and validateWriteFile treat missing-file/dir errors as unknown and rethrow, surfacing as unhandled rejections like 'Unable to write file .../tasks.log (Error: Failed to stat file ...)'.\n\nThis is a coordinated update with Cocoon (submodule sync).",
-			"SHA": "1a7667bfc7b1461b709cc31a642cd76a71431b93"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:28:58Z",
+			"Date": "2026-04-24T00:09:52Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
 				28,
 				4
 			],
-			"Message": "fix(Project): Coordinate extension compatibility and IPC channel fixes\n\nFour related fixes improve extension host integration and IPC routing:\n\n- **Cocoon:** Add missing TextEditorCursorStyle (.Line, .Block, etc.) and UIKind (.Desktop, .Web) enums that extensions like vscodevim and gitlens depend on at activation. Also add stub terminal shell-integration event handlers to prevent crashes.\n\n- **Mountain:** Return correct Cocoon PID via GetCocoonPid() instead of Mountain's own PID. The renderer needs this to correlate extension-host debug adapters with the actual Node.js process. Also register walkthrough commands as no-ops for claude-code extension.\n\n- **Output:** Fix CatchOutputFolderRejection regex to match both `() => undefined` and minified `() => void 0`. Correct userDataSync channel names: `userDataSyncService` → `userDataSync`, `userDataSync` → `userDataSyncAccount` per VS Code source.\n\n- **Wind:** Sync userDataSync IPC channel names to match Output and VS Code registration.\n\nImpact: Extensions with cursor styling and UI detection now activate without crashes, debug adapters attach to the correct process, and user data sync IPC routes correctly.",
-			"SHA": "93496cae35dfe1651b356c15770bbe7ae25f0dd5"
+			"Message": "refactor(Project): Improve Mountain gRPC reliability, cleanup Output config, fix Sky status bar\n\nMultiple cross-cutting improvements:\n\n- **Mountain (26891b30):** Implement exponential backoff for Cocoon gRPC handshake (50ms initial, 2s ceiling, 20s budget) replacing fixed 1s retry. Healthy spawns now connect in ~400ms vs previous ~20s. Add child-exit detection during connection loop to fail fast with actionable diagnostics when Node exits early (unhandled exception, invalid module). Handle activation-race TOCTOU for `_typescript.configurePlugin` commands with early null return. Add pre-flight bundle probe to fail fast on missing Cocoon bundle.\n\n- **Output (51de686e):** Remove Configuration source directory (ESBuild configs, TypeScript configs, build plugins, polyfills) from Output element. Output should contain only final bundled JS artifacts consumed by Cocoon at runtime. Configuration files should be regenerated from source definitions during build.\n\n- **Sky (2ed0e226):** Strip VS Code codicon syntax (`$(name)`, `$(name~spin)`) from status bar text before rendering to prevent garbled \"weird emojis\" in fallback bar. Change status bar items to ALWAYS use dedicated fallback bar - never inject into VS Code's native `.statusbar` DOM to avoid visual conflicts between two rendering systems.\n\n- **Sky deps:** Bump @xterm/xterm (6.1.0-beta.199→202), vite (8.0.9→10), @astrojs/compiler-rs (0.1.8→9).",
+			"SHA": "31cf2b5f1cfd8b55ab088cd252ed860aea02fed9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:02:12Z",
+			"Date": "2026-04-23T22:41:52Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "feat(Project): Eliminate startup visual flash across Mountain, Sky, and Wind\n\nCoordinate startup sequence improvements across three submodules to eliminate the \"purple/dark flash\" and panel-pop flicker observed on cold boot:\n\n- **Mountain (993a69a7):** Implement hidden-until-ready window pattern using WebviewWindowBuilder.visible(false), reveal only when Sky reports phase 3 (Restored). Add 3s safety timer to force-reveal if Sky crashes before phase 3 (prevents invisible-window lockup).\n\n- **Sky (0cf2e4da):** Add missing SkyBridge initialization to Electron Layout to subscribe to cel:* Tauri events (tree-view, SCM, debug, extensions). Previously, panels painted empty on first frame then re-rendered with data, causing \"tree-views flash empty then pop\".\n\n- **Wind (bb3b6fc3):** Add PostHogDefines to TargetConfig.ts mapping LAND_POSTHOG_* environment variables to esbuild define directives. Completes the hardcoded-key removal work, enabling PostHog config driven entirely by environment variables.\n\nImpact: Eliminates four-repaint startup cascade (native chrome → #1e1e1e → VS Code theme → workbench DOM). All panels now render with data on first paint.",
+			"SHA": "3ff9bbf02757290f4128143f97cfbaecfd01c5ec"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T21:18:38Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				28,
+				5
+			],
+			"Message": "refactor(Project): Remove hardcoded PostHog keys and decompose Utilities\n\nCoordinate submodule updates across Mountain, Sky, and Wind to remove hardcoded credentials and improve module organization:\n\n- **Mountain (8cba79c0):** Decompose monolithic Utilities.rs into 7 domain-specific modules (ApplicationRoot, ChannelPriority, JsonValueHelpers, MetadataEncoding, PathExtraction, RecentlyOpened, UserdataDir). Update all call sites to use explicit reverse-hierarchical paths (e.g., `Utilities::PathExtraction::extract_path_from_arg`).\n\n- **Mountain (5140a389):** Simplify binary/library names from verbose development format back to 'Mountain' in Cargo.toml and tauri.conf.json. Remove PostHog API key from build.rs and bootstrap-fork.js. Clean up tauri.conf.json identifier to 'land.editor.binary'.\n\n- **Sky (9b67e2e6):** Remove hardcoded PostHog API key from PostHogBridge.ts and astro.config.ts, requiring LAND_POSTHOG_KEY environment variable.\n\n- **Wind (a0e09d67):** Remove hardcoded PostHog API key from Configuration.ts.\n\nImpact: Security hardening by eliminating hardcoded credentials across 3 submodules. Improved code organization with explicit module dependencies following CLAUDE.md requirements.",
+			"SHA": "b03e5a60d3d19957ab41a059dc5e5d8150bb2842"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T20:54:32Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object args ({ path, encoding: \"utf8\" }) and the response was assumed to be a string. Mountain actually returns raw bytes as { buffer: number[] } and ignores the encoding param entirely. When VS Code loaded binary files (WASM, fonts, images), the response body became \"[object Object]\" which corrupted the data. This broke TextMate syntax highlighting with: \"WebAssembly.Module doesn't parse at byte 0: module doesn't start with '\\0asm'\".\n\nFix by: 1) Invoking file:read with positional array args [path] as expected by MountainIPCInvoke 2) Adding UnwrapReadResult() to unwrap { buffer: number[] } into Uint8Array for binary-safe Response bodies 3) Updating content type to Uint8Array | string | Blob | null. All three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler, FileHandler) now use the binary-safe pattern.\n\nThis restores TextMate grammar loading and binary asset handling.",
-			"SHA": "5864c4e9c32ce3903e9f1ec3efae89b372751099"
+			"Message": "",
+			"SHA": "056425e324d08252ff9aae17882dfbf2be311659"
 		}
 	],
-	"TimeStamp": 1779119408344
+	"TimeStamp": 1779241302531
 }
