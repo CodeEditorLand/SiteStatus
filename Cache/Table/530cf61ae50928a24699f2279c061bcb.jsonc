@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:07:24Z",
+			"Date": "2026-05-20T08:38:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1568,
+				1580,
 				1
 			],
-			"Message": "refactor(Mountain): Clarify logger command fallback handling\n\nUpdate the comment block for logger commands (`logger:log`, `logger:warn`, etc.) in `Source/IPC/WindServiceHandlers/mod.rs`. The inline acknowledgment explicitly states that these high-frequency calls are now primarily managed by the `IS_HIGH_FREQUENCY` fast-path short-circuit established in recent commits.\n\nThe fallback arms in the `mountain_ipc_invoke` dispatcher are described as a safety net to ensure `Mountain.dev_log` receives output if the high-frequency detection logic changes or fails. This aligns the documentation with the current architectural optimization for the IPC dispatch layer.",
-			"SHA": "db5faf8431473f060005b186245adfebef81bd7d"
+			"Message": "feat(Mountain): Read TierSchemeAssets from .env.Land as env fallback\n\nAdd the helper function `ReadTierValueFromEnvFile` to build.rs that walks up the directory tree from `CARGO_MANIFEST_DIR` (up to 5 ancestors) looking for `.env.Land` or `.env.Land.Sample` to resolve the `TierSchemeAssets` key. The resolution priority is: process environment variable first, then the env file, then the hard-coded default of `\"Embedded\"`.\n\nThis mirrors the file-reading logic already used by `PropagateTierGating` in the Rust tier system, ensuring the tauri.conf.json mutation in build.rs agrees with the cfg-gated Rust code even when a shell has a stale exported `$TierSchemeAssets` from a previous build tier. If the env file is found but the key is absent, the function returns `None` immediately rather than falling through to a parent directory — preventing accidental cross-project key leakage.",
+			"SHA": "4ba376b9241d0f9cc58e68f6cb1be03affa8000c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:06:12Z",
+			"Date": "2026-05-20T08:32:14Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1568,
+				1580,
 				1
 			],
-			"Message": "refactor(Mountain): Remove redundant menubar update handler logic\n\nThe inline `menubar:updateMenubar` handler, which implemented a per-100-call logging counter and returned `Null`, is removed. These high-frequency calls are now processed exclusively in the `IsHighFrequencyCommand` fast-path block established previously.\n\nThis cleanup eliminates the dead code fallback in `Source/IPC/WindServiceHandlers/mod.rs`, ensuring the IPC dispatch layer relies on the optimized path for menubar updates while maintaining a minimal fallback for command routing integrity.",
-			"SHA": "8fd7bc239ad2beac6260602e1d1a12261f11e188"
+			"Message": "",
+			"SHA": "52d240d6376d08d9e81c1bc50e34b336e36ead59"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:05:01Z",
+			"Date": "2026-05-20T08:32:14Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1568,
-				1
+				1580,
+				2
 			],
-			"Message": "refactor(Mountain): Remove stub acknowledgments for workspace folder events\n\nThe `workspaces:onDidChangeWorkspaceFolders` and `workspaces:onDidChangeWorkspaceName` commands previously returned a `Null` value as a stub acknowledgment to simulate a Tauri event listener handshake on the IPC binary rail.\n\nThese explicit handlers are removed as the actual workspace change notifications are now broadcast directly via Tauri events without requiring a corresponding `ack` response on the gRPC/Vine protocol rail. This cleanup eliminates dead code paths and streamlines the `mountain_ipc_invoke` dispatch logic in `Source/IPC/WindServiceHandlers/mod.rs`.\n\nThe workspace state change propagation remains intact through the existing event emission mechanism, ensuring the Wind UI layer still receives updates without unnecessary binary rail overhead.",
-			"SHA": "893b99ac4810581ca194db97cdbef1ff40bd3e08"
+			"Message": "feat(Mountain): Gate asset deployment strategy behind $TierSchemeAssets env var\n\nIntroduce a build-time gating mechanism that selects between two asset deployment modes: Embedded (default, assets Brotli-compressed into the binary) and FileSystem (full disk layout in Contents/Resources/ served via the localhost plugin static_root fallback).\n\nIn build.rs, read $TierSchemeAssets (defaults to \"Embedded\") and mutate tauri.conf.json at build time:\n- Embedded: frontendDist=\"../Sky/Target\", bundle.resources holds only Cocoon-needed files (bootstrap, extensions, nls, node_modules, product.json).\n- FileSystem: frontendDist=null, bundle.resources maps the full Sky/Target/ tree (Browser, BrowserProxy, Bundled, vs/, _astro/, index.html, etc.).\n\nIn LocalhostPlugin.rs, wrap the static_root resolution and Builder.static_root() call in #[cfg(feature = \"TierSchemeAssetsFileSystem\")] so the disk-fallback code is compiled only when FileSystem mode is active. Add \"TierSchemeAssetsFileSystem\" to IsDeclaredTierFeature and remove \"FileSystem\" from IsDefaultTierValue so it now emits a cfg feature rather than being a silent default.\n\nThis completes the foundation laid by the Static/Application/ prefix refactoring, making the deployment mode selectable at build time via a single environment variable rather than manual tauri.conf.json editing.",
+			"SHA": "a9e4b2d9bf9e3ed04251361f03325445f343e208"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:48:43Z",
+			"Date": "2026-05-20T08:21:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1568,
-				5
+				1580,
+				4
 			],
-			"Message": "feat(Mountain): Add glob pattern normalization and text edit utilities\n\nIntroduce two new utility modules under `Source/Environment/Utility` to support workspace scanning and document manipulation. `GlobPattern.rs` normalizes VS Code glob patterns from various serialized shapes (bare strings, `RelativePattern` objects, legacy `value` fields) into a unified string and extracts optional base directories for bounded file walks. `TextEdit.rs` provides pure side-effect-free helpers for computing UTF-16 line offsets and converting `(line, character)` positions to byte offsets, adhering to VS Code's `Range`/`Position` semantics. It also includes a self-contained percent-decoder for `file://` URIs.\n\nThese utilities are exported in `mod.rs` to be consumed by the `FindFiles` workspace provider and language service layers. Additionally, the build system is updated in `build.rs` to recognize `TierIPC` as a runtime-only configuration variable, and the logging utility `LandFixTier.rs` is enhanced to emit this runtime tier value alongside the build-baked tiers.",
-			"SHA": "00a3ccf53ec931b07171c9e1217f006a6cbd4a86"
+			"Message": "refactor(Mountain): Consolidate bundle resources under Static/Application prefix\n\nTransition the Tauri bundle layout from flat resource paths to a structured \"Static/Application/\" prefix, unifying the bundle and development directory trees under a single source of truth. This eliminates the mismatch between the flat bundle layout (Contents/Resources/extensions) and the monorepo layout (Sky/Target/Static/Application/extensions).\n\nIn tauri.conf.json, remap all resource entries to target \"Static/Application/...\" and set frontendDist to null so the dev server delegates to the localhost plugin's static_root disk fallback. Add static_root resolution in LocalhostPlugin.rs that probes both the production bundle path (../Resources/) and the monorepo dev path (../../../Sky/Target/).\n\nIn ScanPathConfigure.rs, register the new canonical extensions path (Resources/Static/Application/extensions) before the legacy flat paths, which are retained as fallbacks for existing development environments.\n\nLegacy flat paths remain functional during the transition, so existing dev runs and CI pipelines continue to work until all resource mapping is migrated.",
+			"SHA": "58b34f8a23c47aec5c01e92c493060403c7159b4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:46:07Z",
+			"Date": "2026-05-20T06:37:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1566,
-				3
+				1576,
+				4
 			],
-			"Message": "feat(Mountain): Implement extension manifest NLS resolution and default config collection\n\nIntroduce two new modules in `Source/ExtensionManagement` to prepare extension manifests for runtime consumption. `NLSResolver.rs` handles the resolution of `%key%` placeholders found in VS Code `package.json` manifests by loading and parsing `package.nls.json` bundles, supporting both string and `{message, comment}` object formats. `DefaultConfigurations.rs` scans all scanned extensions to recursively merge `contributes.configuration.properties` into a single flat JSON object, utilizing dot-notation for nested keys and guarding against circular references.\n\nThese changes ensure that localized UI strings and default user settings are correctly extracted from extension definitions before they are processed by the extension host or applied to the settings engine. Both modules are exported in `mod.rs` to enable integration with the extension scanner and IPC handlers.",
-			"SHA": "df0df3f19cd2aa052a86a6ac4745b35845d1164a"
+			"Message": "chore(Mountain): Strip verbose build identifiers, restore compact names\n\nRevert the DevelopmentNodeEnvironment_MicrosoftVSCodeDependency verbose naming scheme introduced in the previous commit for Cargo.toml bin/lib/package names and tauri.conf.json identifier/productName. Replace identifier with the stable \"fiddee.editor.binary\" key and set productName to \"Mountain\".\n\nAlso collapse externalBin and targets arrays back to single-line format (reverting the formatting change from the previous commit) and delete the .Backup files that were created alongside the verbose identifiers.\n\nThe verbose identifiers were only needed during a transitional Electron-profile debugging phase and are no longer required for the production Rust/Tauri pipeline.",
+			"SHA": "f3219cd8532d03baa1cef3f2a23e51c026653c44"
 		}
 	],
-	"TimeStamp": 1779241282546
+	"TimeStamp": 1779291712638
 }
