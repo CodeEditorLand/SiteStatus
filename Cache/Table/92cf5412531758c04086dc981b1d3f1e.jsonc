@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:23Z",
+			"Date": "2026-05-03T08:19:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1373,
-				10
-			],
-			"Message": "feat(Mountain): Implement native Git IPC service handlers\n\nIntroduce a complete suite of Tauri command handlers under `Source/IPC/WindServiceHandlers/Git` to bridge the Mountain backend with the Wind/Sky frontend for version control operations. This implementation fulfills the `localGit` service contract required for the editor's SCM integration.\n\nThe commit adds:\n- **Shared Runtime (`Shared.rs`):** A `RunningProcesses` map to track PIDs per `OperationId`, enabling cross-invocation cancellation. `RunGit` handles spawning `git` with `kill_on_drop`, logging, and result parsing.\n- **Lifecycle & Discovery:** `HandleIsAvailable` (cached `git --version` check), `HandleClone` (with optional branch), and `HandleCheckout` (supporting detached heads).\n- **Remote Operations:** `HandleFetch` and `HandlePull` (enforcing `--ff-only` with HEAD diff validation).\n- **Inspection:** `HandleRevParse` and `HandleRevListCount` for commit history and ahead/behind badges.\n- **Execution & Control:** `HandleExec` for arbitrary Git CLI arguments and `HandleCancel` (SIGTERM/TaskKill) to terminate in-flight processes.\n\nAll handlers adhere to PascalCase naming, strict error handling, and the project's modular architecture, ensuring reliable asynchronous Git operations from the native backend.",
-			"SHA": "2152034f2d8c2f3973951b61c59bcda758010e53"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:15Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1362,
-				7
-			],
-			"Message": "feat(Mountain): Implement enhanced IPC connection pool with health monitoring\n\nIntroduce a robust, bounded connection pool subsystem under `Source/IPC/Enhanced/ConnectionPool` to manage IPC backend resources efficiently. This module replaces ad-hoc connection handling with a scalable architecture featuring automatic lifecycle management, health scoring, and statistical telemetry.\n\nThe implementation adheres to the project's PascalCase naming and 'one struct per file' architecture:\n- `ConnectionHandle::Struct`: Tracks per-connection metadata including UUID, timestamps, error counts, and a dynamic health score that decays on failures and recovers on success.\n- `ConnectionHealth::Enum`: Defines states (`Healthy`, `Unhealthy`, `Degraded`) for precise resource filtering.\n- `HealthChecker::Struct`: Implements asynchronous health probes with configurable timeouts to validate connection viability.\n- `Pool::Struct`: The core aggregator managing a bounded semaphore, a wait queue for contention handling, and background Tokio tasks for periodic health monitoring and stale connection cleanup.\n- `PoolConfig::Struct` & `PoolStats::Struct`: Provide serialization support for tunable parameters (timeouts, bounds) and runtime telemetry (error rates, active counts).\n\nThis enhancement ensures the Mountain backend can sustain high-throughput IPC operations with automatic failover and resource recycling, crucial for the editor's stability during heavy extension host activity.",
-			"SHA": "abce84b95074b8849ebd1542814a776d4541f0d5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:08Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1354,
-				8
-			],
-			"Message": "feat(Mountain): Implement Tauri command handlers for text model lifecycle and file I/O\n\nIntroduce a comprehensive suite of Wind IPC service handlers under `Source/IPC/WindServiceHandlers/Model/` to bridge the Mountain backend with the editor's document registry and filesystem operations. These handlers fulfill the contract required by Wind's text model service to manage the full lifecycle of open files.\n\nThe implementation covers the core CRUD operations for in-memory document models and raw file access:\n- **Model Lifecycle:** `ModelOpen` reads content from disk, infers language ID from extensions, and registers a `DocumentStateDTO` in `ApplicationState.Feature.Documents` with correct EOL handling. `ModelClose` removes entries idempotently.\n- **Model State:** `ModelGet` and `ModelGetAll` return snapshots of open documents (content, version, language ID) for UI restoration and cache hydration. `ModelUpdateContent` applies edits, increments version numbers, and marks documents as dirty.\n- **File I/O:** `TextfileRead` and `TextfileWrite` provide direct verbatim file access for tooling and resolvers without polluting the document registry. `TextfileSave` acts as a save-intent hint to clear dirty markers and log traces.\n\nAll handlers adhere to PascalCase naming, strict error handling, and the project's modular architecture, ensuring the native backend can reliably synchronize state with the Wind/Sky frontend.",
-			"SHA": "4f13441eff41ba8384cc274c2eca1a8d0377bac7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:16:54Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1345,
+				1482,
 				5
 			],
-			"Message": "feat(Mountain): Implement output channel lifecycle handlers for Sky\n\nIntroduce a complete suite of Tauri command handlers under `Source/IPC/WindServiceHandlers/Output/` to manage the editor's output panel lifecycle. This bridges the Wind service layer with the Sky frontend for displaying and manipulating output streams.\n\nThe implementation adds five new modules adhering to the project's PascalCase naming and `one struct per file` architecture:\n- `OutputCreate`: Acknowledges channel creation and logs to the dev console.\n- `OutputAppend` & `OutputAppendLine`: Emit `sky://output/append` events to stream text into the Sky scroll buffer, with the latter automatically appending newlines.\n- `OutputClear` & `OutputShow`: Emit `sky://output/clear` and `sky://output/show` events respectively, allowing the frontend to reset buffers or bring a specific channel to focus.\n\nThese handlers utilize the `CommonLibrary::IPC::SkyEvent` system to trigger reactive updates in the Sky UI, completing the native backend support for the integrated output terminal.",
-			"SHA": "70253806a73d36c1bcc9269c4d4c468497bf3be7"
+			"Message": "refactor(Mountain): Decompose Enhanced IPC modules and enforce PascalCase struct qualification\n\nRemove the monolithic type definitions previously embedded directly in `Source/IPC/Enhanced/ConnectionPool.rs`, `MessageCompressor.rs`, `PerformanceDashboard.rs`, and `SecureMessageChannel.rs`. This refactor prepares the `IPC::Enhanced` layer for a fine-grained modular structure where specific traits and DTOs (e.g., `PoolConfig`, `Compressor::Struct`) reside in dedicated sub-files, aligning with the project's strict PascalCase naming conventions.\n\nUpdate `Source/IPC/Enhanced/mod.rs` to reference these types using explicit qualification (e.g., `ConnectionPool::Pool::Struct` instead of `ConnectionPool::ConnectionPool`). This resolves symbol shadowing issues caused by module-name/type-name collisions and adheres to the architectural shift towards explicit namespace resolution seen in recent command handler refactorings.\n\nThis change cleans up the current implementation state, allowing the `EnhancedIPCManager` to correctly instantiate its internal components (`Compressor`, `Pool`, `Channel`, `Dashboard`) once the corresponding sub-modules are migrated to their own files.",
+			"SHA": "51dd389c370787f41e36f29c4e245375e6d4f620"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:16:49Z",
+			"Date": "2026-05-03T08:19:45Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1339,
+				1486,
 				5
 			],
-			"Message": "feat(Mountain): Implement RBAC enforcement engine with audit logging\n\nIntroduce the `PermissionManager` subsystem within `Source/IPC/Security` to enforce Role-Based Access Control (RBAC) on all IPC operations. This module provides the `Manager::Struct` enforcement core, which validates operations against user `SecurityContext` data (roles and permissions) before dispatch.\n\nKey components include:\n- `Manager::Struct`: Maintains role/permission tables and a rolling 1,000-entry audit log. Implements `validate_permission` to gate access and `log_security_event` for telemetry.\n- `SecurityContext::Struct`: The request envelope carrying user identity, roles, and origin IP.\n- `SecurityEvent::Struct` & `SecurityEventType::Enum`: Standardized audit log entries for access grants, denials, and violations.\n- `initialize_defaults`: Bootstraps standard roles (User, Developer, Admin) and permission definitions (file, config, storage, system).\n\nThe implementation adheres to PascalCase naming and the project's modular architecture, ensuring the native backend can strictly enforce least-privilege principles for file I/O, configuration updates, and system extensions.",
-			"SHA": "429102af223fb0f5403463c95f8e492f94e7e879"
+			"Message": "refactor(Mountain): Modularize DNS and TLS command modules into sub-files\n\nSplit the monolithic `DnsCommands.rs` and `TlsCommands.rs` files into a directory structure of individual sub-modules, adhering to the project's strict PascalCase naming conventions. Each command handler, DTO, and utility now resides in its own file (e.g., `DnsServerInfo`, `ZoneInfo`, `tls_check_cert_status`), reducing file size and improving maintainability.\n\nConcurrently, updated `LoggingPlugin.rs` to align helper method calls with the new `::Fn()` explicit qualification pattern and refined `PostHogPlugin.rs` documentation to include the new `CaptureHandler` and `HydrateRuntimeEnvironment` modules. Removed extensive inline documentation in favor of concise module-level comments, as the new file structure provides natural separation of concerns.\n\nThis refactoring prepares the codebase for easier registration in `Entry.rs` and aligns with the architectural shift towards fine-grained modularity within the `Binary/Build` layer.",
+			"SHA": "3ab7ccaa338e67a0aeb0e24a528cb57b4112782a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:19:29Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1486,
+				2
+			],
+			"Message": "refactor(Mountain): Format hover command interface and import declarations\n\nAlign the formatting of the `Hover` command module with the project's Rust style standards. Reformat the multi-line `use` statement in `Source/Command/Hover/Fn.rs` to improve readability and consistency with the explicit namespace qualification pattern used throughout Mountain. Update the documentation comment block in `Source/Command/Hover/Interface.rs` to wrap long lines and maintain a uniform column width.\n\nNo functional logic is altered; these changes ensure adherence to the codebase's strict formatting conventions and improve maintainability of the hover interaction DTOs.",
+			"SHA": "e1ba0eceee3e6ff24d8bc8a4350482255b455ad1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:19:26Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1486,
+				1
+			],
+			"Message": "refactor(Mountain): Update encryption module naming convention in comments\n\nAlign the usage note in `Source/IPC/Encryption/mod.rs` with the project's strict PascalCase naming conventions. The comment previously suggested importing `MessageCompressor::MessageCompressor`, which conflicts with the module name. Update the guidance to explicitly reference the struct as `Compressor::Struct` within the `MessageCompressor` module.\n\nThis ensures developers correctly resolve the concrete type using the project's explicit qualification style, preventing symbol shadowing issues and maintaining consistency with recent refactorings across the IPC layer.",
+			"SHA": "ef6c5b57eb906ef6d11c188226287068307780b7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:19:06Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1486,
+				2
+			],
+			"Message": "refactor(Mountain): Update registration imports to use explicit namespace qualification\n\nAlign the import statements in `Source/Binary/Register/AdvancedFeaturesRegister.rs` and `Source/Binary/Register/StatusReporterRegister.rs` with the project's strict Rust formatting conventions. The initialization functions for the IPC subsystems are now explicitly qualified within their respective module namespaces (`IPC::AdvancedFeatures::InitializeAdvancedFeatures` and `IPC::StatusReporter::InitializeStatusReporter`).\n\nThis change ensures consistency with recent modularization efforts where function names are scoped to their logical module containers, improving type clarity and preventing potential symbol collisions in the large Mountain codebase. No functional logic is altered; this is a pure refactoring to maintain codebase hygiene.",
+			"SHA": "6974d822f6977dc0d611a7618896b6d59032c355"
 		}
 	],
-	"TimeStamp": 1779241304966
+	"TimeStamp": 1779378408073
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:48:26Z",
+			"Date": "2026-04-29T04:14:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				102,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
+			"SHA": "af2e8fad9037ce028dbb96d163e466881631ca75"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T04:00:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				102,
+				1
+			],
+			"Message": "feat(Sky): Display commands count in replay-events log\n\nExtend the replay mechanism in SkyBridge to surface the commands count returned by Mountain's `sky:replay-events` IPC call. Add `commands?: number` to the type definition and include it in the log summary alongside tree-views and scm providers.\n\nThis provides visibility into how many commands were replayed during the early boot phase when extension activations fire commands before the frontend is ready to receive them.",
+			"SHA": "76df61374eeed487917268e4400532e9baae4bc9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T03:40:07Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				103,
+				102,
 				2
 			],
-			"Message": "fix(Sky): Restore correct workbench initialization order\n\nThe bundled Electron entry was pre-importing desktop.main.js to force Rollup to bundle all ~1500 modules into one chunk, then using manualChunks to keep them together. This broke initialization order: desktop.main.js evaluated immediately when its chunk loaded, but Electron-side service registrations (Disk FileSystemProvider, NativeHostService, etc.) only fire when isElectron returns true— which depends on the process polyfill being live and workbench config attached, both done by workbench.js's load() chain.\n\nThe fix removes the static pre-import and manualChunks, letting workbench.js's dynamic import of desktop.main.js happen in the correct sequence: workbench.js sets up _VSCode_FILE_ROOT, NLS, and resolved configuration first, then desktop.main.js's module-initializers detect Electron mode correctly and register the native services.\n\nAdditionally, configure moduleSideEffects to mark all VS Code modules as side-effectful, preserving their static initializers (class event emitters, global registries, DI singleton registrations) that Rollup's tree-shaker might otherwise prune.",
-			"SHA": "63951b3fbcebdeeeaf489a807fce71573c1fde94"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T05:25:57Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				103,
-				1
-			],
-			"Message": "perf(Sky): Consolidate CSS and JS chunks for bundled workbench\n\nDisable CSS code-splitting to emit a single CSS file per entry instead of ~75 individual `_astro/*.css` chunks. Add `manualChunks` to fold all VS Code modules reachable from the bundled workbench entry into one `workbench-[hash].js` file instead of ~60 separate chunks.\n\nThis reduces HTTP request waterfalling at runtime — the workbench now fetches a single JS asset and a single CSS asset rather than dozens of sequential requests.",
-			"SHA": "c56f2637aa475f2fbcbf6e4769f6d49c36d0417e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:49:20Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				103,
-				1
-			],
-			"Message": "",
-			"SHA": "1f6466ddcbfc381b4fd4c751e93ccfe18705f24a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:49:20Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				103,
-				16
-			],
-			"Message": "refactor(Sky): Update Output import paths and rename environment variables\n\nRestructure Output package imports to use explicit `Target/Microsoft/VSCode` paths instead of the legacy `@codeeditorland/output/vs/**` alias. This enables Vite/Rollup to follow the static import graph for bundled workbenches and eliminates the package-exports-map indirection.\n\nAdditionally rename environment variables from `LAND_*` and compound names to PascalCase identifiers matching the CLAUDE.md convention:\n- `LAND_DEV_LOG` → `Trace`\n- `LAND_ENABLE_WIND` → `Render`\n- `LAND_POSTHOG_*` → `Authorize`, `Beam`, `Report`, `Throttle`, `Buffer`, `Batch`, `Replay`, `Ask`, `Brand`\n- `BUNDLED_WORKBENCHES` → `Pack`\n- `LAND_BUNDLED_BOOT` → `Boot`\n- `LAND_SKIP_BUILTIN_EXTENSIONS` → `Skip`\n- `LAND_AUTO_INSTALL_EXTENSION_DEPS` → `Install`\n- `LAND_WARN_MISSING_BROWSER_BUNDLES` → `Warn`\n- `__LAND_CEL_TRACK__` → `__Track`\n- `_LAND_ERROR_HOOK` → `_Catch`\n\nThe bundled Electron layout now includes the full Preload → Polyfills → Bootstrap chain (previously omitted), and SkyBridge is wired after the bundled workbench import to ensure event consumers attach before workbench starts.",
-			"SHA": "8963447af585d3f177ce929f13dbe0f6448d7c7d"
+			"Message": "fix(Sky): Fix missing Activity Bar views from extension contributions\n\nTwo fixes recover the editor's Activity Bar and extension-contributed panels:\n\n1. astro.config.ts: Rollup's `\"no-external\"` default was dropping VS Code's contribution-point side-effect imports (`extensions.contribution`, `scm.contribution`, `files.contribution`, `*.viewlet.js`…) that register the workbench view containers. Add normalized path matching to catch: disk paths (`/Output/Target/...`), package specs (`@codeeditorland/output/...`), and lowercase variants. Without this, the Activity Bar comes up empty—no Extensions, SCM, or Explorer views—even though `extensions:getInstalled` returns 113 entries.\n\n2. SkyBridge.ts: Tauri's `app.emit` is fire-and-forget. During extension activation (~580 log lines before Sky finishes booting), every `sky://tree-view/create` and `sky://scm/register` is dropped before listeners install. Add a replay mechanism that calls `sky:replay-events` to drain Mountain's state and re-emit each entry idempotently. Without this, extension-contributed views (GitLens panes, jsdebug trees, SCM provider rows) stay empty despite the workbench otherwise functioning.\n\nNow the Activity Bar populates correctly and extension-contributed tree views bind their data providers.",
+			"SHA": "b4dc48c557dc635bcb1b9a763684285db94e912c"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-04-28T02:36:17Z",
+			"Date": "2026-04-29T02:36:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				103,
+				102,
 				1
 			],
 			"Message": "",
-			"SHA": "51e34d3b0727ab58a70a4a6add5659aa415c7e4b"
+			"SHA": "149d04e919b75da9932da9a7ad03c947b3b7a263"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T01:03:10Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				102,
+				1
+			],
+			"Message": "chore(Sky): Remove empty .env.example template\n\nDelete the unused .env.example file from the Sky element root. This empty template file (0 bytes) was not being utilized and has been removed to keep the project clean.",
+			"SHA": "48afd59e21289cf7d1d871749a69492ed67e4504"
 		}
 	],
-	"TimeStamp": 1779241301146
+	"TimeStamp": 1779378409805
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:30:42Z",
+			"Date": "2026-04-29T04:22:12Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				102,
 				1
 			],
-			"Message": "feat(Mountain): Add workspace trust handlers for vscode.git and mute API gap logs\n\nSubmodule synchronization bringing two Mountain changes:\n\n1. Workspace Trust Handlers:\n   - Implement Workspace.RequestResourceTrust and Workspace.IsResourceTrusted handlers\n   - Route through Mountain instead of falling back to Cocoon's permissive heuristic\n   - vscode.git's Model.openRepository now calls these before constructing Repository\n   - Enables GenerateRouteManifest.sh to auto-switch Cocoon from heuristic to gRPC routing\n   - Future work can replace trust-by-default with real per-OS trust queries (Gatekeeper/SmartScreen/xattrs)\n\n2. Log Noise Reduction:\n   - Mute vscode-api-gap dev logs in short mode\n   - These log when extensions use unshimmed vscode API methods\n   - Useful for API gap audits but noisy in default dev runs\n   - Enable via LAND_DEV_LOG=all or LAND_DEV_LOG=vscode-api-gap when needed\n\nImpact: vscode.git extension now properly routes through Mountain's trust handlers with future extensibility for real OS-level trust queries.",
-			"SHA": "bd777531a7bf4fdfeb693820ba44cc9efc7237b6"
+			"Message": "feat(Project): Add terminal output buffering for late-listener replay\n\nMulti-component synchronization addressing the PTY reader vs SkyBridge listener race condition:\n\n1. Mountain: Add per-terminal output buffering - `AppendTerminalOutput()` captures PTY bytes into a 64KB bounded buffer (keeps most recent suffix to preserve the prompt), `DrainTerminalOutputBuffer()` retrieves buffered data, `RemoveTerminalOutputBuffer()` cleans up on exit. Extend `sky:replay-events` to emit `sky://terminal/create` for each active terminal AND replay any buffered `sky://terminal/data` bytes.\n\n2. Sky: Extend replay-events log with terminal visibility - Add `terminals?: number` and `terminalDataBytes?: number` to the type definition and include them in the log summary alongside tree-views, SCM providers, and commands. This provides visibility into terminal sessions active during early boot.\n\nThe race: In bundled-electron profile, the shell's first prompt fires ~50ms after `spawn_command` while Sky's bundle still parses for ~1500ms. Without buffering, zsh MOTD, direnv exports, fish greetings are silently dropped.\n\nImpact: Terminal output is now preserved and replayed for late listeners, completing the replay system for all three major feature areas: tree-views, SCM providers, and terminals.",
+			"SHA": "93269905429d9f3e84d6640f85d2bd7290acd572"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:10:59Z",
+			"Date": "2026-04-29T04:02:06Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				102,
 				1
 			],
-			"Message": "chore(Project): Sync Element submodule with bug fixes and URI improvements\n\nSubmodule synchronization bringing in latest changes addressing search and URI handling:\n\n1. Sky: Fix text search result mapping to use Mountain's actual response format - `Hit.resource` instead of `Hit.uri`, and `Hit.matches[]` array with `preview` and `line_number` instead of flat hit shape. Add backwards-compat support for old flat `{uri, lineNumber, preview}` format.\n\n2. Sky: Fix search:findFiles IPC call to include required null exclude parameter. Previously MaxResults was shifted into wrong slot, causing glob extractor to ignore max and default to 10000. This resolves empty search results.\n\n3. Output: Add missing URI class import to ExposeWorkbenchAccessor transform, enabling SkyBridge to construct resource objects the workbench accepts directly.\n\n4. Mountain: Use DebugOnce instead of dev_log! for unregistered view-action and workbench-internal commands to reduce log noise.\n\nImpact: Text search and file search now return correct results using Mountain's response format, eliminating empty results from parameter order mismatch.",
-			"SHA": "efc8c47b9443c033122f0f4d22e4086edb1c693f"
+			"Message": "refactor(Project): Sync submodules with SCM identifier, command replay, and retry logic\n\nMulti-component synchronization enabling multi-SCM support and improving boot reliability:\n1. Common: Add Identifier field to SourceControlManagementProviderDTO - enables provider identification (\"git\", \"github\", \"hg\") for multi-SCM support, maps to `scmId` in sky://scm/register events.\n2. Mountain: Use actual SCM provider identifier in replay instead of hardcoded \"git\", add command registration replay for extension-registered commands, reduce tree-view timeout from 5000ms to 1500ms for graceful failure.\n3. Output: Mirror retry logic on user extensions scan path (was missing), switch to exponential backoff (100-200-400-800-1500ms), short-circuit Promise protocol probes to eliminate spurious \"Unknown IPC command\" errors.\n4. Sky: Display commands count in replay-events log for visibility into early-boot command replay.\n\nImpact: Multi-SCM providers (github, hg) now replay correctly. User extensions load at boot even when Mountain scan is slow. Promise probes reduced from ~25ms to <1ms per wake cycle.",
+			"SHA": "0fa901f046903c1ea25af8c4f583adb3c90563fa"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T15:41:56Z",
+			"Date": "2026-04-29T03:41:13Z",
 			"File": [
-				"⣿⣿⣿⣿⣿",
+				"⠀⠀⠀⠀⠀",
 				102,
-				300
-			],
-			"Message": "chore(cleanup): delete stale target folder\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "ac94e887445add5b3f4bb326b2faa981df51638e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T10:44:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				5214,
-				2
-			],
-			"Message": "",
-			"SHA": "38b3ba9759c13da31792965004037c4f61c7bd1f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:59:31Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				5214,
 				1
 			],
-			"Message": "fix(Project): Fix search result handling with Mountain's response format\n\nSynchronize Element submodule with critical bug fixes:\n\n1. Sky: Fix text search result mapping to use Mountain's actual response format - `Hit.resource` instead of `Hit.uri`, and `Hit.matches[]` array (with `preview` and `line_number`) instead of flat hit shape. Add backwards-compat support for old flat `{uri, lineNumber, preview}` format.\n\n2. Sky: Fix search:findFiles IPC call to include required null exclude parameter. Previously MaxResults was shifted into wrong slot, causing glob extractor to ignore max and default to 10000. This resolves empty search results where previous code produced resource=MakeFileUri(\"\") with empty results array.\n\n3. Cocoon: Submodule sync to latest extension host changes.\n\nImpact: Text search and file search now return correct results using Mountain's response format, eliminating empty results from parameter order mismatch.",
-			"SHA": "fe18d940fdbcd0272f2abe9a594c4b536121704b"
+			"Message": "fix(Project): Fix empty Activity Bar and user extension loading\n\nMulti-component synchronization addressing Activity Bar emptiness and extension loading:\n1. Sky: Fix Rollup no-external dropping VS Code contribution imports - Activity Bar came up empty because Rollup was dropping side-effect imports (`extensions.contribution`, `scm.contribution`, `files.contribution`, `*.viewlet.js`...). Add normalized path matching for disk paths, package specs, and lowercase variants.\n2. Output: Add retry logic to user extension scan path - User extension paths lacked the retry logic that system paths had, causing silent 0-extension responses. Add exponential backoff (100-200-400-800-1500ms) for async disk scans.\n3. Mountain: Add Sky event replay on listener registration - Mountain emits events before Sky listeners install, causing dropped `sky://tree-view/create` and `sky://scm/register` events. New `sky:replay-events` handler iterates active TreeViews and SCM providers to re-emit. Also adds path security checks and SCM provider emit failure logging.\n4. Cocoon: Refactor code structure for improved readability and maintainability.\n\nImpact: Activity Bar now populates with extension-contributed views (GitLens, jsdebug, SCM providers). User extensions load properly at boot even when Mountain's async scan hasn't completed.",
+			"SHA": "35896d874cc7364cbcd12fb82ab6cd7370602071"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T02:14:05Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				102,
+				1
+			],
+			"Message": "fix(Project): Fix circuit breaker trips from URI parsing and service isolation\n\nSubmodule sync bringing two critical fixes:\n\n1. **Mountain**: Fix false circuit breaker trips from URI parsing edge cases. Extensions frequently register file watchers on optional paths (e.g., `~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't exist. Mountain now catches benign \"path not found\" errors and records deferred entries instead of tripping the breaker. Additionally, Cocoon sends URIs in three formats (plain strings, objects with `external` field, legacy `scheme`+`path` objects), but only the `external` field was accepted. This caused `Diagnostic.Set` to trip the circuit breaker after 5 publishes, silencing all linters.\n\n2. **Output**: Fix ExposeWorkbenchAccessor transform silently failing. The import marker used single quotes but esbuild rewrites to double quotes post-bundle, causing the entire `__CEL_SERVICES__` patch to no-op and disabling all SkyBridge hooks. Also wraps each `invokeFunction` in its own try-IIFE so a single missing service doesn't throw the entire facade undefined.\n\nImpact: File watchers no longer fail on fresh workspaces. Language extension diagnostics now publish without triggering circuit breaker. All SkyBridge services (search, SCM, status bar, tree views) now initialize correctly.",
+			"SHA": "0f4dbba95ab041db9b7cf1ec1c3c37151b1bfe74"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T01:41:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				102,
+				1
+			],
+			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nSynchronize Mountain submodule with two bug fixes:\n\n1. **FileWatcher.rs**: Handle both numeric and string handle types in `RegisterWatcher` and `UnregisterWatcher`. The newer `NextProviderHandle()` returns a number while older callers pass strings. Previously, numeric handles were silently converted to empty strings causing failures.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without regex string parsing, while `-32000` remains the catch-all for genuine failures.\n\nImpact: File watcher registration now works correctly regardless of handle type. Directory listing 404s are properly distinguished from genuine errors, improving error handling accuracy in Cocoon.",
+			"SHA": "0d6755b26af812f8135b6a51610c3738e357e026"
 		}
 	],
-	"TimeStamp": 1779241297115
+	"TimeStamp": 1779378407978
 }

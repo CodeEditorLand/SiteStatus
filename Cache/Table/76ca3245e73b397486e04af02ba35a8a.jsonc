@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:09:31Z",
+			"Date": "2026-04-22T22:16:14Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				774,
-				43
+				"⠀⠀⠀⠀⠀",
+				775,
+				3
 			],
-			"Message": "feat(Mountain): Add comprehensive IPC handlers and Effect creators\n\nAdd WindServiceHandlers for IPC bridge between Wind frontend services and Mountain backend:\n- Commands, Configuration, Extensions, FileSystem (legacy + native), Model, NativeHost\n- Navigation history, Output channels, Search, Storage, Terminal/PTY, UI features\n- Including Utilities for path resolution, percent-decoding, metadata conversion\n\nAdd CreateEffectForRequest effect creators for the Effect-TS system:\n- Domain modules: Authentication, Clipboard, Commands, Configuration, Debug\n- Diagnostics, Documents, FileSystem, FileWatcher, Git, Keybinding, Languages\n- NativeHost, SCM, Search, Secrets, StatusBar, Storage, Task, Terminal\n- TreeView, UserInterface, Webview, WindowUI, Workspace\n\nThese handlers expose VS Code-compatible IPC surface to the Wind frontend and enable the Effect-TS service layer to dispatch typed effects through Mountain's backend.",
-			"SHA": "94e759aa4c612ec4829f8de6108cff4451338db7"
+			"Message": "fix(Mountain): Prevent duplicate shutdown and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings trying to notify a dead sidecar.\n\nExtend the static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader (`vscode-oniguruma` → `onig.wasm`) resolves asset URLs relative to the current document, which strips the leading slash before the path reaches the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for: `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.",
+			"SHA": "de7ca5008836ae40b6e5c5969f73a93912ac4cf6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T23:42:43Z",
+			"Date": "2026-04-22T20:25:41Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
-				730,
-				46
+				"⠀⠀⠀⠀⠀",
+				775,
+				4
+			],
+			"Message": "build(Mountain): Simplify binary naming and cleanup configuration\n\nShorten the binary, lib, and product names from the verbose development profile identifier to just 'Mountain'. Update the Tauri identifier to 'land.editor.binary' for consistency. Remove the externalBin reference to Binary/node since the Node.js sidecar is now handled differently. Add vscode-file and vscode-file://vscode-app to the img-src Content Security Policy for VS Code file protocol support. Delete the temporary backup files (Cargo.toml.Backup, tauri.conf.json.Backup) as the migration is complete.",
+			"SHA": "8a06b8564cd8ab294e472b4ffb145455fcd80889"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T19:43:05Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				777,
+				6
+			],
+			"Message": "build(Mountain): Update build configuration for development profile\n\nRename the binary, lib, and product to include the development environment profile identifier (DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain) in Cargo.toml and tauri.conf.json. This aligns with the development build pipeline requirements.\n\nAdditionally:\n- Add Binary/node to externalBin in tauri.conf.json for the Node.js sidecar\n- Update posthog-rs 0.5 API: replace deprecated api_endpoint() with host() in PostHogPlugin.rs\n- Replace sha2 0.11's removed LowerHex impl with hex::encode() in ConfigurationBridge.rs for session ID generation\n\nThe backup files (Cargo.toml.Backup, tauri.conf.json.Backup) are retained for recovery during this configuration migration.",
+			"SHA": "f632a4ac2e3e3a7e2f94ac4697219d03aa1b0da3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T18:46:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				775,
+				2
 			],
 			"Message": "",
-			"SHA": "054e429dbde5b70cebc96fee8ae1c829711ba18a"
+			"SHA": "3bcce20c33084d735c6a7f446f39e56c37bfbe9a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T22:56:17Z",
+			"Date": "2026-04-22T18:31:03Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				730,
-				7
+				775,
+				5
 			],
-			"Message": "feat(Mountain): Implement local VSIX install and kernel profiles\n\nAdd VSIX installer module (Atom K2/K3) to handle local .vsix file installation:\n- New VsixInstaller.rs unpacks VSIX archives (ZIP with extension/ prefix) to ~/.land/extensions\n- Two-pass extraction: read manifest for install path before writing files\n- Handles zip-slip protection and produces ExtensionDescriptionStateDTO for the registry\n- Install and uninstall IPC handlers in WindServiceHandler/Extension.rs\n- Notifies Cocoon via $deltaExtensions for hot-activation without reload\n- Broadcasts sky://extensions/installed|uninstalled for Wind sidebar refresh\n\nAdd kernel/minimal profile support (Atom J3):\n- LAND_SKIP_BUILTIN_EXTENSIONS env var skips built-in extension scan paths\n- User-extensions path (~/.land/extensions) still scanned for VSIX-installed extensions\n\nAdd debug-mountain-only/release-mountain-only profiles (Atom N1):\n- LAND_SPAWN_COCOON=false skips extension host spawn entirely\n- Useful for Mountain-only integration tests and minimal shippable surface\n\nForward environment to Cocoon (Atom I11):\n- NODE_ENV, LAND_DEV_LOG, TAURI_ENV_DEBUG now propagate to Cocoon subprocess\n\nImprove gRPC connection logging (Atom I12):\n- Distinguish expected startup race from real failures in Cocoon connection attempts\n\nBetter unknown command logging (Atom L2):\n- Distinguish typos from registered-but-unimplemented channels\n\nCloses #",
-			"SHA": "43b39fff66082a09f3f75e888268bd9c5d9273a4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T18:57:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				729,
-				1
-			],
-			"Message": "",
-			"SHA": "a3a45cc15be7111f6f8442680c746706342643b8"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T18:57:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				729,
-				1
-			],
-			"Message": "fix(Mountain): Inject security.workspace.trust.enabled=false by default\n\nAtom I7: Add logic to AppLifecycle to ensure the VS Code workspace trust\nsystem is disabled in User/settings.json. Without this, opening the Land\nrepo as a workspace triggers VS Code's trust gate which marks built-in\nextensions as `DisabledByTrustRequirement` because they ship under\n`Element/Sky/Target/Static/Application/extensions/` — inside the repo.\n\nThis writes `\"security.workspace.trust.enabled\": false` only if the key\nisn't already present. Users can opt back in by editing their\nUser/settings.json.\n\nThis ensures built-in extensions load reliably regardless of which\nfolder the user picks as their workspace.",
-			"SHA": "f985fca565b75c8b3360cca6ea3606cfd660fc38"
+			"Message": "refactor(Mountain): Centralize UriComponents construction with $mid marker\n\nAdd a shared UriComponents helper module that ensures every URI payload sent to the VS Code renderer carries the required `$mid: 1` marshalling marker. Without it, VS Code's IPC reviver leaves URIs as plain objects where `.fsPath` and `.with` are undefined, causing the sidebar and icon loader to silently fail.\n\nThe recent fix for extension location URI marshalling addressed one call site, but inline `json!` builders elsewhere risked regressing the same issue. This change introduces:\n\n- `FromFilePath`: constructs a `file://` UriComponents with `$mid` from a filesystem path\n- `FromUrl`: parses arbitrary URL strings (file://, other schemes) into UriComponents\n- `StampMidUri`: injects `$mid: 1` into any UriComponents lacking it\n- `Normalize`: handles mixed input formats (string, object, null) uniformly\n\nNow used consistently in:\n- `handle_extensions_install` (Extension.rs) - fixes location URI\n- `handle_file_realpath` (both WindServiceHandler and WindServiceHandlers FileSystem.rs)\n\nThe Extensions.rs handler continues using the existing `Normalize` import. All IPC handlers that return URI-shaped payloads now emit through the centralized helpers, preventing silent breaks in the renderer's URI revival chain.",
+			"SHA": "e632bde43d9e101210c074a094bf0db9c5d0f69f"
 		}
 	],
-	"TimeStamp": 1779241333549
+	"TimeStamp": 1779378427981
 }

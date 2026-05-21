@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "dependabot[bot]",
-			"Date": "2026-04-06T18:36:33Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-07T18:59:57Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
+				"⠃⠀⠀⠀⠀",
 				83,
-				1
+				4
 			],
-			"Message": "build(deps): bump vite in the npm_and_yarn group across 1 directory\n\nBumps the npm_and_yarn group with 1 update in the / directory: [vite](https://github.com/vitejs/vite/tree/HEAD/packages/vite).\n\n\nUpdates `vite` from 8.0.3 to 8.0.5\n- [Release notes](https://github.com/vitejs/vite/releases)\n- [Changelog](https://github.com/vitejs/vite/blob/main/packages/vite/CHANGELOG.md)\n- [Commits](https://github.com/vitejs/vite/commits/v8.0.5/packages/vite)\n\n---\nupdated-dependencies:\n- dependency-name: vite\n  dependency-version: 8.0.5\n  dependency-type: direct:production\n  dependency-group: npm_and_yarn\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
-			"SHA": "5e8a948721b2ef1087082aab08e4f2bf8342c9c0"
+			"Message": "refactor(Sky): Enable runtime relative imports for Electron workbench\n\nSimplify the Electron workbench loading by moving baseUrl computation from build-time JS patching to runtime configuration:\n\n- Add `_VSCODE_USE_RELATIVE_IMPORTS` global in Base.astro that tells the Electron workbench to use relative imports against http://localhost instead of vscode-file:// URIs\n- Remove the Step 5 build hook patch for workbench.js baseUrl computation - no longer needed since the runtime flag handles it\n- Add vscode-file: to CSP script-src, style-src, and connect-src allowlists in Electron.astro and index.astro for non-module assets (fetch, images, JSON) handled by the native Rust Scheme.rs\n\nThis reduces build complexity while maintaining compatibility with Tauri's WKWebView.",
+			"SHA": "ce2d34822277acd672db7505c441bd4d3b905fc3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-06T10:55:11Z",
+			"Date": "2026-04-07T18:04:29Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				83,
 				6
 			],
-			"Message": "build(Sky): Standardize VS Code workbench loading with /vs/ URL paths\n\nReplace @codeeditorland/output package specifiers with runtime /vs/ URL paths across all workbench entry points (Browser.astro, BrowserTest.astro, Mountain.astro, BrowserProxy/Workbench.ts).\n\nChanges:\n- Use /vs/code/browser/workbench/workbench.js (served from Sky/Public/vs → Output/Target/Microsoft/VSCode/vs symlink)\n- Apply is:inline to bypass Vite/Rollup bundling entirely for inline scripts\n- Use variable assignment (const WorkbenchUrl = \"/vs/...\") to make Rollup treat imports as truly dynamic (only string literals trigger analysis)\n- Add try/catch error handling with console.error for graceful failure\n- Update astro.config.ts external resolver to also match /vs/ prefix\n- Comment out Electron workbench import (not yet compiled in Output)\n\nThis resolves Rollup's inability to resolve package specifiers at build time while maintaining dynamic loading at runtime.",
-			"SHA": "a4af28b0684223424ea0225224a8a4bd11da2434"
+			"Message": "refactor(Sky): Simplify Electron workbench loading with Effect.runPromise\n\nRefactor the Electron workbench (A3 approach) to use proper Effect-TS patterns and simplify script loading:\n\n- Update Bootstrap.ts and Mountain.astro to wrap runBootstrap() with Effect.runPromise() since runBootstrap() returns an Effect, not a Promise\n- Consolidate Layout.astro from 4 separate script tags into a single sequential await chain (Preload → Polyfills → Bootstrap → Workbench)\n- Simplify Workbench.ts to use direct /Static/Application/ import path with improved error handling for MIME errors\n- Add chatDebugTokenizer to Electron worker allowlist in Electron.astro\n- Add astro.config.ts build hooks for:\n  1. Patching Electron workbench.js baseUrl computation to use /Static/Application/ instead of vscode-file:// URIs\n  2. Injecting __name shim into extension host iframe HTML\n\nThese changes enable the Electron workbench to function in Tauri by fixing asset path resolution and providing required globals.",
+			"SHA": "28938a5ef61079b1cd4e1f1b21df1ec1a6424d1a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-06T10:16:19Z",
+			"Date": "2026-04-07T05:33:17Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
+				"⡏⠀⠀⠀⠀",
 				83,
-				5
+				11
 			],
-			"Message": "fix(Sky): Convert workbench.js import to dynamic to avoid hard build failures\n\nChange Browser.astro to use dynamic import for @codeeditorland/output/vs/code/browser/workbench/workbench.js instead of static import. Static imports of unresolved package specifiers cause Rollup to hard-fail at build time, while dynamic imports only warn and allow the build to complete.\n\nAdd corresponding external resolution logic in astro.config.ts to pre-resolve @codeeditorland/output/vs/** package specifiers before Rollup attempts resolution.\n\nThis matches the import pattern already used in Mountain.astro, BrowserTest.astro, BrowserProxy/Workbench.ts, and Electron/Workbench.ts. Also apply minor formatting updates to Astro build artifacts in .astro/.",
-			"SHA": "8a22169e2d6e984fd81a9d67846599216c2baf9d"
+			"Message": "refactor(Sky): Revert to /Static/Application/ paths with build-time asset consolidation\n\nRevert the /vs/ URL prefix approach from the previous commit. Instead:\n- Revert _VSCODE_FILE_ROOT to /Static/Application/ in all page templates (Base, BrowserProxy, Electron, Mountain)\n- Delete Public/vs symlink (no longer needed)\n- Enhance astro.config.ts build hook to:\n  1. Copy ESBuild-processed files from Output/vs to Static/Application/vs/\n  2. Supplement missing files from Dependency/Editor/out/vs (e.g., workbench.web.main.js)\n  3. Copy Worker.js from node_modules to Target/Worker.js\n  4. Strip CSS imports from VS Code JS files for Tauri WKWebView (which lacks service worker interception). Replaced with _LOAD_CSS_WORKER calls to inject <link> elements.\n- Add __name esbuild helper polyfill in Base.astro for extension host worker contexts\n- Add ipc: to CSP connect-src and chatDebugTokenizer to worker allowlist\n\nThis approach consolidates VS Code assets at /Static/Application/vs/ with a two-source strategy (Output primary, Dependency for gaps), ensuring all required files are present while maintaining Tauri compatibility.",
+			"SHA": "7210878e677ffa4789ad2d15faa099108b178e3a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-06T07:03:36Z",
+			"Date": "2026-04-07T03:11:09Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				84,
+				7
+			],
+			"Message": "build(Sky): Simplify VS Code asset paths with /vs/ prefix\n\nUpdate all VS Code asset references to use root-relative /vs/ paths instead of /Static/Application/vs/. Changes:\n- Update _VSCODE_FILE_ROOT in Base.astro, BrowserProxy.astro, Electron.astro, and Mountain.astro from `/Static/Application/` to `/`\n- Update NLS script path in NLS.astro to use `/vs/nls.js`\n- Add astro.config.ts build hook to copy VS Code assets from Output/Target/Microsoft/VSCode/vs to Target/vs/ at build time\n- Create Public/vs symlink pointing to the Output VS Code assets\n\nThis extends the /vs/ URL path standardization from the previous commit to all asset references, simplifying the path structure and enabling the build hook to handle asset deployment.",
+			"SHA": "99caf0606e34acbe5abc4809fe4a5b887deee7fe"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-07T02:03:21Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				83,
 				1
 			],
-			"Message": "refactor(Sky): Remove Wind package aliases from Astro Vite config\n\nRemove the explicit alias mappings for Wind packages from the Vite resolve configuration in astro.config.ts. These aliases were previously used to redirect @codeeditorland/wind/* imports to their static /Static/Wind/* paths, including Target prefix variants and Polyfills for the A3 Electron workbench.\n\nThis cleanup streamlines the build configuration. The alias resolution is now handled through other means or the imports have been updated to use direct paths.",
-			"SHA": "b7f8d1b279aa25dd223d1794b65599c3ead4c56d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-06T06:32:03Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				83,
-				3
-			],
-			"Message": "style(Sky): Normalize Astro build artifact formatting\n\nApply consistent formatting to Astro-generated type definition files in .astro/:\n- Update quote style from single to double quotes in content.d.ts\n- Add missing trailing newlines to collections.json and types.d.ts\n- Reformat multi-line type definitions for readability\n- Standardize reference path syntax in types.d.ts\n\nThese are build artifacts generated during the Astro build process. The changes ensure consistency with the project's formatting standards.",
-			"SHA": "420f38ad95e6eaa65fe093809568bad5de8fae9b"
+			"Message": "",
+			"SHA": "5e2d32840d65b324b71b40a5759fa1524aaa1e8a"
 		}
 	],
-	"TimeStamp": 1779241316739
+	"TimeStamp": 1779378445771
 }

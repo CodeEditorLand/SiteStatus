@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T02:20:50Z",
+			"Date": "2026-05-01T01:17:53Z",
 			"File": [
-				"⣿⠃⠀⠀⠀",
+				"⡟⠀⠀⠀⠀",
 				28,
-				7
+				4
 			],
-			"Message": "chore(Element): Sync submodule updates delivering Vine notification stream and development build config\n\nSynchronize multiple Element submodules to their latest downstream versions:\n\n- Wind (274df239): Add Vine notification stream service. Implement `VineNotifications` and `VineNotificationsLive` — an Effect-TS Layer that bridges Mountain's process-wide Vine notification broadcast to a `Stream<NotificationFrame>` consumable by Wind/Sky subscribers. The Layer opens a Tauri channel via `vine_subscribe_notifications` command, draining the Mountain broadcast receiver into an unbounded Effect Queue. Adds convenience functions for filtering (`SubscribeMethodPrefix`, `SubscribeMethod`) and diagnostic query (`SubscriberCount`). This completes P14.5 notification subscription surface.\n\n- Mountain (0a0e22ba): Update binary/lib names and Tauri config for development build profile. Rename the Mountain binary and library to include the full development environment profile string to distinguish this build variant from production builds. Update tauri.conf.json productName and identifier, add Binary/node to externalBin.\n\n- Output (c97cc8b1): Extract polyfill bodies to type-checked modules. Move inline polyfill IIFE bodies from Transform/*.ts to new Polyfill/*.ts modules enabling compile-time type-checking and tree-shaking. Add 4 new Inject* transforms, 3 new Replace* transforms (ReplaceTelemetryService, ReplaceUpdateService, ReplaceExtensionGalleryService) that replace VS Code services with no-op stubs. New boot-time behaviors: InjectStripBackgroundPolling, InjectEagerLifecyclePhase, InjectEagerExtensionActivation, InjectEagerIdleValue.\n\n- Rest (9c003845): Rebuild Rest binary following CHANGELOG overhaul.\n\n- Cocoon, Echo, Sky: Submodule pointer updates.",
-			"SHA": "3ef0e05b6ff28605c5fa9b868f14c9790bf06c37"
+			"Message": "perf(Element): Batch command registration to eliminate IPC saturation during extension boot\n\nSynchronize four Element submodules with coordinated performance fixes addressing keystroke lag during extension boot:\n\n- Mountain (f304bd40): Add CommandEmitBatch to buffer 1000+ registerCommand notifications and flush after 16ms, reducing individual emit storms to single batched IPC round-trip\n- Output (2afe4b46): Revert DisableLazyPaint opt-in gate (regressed editor mount) and remove PartZIndexCSS `isolation: isolate` rule that blocked input events under WKWebView while keeping CSS lazy-paint fix\n- Sky (06fd1942): Accept batched `{ commands: [...] }` format alongside legacy single-command shape via new RegisterOneCommand helper\n- Cocoon: Sync to latest (a877808c)\n\nThese changes prevent 1000+ Tauri events per extension boot from saturating the shared WKWebView IPC channel that also delivers keystrokes, restoring input responsiveness during the most resource-intensive phase.",
+			"SHA": "16654395ae34db87fbc5e301bdc94688e202a995"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T01:35:35Z",
+			"Date": "2026-05-01T00:36:04Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "feat(Mountain): Add Vine notification subscription for Sky/Wind\n\nAdd `VineSubscribeCommand` Tauri command surface exposing process-wide Vine notification broadcast to Sky/Wind via `Channel<NotificationFramePayload>`. This enables the frontend to subscribe to notifications from Cocoon with the same ordering and drop-oldest semantics as in-process Rust subscribers. Effect-TS layer wraps this into a `Stream<NotificationFrame>`.\n\nAlso add conditional streaming multiplexer support in `Vine::Client` for both `SendRequest` and `SendNotification` when `LAND_VINE_STREAMING=1` is set. The multiplexer path attempts h2-multiplexed streaming and falls back to unary path on any failure, ensuring the editor remains functional while Cocoon's streaming handler tree lands.\n\nThis completes the P14.x notification subscription surface, complementing the P14.3/P14.2 multiplexer integration in Client.rs.",
-			"SHA": "f120a534ca369fcb13edb307afb488364eec9a52"
+			"Message": "refactor(Output): Make DisableLazyPaint RAF/IO overrides opt-in\n\nWrap the requestAnimationFrame and IntersectionObserver overrides in a conditional guard. These overrides redirect Monaco's rAF callbacks to the macrotask queue and replace native IntersectionObserver with a fire-on-observe stub that calls getBoundingClientRect() synchronously.\n\nThe problem: both bypass WKWebView's compositor-frame coordination—which also delivers keyboard input. Once Monaco starts rendering (theme load, decorations, cursor blink, minimap, scrollbars), the macrotask queue floods and keystrokes starve, causing the input lag symptom this polyfill was meant to solve.\n\nSolution: make these overrides opt-in via `__LAND_AGGRESSIVE_LAZY_PAINT__ = true` set BEFORE workbench bootstrap. Keep the CSS lazy-paint kill (content-visibility: visible) always applied—it solves the original \"panels invisible until hover/scroll\" WKWebView bug without affecting input latency.\n\nThis complements the recent IPC logging fix (2588fe4) and EditContext polyfill (44e160c) in addressing WKWebView input starvation.",
+			"SHA": "7df7d851b9734f17560e6323145e1544c3962d05"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T01:24:48Z",
+			"Date": "2026-05-01T00:16:11Z",
 			"File": [
 				"⡿⠀⠀⠀⠀",
 				28,
 				5
 			],
-			"Message": "chore(Element): Sync submodule updates delivering B7-S6 infrastructure foundations\n\nSynchronize multiple Element submodules to their latest downstream versions:\n\n- Mist (9998d872): Implement WebSocket transport for Sky↔Cocoon direct path. Add new WebSocket module for local-first JSON-RPC, removing Tauri-invoke → Mountain-gRPC double hop (~95% of IPC volume). Includes ServeLocal TCP listener, Client with background reader, X-Land-Secret auth, exponential backoff reconnect. This is the B7-S6 P1.1 foundation for direct extension-API communication.\n\n- Mountain (87bdf4c0): Implement mmap asset cache, path canon cache, and Vine streaming foundation (B7-S6 P2). AssetMemoryMap.rs provides file-backed mmap cache for ~80MB of bundled assets eliminating per-request read(2) duplication. PathCanon.rs adds process-wide canonical path cache with 60s TTL saving ~150ms boot time. Vine/Multiplexer.rs adds Envelope protobuf and OpenChannel streaming RPCs. Also integrates Air sidecar, fixes MIME-honesty on 404, and serves Brotli precompressed assets.\n\n- Output (13d8a561): Add Network/ChromiumIPC excludes stripping dead code (~25KB reduction), WKWebView lazy-paint fixes via four new transforms: InjectDisableLazyPaint (rAF→setTimeout), InjectWorkbenchInteractivityCSS (force pointer-events), InjectWorkbenchPaintPrime (offsetHeight reads), InjectTelemetryConsentOff (pre-baked telemetry off). Also fixes GPU layer CSS to scope contain:paint to canvas only.\n\n- Sky (2d34bedf): Bump zod 4.3.6→4.4.0, @xterm/xterm 6.1.0-beta.204→207. Fix Bundled variant build by converting static Astro imports to dynamic await import() to avoid walking unmangled gulp-only module graph. Add BundledEntryStubInactive Vite plugin to short-circuit inactive variants. Includes auto-generated SkyChannels.ts documenting 59 sky:// IPC channels.\n\nThis synchronization lands core B7-S6 infrastructure: direct WebSocket path, memory-mapped caching, streaming foundation, and WKWebView rendering fixes.",
-			"SHA": "dedc1e48e10ab8cbffe0ff0362bf9694488c8ce2"
+			"Message": "perf(Element): Reduce IPC channel saturation to fix keystroke lag during extension boot\n\nSynchronize five Element submodules with performance optimizations addressing input lag caused by IPC channel saturation:\n- Mountain: Gate mountain_sync_status_update and mountain_performance_update events behind LAND_SYNC_STATUS_EMIT and LAND_PERF_EMIT env vars. Add subscriber fast-path to skip lock-and-drain when Subscribers.is_empty().\n- Output: Remove success-case tauri-invoke logging in InvokeMountain and fire-and-forget channel stub logging. Only log drift disposition (uncovered commands).\n- Sky: Remove per-fire _CelDispatchLog traces (now requires __LAND_TRACE_CEL_DISPATCH__=true). Diagnostic bridges for markers-bridge and webview-bridge now only log on pushable=false or hasRegister=false.\n- Wind: Remove success-case tauri-invoke forward (failures still forwarded). Remove fire-and-forget stub logging entirely. Only forward drift disposition case.\n\nThese changes prevent 50-100 log/emits per second during extension boot from saturating Tauri's invoke channel and starving keystroke delivery on the shared WebKit message channel.",
+			"SHA": "2082615be7eab87db7b9a1b0931b9697d916fdb5"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T22:36:40Z",
+			"Date": "2026-04-30T23:35:03Z",
 			"File": [
-				"⡇⠀⠀⠀⠀",
+				"⡟⠀⠀⠀⠀",
 				28,
-				3
+				4
 			],
-			"Message": "",
-			"SHA": "d8246890247c9852cac714841fc9fb8c6dc456a1"
+			"Message": "chore(Element): Sync submodule updates with Disable env var for regression bisection\n\nSynchronize four Element submodules to their latest downstream versions adding a master Disable gate for bisecting typing/input regressions:\n\n- Mountain (14b86ef): Fix first-click focus by setting accept_first_mouse(true) so WKWebView doesn't swallow the initial click as a \"make me key\" no-op. Add Disable=true env var that skips Cmd+W intercept, Cocoon/Air sidecar spawn, and Wind/SkyBridge registration.\n\n- Output (44e160c6, 8a3e8d28): Add RewriteWebviewShellCSP to loosen script-src from stale sha256 to 'unsafe-inline' for extension webviews. Fix icon URL rewriting for file:/// scheme under Tauri. Add ForceTextAreaInput to disable EditContext API and route input through legacy textarea. Refine WorkbenchInteractivityCSS with pointer-events rules to survive z-index isolation. Add LandDisableAll gate for vanilla VS Code builds.\n\n- Sky (e525930): Add Disable=true build/runtime gate that short-circuits SkyBridge registration and skips Bootstrap. Add AutoDiagnoseInput diagnostic for the Disable mode. Remove eager focus restore that caused regressions with search boxes. Rename LAND_SMOKE_TEST to Smoke (PascalCase).\n\nThese changes enable developers to bisect whether typing/input regressions originate in our customizations or upstream/Tauri/WKWebView by running with Disable=true.",
+			"SHA": "b935ebb7fc955b9bd68dbe551ad834a9f2444519"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T22:18:20Z",
+			"Date": "2026-04-30T20:27:43Z",
 			"File": [
 				"⡿⠀⠀⠀⠀",
 				28,
 				5
 			],
-			"Message": "chore(Element): Sync submodule updates with defensive improvements\n\nSynchronize multiple Element submodules to their latest downstream versions:\n- Mountain (51f75f11): Centralize sky event emissions via LogSkyEmit for histogram visibility across 7 provider files (LifecyclePhaseState, WorkspaceDelta, DiagnosticProvider, OpenDocument, TerminalProvider, RegisterCommand, RegisterScmProvider). Add defensive URI/path guards: DiagnosticProvider tolerates malformed URIs per entry, PathSecurity.rs rejects empty paths upfront, FileSystem.rs adds empty-path guards for ReadFile/StatFile. Terminal resilience: localPty:createProcess returns explicit error for invalid id, resize clamps cols/rows to minimum 1, resize on disposed terminal returns Null instead of error. Also clarify MarkerDataDTO coordinates are 1-based.\n- Sky (7563ee45): Add defensive error handling to SkyBridge IPC handlers - wrap all Tauri listener handlers, tree-item mapping, TreeView.refresh(), and webview registration in try/catch to prevent one bad handler from crashing the listener loop. Add SSR safety checks for `window` being undefined in GetWorkbench() and GetServices() during Astro's pre-render pass. Isolates failures rather than propagating and breaking unrelated listeners.\n- Cocoon, Output, Rest: Submodule sync to latest.\n\nBrings defensive hardening across the Element umbrella improving resilience during startup, view transitions, and extension host reloads.",
-			"SHA": "d1fcac150f8bd483c8f4ccc0b816095229ef2401"
+			"Message": "chore(Element): Sync submodule updates with macOS UX fixes and extension webview support\n\nSynchronize five Element submodules to their latest downstream versions delivering critical macOS UX improvements and extension webview infrastructure:\n\n- Mountain (fb254ade, 54650acd): Fix boot race and close handling for macOS (Cmd+W intercept, DevTools focus opt-in) and add vscode-webview:// URI scheme handler for extension webviews (Roo Code, Claude, GitLens)\n- Output (0d474607): Add macOS titlebar offset and z-index CSS transforms, expand sandbox stripping to both iframe sites, rewrite webview shell CSP\n- Sky (1270c609): Add window close handler (Cmd+W closes active editor first), lifecycle focus after restoration, and opt-in command catalog smoke test\n- Wind (31a0dd9f): Update service layer with latest Effect-TS changes\n\nThese fixes resolve the \"I can't type or keybind\" issue, empty Explorer on first launch, and enable sideloaded extension webviews to render properly.",
+			"SHA": "0ebddba9c443930843c63da5c57e55c771d63970"
 		}
 	],
-	"TimeStamp": 1779241295960
+	"TimeStamp": 1779378400380
 }

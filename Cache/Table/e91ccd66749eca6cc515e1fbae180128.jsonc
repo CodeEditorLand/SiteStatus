@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T18:33:04Z",
+			"Date": "2026-04-22T18:20:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				729,
-				5
-			],
-			"Message": "feat(Mountain): Add .env.Land bootstrap and zombie-Cocoon cleanup\n\nAdd environment loading from .env.Land at Mountain boot (Atom I5):\n- Load from cwd, parent dir, and repo-layout probe (binary → 6 ancestors)\n- Populates Product*, Tier*, Network* vars for standalone binary launches\n- Forwards these vars to Cocoon subprocess for single-source-of-truth design\n- InitializationData.ts now reads version/commit/quality from env instead of hardcoded defaults\n\nFix workspace activation not firing after folder pick (Atom I1):\n- Before Window.navigate() reload, mutate ApplicationState.Workspace and broadcast $deltaWorkspaceFolders to Cocoon\n- Without this, Cocoon keeps its pre-nav snapshot (0 folders) and workspaceContains:* activations never match\n- Previously in a dead copy of the handler; consolidated here\n\nAdd zombie-Cocoon prevention (Atom I6):\n- Pre-boot SweepStaleCocoon(): TCP-probe port 50052, resolve owner via lsof, SIGTERM→SIGKILL if stale\n- Post-shutdown HardKillCocoon(): force-terminate child after $shutdown gRPC attempt completes\n- Without this, segfault/SIGKILL/debugger detach left zombie holding port, causing EADDRINUSE cascade on next launch\n\nThis ensures extensions load reliably after folder picks and prevents stale Cocoon processes from degrading the extension host.",
-			"SHA": "b5b669a09006ce160ded354d37f2d4497a4f0b4c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T16:44:28Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				729,
-				10
-			],
-			"Message": "fix(Mountain): improve extension loading, add BATCH-16 latency instrumentation\n\nKey changes:\n- LocalhostPlugin: add MIME type override for JS/CSS/JSON/HTML/SVG assets to fix \"not a valid JavaScript MIME type\" errors in webview\n- ScanPathConfigure: remove debug_only gate on extension scan paths, enabling repo-layout fallback in release builds\n- AppLifecycle: extend fallback timers (2s→8s, 5s→15s) with logging when Sky hasn't advanced phases; skip if already advanced\n- TerminalProvider: capture and log PID + exit status code on terminal exit\n- DevLog: replace manual UTC timestamp with chrono::Local to match VS Code's session log directory convention\n- WindServiceHandlers: add diagnostic:log bridge, implement extensions:getInstalled for sidebar, add aux window stubs, use shared SessionTimestamp\n- CreateEffectForRequest: add BATCH-16 timestamps at dispatch-enter and body-start for tree.register latency analysis\n- MountainVinegRPCService: add grpc-recv timestamp for hot-path RPCs enabling 3-hop latency breakdown\n\nThese changes improve extension loading reliability, add diagnostic visibility into RPC latency, and fix session log directory mismatch between Mountain.dev.log and VS Code output logs.",
-			"SHA": "9a4751a1ee8ef1b0f174a524647c54e19264b732"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-21T02:09:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				729,
-				1
-			],
-			"Message": "",
-			"SHA": "22db075db0768e5cf22aa1e6825b98aa6214f758"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-20T14:29:15Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				729,
+				774,
 				2
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "777bd8fe5033e7bcc9c447c1bc587277114c04a2"
+			"Message": "",
+			"SHA": "040bfbacb2ba90145b5feb6c5b41cd11e5e2f120"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-20T14:21:03Z",
+			"Date": "2026-04-22T18:20:49Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				729,
-				23
+				"⠀⠀⠀⠀⠀",
+				774,
+				2
 			],
-			"Message": "",
-			"SHA": "f42cde92e1e8f48d69034b04cd1fa40a1a9948b4"
+			"Message": "fix(Mountain): Fix extension location URI marshalling for VS Code renderer\n\nVS Code's URI revival system ignores objects lacking the `$mid === 1` marshalling marker. Without it, extension locations sent to the renderer become plain `UriComponents` bags where `.fsPath` and `.with` are undefined — the sidebar silently filters the entire batch out.\n\nThis change adds three functions in Extensions.rs:\n- `Normalize_Location_To_UriComponents`: converts the scanner's raw `file://` URL string into VS Code's `UriComponents` object shape\n- `Stamp_Mid_Uri`: attaches `$mid: 1` to any UriComponents that lack it\n- `Parse_File_Url_To_UriComponents`: parses `file:///absolute/path` URLs into the required structure\n\nAlso extends `BuildInitialUrl` to recognize Mountain's own `{ uri: \"file://…\" }` format (written by the recently opened persistence) alongside VS Code's historical `folderUri`/`workspace.configPath` shapes for backward compatibility with imported profiles.\n\nExtension locations in the sidebar now resolve correctly.",
+			"SHA": "07b4da763e4acaec886915effcb6b6c49eb0d689"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T17:12:01Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				774,
+				3
+			],
+			"Message": "feat(Mountain): Restore recently opened folder on launch, fix macOS window drag\n\nTwo improvements to the window boot sequence:\n\n1. **Recently opened folder restoration (Atom W7):** Add BuildInitialUrl to read `~/.land/workspaces/RecentlyOpened.json` and pass `?folder=<path>` to the initial webview URL. This skips the destructive round-trip where every launch landed on Welcome, forced users to click \"Open Folder\", and triggered a hard reload that wiped workbench state. That reload was the direct cause of the purple splash flash, stuttering paint, empty `@builtin` sidebar, and broken keybindings (every layer boots twice, second pass loses first-pass references).\n\n2. **Fix macOS window dragging:** Remove `maximized(true)` from the window builder. Maximized macOS windows are pinned to the screen and refuse all drag events regardless of `-webkit-app-region: drag` CSS. Replace with `TitleBarStyle::Overlay` + `hidden_title(true)` which keeps traffic lights visible while letting VS Code's custom titlebar paint the drag region. Windows/Linux continue using `decorations(false)` for chrome-less operation.\n\nAlso fix en-dash to hyphen in three documentation comments (ExtensionDescriptionStateDTO, LandFixTier) to match project convention.",
+			"SHA": "aa5eafbd77da6ffa239edf2a45206ae3dfa1e4cc"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T17:11:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				774,
+				5
+			],
+			"Message": "feat(Mountain): Initialize PostHog telemetry client at boot\n\nAdd PostHogPlugin initialization at the start of Entry.rs Fn() to capture any errors during the boot process in telemetry. This runs before all other boot steps, including CLI parsing and state initialization, ensuring crash logs include PostHog context.\n\nAdditional improvements:\n- Remove incorrectly placed #[tauri::command] attribute from internal IPC dispatcher in mod.rs, adding docstring clarifying it's not directly reachable from the frontend\n- Fix en-dash to hyphen in three documentation comments (UI-Backend, timezone offset, lifecycle phase)",
+			"SHA": "4ff7003125814f3d5be66877b4fe2de4c52f2281"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T16:27:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				774,
+				1
+			],
+			"Message": "docs: improve LandFixTier.rs module header",
+			"SHA": "957f84e8bf064fe68b3f05c6cdeca1e1848fa23f"
 		}
 	],
-	"TimeStamp": 1779241333934
+	"TimeStamp": 1779378428429
 }

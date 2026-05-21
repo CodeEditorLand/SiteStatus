@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:16:30Z",
+			"Date": "2026-04-26T22:47:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "feat(Project): Add regex and multiline search to TextSearchQuery\n\nSync Mountain and Cocoon submodules with new search capabilities:\n- Mountain: Add `isRegExp` and `isMultiline` fields mirroring VS Code's ITextSearchQuery\n- Escape plain-text search patterns via regex::escape() to prevent crashes on metacharacters like `.`, `(`, `[`, `*`, `?`\n- Add .multi_line() support for multiline regex searches\n- Fixes Search view plain-text mode broken for queries containing `obj.method(` or `file[1].txt`\n- Cocoon: Update to d4763554\n\nImpact: Plain-text search now works correctly for queries containing regex metacharacters without crashing the regex compiler.",
-			"SHA": "955a8545bf99cedb0b1db11ad25ed773a5c4d2b3"
+			"Message": "refactor(Project): Standardize DTO serialization to camelCase and fix SCM provider registration\n\nSubmodule synchronization across Mountain, Mist, and Rest:\n\n1. Mountain: Migrate DTO serialization from PascalCase to camelCase across 13 files (CustomDocumentStateDTO, DocumentStateDTO, MarkerDataDTO, etc.) to match the wire format expected by Wind/Sky.\n\n2. Mountain: Fix SCM provider registration - change PascalCase keys (\"ID\", \"Label\", \"RootUri\") to camelCase (\"id\", \"label\", \"rootUri\") in RegisterScmProvider and add missing \"providerHandle\" field in RegisterScmResourceGroup.\n\n3. Mountain: Add #[allow(dead_code)] to 15 structs used only in specific build configs and set MACOSX_DEPLOYMENT_TARGET=10.13 for broader compatibility.\n\n4. Mist: Add #![allow(non_snake_case)] lint to permit PascalCase naming conventions consistent with CodeEditorLand standards.\n\n5. Rest: Switch binary entry point from Library.rs to Main.rs with proper async tokio runtime.\n\nImpact: Wind/Sky now receive correctly formatted DTOs with camelCase keys, SCM source control providers properly register, and the Rest bundler has correct binary structure.",
+			"SHA": "9203102a8778770cf3de193abaec23edf1e83491"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:05:50Z",
+			"Date": "2026-04-26T20:30:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to properly-implemented trait methods on MountainEnvironment:\n- handle_search_find_in_files → SearchProvider::TextSearch (grep-searcher + ignore::WalkBuilder with parallel walking)\n- handle_search_find_files → WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive starts_with('.') hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus format!(\"file://{}\") URI constructor, and single-threaded walkers. The trait implementations were reachable only through Environment.Require<dyn SearchProvider>() calls and no IPC handler ever issued those.\n\nAlso change FileReaddirNative.rs log level from vfs-verbose to vfs since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.\n\nImpact: File search and find-files now use proper ignore rules, parallel walking, and regex support instead of naive single-threaded implementations.",
-			"SHA": "ab81979739d237da5c6179b32dcdf7437a7a83ae"
+			"Message": "feat(Mountain): Add workspace trust handlers for vscode.git and mute API gap logs\n\nSubmodule synchronization bringing two Mountain changes:\n\n1. Workspace Trust Handlers:\n   - Implement Workspace.RequestResourceTrust and Workspace.IsResourceTrusted handlers\n   - Route through Mountain instead of falling back to Cocoon's permissive heuristic\n   - vscode.git's Model.openRepository now calls these before constructing Repository\n   - Enables GenerateRouteManifest.sh to auto-switch Cocoon from heuristic to gRPC routing\n   - Future work can replace trust-by-default with real per-OS trust queries (Gatekeeper/SmartScreen/xattrs)\n\n2. Log Noise Reduction:\n   - Mute vscode-api-gap dev logs in short mode\n   - These log when extensions use unshimmed vscode API methods\n   - Useful for API gap audits but noisy in default dev runs\n   - Enable via LAND_DEV_LOG=all or LAND_DEV_LOG=vscode-api-gap when needed\n\nImpact: vscode.git extension now properly routes through Mountain's trust handlers with future extensibility for real OS-level trust queries.",
+			"SHA": "bd777531a7bf4fdfeb693820ba44cc9efc7237b6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:56:21Z",
+			"Date": "2026-04-26T20:10:59Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "feat(Project): Add DisableUnusedServices transform and sync dependencies across submodules\n\nCross-cutting Element submodule sync with functional improvements and dependency updates:\n\n1. Output: Add DisableUnusedServices ESBuild transform - Replaces upstream VS Code contribution barrels for features Land doesn't back (auto-update, issue reporter, MS account/sync, process explorer) with inert stubs. Removes broken UI surfaces and silences \"service not registered\" warnings, shortening boot time.\n\n2. Output: Fix ExtensionScannerIPC path matching - Now matches BOTH electron-browser AND browser variants of extensionsScannerService.js. Previously only matched electron-browser, but desktop.main.js loads the browser variant.\n\n3. Sky: Sync dependency updates - @xterm/xterm: 6.1.0-beta.202 → 6.1.0-beta.203, @astrojs/compiler-rs: 0.1.9 → 0.1.10, pozil/auto-assign-issue: 2.2.0 → 3.0.0\n\nImpact: Extension scanning now works correctly for desktop profile. Unused VS Code services are stubbed out, reducing boot noise and improving startup time.",
-			"SHA": "4c908a36d5a2b16ff9ab9e0e5dbc8c6964566d17"
+			"Message": "chore(Project): Sync Element submodule with bug fixes and URI improvements\n\nSubmodule synchronization bringing in latest changes addressing search and URI handling:\n\n1. Sky: Fix text search result mapping to use Mountain's actual response format - `Hit.resource` instead of `Hit.uri`, and `Hit.matches[]` array with `preview` and `line_number` instead of flat hit shape. Add backwards-compat support for old flat `{uri, lineNumber, preview}` format.\n\n2. Sky: Fix search:findFiles IPC call to include required null exclude parameter. Previously MaxResults was shifted into wrong slot, causing glob extractor to ignore max and default to 10000. This resolves empty search results.\n\n3. Output: Add missing URI class import to ExposeWorkbenchAccessor transform, enabling SkyBridge to construct resource objects the workbench accepts directly.\n\n4. Mountain: Use DebugOnce instead of dev_log! for unregistered view-action and workbench-internal commands to reduce log noise.\n\nImpact: Text search and file search now return correct results using Mountain's response format, eliminating empty results from parameter order mismatch.",
+			"SHA": "efc8c47b9443c033122f0f4d22e4086edb1c693f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:36:12Z",
+			"Date": "2026-04-26T15:41:56Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				5214,
-				1
+				"⣿⣿⣿⣿⣿",
+				102,
+				300
 			],
-			"Message": "refactor(Output): Replace runtime require() with static ES imports in workbench accessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of both web.main.js and desktop.main.js instead of using runtime require() calls. This eliminates AMD require() resolution that could fail in the WKWebView context.\n\nChanges include:\n- Anchor on stable import markers ('mark' from performance.js for web, 'localize' from nls.js for desktop)\n- Add IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports\n- Extract shared imports into SharedImportLines to avoid duplication\n- Add cel:services-ready DOM event dispatch on successful population\n- Add Mountain diagnostic logging for success/failure tracking\n- Add guard check for import marker to avoid matching unrelated files\n\nImpact: __CEL_SERVICES__ is now populated synchronously before the microtask queue drains, ensuring services are available for both web and Electron/Desktop profiles at runtime.",
-			"SHA": "96667ac6d621541665452df55118710d737719da"
+			"Message": "chore(cleanup): delete stale target folder\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "ac94e887445add5b3f4bb326b2faa981df51638e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:48:07Z",
+			"Date": "2026-04-26T10:44:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				5214,
-				1
+				2
 			],
-			"Message": "feat(Project): Bridge VS Code binary IPC to Mountain backend\n\nCross-cutting submodule sync enabling real file explorer, search, settings, and storage persistence:\n\n1. Mountain: Add VS Code IPC command aliases in WindServiceHandlers to bridge binary IPC protocol to native Effect-TS layer. Configuration: `configuration:getValue`/`updateValue` → `configuration:get`/`update`. File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`. Add stub handlers for `file:watch`/`file:unwatch` and `configuration:onDidChange` returning Null to prevent promise leaks.\n\n2. Output: Route VS Code binary IPC channels (25+ including localFilesystem, storage, configuration, search, terminal) to Mountain via MountainIPCInvoke instead of returning stub responses. Previously these channels returned FileNotFound, empty arrays, and empty objects.\n\n3. Cocoon: Enhance stderr filtering to suppress follow-up stack frames from extension errors.\n\nImpact: File explorer, search results, settings editor, and workspace storage now persist data to the real filesystem and backend instead of operating on in-memory stubs.",
-			"SHA": "846bf6296b9f994c5d60c3f5e1bced701332f8fb"
+			"Message": "",
+			"SHA": "38b3ba9759c13da31792965004037c4f61c7bd1f"
 		}
 	],
-	"TimeStamp": 1779241299097
+	"TimeStamp": 1779378414398
 }
