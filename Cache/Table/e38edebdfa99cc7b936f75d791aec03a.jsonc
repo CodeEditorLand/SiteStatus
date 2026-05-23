@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-02-10T02:12:19Z",
+			"File": [
+				"⣿⣿⡏⠀⠀",
+				59,
+				31
+			],
+			"Message": "refactor(Grove): Resolve naming collisions and stabilize Wasmtime 20 integration\n\nThis commit addresses compilation errors introduced by recent WASM and Spine upgrades by refactoring the module hierarchy and aligning with Wasmtime 20's API changes. The primary goal is to resolve ambiguous import errors (E0255) and ensure type safety across the extension host.\n\n**Naming Convention & Namespace Hygiene:**\n- Introduced the `Impl` suffix for all concrete struct implementations (e.g., `ExtensionHost` -> `ExtensionHostImpl`, `SpineConnection` -> `SpineConnectionImpl`, `Transport` variants -> `...Impl`). This distinguishes implementation types from their defining modules.\n- Moved internal build modules to `*Mod.rs` and made them private, restricting re-exports in `mod.rs` to prevent namespace pollution.\n- Renamed `gRPCTransport` to `GrpcTransport` to adhere to PascalCase acronym standards.\n\n**Wasmtime 20 Compatibility & Fixes:**\n- Updated `WASMRuntime` configuration to match Wasmtime 20.0.2, handling changes to `WasmBacktraceDetails` and WASI setup.\n- Refactored `FunctionExport` to use `wasmparser` types and temporarily disabled complex async closure wrapping to allow compilation while the correct signature for Wasmtime 20 is determined.\n- Fixed `ModuleLoader` generics to use `StoreLimits` explicitly.\n\n**Logic & Borrowing Corrections:**\n- Fixed borrowing issues in `APIBridge` (`from_json_value` clone), `HostBridge` (wrapping `AsyncCallback` sender in `Arc<Mutex>`), and `Activation` (cloning events before moves).\n- Added `Debug` derives to core transport and host structs for better introspection.\n- Added `#[cfg(feature = \"grpc\")]` guards in `Entry` to allow building the host without gRPC dependencies.\n\n**Impact:** The Grove codebase now compiles cleanly with the updated dependency stack. The `Impl` suffix pattern provides a scalable solution for future module additions without risking naming conflicts.",
+			"SHA": "78ca1c4ae60d6279395f774958c14756905552ce"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-02-09T11:07:53Z",
+			"File": [
+				"⣿⣿⠀⠀⠀",
+				59,
+				23
+			],
+			"Message": "",
+			"SHA": "aa655c4934e6d5dcf9b7960b4d6150c6b083b41a"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-02-09T10:18:55Z",
 			"File": [
 				"⣿⣿⣿⠇⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "test(Grove): Add comprehensive integration test suite for extension host\n\nThis commit introduces the initial integration test suite for the `Grove` Rust extension host, validating the stability and interoperability of the core subsystems implemented in recent development iterations (WASM Runtime, Transport Layer, Host Orchestration, and Protocol).\n\nThe new `Tests/integration/extension_loading_test.rs` module provides coverage for:\n- **Lifecycle & Orchestration**: Verifying `ExtensionHost` initialization, state transitions, and `ExtensionManager` operations (discovery/listing).\n- **WASM Runtime**: Testing the creation of the `Wasmtime` engine and instance tracking.\n- **Transport Strategies**: Validating the initialization of gRPC, IPC, and WASM transport types.\n- **Protocol & Connectivity**: Checking `SpineConnection` state management (Disconnected vs. Connected).\n- **Services**: Testing the `ConfigurationService` for scoped setting storage and retrieval.\n- **API Surface**: Validating core DTOs (`Position`, `Range`, `TextEdit`) and the availability of the VS Code API facade.\n\n**Impact**: This establishes a regression baseline for the `Grove` subsystem, ensuring the newly implemented \"WASM Strategy\" and \"Spine\" communication layers function correctly within the broader Land architecture.",
 			"SHA": "15ba658499230ad6fdd3a061e407f48200acfca9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:35:52Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				55,
-				6
-			],
-			"Message": "feat(Grove/WASM): Implement core WebAssembly runtime engine and execution environment\n\nThis commit establishes the foundational execution infrastructure for the Grove extension host, enabling the loading, sandboxing, and execution of WebAssembly modules using Wasmtime. It completes the \"WASM Strategy\" capability introduced in the recent Transport layer refactoring.\n\nThe implementation provides a comprehensive subsystem composed of five core modules:\n\n- **`Runtime`**: Encapsulates the `wasmtime::Engine` and configuration (`WasmConfig`). It manages the lifecycle of WASM stores, handles fuel metering for execution throttling, and enforces compilation settings (WASI, SIMD, multi-memory support).\n\n- **`ModuleLoader`**: Handles the ingestion of WASM artifacts from file paths, memory buffers, or remote URLs. It manages the compilation process, extracts module metadata (exports/imports), and coordinates instantiation via the Wasmtime linker.\n\n- **`MemoryManager`**: Enforces strict isolation and resource limits. It tracks allocation/deallocation, validates memory growth requests against global caps, and prevents OOM conditions within the host process.\n\n- **`HostBridge`**: Defines the communication protocol (marshalling/unmarshalling) between the Rust host and WASM guest. It manages type conversions (JSON/Bytes to Wasmtime `Val`) and provides the async-safe channels for bi-directional messaging.\n\n- **`FunctionExport`**: Implements the registry for exposing Rust host functions to WASM modules. It integrates with the Wasmtime `Linker` to wrap host callbacks, managing function signatures and call statistics.\n\n**Impact**: This subsystem transforms Grove from a message-passing orchestrator into a fully functional WASM runtime, providing the secure sandbox required to execute high-performance extensions within the Land architecture.",
-			"SHA": "e49e36848a2ce1fb0df9e7900430c65c1d18d992"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:33:22Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				48,
-				5
-			],
-			"Message": "feat(Grove/Transport): Implement modular transport layer with gRPC, IPC, and WASM strategies\n\nThis commit introduces a flexible, strategy-based transport layer for the Grove extension host, abstracting the communication mechanisms required to interact with the Land ecosystem.\n\nThe implementation establishes a unified `TransportStrategy` trait that defines the contract for connectivity (`connect`, `send`, `close`). Three distinct concrete strategies are provided:\n\n- **GrpcTransport**: Connects Grove to the Mountain backend using `tonic`. This enables the remote control channel defined in the recent protocol updates, handling channel management and endpoint resolution.\n- **IpcTransport**: Provides high-performance local inter-process communication via Unix domain sockets (Unix) and named pipes (Windows). This facilitates efficient messaging between the host and local processes or the main editor window.\n- **WasmTransport**: Bridges the Grove host with loaded WASM modules. It integrates directly with the `WasmRuntime`, `MemoryManager`, and `HostBridge` to execute function calls within the sandboxed environment.\n\nThe module also includes `TransportConfig` for managing timeouts and retries, `TransportStats` for observability (latency, throughput), and a unified `Transport` enum to handle runtime strategy selection.\n\n**Impact**: This decouples Grove's orchestration logic from specific networking protocols, providing a robust foundation for the `SpineConnection` and enabling the host to seamlessly switch between remote (gRPC) and local (WASM/IPC) execution contexts.",
-			"SHA": "d2e113204c114dad3ca7896d2d90720ca8253cf1"
 		}
 	],
-	"TimeStamp": 1779378405607
+	"TimeStamp": 1779544358500
 }

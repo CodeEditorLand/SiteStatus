@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:34:15Z",
+			"Date": "2026-05-02T09:12:27Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1112,
-				2
+				"⠁⠀⠀⠀⠀",
+				1212,
+				16
 			],
-			"Message": "feat(Mountain): Implement authentication provider registration and session retrieval\n\nIntroduce two new gRPC handlers in the CocoonService authentication module to fulfill the Vine protocol contract for account management. Implement `RegisterAuthenticationProvider` to ingest provider metadata (ID, label, extension context) and register a `ProviderRegistrationDTO` in the `ApplicationState` extension store, generating a deterministic hash handle for lookup. Add `GetAuthenticationSession` to retrieve sessions by provider ID, currently returning an empty response as the full OAuth browser flow is pending implementation.\n\nThese handlers enable the Cocoon extension host to dynamically register authentication providers (e.g., GitHub, Microsoft) and query for active sessions, bridging the gap between the VS Code extension model and Mountain's state management.",
-			"SHA": "a2dbe916245496da587e3fd77c25c40fb147f33a"
+			"Message": "feat(Mountain): Introduce service registry and feature flag subsystem\n\nImplement the foundational runtime control plane within Mountain, consisting of a service discovery registry and a feature flag management system.\n\nIn `Source/IPC/Common/ServiceInfo`, define the data models for service lifecycle management: `ServiceState::Enum` (Running, Degraded, etc.), `ServicePerformance::Struct` (request/error counters with rolling mean latency), `ServiceEndpoint::Struct` (network/UDS metadata), and `ServiceInfo::Struct` (aggregated health state). The `ServiceRegistry::Struct` provides a thread-safe map for registering services, tracking heartbeat intervals, and filtering by health status (operational state, <30s heartbeat, <10% error rate).\n\nIn `Source/Telemetry/FeatureFlags`, refactor the existing monolithic module into a modular architecture adhering to the project's PascalCase naming convention. Extract `FeatureFlag::Struct`, `FlagCategory::Enum`, and `FeatureFlagError::Enum` into their own files. The `FeatureFlagRegistry::Struct` maintains a process-wide thread-safe registry (backed by `parking_lot::RwLock`) seeded with defaults like `ipc-compression` and `experimental-webgl`. Expose functional accessors (`IsEnabled::Fn`, `Enable::Fn`, `Disable::Fn`) via `GlobalRegistry` to allow the rest of the backend to gate experimental features without recompiling.\n\nThese additions enable the backend to dynamically monitor service health across the IPC landscape and toggle performance or experimental features at runtime.",
+			"SHA": "1e9d527a0900769df28f60221d7282d7f3744a10"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:34:10Z",
+			"Date": "2026-05-02T09:07:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1109,
-				1
-			],
-			"Message": "refactor(Mountain): Remove redundant ApplicationState re-exports\n\nEliminate the explicit `pub use ApplicationState::*` statement and extra blank lines in `Source/ApplicationState/State/mod.rs`. The module already imports the types directly via `pub mod ApplicationState;`, making the wildcard re-export unnecessary and redundant for backward compatibility.\n\nThis simplification cleans up the module namespace, adheres to Rust idioms by avoiding redundant re-exports, and reduces potential confusion regarding symbol visibility in the core `ApplicationState` container.",
-			"SHA": "d820a1af5b83b56f9655d169290065485006f751"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:34:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1109,
-				1
-			],
-			"Message": "feat(Mountain): Add UUID generator for Air request correlation\n\nIntroduce `GenerateRequestID.rs` in the `AirServiceProvider` module to generate fresh UUID-v4 identifiers for Air RPC requests. Each request now carries a unique ID, enabling Mountain to correlate replies with originating calls across logs and traces during communication with the Air daemon sidecar.\n\nThis utility supports the upcoming Air integration contract defined in the `AirServiceTypesStub`, ensuring request/response matching for update, metrics, and file indexing operations. The implementation uses the `uuid` crate with the simple format and adheres to PascalCase naming for the function `Fn`.",
-			"SHA": "e3df3b7142bc02b017b24d730fc95201b735dc5a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:33:59Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1107,
-				3
-			],
-			"Message": "feat(Mountain): Implement debug adapter lifecycle RPC handlers\n\nIntroduce three new gRPC handlers in the CocoonService debug module to fulfill the Vine protocol contract for debugging support. Implement `RegisterDebugAdapter` to register debug types in ApplicationState and emit `sky://debug/register` events to activate the launch UI. Add `StartDebugging` to mint session IDs and broadcast `sky://debug/start` events with configuration details, and `StopDebugging` to emit `sky://debug/sessionEnd` notifications upon termination.\n\nThese handlers bridge the extension host (Cocoon) with the Sky frontend, enabling the full debug lifecycle: registration of debug adapters, session initiation with proper context, and graceful session teardown. This completes the IPC contract required for VS Code extension debugging support within the Land editor.",
-			"SHA": "4fb2a4f6a0d727fc8c1de5f525b9e7d366f17562"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:33:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1103,
+				1196,
 				4
 			],
-			"Message": "refactor(Mountain): Standardize function signatures and resolve Rust clippy lints\n\nAddress formatting inconsistencies and clippy warnings across the `WindServiceHandlers` module and the main IPC dispatcher. Standardize multi-line function signature formatting to ensure the `Result` type appears on the same line as the signature where possible, and align parameter lists for readability.\n\nUpdate internal dispatch calls in `mountain_ipc_invoke` to use explicit `.Fn` syntax for `WaitForClientConnection`, `SendRequest`, and `SendNotification` methods, resolving method resolution ambiguity. Adjust import grouping in `mod.rs` and fix spacing around variable declarations to comply with Rust formatting standards.\n\nThese changes improve code consistency and ensure the build passes without clippy warnings while maintaining functional parity for configuration, extension, and search IPC handlers.",
-			"SHA": "d2cf6dccc0fe0dfc95e50ced5c54ee90efcfd7c2"
+			"Message": "feat(Mountain): Define core IPC message types and priority system\n\nIntroduce the foundational data structures for the Inter-Process Communication layer within `Source/IPC/Common/MessageType`. This commit establishes the contract for request, response, and message handling across the Mountain backend and connected services.\n\nThe implementation adds:\n- `MessagePriority::Enum`: A four-tier priority ladder (Low, Normal, High, Critical) supporting comparison and ordering for scheduling logic.\n- `IPCCommand::Struct`: A builder-pattern command request allowing positional `Args`, named `Params`, and explicit priority assignment.\n- `IPCMessage::Struct`: A generic transport envelope including a UUID, timestamp, optional correlation ID for request tracking, and a priority field.\n- `IPCResponse::Struct`: A standardized response type with `Success`/`Error` constructors, preserving the correlation ID for async matching and capturing execution results or failure reasons.\n\nAll types derive `Serialize` and `Deserialize` to enable JSON transmission over the gRPC (Vine) protocol and Tauri IPC channels. These models unify the messaging interface, enabling the `Wind` service layer and `Cocoon` extension host to exchange structured data with explicit priority handling and traceability.",
+			"SHA": "b95a7333e3b00c5c13850fdaeb0ad7e5ef0efa37"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:07:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1191,
+				1
+			],
+			"Message": "refactor(Mountain): Align ApplicationState import with PascalState DTO naming\n\nUpdate the import statement in `ApplicationState` to use the full type path `TestProviderState::Struct` instead of the raw module reference. This aligns with the project's strict PascalCase naming convention where state data structures are explicitly named `...::Struct` (as defined in recent commits for `TestProviderState`).\n\nEnsures the type signature correctly resolves the aggregated state manager for test execution contexts, maintaining consistency with other DTO definitions and preventing potential compiler ambiguity when `ApplicationState` is cloned or accessed across threads.",
+			"SHA": "d61a52c94a249624bbc77eefa14d3a2678ba43ce"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:06:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1191,
+				1
+			],
+			"Message": "fix(Mountain): Correct import path for URI normalization utility\n\nResolve a broken import path in `Source/IPC/WindServiceHandlers/Extensions.rs` where the `Normalize` module was referenced incorrectly. Update the path from `IPC::UriComponents::Normalize` to `IPC::UriComponents::Normalize::Fn` to align with the actual module structure and expose the normalization function required for processing extension URIs.\n\nThis ensures the extension management handlers can correctly resolve URI components during the filtering of installed extensions, preventing potential runtime panics or logic errors when interacting with the `Wind` service layer.",
+			"SHA": "27f727498c52bb68469eda25b9df43e452c463e8"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:06:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1191,
+				3
+			],
+			"Message": "feat(Common): Introduce health monitoring data models and score logic\n\nDefine the core data structures for the editor's health monitoring subsystem within `Source/IPC/Common/HealthStatus`. This commit adds `SeverityLevel::Enum` to classify issue criticality, `HealthIssue::Enum` as a tagged union for specific failure modes (e.g., MemoryPressure, ConnectionLoss), and `HealthMonitor::Struct` to aggregate state.\n\nThe `HealthMonitor` calculates a dynamic `HealthScore` (0-100) based on a deterministic penalty system derived from issue severities (Low: -5, Medium: -15, High: -25, Critical: -40). It provides methods for adding/removing issues, filtering by severity, and determining overall system health status (`IsHealthy`, `IsCritical`). All types derive `Serialize`/`Deserialize` to enable transmission over the gRPC (Vine) and Tauri IPC channels for real-time status propagation to the Wind and Sky layers.\n\nThese models lay the foundation for the backend to expose service liveness metrics to the frontend without blocking the main thread.",
+			"SHA": "23d6eddefce6d663ef87fdd01e468309c773f80d"
 		}
 	],
-	"TimeStamp": 1779378414912
+	"TimeStamp": 1779544383482
 }

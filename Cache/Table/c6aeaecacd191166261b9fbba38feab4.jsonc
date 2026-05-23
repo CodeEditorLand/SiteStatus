@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:58:22Z",
+			"Date": "2026-04-25T01:30:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
-				1
+				876,
+				2
 			],
-			"Message": "docs(Mountain): expand CHANGELOG with April 16 entries",
-			"SHA": "192142ecc1c9ea07a13a62e818d51de3895feebb"
+			"Message": "chore(Mountain): Add backup files for Cargo.toml and tauri.conf.json\n\nCreate backup copies of the current Cargo.toml and tauri.conf.json configuration files to preserve the existing Mountain binary configuration, including the Tauri identifier, productName, feature flags, and build settings.",
+			"SHA": "9e16a8e6eeed0abe3adae9fd4d8b9fd208a9b4ea"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:33:36Z",
+			"Date": "2026-04-25T01:28:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
-				1
+				874,
+				2
 			],
-			"Message": "docs(Mountain): Expand v2.1 changelog with April 17–22 commits",
-			"SHA": "20b00590a313b3e80ebed5d20934344012e107de"
+			"Message": "",
+			"SHA": "b3aa14a080bcb688c1c7f1a7edd936b446939b0d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:24:49Z",
+			"Date": "2026-04-25T01:28:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
-				1
-			],
-			"Message": "fix(Mountain): Distinguish user vs built-in extension paths during scan\n\nAdd `IsUserExtensionScanPath()` helper to detect whether a scan directory represents the user-writable `~/.land/extensions` root (or `LAND_USER_EXTENSION_DIRECTORY` override) versus bundled paths like `Resources/extensions` and VS Code's submodule.\n\nPreviously every extension was marked `IsBuiltin = true` regardless of source, causing user-installed VSIXes to appear under \"Built-in\" in the Extensions sidebar and leaving `@installed` (which filters for User-scope) empty. Now the scanner checks the canonical scan path upfront and sets `Description.IsBuiltin = !IsUserPath` accordingly.\n\nThis complements the sidebar handler fix in the previous commit by ensuring the underlying scan data is correctly classified at the source.",
-			"SHA": "5eb660dd59f7081898bfa210a94a3c5d39252f8a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T22:54:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				3
-			],
-			"Message": "fix(Mountain): Implement extension type filtering and post-install activation\n\nThree related fixes address the \"install succeeded but nothing happened\" symptom:\n\n1. **Extension type filtering** (`Extensions.rs`): VS Code's `getInstalled(type?)` IPC passes an optional `ExtensionType` filter (0=System, 1=User). Previously this filter was silently dropped and every call returned the full list as `type: 0, isBuiltin: true`. Now the handler respects the filter and properly distinguishes VSIX-installed extensions from built-ins based on the scanner's `isBuiltin` field.\n\n2. **Post-install activation burst** (`Extension.rs`): After `$deltaExtensions` adds an extension to Cocoon's registry, we now fire `onStartupFinished` activation events. Without this burst, extensions with `onStartupFinished` (like `Anthropic.claude-code`) register but never activate - their sidebar contributions and commands silently no-op until the next full workbench restart.\n\n3. **Sidebar scan handlers** (`mod.rs`): Forward `extensions:scanSystemExtensions` → `getInstalled(type=0)` and `extensions:scanUserExtensions` → `getInstalled(type=1)`. The VS Code channel client doesn't always pass explicit type filters, so the override ensures User extensions appear under \"Installed\" with an Uninstall action.\n\nImpact: VSIX extensions now show under \"Installed\" with Uninstall, activate immediately after install without reload, and the Extensions sidebar refresh works correctly.",
-			"SHA": "48be85495f9e1cdde53da0b2027e8a0e414ab991"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T22:54:37Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
+				874,
 				6
 			],
-			"Message": "fix(Mountain): Ensure extension manifest fields are always present for renderer\n\nAdd `extensions:getManifest` IPC handler to read `extension/package.json` from a `.vsix` archive without extracting to disk, enabling the \"Install from VSIX…\" preview dialog.\n\nThree changes prevent renderer crashes when VS Code accesses extension manifest fields unconditionally:\n\n1. **DTO serialization**: Remove `skip_serializing_if = \"String::is_empty\"` from `ExtensionDescriptionStateDTO.Name`, `Version`, `Publisher`. VS Code's `extensions.contribution.ts` trusted-publishers migration calls `manifest.publisher.toLowerCase()` at boot—if the key is omitted, the renderer crashes with `TypeError: undefined is not an object`.\n\n2. **IPC handler hardening** (`Extensions.rs`): Handle empty/missing `publisher`/`name` with \"unknown\" fallback, and inject explicit `publisher`, `name`, `version` fields into the manifest object before sending to the renderer. Also guard against non-object manifest values (null) by substituting an empty skeleton.\n\n3. **Log file eager init** (`Entry.rs`, `DevLog.rs`): Call `InitEager()` at binary startup to create the session log before any panic, preserving post-mortem evidence. Also fix `BinarySignature()` to correctly split PascalCase segments (`ElectronProfile` → `electron.profile`) so logs end up in the correct app-data directory.\n\nAlso expand the benign ENOENT ignore list with `chatLanguageModels.json`, `configurationDefaultsOverrides`, and window log files (`network.log`, `renderer.log`, `views.log`, `notebook.rendering.log`).",
-			"SHA": "c61c0b1e751fe76d3f58459087356af5eca7d5d1"
+			"Message": "refactor(Mountain): Add LRU cache for FindFiles and optimize dev_log for release\n\nImplement an LRU cache for FindFilesInWorkspace to reduce latency during\nfuzzy file matching. The cache uses a 2.5s TTL and 128-entry capacity with\nsimple eviction, short-circuiting repeated walks during Cmd+P typing bursts\nthat typically fire 5-10 calls in 200ms.\n\nAdditionally, gate the dev_log! macro body on cfg!(debug_assertions) so it\nbecomes a literal no-op in release builds via LLVM dead-code-elimination.\nThis removes the format!, IsEnabled lookup, file-sink write, and dedup-\nmutex lock from the hot IPC path while preserving compile-time type-checking\nof format arguments.\n\nAlso revert the verbose development naming back to simple \"Mountain\" for\nbinary, lib, identifier, and productName, and remove obsolete .Backup files.",
+			"SHA": "5c123e3aa335f9078086b721f4fbbe75a1651167"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T01:22:13Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				876,
+				11
+			],
+			"Message": "revert(Mountain): Revert Mountain naming to verbose development identifier\n\nRevert the Mountain binary/lib/tauri config from 'Mountain' back to the verbose development identifier 'DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain' to maintain continuity with existing build artifacts and CI configurations.\n\nAdditionally, implement SCM provider registration handlers pulled out of the language-providers catch-all:\n- Add `RegisterScmProvider` notification handler that wires through `SourceControlManagementProvider` trait and emits `sky://scm/register`\n- Add `RegisterScmResourceGroup` notification handler that seeds groups via `UpdateSourceControlGroup` trait and emits `sky://scm/registerGroup`\n- These previously fell through the language-provider OR-block which never populated `ApplicationState::SourceControl`, leaving the SCM viewlet empty\n\nAlso:\n- Add `WalkUpToProjectRoot` to CliParse that walks up from build dirs to find project markers (Cargo.toml, package.json, .git, etc.)\n- Trust Sky/Target, Output/Target, and Dependency paths in PathSecurity for bundled extensions\n- Add benign ENOENT substrings for gitlens, copilot, claude-code, roo-cline, vim registers, and bundled product.json probes\n\nBREAKING CHANGE: Binary and lib names changed from 'Mountain' to the verbose development identifier.",
+			"SHA": "6c908b6eaa9030c30ee11f705f016f38ae2b3428"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T00:42:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				5
+			],
+			"Message": "refactor(Mountain): Implement configuration target support and clean up naming\n\nImplement missing ConfigurationTarget handling in UpdateValue.rs:\n- UserLocal now maps to User settings.json (Land has no sync backend)\n- WorkspaceFolder writes to <folder>/.vscode/settings.json for first folder\n- Memory target stores in-memory only (no disk write)\n- Default and Policy targets return read-only errors per spec\n\nAdditionally:\n- Revert binary/lib names from verbose dev identifier back to \"Mountain\"\n- Simplify Tauri identifier to \"land.editor.binary\" and productName to \"Mountain\"\n- Remove duplicate externalBin entry and obsolete .Backup files\n\nThis completes the ConfigurationProvider trait implementation for all VS Code configuration targets, enabling extensions to persist settings to user preferences, workspace .vscode folders, and in-memory session state.",
+			"SHA": "1c3dd9e7d4dde40184a53712500b91c447eb2197"
 		}
 	],
-	"TimeStamp": 1779378427663
+	"TimeStamp": 1779544412192
 }

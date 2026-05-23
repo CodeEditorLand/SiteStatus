@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:42:51Z",
+			"Date": "2026-05-02T04:36:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				1
-			],
-			"Message": "fix(Mountain): Defer sky://terminal/create event to fix race condition\n\nThe terminal workbench's `LocalTerminalBackend.createProcess` flow has a timing vulnerability: when `sky://terminal/create` emits synchronously during step 1 (RPC in-flight), the Tauri event arrives before step 3 (`_ptys.set(id, pty)`) completes. This causes `_ptys.get(id)` to return `undefined`, skipping `handleReady` and preventing `processManager._onProcessReady` from firing. Since `ptyProcessReady` never resolves, every subsequent `processManager.write(data)` call hangs indefinitely—users see the terminal panel but all keystrokes are silently dropped.\n\nFix by emitting on a deferred tokio task with a 120ms delay, giving the RPC response roundtrip + `_ptys.set` sufficient headroom. Also switch to `LogSkyEmit` for visibility under `[DEV:SKY-EMIT]` histogram tracking.\n\nThis complements the existing `AppendTerminalOutput` replay buffer for data (added in c99ccbe), completing the terminal race-condition fix for both create and data events.",
-			"SHA": "c2d0beca968f600d76ac4d85a436931124cfdf07"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:20:13Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				1
-			],
-			"Message": "fix(Mountain): Return integer id from localPty:createProcess\n\nThe VS Code terminal workbench expects `IPtyService.createProcess` to return a `Promise<number>` (the integer terminal id). However, Mountain was returning the full `{id, name, pid}` object. The workbench then keys its internal `_ptys` map by that object, so every `_ptys.get(<integer>)` lookup from `onProcessData`/`onProcessReady` returns `undefined`. This causes xterm to receive zero bytes even though Mountain's PTY reader emits data continuously—resulting in blank terminal panels.\n\nSplit the terminal handler into three distinct paths:\n- `localPty:spawn`: Preserves full response for Cocoon's Sky bridge\n- `localPty:createProcess`: Returns only the integer id per VS Code contract\n- `localPty:start`: No-op for eager-spawn pattern (shell already started during createProcess)\n\nThis fixes the terminal rendering while maintaining backward compatibility with existing spawn callers.",
-			"SHA": "c99ccbe7715342838206eb2c54509fa3a97f513f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T16:59:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
+				940,
 				2
 			],
-			"Message": "refactor(Mountain): Simplify binary and product names\n\nRename the Mountain binary, library, and default-run targets from the verbose development profile name to simply \"Mountain\". This follows the project's PascalCase naming convention and removes the debug build artifact naming.\n\nIn tauri.conf.json, simplify the identifier from the lengthy development-specific string to \"land.editor.binary\" and the productName from the long debug name to \"Mountain\". Also remove the duplicate \"Binary/node\" entry from externalBin.\n\nThese changes clean up the build configuration for proper release builds while maintaining the same functionality.",
-			"SHA": "db5f0f7bc58c4108ea4f51ec3ac0d30bb008def3"
+			"Message": "refactor(Mountain): Enforce PascalCase paths in SideCarRequest module\n\nUpdate the `Track::SideCarRequest` module to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `DispatchSideCarRequest.rs`, correct the `CreateEffectForRequest` import to use the full PascalCase path with explicit function aliasing (`...::Fn as CreateEffectForRequest`), replacing the previous shorthand segment. In `mod.rs`, remove legacy `pub use` re-exports and the `pub mod` exposure pattern that allowed flat imports. Replace them with an explicit `#![allow(non_snake_case)]` directive and documentation comments.\n\nThis enforces that callers must spell out the full double-segment paths (e.g., `Track::SideCarRequest::DispatchSideCarRequest::DispatchSideCarRequest`). This structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names, ensuring consistency across the Mountain crate and resolving potential symbol resolution issues in the IPC layer.",
+			"SHA": "c4ab28097b9afc457565397f135757d98325a6aa"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T16:55:25Z",
+			"Date": "2026-05-02T04:35:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				940,
+				2
+			],
+			"Message": "refactor(Mountain): Enforce PascalCase paths in Track UIRequest module\n\nUpdate the `Track::UIRequest` module tree to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `Source/Track/UIRequest/ResolveUIRequest.rs`, correct the `ApplicationState` import to use the full PascalCase path `ApplicationState::State::ApplicationState::ApplicationState`, replacing the previous shorthand segment.\n\nIn `Source/Track/UIRequest/mod.rs`, remove legacy `pub use` re-exports and the `pub mod` exposure pattern that allowed flat imports. Replace them with an explicit `#![allow(non_snake_case)]` directive and documentation comments. This enforces that callers must spell out the full double-segment paths (e.g., `Track::UIRequest::ResolveUIRequest::ResolveUIRequest`).\n\nThis structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names, ensuring consistency across the Mountain crate and resolving potential symbol resolution issues in the IPC layer.",
+			"SHA": "bb67ad30ba8ab521d6c11f7b64c3703cbeb70f71"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T04:24:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				940,
 				3
 			],
-			"Message": "",
-			"SHA": "f2b5c349377b143b33dab188478a947d77522a46"
+			"Message": "refactor(Mountain): Enforce PascalCase paths in Track module imports\n\nUpdate the `Track` module tree to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `Source/Track/Webview/MountainWebviewPostMessageFromGuest.rs`, correct the `ApplicationState` import to use the full PascalCase path `ApplicationState::State::ApplicationState::ApplicationState`, replacing the previous snake_case segment.\n\nIn `Source/Track/Webview/mod.rs` and `Source/Track/mod.rs`, remove legacy `pub use` re-exports and snake_case module declarations. Replace them with explicit `#![allow(non_snake_case)]` directives and comments documenting that callers must spell out the full double-segment paths (e.g., `Track::UIRequest::ResolveUIRequest::ResolveUIRequest`). This structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names.\n\nThis ensures consistency across the Mountain crate and resolves potential symbol resolution issues in the IPC layer.",
+			"SHA": "7ab9a9aca39ac99cdbabf14e11ead254326d7609"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T05:16:41Z",
+			"Date": "2026-05-02T04:17:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				1
+				940,
+				4
 			],
-			"Message": "docs(Mountain): Rework CHANGELOG to prose format, add v2.2 section\n\nRestructure the Mountain CHANGELOG from itemized bullet points to narrative prose paragraphs, improving readability while preserving all historical content. Add new v2.2 section documenting bundled-electron correctness pass including: JSON-RPC -32004 for benign 404s, deferred-no-op file watching, canonical-path comparison for Volumes mounts, Identifier field on SCM provider DTO, sky:replay-events handler, 64KB terminal ring buffer, and tree:getChildren timeout reduction.\n\nThe new format emphasizes user-facing impact over file references, making it more useful for release notes and external communication.",
-			"SHA": "9515b2f72adf9866c58023f42f52630759ffa3da"
+			"Message": "refactor(Mountain): Format UpdateService and prune unused imports\n\nApply consistent line formatting to the `UpdateService` module in Mountain. Specifically, collapse multi-line `CommonError` constructors in `CheckForUpdates` and `CheckForUpdatesWithAir` to single lines where appropriate, and format the `format!` macro invocation for update messages. Remove unused `dev_log` imports from `CheckForUpdatesViaAir` and `CheckForUpdatesWithAir`.\n\nConsolidate long import statements in `CheckForUpdatesViaAir` and `IsAirAvailable` by removing line breaks for `AirLibrary` types. These changes align the update logic with the project-wide PascalCase formatting standards and reduce visual noise in the IPC integration layer.",
+			"SHA": "413434283053c9973bf233970f20ae6cd3e2e33e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T04:08:47Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				940,
+				16
+			],
+			"Message": "refactor(Mountain): Atomize Vine client logic into PascalCase submodules\n\nDecompose the remaining monolithic logic within the Vine gRPC client layer into a dedicated submodule tree under `Source/Vine/Client/`. This aligns with the project-wide PascalCase naming convention and the modularization pattern established in recent commits.\n\nExtract logical units into explicit files:\n- Connection lifecycle: `ConnectToSideCar`, `DisconnectFromSideCar`, `TryConnectSingle`.\n- Health & State: `CheckSideCarHealth`, `IsClientConnected`, `IsShuttingDown`, `MarkShutdown`, `WaitForClientConnection`.\n- Communication: `SendRequest`, `SendNotification`, `PublishNotification`, `PublishNotificationFromMux`.\n- Subscription model: `NotificationFrame`, `SubscribeNotifications`, `SubscriberCount`.\n- Shared state: `Shared` (connection pool, broadcast channel, shutdown flag, constants).\n\nRename all functions to the `PascalCase::Fn` pattern (e.g., `connect_to_sidecar` → `ConnectToSideCar::Fn`). Update internal callers to use full paths (e.g., `Multiplexer` invoking `PublishNotificationFromMux::Fn`). The `TryConnectSingle` implementation now includes tuned h2 transport windows for loopback traffic to Cocoon.\n\nThis structural refactor eliminates implicit imports, enforces strict naming standards across the Vine gRPC layer, and establishes a consistent namespace hierarchy for the streaming multiplexer integration.",
+			"SHA": "4877b35c5f14e5d9d86301b80574757cba931d6b"
 		}
 	],
-	"TimeStamp": 1779378421591
+	"TimeStamp": 1779544398235
 }

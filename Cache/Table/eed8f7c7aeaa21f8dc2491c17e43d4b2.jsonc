@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T00:09:11Z",
+			"Date": "2026-04-28T21:54:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
-				2
-			],
-			"Message": "refactor(Mountain): Implement exponential backoff for Cocoon gRPC handshake\n\nReplace the fixed 1-second retry poll in Mountain-to-Cocoon gRPC connection with exponential backoff (50ms initial, 2s ceiling, 20s budget). The previous approach wasted 18 seconds waiting after Cocoon's ~200ms bind completion on successful startups, while still taking a full 20s to detect genuine failures.\n\nAlso add comprehensive documentation for the `dual-track` tag in DevLog.rs, which logs progressive Rust migration dispatch decisions (mountain, node-fallback, unavailable, error) to surface the VS Code API coverage gap as a searchable TODO list.\n\nAdd a pre-flight bundle probe constant to fail fast with an actionable error when the Cocoon bundle is missing (esbuild failure, incomplete checkout) instead of spawning Node into a dying require() chain.\n\nImpact: Healthy spawns now connect in ~400ms (attempts 3-5) vs previous ~20s; failure detection still triggers at the 20s budget.",
-			"SHA": "115a48df9dbdbad30a28fa4a99d27c0557565ee4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T22:39:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
+				861,
 				6
 			],
-			"Message": "feat(Mountain): Implement hidden-until-ready window pattern\n\nEliminate the visual flash on startup by creating the main window with\n.visible(false) and revealing it only when Sky reports phase 3 (Restored).\nThe previous approach allowed Tauri's default immediate visibility, causing\na four-repaint cascade: native chrome → #1e1e1e inline background → VS Code\ntheme CSS → workbench DOM, observed as \"purple/dark flash\" and panel-pop\nflicker over ~200ms.\n\nChanges:\n- WindowBuild.rs: Add .visible(false) to WebviewWindowBuilder chain\n- AppLifecycle.rs: Add 3s safety timer to force-reveal if Sky crashes\n  before phase 3 (matches observed cold-boot p95 timing)\n- WindServiceHandlers/mod.rs: Show window on phase 3 + set_focus()\n- CommandProvider.rs: Handle missing workbench commands as silent no-ops\n  (getTelemetrySenderObject, testing.clearTestResults)\n- DevLog.rs: Document Batch 4 fs-route/cmd-route diagnostic tags\n- CocoonManagement.rs: Forward LAND_* env vars to Cocoon (fixes PostHog\n  bridge fallback)\n\nThe 3s safety timer guarantees the window appears even if Sky crashes before\nsignalling phase 3, preventing invisible-window lockup while rarely firing\non a healthy startup path.",
-			"SHA": "993a69a785aedb36bfd1501e52960eccc08ab288"
+			"Message": "fix(Mountain): Resolve 404s for extension webview assets and reduce logging noise\n\nTwo bug fixes in Mountain's build modules:\n\n1. **Scheme.rs**: Extend vscode-file URI handling to support arbitrary authorities beyond \"vscode-app\". The original code only handled `vscode-file://vscode-app/<path>` but `WebviewImplementation::asWebviewUri` rewrites local resource URIs to use the extension's identifier as authority (e.g., `vscode-file://vscode.git/...`). This caused every extension-supplied webview asset (icons, scripts, stylesheets, fonts) to return 404. Added a generic fallback that extracts the path after any authority.\n\n2. **LoggingPlugin.rs**: Cap noisy extension-scanner log targets (\"ignore\", \"ignore::walk\", \"ignore::gitignore\", \"globset\") to Warn level. These crates emit DEBUG lines per `.gitignore` opened, per glob compiled, and per file whitelisted—tens of thousands during a single boot, drowning out extension activation signals.\n\nAlso updates binary/lib names and tauri productName to include build configuration identifiers for development builds.",
+			"SHA": "bbbdab26d47fbd3bca35342c224431194c519eb7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T21:18:23Z",
+			"Date": "2026-04-28T20:56:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
-				6
+				859,
+				1
 			],
-			"Message": "refactor(Mountain): Simplify binary names and remove PostHog API keys\n\nRevert binary and library names from the verbose development profile format back to 'Mountain' in Cargo.toml and tauri.conf.json, continuing the simplification from recent commits.\n\nAlso remove the PostHog API key from build.rs and scripts/cocoon/bootstrap-fork.js by replacing with empty strings for development safety. Clean up tauri.conf.json identifier from the long verbose format to 'land.editor.binary' and productName to 'Mountain'.\n\nDelete obsolete Cargo.toml.Backup and tauri.conf.json.Backup files. Remove duplicate externalBin entry for Binary/node in tauri.conf.json.\n\nThese changes consolidate the naming simplification and remove sensitive API keys from the repository.",
-			"SHA": "5140a38948860dee4209069e3d0110001474a9e9"
+			"Message": "fix: correct wording in changelog for clarity and consistency\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "fc4f4ed5042663818a32ac3024397cff72f0a794"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T21:18:15Z",
+			"Date": "2026-04-28T04:53:01Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				4
+			],
+			"Message": "feat: add support for multiple windows in app and window permissions\n\n- Updated default permissions for the app plugin to include `allow-supports-multiple-windows`.\n- Added new permissions for enabling and denying `supports_multiple_windows` command.\n- Enhanced window plugin permissions to include `allow-activity-name` and `allow-scene-identifier`.\n- Added corresponding deny permissions for `activity_name` and `scene_identifier` commands.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "c7c748bb0dce25923e80d5c6b1573c08e05b421e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T04:52:52Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				874,
-				27
+				859,
+				20
 			],
-			"Message": "refactor(Mountain): Decompose Utilities module into explicit submodules\n\nSplit the monolithic Utilities.rs into 7 domain-specific modules under WindServiceHandlers/Utilities/: ApplicationRoot, ChannelPriority, JsonValueHelpers, MetadataEncoding, PathExtraction, RecentlyOpened, and UserdataDir. Update all call sites in FileSystem/Native handlers, Scheme.rs, WindowBuild.rs, and AppLifecycle.rs to use explicit module paths (e.g., `Utilities::PathExtraction::extract_path_from_arg`) instead of flat imports.\n\nThis continues the module decomposition pattern from recent commits, replacing the catch-all Utilities module with granular domain-specific handlers. The explicit reverse-hierarchical paths make dependency relationships clear at every call site, consistent with CLAUDE.md requirements.\n\nAlso reverts binary/lib names in Cargo.toml and tauri.conf.json to the verbose development profile format, matching the pre-simplification state.",
-			"SHA": "8cba79c0ae380c97ef1709c4a1c12df9e87017aa"
+			"Message": "Refactor environment variable names for consistency and clarity\n\n- Replaced occurrences of LAND_* environment variables with more descriptive PascalCase names such as `Skip`, `Ship`, `Lodge`, `Extend`, `Probe`, `Pick`, `Require`, `Spawn`, and `Trace`.\n- Updated related comments and documentation to reflect the new environment variable names.\n- Ensured that all references to the previous LAND_* variables are replaced throughout the codebase, including in logging and configuration functions.\n- Adjusted the logic in various modules to accommodate the new environment variable names while maintaining existing functionality.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "ce8f07da8643093964f0b944ac8d1009092af34b"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T20:54:21Z",
+			"Author": "Auto",
+			"Date": "2026-04-28T02:33:40Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				864,
-				3
+				859,
+				1
 			],
-			"Message": "refactor(Mountain): Decompose FileSystem module and add native readdir handler\n\nReplace the FileSystem glob import with explicit submodule paths for all Managed (trait-based) and Native (tokio::fs) file operations. Add new FileReaddirNative handler under FileSystem/Native/ implementing the file:readdir wire method using tokio::fs.\n\nThis continues the module decomposition pattern from recent commits, replacing the monolithic FileSystem.rs with granular domain-specific handlers. The explicit paths follow CLAUDE.md requirements, making dependency relationships clear at every call site.\n\nNo functional changes - this is a pure refactoring for code organization and maintainability.",
-			"SHA": "70c31747d3943f857b4c7bc9644f8fd469b0dd76"
+			"Message": "",
+			"SHA": "45689ef731c4f9a4540fa723921e97620024dab2"
 		}
 	],
-	"TimeStamp": 1779378425937
+	"TimeStamp": 1779544408476
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:37:53Z",
+			"Date": "2026-05-23T10:44:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1576,
-				4
+				1731,
+				3
 			],
-			"Message": "chore(Mountain): Strip verbose build identifiers, restore compact names\n\nRevert the DevelopmentNodeEnvironment_MicrosoftVSCodeDependency verbose naming scheme introduced in the previous commit for Cargo.toml bin/lib/package names and tauri.conf.json identifier/productName. Replace identifier with the stable \"fiddee.editor.binary\" key and set productName to \"Mountain\".\n\nAlso collapse externalBin and targets arrays back to single-line format (reverting the formatting change from the previous commit) and delete the .Backup files that were created alongside the verbose identifiers.\n\nThe verbose identifiers were only needed during a transitional Electron-profile debugging phase and are no longer required for the production Rust/Tauri pipeline.",
-			"SHA": "f3219cd8532d03baa1cef3f2a23e51c026653c44"
+			"Message": "refactor(Mountain): Adopt standardized argument helpers in FileSystem and Git handlers\n\nApply the newly introduced `JsonValueHelpers` utilities to the `FileSystem` (Managed and Native) and `Git` IPC handler modules. Replace verbose `Arguments.get(...).and_then(...).unwrap_or(...)` patterns with the type-safe `arg_string`, `arg_u64`, and `arg_bool_true` helper functions.\n\nSpecific updates include:\n- `FileMkdir.rs`: Standardize retrieval of the `recursive` flag.\n- `FileCloseFd.rs`: Standardize extraction of the file descriptor index.\n- `HandleExec.rs`: Standardize retrieval of the working directory path.\n\nAlign these handlers with the project-wide refactoring to reduce boilerplate, ensure consistent default value handling, and improve type safety across the Mountain backend's IPC surface.",
+			"SHA": "1896d3a7e0862b27b66d686e1e2e12c64a8b8b70"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:37:25Z",
+			"Date": "2026-05-23T10:42:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1578,
+				1731,
 				1
 			],
-			"Message": "style(Mountain): Format arrays in tauri.conf.json\n\nReformat `externalBin` and `targets` arrays in tauri.conf.json from single-line to multi-line for consistency with the rest of the configuration file. Also strip the trailing newline to match convention.\n\nNo functional changes — purely cosmetic formatting.",
-			"SHA": "4b54b6c25ffbf182ea9e813b5027759384979cf7"
+			"Message": "",
+			"SHA": "f1adcf0b1b391589d014547ebaabfb05c5161808"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:13:28Z",
+			"Date": "2026-05-23T10:42:29Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1578,
-				7
+				"⠁⠀⠀⠀⠀",
+				1731,
+				53
 			],
-			"Message": "style(Mountain): Normalize dispatcher indentation; update Cargo/tauri build identifiers\n\nRe-indent the extracted GenericNotification/Dispatcher and GenericRequest/Dispatcher files to remove the spurious extra block indentation level that was carried over from their original inline positions in CocoonService/mod.rs. Reorder imports (std before third-party) and collapse import brace formatting. No logic changes in either dispatcher.\n\nUpdate Cargo.toml binary/lib/package names and tauri.conf.json identifier/productName to the verbose build configuration string for the development/debug Electron profile, distinguishing this build artifact from production Mountain releases. Preserve originals as .Backup copies.\n\nOutcome: dispatcher code now matches project style conventions, and the development build artifact is correctly labelled for toolchain identification.",
-			"SHA": "e78bf315d71ba4a49c4200d7f7002d24f6058255"
+			"Message": "refactor(Mountain): Standardize Wind service argument extraction\n\nIntroduce a centralized utility module `JsonValueHelpers` within `WindServiceHandlers` to provide type-safe, default-aware argument extraction helpers (`arg_string`, `arg_u64`, `arg_bool`, etc.). Replace ad-hoc `Arguments.get(n).and_then(...).unwrap_or(...)` patterns scattered across 40+ IPC handler modules with calls to these standardized helpers.\n\nThis change affects the entire `WindServiceHandlers` tree, including Cocoon, Git, Terminal, UI, and NativeHost namespaces. The `mod.rs` file is updated to export the new helper functions, and the main IPC dispatcher `mountain_ipc_invoke` is refactored to utilize them for command routing. This reduces boilerplate, ensures consistent default value handling, and improves type safety across the Mountain backend's IPC surface.",
+			"SHA": "c6d28d00faef4a321909bfa8755f46f72ccce346"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:13:01Z",
+			"Date": "2026-05-23T10:33:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1576,
-				9
+				1731,
+				11
 			],
-			"Message": "refactor(Mountain): Extract CocoonService dispatchers; fix Send-ness in InitData; retry AppDataPrefix\n\nThe 1400+ line `process_mountain_request` and 600+ line `send_mountain_notification` handlers were inlined in `CocoonService/mod.rs`, making the file unwieldy and obscuring the gRPC service boundary. Extract both match blocks into dedicated `GenericRequest::Dispatcher` and `GenericNotification::Dispatcher` modules, reducing `mod.rs` by ~1900 lines.\n\nIn `InitializationData.rs`, the `MutexGuard` on `WorkspaceFolders` was held across an `.await` call, making the future non-`Send` and breaking `tauri::async_runtime::spawn`. Scope the guard to a block so it is dropped before any await point; extract logging scalars before moving `FoldersWire` into `WorkspaceDTO`.\n\nIn `AppDataPrefix.rs`, replace the `OnceLock<Option<String>>` that caches `None` forever (routing all dev logs to `/tmp` after the first failed resolution) with a two-phase system: `RESOLVED: OnceLock<String>` for the permanent prefix, and `RETRY: Mutex<bool>` that stays `true` on first failure so subsequent writes retry after Tauri has created the app-data directory.\n\nIn `WindServiceHandlers/mod.rs`, the previous boot-latency fix used a bare `return Ok(...)` inside a match arm, which exits the enclosing async block (not just the arm), changing the block's inferred return type from `()` to `Result<Value, _>` and breaking `Scheduler::Submit`'s `Output = ()` bound. Replace with an `if/else` expression that evaluates to `Ok(...)` in both branches.\n\nAlso fix a minor clippy-nit in `AliasPath.rs` by removing the redundant `.as_str()` call.",
-			"SHA": "47a603158ca0d368b2ae744ef8fd7edcf5ed7410"
+			"Message": "refactor(Mountain): Consolidate Cocoon forwarding logic and remove redundant handler modules\n\nEliminate the `Source/IPC/WindServiceHandlers` directory structure (Git, UI, and shared modules) which previously contained repetitive boilerplate for forwarding IPC commands to the Cocoon extension host. Replace the scattered, copy-paste implementations of payload serialization and gRPC invocation with a centralized `forward_to_cocoon` macro and `cocoon_payload` helper in `mod.rs`.\n\nThis refactoring unifies the handling logic for SCM, Debug, Tasks, and Authentication namespaces within the main IPC dispatcher (`mountain_ipc_invoke`). The new macro handles argument normalization (Null, single value, or array) and manages the `WaitForClientConnection` and `SendRequest` lifecycle consistently, reducing code duplication and improving maintainability. The deletion of individual handler files streamlines the Mountain backend architecture while preserving the functional bridge to the VS Code runtime in Cocoon.",
+			"SHA": "f6139fff82bc66bce7ac77abc19964d6ca44898e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:37:16Z",
+			"Date": "2026-05-23T10:13:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1574,
-				4
+				1741,
+				2
 			],
-			"Message": "style(Mountain): Reflow long lines and brace placement across four files\n\nNormalize formatting in `UpdateValue.rs`, `WindServiceHandlers/mod.rs`, `InitializationData.rs`, and `CocoonService/mod.rs` to align with Rust style conventions. Changes are limited to comment reflow, static declaration compaction, method body compression, and brace positioning — no logic is altered.\n\nCleans up artifacts from prior commits where formatter passes were missed, keeping the codebase consistent.",
-			"SHA": "65f1cf26cfa85fc1639f84d0458df61276bfa44a"
+			"Message": "fix(Mountain): Correct event naming and simplify language configuration payload\n\nRefactor `SetLanguageConfiguration` to emit the entire parameter object directly instead of reconstructing the payload with a single `language` field. This aligns the RPC handler with the generic notification pattern used by other Sky emit handlers.\n\nIn `WebviewLifecycle`, correct the event suffix mapping for the `postMessage` command. Change the target event string from the kebab-case `post-message` to the PascalCase `postMessage`. This resolves a naming inconsistency and aligns the Tauri event identifiers with the project-wide PascalCase naming convention established in previous refactorings.\n\nThese changes ensure consistent payload structures for language configuration and restore strict adherence to naming standards for webview IPC events.",
+			"SHA": "e5c08bc20068b79fa24a3c1d986c536cf8a9a1dc"
 		}
 	],
-	"TimeStamp": 1779378390813
+	"TimeStamp": 1779544352311
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:03:39Z",
+			"Date": "2026-04-30T03:48:56Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				267,
-				8
+				"⣿⣿⣿⡟⠀",
+				251,
+				187
 			],
-			"Message": "feat(Output): Add RewritePerfBaselineWorker transform\n\nAdd a new build transform that fixes worker bootstrap crashes in the\nbundled editor's timer service. The transform replaces\n`timerService.js`'s `(function() { ... __name(fib, \"fib\"); ... }).toString()`\nperfBaseline worker source with a literal-string equivalent that omits\nthe cosmetic `__name(...)` decoration.\n\nSame OXC-mangling-truth fix as `RewriteNestedWorkerBootstrap`: when Vite\ninlines `timerService.js` into Sky's `_astro/partsSplash.*.js` chunk,\nthe chunk's `__name` helper gets mangled (e.g., `$4e`). The IIFE captured\nby `.toString()` carries the mangled `$4e` reference; the worker scope\nhas no `$4e` defined and crashes at module-eval with `ReferenceError:\nCan't find variable: $4e`. The literal-string replacement is\nmangler-immune.\n\nAlso update prepublishOnly.sh to gate debug profiles on `Debug=true`\ninstead of `NODE_ENV`. Tauri's `.env` file was silently overriding\nBuild.sh's `NODE_ENV=development` export, forcing `out-build` (mangled)\neven for debug builds that should pull from readable `out/`.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNestedWorkerBootstrap)",
-			"SHA": "14cc0d5941bd561c41c6d5ffd190256cc92eafb9"
+			"Message": "refactor(Output): Switch from esbuild transform to byte-copy for VS Code sources\n\nChange VSCode.ts ESBuild config to use `loader: { \".js\": \"copy\" }` instead of parsing/transforming VS Code's `out/` tree. This byte-copies .js/.cjs/.mjs files directly to Target/, preserving tsc's original identifiers and formatting.\n\nWhy:\n- Output's Transform plugins (ExposeWorkbenchAccessor, InjectWorkerBootstrapShim, RewriteNestedWorkerBootstrap, etc.) are keyed on specific string patterns from VS Code's un-minified output\n- Previously esbuild's default minification + quote-rewriting silently no-oped every transform: the patterns never matched, and the workbench bootstrap crashed with `Unexpected token '<'` (404 HTML served as JS)\n- The `keepNames: false` + `minify: false` belt-and-suspenders ensure any future non-copied JS files also bypass mangling\n\nImpact:\n- Bundle profile: Sky's downstream Vite/Rollup re-mangles for bundled-electron production\n- Unbundled profile: `Static/Application/` serves readable identifiers (gzip-compressed, debuggable)\n- Transform plugins updated to match single-quoted form in tsc's original emit",
+			"SHA": "41381d88b50a83b655c0083b5360b790289a6f02"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T23:06:23Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				264,
-				10
-			],
-			"Message": "feat(Output): Add RewriteNodeModulesPath transform and expose IMarkerService\n\nAdd a new build transform and update an existing one:\n\n1. RewriteNodeModulesPath: Patch `vs/base/common/network.js`'s hardcoded paths (`vs/../../node_modules`, `vs/../../extensions`, etc.) to drop one `../` segment. Without this, the dev server resolves to `/Static/node_modules/` instead of `/Static/Application/node_modules/`, returns SPA `index.html` fallback, and all grammar/tokenization (textmate, oniguruma, language-detection) silently breaks across every extension.\n\n2. ExposeWorkbenchAccessor: Expose `IMarkerService` on `__CEL_SERVICES__.Markers` so SkyBridge can push extension diagnostics (rust-analyzer, TypeScript, ESLint) into the workbench. Mountain emits `sky://diagnostics/changed` events; the bridge now calls `Markers.changeOne(owner, uri, markers)` to paint red squiggles and populate the Problems panel.\n\nBoth transforms are idempotent and added to the BuildPipeline after RewriteNestedWorkerBootstrap.",
-			"SHA": "cf8dea549df816cc3b534beb9449f90bf678f69f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T21:54:01Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				261,
-				45
-			],
-			"Message": "feat(Output): Fix Monaco worker bootstrap crashes and add polyfill telemetry\n\nAdd two new build transforms that fix worker bootstrap crashes in the bundled editor:\n\n1. InjectWorkerBootstrapShim: Injects `__name`/`__defProp` shim into `webWorkerServiceImpl.js::getWorkerBootstrapUrl` blob factory so Monaco's language workers (TS/CSS/HTML/JSON services, semantic tokens) inherit the helpers in their module scope. Without this, workers crash with `ReferenceError: Can't find variable: $4e` when Vite/OXC mangling renames `__name` to `$4e`.\n\n2. RewriteNestedWorkerBootstrap: Replaces `polyfillNestedWorker.js`'s `(function... ).toString()` pattern with a literal JSON.stringified source that omits the cosmetic `__name(...)` decorations. The `.toString()` approach returns mangled source (`$4e`) which the blob worker can't evaluate since the identifier isn't defined in its scope.\n\n3. RewriteStaticBlockSelfRef: Replace hardcoded 2-file whitelist with auto-detection across all `vs/*.js` files - the whitelist silently failed because VS Code's out-build mangler emits different class names than expected.\n\n4. InstrumentVscodeGit: Add markers F (createModel done) and L (openRepository getRepositoryRoot done) for finer-grained Git extension activation diagnostics.\n\n5. Telemetry: Add global `__LAND_POLYFILL_TELEMETRY__` hook and wire it into ChildProcessPolyfill, IPCRendererShim, ProcessPolyfill, and SharedProcessProxy to route silently-caught failures to PostHog for monitoring.",
-			"SHA": "e0fda068f1befeb3a76f470689b34bd8378fe554"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:56:17Z",
+			"Author": "Auto",
+			"Date": "2026-04-30T03:40:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				266,
+				341,
 				1
 			],
-			"Message": "refactor(Output): Update RewriteStaticBlockSelfRef to auto-detect affected files and remove manual whitelist\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "4fab2bb7a34e298cf9ea9c00697fedeedbacb2ac"
+			"Message": "",
+			"SHA": "1891515604d6bb24012b6d0c0275f78feb0e765a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:48:41Z",
+			"Date": "2026-04-30T02:20:26Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				266,
-				16
+				"⣿⠀⠀⠀⠀",
+				341,
+				64
 			],
-			"Message": "feat(Output): Add HoistFunctionDeclarations and RewriteStaticBlockSelfRef transforms\n\nAdd two new build transforms to Output's ApplyPipeline that fix TDZ errors in bundled VS Code:\n\n1. HoistFunctionDeclarations: Moves top-level `function NAME(...) {...}` declarations and ESBuild helper vars (`__defProp`, `__name`, `__decorate`, `__param`) to the top of each file, before any calls. After Rollup concatenation converts function declarations to `let NAME; NAME = function(){...}`, calls before the assignment hit a TDZ. Pre-hoisting preserves the unbundled semantics.\n\n2. RewriteStaticBlockSelfRef: Rewrites class-name self-references (`ClassName.member`) inside `static {...}` blocks to `this.member`. After bundling, `class X {...}` becomes `let X; X = class{...}` so static block self-references resolve to undefined. Inside a static block, `this` IS the class.\n\nAlso update InjectNameShim to add 'unsafe-inline' to the iframe's CSP - the name shim injection invalidates the SHA256 hash. Update RewriteWorkbenchBaseURL to use a literal import string instead of runtime-computed URL, enabling Vite/Rollup to follow the module graph for bundling.\n\nThese transforms enable the bundled workbench to boot correctly after Output's tree shake + bundle pass.",
-			"SHA": "3c4cbf07803c8b20cfceed4186ca2dd24682c052"
+			"Message": "refactor(Output): Extract polyfill bodies to type-checked modules, add service stub transforms\n\nMove the inline polyfill IIFE bodies from Transform/*.ts to new Polyfill/*.ts\nmodules. Each polyfill is now a real TypeScript function that gets compiled\nand recovered via `.toString()` at transform time. This enables compile-time\ntype-checking, tree-shaking, and earlier bug detection - previously typos\nonly surfaced at runtime.\n\nKey changes:\n- Extract 6 polyfills to Source/Plugin/Polyfill/: DisableLazyPaint,\n  EagerExtensionActivation, EagerIdleValue, EagerLifecyclePhase,\n  StripBackgroundPolling, TelemetryConsentOff (moved from Transform),\n  WorkbenchInteractivityCSS (moved from Transform), WorkbenchPaintPrime\n  (moved from Transform)\n- Add 4 new Inject* transforms that import from Polyfill/ and use\n  `.toString()` to recover the prepend body\n- Add 3 new Replace* transforms: ReplaceTelemetryService,\n  ReplaceUpdateService, ReplaceExtensionGalleryService replace VS Code\n  service bodies with no-op stubs so static imports resolve while runtime\n  behavior is neutralized\n- Comment out the ESBuild Exclude/{Telemetry,Network,ChromiumIPC}.js lists:\n  the bundled-Vite walk follows static imports inside workbench.*.main.js;\n  excluding the files breaks the build. Body-rewrite via Replace* transforms\n  achieves the same effect while keeping imports intact.\n- Update prepublishOnly.sh to always use `out/` (unminified) for Microsoft/VSCode\n  instead of `out-build/` (gulp release). This ensures Output's transforms\n  operate on readable identifiers; Vite/Rollup re-mangles for bundled profiles.\n\nNew boot-time behavior:\n- InjectStripBackgroundPolling: stack-trace deny-match strips setInterval\n  timers from telemetry/update/sync services\n- InjectEagerLifecyclePhase: advances ILifecycleService.phase from Starting\n  to Eventually immediately, unblocking extension activations\n- InjectEagerExtensionActivation: fires activateByEvent onStartupFinished/*\n  at workbench-loaded so extension panels populate instantly\n- InjectEagerIdleValue: collapses requestIdleCallback to setTimeout(0) so\n  IdleValue<T> lazy-init resolves eagerly\n- ReplaceTelemetryService: body-rewrite to NullTelemetryService (no-op)\n- ReplaceUpdateService: body-rewrite to NullUpdateService (State.Idle forever)\n- ReplaceExtensionGalleryService: body-rewrite to offline stub (empty queries)",
+			"SHA": "c97cc8b17b24fa5a0afa9aac46d948340a371b32"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T01:23:46Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				294,
+				28
+			],
+			"Message": "feat(Output): Add Network/ChromiumIPC excludes, WKWebView lazy-paint fixes\n\nAdd three ESBuild exclude lists to strip dead code from the bundle:\n- Network.ts excludes external endpoints (update service, marketplace,\n  telemetry appenders, Live Share, experiments, surveys)\n- ChromiumIPC.ts excludes Electron IPC/MessagePort/sandbox modules that\n  never run in our non-Electron environment\n- Telemetry.ts was already present but commented out; now enabled\n\nAdd four new workbench transforms to fix WKWebView rendering issues:\n- InjectDisableLazyPaint: Replace requestAnimationFrame with coalesced\n  setTimeout(0) queue, stub IntersectionObserver to fire-on-observe,\n  strip content-visibility/contain:paint from CSS\n- InjectWorkbenchInteractivityCSS: Force pointer-events:auto, visibility,\n  opacity on workbench parts, zero transition durations\n- InjectWorkbenchPaintPrime: Force compositor layout commit via\n  offsetHeight reads on each workbench part\n- InjectTelemetryConsentOff: Pre-bake telemetry.telemetryLevel=off into\n  workbench bootstrap so even straggler consumers take disabled branches\n\nAlso fix InjectEditorGPULayerCSS and InjectTerminalGPULayerCSS: scope\ncontain:paint to canvas only, not row containers (view-lines, xterm-viewport)\nto prevent glyph clipping from paint boundaries in WKWebView. Adds\nimage-rendering hints for nearest-neighbor rasterization.\n\nBundle size impact: ~25 KB net reduction from Network/ChromiumIPC excludes.\nRuntime impact: Zero network pings, panels render immediately on show.",
+			"SHA": "13d8a561c773f0b047f323594af80a5b06565258"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T22:36:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				276,
+				2
+			],
+			"Message": "fix(Output): Fix GPU layer CSS clipping glyph rows in WKWebView\n\nBoth InjectEditorGPULayerCSS and InjectTerminalGPULayerCSS transforms incorrectly applied `contain: paint` to row containers (view-lines, lines-content, xterm-viewport, xterm-screen). Under macOS WKWebView, this creates a paint boundary at the layer edge; combined with `translateZ(0)` and subpixel row offsets, glyph pixels near the boundary get clipped — users see characters sliced in half.\n\nThe fix scopes GPU promotion (will-change, translateZ(0), backface-visibility) to host elements and canvas only, while restricting `contain: paint` to self-contained pixel grids (canvas elements) that don't have descendant content crossing the boundary. Also adds image-rendering hints (pixelated, crisp-edges) to force nearest-neighbor rasterization so subpixel row edges don't blend across the layer boundary.\n\nThis resolves the reported rendering glitches where editor and terminal text appeared sliced or half-clipped.",
+			"SHA": "24f95fc8e387142666faa67ed464a52020940817"
 		}
 	],
-	"TimeStamp": 1779378411474
+	"TimeStamp": 1779544365902
 }

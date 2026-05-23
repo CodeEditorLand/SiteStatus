@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T22:16:14Z",
+			"Date": "2026-04-25T00:32:43Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
-				3
-			],
-			"Message": "fix(Mountain): Prevent duplicate shutdown and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings trying to notify a dead sidecar.\n\nExtend the static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader (`vscode-oniguruma` → `onig.wasm`) resolves asset URLs relative to the current document, which strips the leading slash before the path reaches the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for: `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.",
-			"SHA": "de7ca5008836ae40b6e5c5969f73a93912ac4cf6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T20:25:41Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				775,
-				4
-			],
-			"Message": "build(Mountain): Simplify binary naming and cleanup configuration\n\nShorten the binary, lib, and product names from the verbose development profile identifier to just 'Mountain'. Update the Tauri identifier to 'land.editor.binary' for consistency. Remove the externalBin reference to Binary/node since the Node.js sidecar is now handled differently. Add vscode-file and vscode-file://vscode-app to the img-src Content Security Policy for VS Code file protocol support. Delete the temporary backup files (Cargo.toml.Backup, tauri.conf.json.Backup) as the migration is complete.",
-			"SHA": "8a06b8564cd8ab294e472b4ffb145455fcd80889"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T19:43:05Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				777,
+				874,
 				6
 			],
-			"Message": "build(Mountain): Update build configuration for development profile\n\nRename the binary, lib, and product to include the development environment profile identifier (DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain) in Cargo.toml and tauri.conf.json. This aligns with the development build pipeline requirements.\n\nAdditionally:\n- Add Binary/node to externalBin in tauri.conf.json for the Node.js sidecar\n- Update posthog-rs 0.5 API: replace deprecated api_endpoint() with host() in PostHogPlugin.rs\n- Replace sha2 0.11's removed LowerHex impl with hex::encode() in ConfigurationBridge.rs for session ID generation\n\nThe backup files (Cargo.toml.Backup, tauri.conf.json.Backup) are retained for recovery during this configuration migration.",
-			"SHA": "f632a4ac2e3e3a7e2f94ac4697219d03aa1b0da3"
+			"Message": "refactor(Mountain): Revert development naming and implement core file operations\n\nRevert the Mountain binary/lib/config naming from \"Mountain\" back to the verbose development identifier to maintain continuity with the existing build artifacts and CI configurations.\n\nImplement two missing trait implementations:\n\n1. **FileSystemProvider::Copy for directories** (WriteOperations.rs):\n   - Previously returned NotImplemented for directory copies\n   - New `copy_directory_recursive` uses an iterative stack (avoids async recursion stack overflow on deep trees)\n   - Symlinks are followed to match VS Code's IFileService.copy semantics\n   - Prevents copy-to-self which would truncate files or explode recursively\n   - Creates parent directories as needed; uses tokio::fs::copy for fast file copying\n\n2. **WorkspaceEditApplier::ApplyWorkspaceEdit** (WorkspaceProvider.rs):\n   - Two-tier approach: emit `sky://editor/applyEdits` for open documents (preserves undo/dirty state), then apply edits directly to disk for closed files\n   - Converts VS Code's line/character positions to byte offsets with UTF-16 code unit counting (matches VS Code Range semantics)\n   - Edits sorted by descending offset to maintain validity during splicing\n   - Atomic writes via tempfile+rename to prevent torn writes on crash\n   - Handles file:// URIs with percent-encoding decode\n\nBREAKING CHANGE: Binary and lib names changed from \"Mountain\" to \"DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain\"",
+			"SHA": "8c25573710b3a7ec50c4312a7c1f99bfdd2a2739"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:46:33Z",
+			"Date": "2026-04-25T00:25:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
-				2
+				872,
+				6
 			],
-			"Message": "",
-			"SHA": "3bcce20c33084d735c6a7f446f39e56c37bfbe9a"
+			"Message": "refactor(Mountain): Clean up development naming and complete stub implementations\n\nRename the binary, lib, and Tauri config from the verbose development name\n(`DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain`)\nto simply `Mountain` for cleaner builds and debugging.\n\nImplement two previously-stubbed trait methods:\n\n1. **OutputProvider::CloseChannel**: Properly sets `IsVisible = false` in\nApplicationState and emits a SkyEvent so the renderer collapses the panel.\nThe channel remains in state to preserve buffered content for later reveal.\n\n2. **WorkspaceProvider::OpenFile**: Converts the path to a file:// URI via\nUrl::from_file_path (with percent-encoding for unicode), emits the\n`sky://editor/openDocument` event that Sky's bridge listens on, and adds\nthe file to the recently-opened list (capped at 50 entries).\n\nAlso remove the now-obsolete `.Backup` files. These changes complete the\nIPC wiring for output channel management and editor document opening.",
+			"SHA": "2d330dbf776b664caa2426a9bee51c703619062a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:31:03Z",
+			"Date": "2026-04-25T00:21:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				775,
-				5
+				874,
+				1
 			],
-			"Message": "refactor(Mountain): Centralize UriComponents construction with $mid marker\n\nAdd a shared UriComponents helper module that ensures every URI payload sent to the VS Code renderer carries the required `$mid: 1` marshalling marker. Without it, VS Code's IPC reviver leaves URIs as plain objects where `.fsPath` and `.with` are undefined, causing the sidebar and icon loader to silently fail.\n\nThe recent fix for extension location URI marshalling addressed one call site, but inline `json!` builders elsewhere risked regressing the same issue. This change introduces:\n\n- `FromFilePath`: constructs a `file://` UriComponents with `$mid` from a filesystem path\n- `FromUrl`: parses arbitrary URL strings (file://, other schemes) into UriComponents\n- `StampMidUri`: injects `$mid: 1` into any UriComponents lacking it\n- `Normalize`: handles mixed input formats (string, object, null) uniformly\n\nNow used consistently in:\n- `handle_extensions_install` (Extension.rs) - fixes location URI\n- `handle_file_realpath` (both WindServiceHandler and WindServiceHandlers FileSystem.rs)\n\nThe Extensions.rs handler continues using the existing `Normalize` import. All IPC handlers that return URI-shaped payloads now emit through the centralized helpers, preventing silent breaks in the renderer's URI revival chain.",
-			"SHA": "e632bde43d9e101210c074a094bf0db9c5d0f69f"
+			"Message": "feat(Mountain): Implement FindFilesInWorkspace with ignore-aware parallel walking\n\nReplace the stub implementation that returned empty results with a complete `WorkspaceProvider::FindFilesInWorkspace` using:\n- `ignore::WalkBuilder::build_parallel()` for OS-thread-parallel directory traversal respecting `.gitignore` / `.ignore` / `.git/info/exclude`\n- `globset::GlobBuilder` for include/exclude pattern matching\n- Support for VS Code's RelativePattern shape (`{ base, pattern }`) to restrict walks to subfolders\n- Thread-safe result collection via `Arc<Mutex<Vec<Url>>>` capped at MaxResults (default 10,000)\n- Proper hidden-directory handling and symlink follow control\n\nThis complements the recent wiring of search IPC handlers to trait implementations, completing the file search path from Wind → Mountain → WorkspaceProvider::FindFilesInWorkspace for quick file open, symbol search, and fuzzy file matching features.",
+			"SHA": "044fdb7c156598f3081093012d5e5ac21cf8395b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:39:12Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				874,
+				8
+			],
+			"Message": "refactor(Mountain): Wire Cocoon RPC handlers to trait implementations for state tracking\n\nReplace direct Sky event emissions with proper trait implementations across SCM, StatusBar, Webview, and Search handlers:\n\n1. **SCM**: RegisterScmProvider and UpdateScmGroup now use SourceControlManagementProvider trait to materialize state in ApplicationState::SourceControl. Previously the direct Sky emit bypassed state tracking, so SCM providers (gitlens, svn) never appeared in Sky's SCM view until UpdateScmGroup - and the header row never materialized.\n\n2. **StatusBar**: CreateStatusBarItem and SetStatusBarText now use StatusBarProvider::SetStatusBarEntry to store entries in ActiveStatusBarItems. Without registration, the workbench had no memory of entries and set_status_bar_text calls leaked state.\n\n3. **Webview**: CreateWebviewPanel and SetWebviewHtml now use WebviewProvider trait to register panels in ApplicationState::WebviewState. Previously the extension got a handle but Mountain never knew about the panel - DisposeWebviewPanel failed with \"unknown handle\" and webviews leaked DOM.\n\n4. **Search**: findFiles delegates to WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker); findTextInFiles delegates to SearchProvider::TextSearch. This replaces naive inline fs-walk implementations that lacked .gitignore support, regex engine, parallel walks, and proper Url construction.\n\nAll handlers retain fallback to direct Sky emit on trait failure to preserve existing behavior for callers that don't depend on state tracking.",
+			"SHA": "f8de3e0f52def4658f2be37feceb8ce43e035bca"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:15:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				1
+			],
+			"Message": "feat(Mountain): Implement regex and multiline search options in TextSearchQuery\n\nAdd missing `isRegExp` and `isMultiline` fields to TextSearchQuery, mirroring VS Code's `ITextSearchQuery` interface. When `isRegExp` is false (the default), escape the search pattern via `regex::escape()` to prevent literal searches for strings containing regex metacharacters (`.`, `(`, `[`, `*`, `?`, etc.) from crashing the regex compiler or silently matching incorrectly. Add `.multi_line()` support for multiline regex searches.\n\nThis fixes the Search view's plain-text mode which was broken for queries containing characters like `obj.method(` or `file[1].txt`.",
+			"SHA": "d0117a0eb6379a9473082566dec2a8775df35577"
 		}
 	],
-	"TimeStamp": 1779378427981
+	"TimeStamp": 1779544412894
 }

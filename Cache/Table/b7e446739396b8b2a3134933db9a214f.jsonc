@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T00:52:04Z",
+			"Date": "2026-05-20T00:43:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				1564,
+				3
 			],
-			"Message": "refactor(Mountain): Remove static runtime environment configuration from Info.plist\n\nStrip the `LSEnvironment` dictionary and associated `Disable` and `Trace` flags from `Info.plist`. These static configurations, which defined critical gRPC ports (`NetworkMountainPort`, `NetworkCocoonPort`) and execution tiers (e.g., `TierRemoteProcedureCall`, `TierExtensionActivation`), were re-introduced in the previous commit but are being removed to transition the runtime environment setup away from static plist injection.\n\nRetain the `CFBundleIconFile` entry to ensure the application icon is correctly resolved by macOS. This change prepares the native backend to source its runtime configuration exclusively from the `Mountain` environment variable system or dynamic initialization logic, reducing coupling with the application bundle's metadata and aligning with the flexible configuration strategy required for multi-platform deployment.",
-			"SHA": "d29b58488ebff9a89e854038127b6ca2c6dadcb6"
+			"Message": "refactor(Mountain): Modularize tree-view, event replay, and language provider registration\n\nExtract inline logic for `tree:getChildren`, `sky:replay-events`, and `register_*` notifications into dedicated atomic handlers and sub-modules. This completes the modularization of the Cocoon bridge notification path and IPC dispatch layer.\n\nKey changes include:\n- **Tree-View & Replay Handlers**: Delegate `tree:getChildren` and `sky:replay-events` to `TreeGetChildren` and `SkyReplayEvents` in `Source/IPC/WindServiceHandlers`. Removes ~270 lines of inline boot-race logic, terminal buffering, and SCM state replay, centralizing error handling and shape normalization.\n- **Language Provider Modularization**: Introduce `RegisterLanguageProvider` in `Source/Vine/Server/Notification`. Consolidates 46+ `register_*` / `register_*_provider` variants into a single dispatch function that normalizes snake/camel case, maps provider types, and registers DTOs.\n- **Notification Modularity**: Register the new `RegisterLanguageProvider` module in `Source/Vine/Server/Notification/mod.rs` to replace the previous inline `match` block in the gRPC service.\n\nThese changes align the notification and IPC layers with the established atomic handler pattern, reducing code duplication and improving maintainability for extension host integration.",
+			"SHA": "d52ad894537c4ef509649cf4f4aa0dbed7efd4f3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T00:14:59Z",
+			"Date": "2026-05-20T00:42:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				15
+				1563,
+				4
 			],
-			"Message": "feat(Mountain): Restore experimental feature flags and runtime environment config\n\nReintroduce the `grove` and `cocoon` feature flags in `Cargo.toml` to enable conditional compilation for the future native extension host (Grove) and the current extension host sidecar (Cocoon). These flags are required by the build system's tier-gating logic.\n\nRestore the `LSEnvironment` dictionary in `Info.plist` containing critical runtime configuration values, including network ports for Mountain and Cocoon, product identifiers, and tier definitions (e.g., `TierRemoteProcedureCall`, `TierExtensionActivation`). This reverses the removal performed in previous commits, re-establishing the static environment injection required for the macOS application to bootstrap its sidecar connections.\n\nConcurrently, enhance documentation in the `Track/Effect/CreateEffectForRequest` module. Add comprehensive module-level comments and method tables to all RPC handler files (Documents, FileSystem, Git, LanguageFeatures, Languages, Search, StatusBar, TreeView, UserInterface, Webview, Workspace). These comments detail the specific RPC methods handled, the underlying `MountainEnvironment` trait providers used, and the execution model for each request type.",
-			"SHA": "511f9b624577e1447543ef14f5d12723316a452c"
+			"Message": "refactor(Mountain): Modularize extension host notification handlers into dedicated atoms\n\nExtract inline notification dispatch logic from the main IPC handler into dedicated atomic functions and sub-modules under `Source/RPC/CocoonService/GenericNotification/`. This completes the modularization strategy for the Cocoon bridge, decoupling the request parsing layer from the business logic execution.\n\nKey changes include:\n- **SkyEmit Module**: Introduce `SkyEmit.rs` to handle all `sky://` Tauri event emissions from the extension host. Consolidates logic for webview messages, status bar updates, output channel management, progress indicators, and `openExternal` into specific handler functions (`HandleWebviewPostMessage`, `HandleOutputAppend`, etc.).\n- **Atomic IPC Dispatch**: Replace inline `match` blocks for `cocoon:request`, `cocoon:notify`, and `extensionHostStarter` commands in `WindServiceHandlers/mod.rs` with calls to their respective atomic functions (e.g., `CocoonRequest`, `CocoonNotify`).\n- **Extension Host Reliability**: Refactor `extensionHostStarter:start` to delegate PID retrieval and `extensionHostDebugReload` to emit Tauri events via atomic wrappers, ensuring consistent error handling and separation of concerns.\n- **Modular Architecture**: Register the new `GenericNotification` (including `SkyEmit`, `Commands`, `LanguageProviders`) and `GenericRequest` modules in `Source/RPC/CocoonService/mod.rs`.\n\nThis refactoring reduces code duplication in the IPC layer, improves maintainability by grouping related UI bridge logic, and aligns the notification path with the request path's atomic function pattern.",
+			"SHA": "f7b87f51d861d81a15f5777511aa46a4f5e10974"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T23:00:41Z",
+			"Date": "2026-05-20T00:40:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				1561,
+				8
 			],
-			"Message": "build(Mountain): Enable experimental feature flags for terminals and debug protocol\n\nUpdate the default feature set in `Cargo.toml` to conditionally enable `terminals`, `debug-protocol`, `scm-support`, `child-processes`, and `Development` alongside existing `Cocoon`, `Mist`, and `Air` integrations. This consolidates the build configuration to activate support for terminal emulation, debugging capabilities, source control management, and child process handling by default.\n\nRemove the now-unused `grove` and `cocoon` feature placeholders from the list, aligning the feature registry with the current implementation status. This prepares the native backend for upcoming component integration while maintaining the explicit `Telemetry` and `Test` flags for optional toggling.",
-			"SHA": "a2869e478f35c9bc90a23edc28e7a95f066f88a9"
+			"Message": "refactor(Mountain): Modularize Cocoon RPC handlers and IPC dispatch layer\n\nRefactor the Mountain IPC and RPC layers to extract inline logic into dedicated, composable modules. This aligns with the modular architecture established in recent commits and improves maintainability for the Cocoon bridge and native service handlers.\n\nKey changes include:\n- **WindService Refactoring**: Replace inline platform-specific implementations in `WindServiceHandlers/mod.rs` with atomic function calls (e.g., `NativeMoveItemToTrash`, `NativeReadClipboardText`). This consolidates OS-specific logic (macOS osascript, Linux gio, Windows PowerShell) into reusable handlers for clipboard, trash, and ARM64 translation checks.\n- **Cocoon RPC Modularity**: Split the generic request/notification dispatcher into semantic sub-modules under `Source/RPC/CocoonService`. Introduced `GenericRequest` modules for `Commands`, `FileSystem`, `Secrets`, and `WindowDialogs`, and `GenericNotification` for language provider registration.\n- **IPC Abstraction**: The new RPC handlers strictly follow the `(RequestId, Params, &Env)` signature, decoupling request parsing from business logic and enabling typed `GenericResponse` construction without referencing `CocoonServiceImpl` directly.\n- **UI Bridge Enhancements**: The `WindowDialogs` module now routes `showTextDocument`, `saveAll`, and `webview` operations via Tauri events (`sky://...`), completing the bridge between the Rust backend and the Sky frontend.\n\nThese changes reduce code duplication, clarify the separation of concerns between the native backend and the extension host, and prepare the codebase for further extension host integration.",
+			"SHA": "edd0bb6051ae22a8f12017d144a03a2bcab8253f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:38:10Z",
+			"Date": "2026-05-20T00:39:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				1552,
+				4
 			],
-			"Message": "feat(Mountain): Enable content protection for macOS overlay title bar\n\nAdd the `content_protected(true)` setting to the macOS `WindowBuilder` configuration in `WindowBuild.rs`. While the `TitleBarStyle::Overlay` is required for custom traffic light rendering, it allows webview content to extend underneath the system window controls by default.\n\nThis protection flag reserves a safe zone around the traffic-light cluster on macOS, preventing the `WKWebView` from rendering underneath the native buttons. This resolves potential click-through issues and visual overlap between the editor workbench and the system titlebar, ensuring the custom traffic lights remain interactive and visually distinct.",
-			"SHA": "2d569c4b2d69bcbff098a7bcaf449f7098f3db8b"
+			"Message": "feat(Mountain): Refactor IPC handlers and implement workspace glob matching\n\nRefactored the `mountain_ipc_invoke` dispatcher to delegate native operations to modular, reusable handlers and implemented a bounded workspace-contains glob matcher for VS Code extension activation.\n\nKey changes include:\n- **Handler Refactoring**: Extracted inlined logic for `nativeHost:showSaveDialog`, `UserInterface.ShowSaveDialog`, `nativeHost:showMessageBox`, `nativeHost:getEnvironmentPaths`, `localPty:resize`, and `localPty:freePortKillProcess` into dedicated functions (`NativeShowSaveDialog`, `UserInterfaceShowSaveDialog`, etc.) in `WindServiceHandlers/mod.rs`. This reduces code duplication, improves readability, and centralizes error handling.\n- **Clipboard Enhancements**: Added `NativeTriggerPaste` and `NativeReadImage` stubs to `NativeHost/Clipboard.rs`. These return safe fallbacks (`false` and empty array) to support the IPC contract while Tauri 2.x native implementations are finalized.\n- **Workspace Activation**: Introduced `WorkspaceContainsGlob` module to efficiently resolve `workspaceContains:<pattern>` activation events. The implementation supports literal paths, single-segment wildcards (`*`), and recursive wildcards (`**`) up to a depth of 3, with a safety cap of 4096 entries per root to ensure sub-100ms performance in large monorepos.\n\nThese changes align the IPC layer with the modular architecture established in recent commits and provide the necessary file-system introspection for correct extension lifecycle management.",
+			"SHA": "b37ff5594d3d5a121ee027062b90e8ca1c804fde"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:23:17Z",
+			"Date": "2026-05-20T00:36:56Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				"⠁⠀⠀⠀⠀",
+				1551,
+				28
 			],
-			"Message": "fix(Mountain): Wrap webview scheme handler closure in AssertUnwindSafe\n\nUpdate the `catch_unwind` invocation in `VscodeWebviewSchemeHandler` within `Scheme.rs` to explicitly wrap the closure in `AssertUnwindSafe`. The previous implementation omitted this trait requirement, causing compilation failures when attempting to catch panics inside the async closure passed to the panic handler.\n\nThis restores the ability to gracefully handle panics within the VS Code webview asset loading path, ensuring that errors in MIME resolution or file reading return HTTP 500 responses rather than crashing the editor process. The change aligns `VscodeWebviewSchemeHandler` with the established panic recovery pattern used in `VscodeFileSchemeHandler`.",
-			"SHA": "01422c257e48f4a9f8a8fb32093daf2a7d283073"
+			"Message": "feat(Mountain): Implement comprehensive WindService IPC handlers for Cocoon, ExtensionHost, and Native bridges\n\nExpanded the IPC dispatch layer to bridge the Rust backend (Mountain) with the Renderer (Wind/Sky) and Extension Host (Cocoon). This commit introduces a suite of new handlers to support VS Code's core workbench requirements, ensuring feature parity with Electron-based architectures.\n\nKey additions include:\n- **Cocoon Bridge**: Implemented `cocoon:request` (RPC), `cocoon:notify` (fire-and-forget), and `cocoon:extensionHostMessage` to relay binary protocol data. Includes boot-race guards to handle latency during startup.\n- **ExtensionHost Lifecycle**: Added `extensionHostStarter:*` and `extensionhostdebugservice:*` handlers. Crucially, `start` now returns the actual Cocoon PID instead of the Mountain process ID, enabling debuggers to attach to the correct Node.js runtime.\n- **NativeHost Features**: Implemented cross-platform clipboard access (`arboard`), environment path resolution (with session-timestamped logs), `moveItemToTrash` (using osascript/gio/powershell), security-hardened `openExternal` (allowlisting schemes), and modal dialogs (`showMessageBox`, `showSaveDialog`).\n- **Terminal Resilience**: Added `localPty:attachToProcess` and `detachFromProcess` to support window reloads without losing active shell sessions. Includes `resize` protection against race conditions and `freePortKillProcess` for port binding conflicts.\n- **State Replay**: Introduced `sky:replay-events` to recover buffered tree-view, SCM, command, and terminal data emitted before the SkyBridge listeners were fully initialized, preventing UI elements from appearing empty on cold boot.\n- **Dynamic Dispatch**: Enhanced the `mountain_ipc_invoke` dispatcher to defer unknown commands to the Cocoon Node.js runtime (via gRPC) when `TierIPC=NodeDeferred` is set, covering language features, SCM, debug, and authentication namespaces.\n\nThese changes collectively resolve boot-time initialization races, enable full terminal lifecycle management, and provide the necessary native capabilities for a robust code editing experience.",
+			"SHA": "69f0bb7bceacea46817ccd097aa254567b4dc5e3"
 		}
 	],
-	"TimeStamp": 1779378398230
+	"TimeStamp": 1779544359283
 }

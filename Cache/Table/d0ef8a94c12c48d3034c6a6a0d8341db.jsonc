@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T20:54:15Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				864,
-				42
-			],
-			"Message": "refactor(Mountain): Simplify binary names and split monolithic IPC handlers\n\nRename the Cargo binary and lib from the verbose development profile name to simply 'Mountain', matching the tauri.conf.json productName simplification. Concurrently, decompose the monolithic NativeHost.rs into 10 domain-specific handler files under WindServiceHandlers/NativeHost/ (FindFreePort, GetColorScheme, IsFullscreen, IsMaximized, OpenExternal, OSProperties, OSStatistics, PickFolder, ShowItemInFolder, ShowOpenDialog).\n\nAlso introduce a new FileSystem module split into Managed (trait-based) and Native (tokio::fs) tiers, each with their own atom handlers. Update mod.rs to replace the NativeHost glob import with explicit submodule paths, consistent with the reverse-hierarchical path pattern enforced in recent commits.",
-			"SHA": "fb4a24fd951420127e59e433b3a268432fbcf6da"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:11:54Z",
+			"Date": "2026-04-28T00:04:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				829,
-				4
+				859,
+				1
 			],
-			"Message": "refactor(Mountain): Complete explicit module path migration in state and IPC\n\nContinue the refactoring from commit 10feb14ec to eliminate implicit module namespace reliance by fully qualifying internal paths:\n\n- Add explicit `TextProcessing` segment in DocumentStateDTO import for `AnalyzeTextLinesAndEOL`\n- Prefix ConfigurationState, UIState, and WorkspaceState type paths with their module name (e.g., `UIState::UIState::State`)\n- Update WorkspaceDelta function signatures with full `WorkspaceState::WorkspaceState::State` paths\n- Migrate AppLifecycle call site from `WindServiceHandlers::set_static_application_root` to `WindServiceHandlers::Utilities::set_static_application_root`\n\nThis ensures all internal references use the reverse-hierarchical path pattern that makes dependency relationships explicit in every call site, consistent with the CLAUDE.md module path requirements.",
-			"SHA": "e3135b994ecc9c8cbedf24de93c125e810437122"
+			"Message": "feat(Scheme): Add CSS-as-JS shim for vscode-file scheme handling\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "204f51e4b2ea706a8247605d05466c67d1af4f76"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:05:06Z",
+			"Date": "2026-04-27T21:27:11Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				829,
-				14
+				"⠀⠀⠀⠀⠀",
+				859,
+				2
 			],
-			"Message": "refactor(Mountain): Enforce explicit module paths, eliminate pub use re-exports\n\nPer CLAUDE.md requirements, replace `pub use` glob re-exports with local `use` statements throughout Mountain's IPC and state modules. This enforces that callers spell full qualified paths like `WindServiceHandlers::Utilities::get_static_application_root()` rather than relying on flattened namespace imports.\n\nChanges:\n- Remove `pub use *` from WindServiceHandlers/mod.rs, UI/mod.rs, and ApplicationState modules\n- Convert to local `use X::*` scoped to the dispatcher file only\n- Update call sites in Scheme.rs, AppLifecycle.rs, and Search.rs to use explicit paths\n- Reorganize module declaration order in FeatureState and Internal modules\n\nThe reverse-hierarchical path is load-bearing - it tells the reader which file owns the handler. This change prevents accidental namespace pollution and makes dependency relationships explicit in every call site.\n\nAlso updates tauri.conf.json to include externalBin for node binary.",
-			"SHA": "10feb14ec590c0361e9a0038e0833bf752bf447e"
+			"Message": "feat(Mountain): Add cocoon:notify handler and webview notification channels\n\nAdd a new `cocoon:notify` IPC handler as a fire-and-forget companion to the existing `cocoon:request` bridge. This handles one-way wire methods (webview.message, webview.dispose, webview.viewState, etc.) where the extension host doesn't reply, avoiding the 30s request timeout penalty when the renderer just wants to push data into Cocoon.\n\nAlso extend the webview notification relay in MountainVinegRPCService to handle `webview.updateView` and `webview.reveal` in addition to the existing setTitle, setIconPath, and setHtml. These new channels route through the WebviewLifecycle notification handler for proper translation to Sky's kebab-case channel registry.\n\nThis completes the one-way communication path complementing the request/response RPC bridge added in the prior commit.",
+			"SHA": "c3883463d357d421647827bc32d7e8435cf36d48"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:04:49Z",
+			"Date": "2026-04-27T21:02:53Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				827,
-				11
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
 			],
-			"Message": "refactor(Mountain): Split monolithic UI.rs into domain-specific modules\n\nExtract the 32 handlers from the single `UI.rs` (~670 LoC) into 9 separate domain modules under `WindServiceHandlers/UI/`:\n- `Decoration.rs` - URI badge/tooltip/colour providers\n- `Keybinding.rs` - dynamic runtime keybinding registry\n- `Lifecycle.rs` - app phase get/wait/shutdown\n- `Notification.rs` - toast messages and notification-scoped progress\n- `Progress.rs` - window/status-bar progress indicators\n- `QuickInput.rs` - QuickPick and InputBox dialogs\n- `Theme.rs` - colour theme get/list/set\n- `Workspace.rs` - workspace folder lifecycle\n- `WorkingCopy.rs` - dirty-state tracking\n\nEach file contains focused handlers for one UI concern, improving discoverability with `grep pub async fn`. The `mod.rs` re-exports all handlers flat to preserve the existing dispatcher call sites.\n\nThis follows the same pattern as recent Batch 15/16 notification atom migrations, further decomposing Mountain's IPC surface for better maintainability.",
-			"SHA": "285e8d1e67f19bb8f8c520665197d620d792cb5a"
+			"Message": "fix(Mountain): Translate webview.setHtml to kebab-case for Sky channel alignment\n\nAdd suffix mapping in WebviewLifecycle to convert VS Code's camelCase\nwire format (`setHtml`) to Sky's canonical kebab-case channel registry\n(`set-html`). The translation happens before emitting so events like\nHTML assignment correctly route to sky://webview/set-html where Sky's\nlistener expects them. Other methods pass through unchanged since\nSky uses camelCase for setTitle and setIconPath.\n\nThis follows the event channel corrections in the prior commit that\naligned Terminal, Debug, StatusBar, Progress, and Output channels.",
+			"SHA": "728ab19ea1e973ad206d97d450e44ab69ab15ee4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:52:25Z",
+			"Date": "2026-04-27T20:53:06Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				817,
-				12
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
 			],
-			"Message": "refactor(Mountain): Migrate Batch 16 notification handlers to atoms\n\nReplace inline notification handler bodies in MountainVinegRPCService with delegations to 10 new atom functions in `Vine::Server::Notification::*`:\n\n- webview lifecycle (setTitle, setIconPath, setHtml) → WebviewLifecycle\n- window.createTerminal → WindowCreateTerminal\n- terminal lifecycle (sendText, show, hide, dispose) → TerminalLifecycle\n- decoration lifecycle (createTextEditorDecorationType, disposeTextEditorDecorationType) → DecorationTypeLifecycle\n- debug lifecycle (addBreakpoints, removeBreakpoints, consoleAppend) → DebugLifecycle\n- statusBar lifecycle (update, dispose) → StatusBarLifecycle\n- statusBar.message → StatusBarMessage\n- window.showMessage → WindowShowMessage\n- registerCommand → RegisterCommand\n- unregisterCommand → UnregisterCommand\n\nTerminalLifecycle is a \"group atom\" covering 4 wire methods that share both the `sky://terminal/*` relay and provider-side PTY drive. StatusBarLifecycle similarly groups 2 methods. This keeps MountainVinegRPCService thin with one-line delegations.",
-			"SHA": "1699cfca4a8e3c70bcf0b1d355097788d7a0068b"
+			"Message": "feat(Mountain): Add cocoon:request IPC handler for extension host RPC bridge\n\nIntroduce a generic renderer→Cocoon RPC bridge in WindServiceHandlers to allow Sky-side bridges (e.g., webview.resolveView) to dispatch requests into the extension host.\n\nThe handler accepts params in the shape `[Method, Payload]`, forwards the request to Cocoon via `Vine::Client::SendRequest` with a 30s timeout, and returns the response verbatim. On failure, it returns a stringified error so the renderer can fall back to its alternative path (CustomEvent fan-out for legacy observers).\n\nThis enables extension callbacks like `resolveWebviewView` to flow through Mountain's IPC layer rather than requiring separate channel registrations for each bridge type.",
+			"SHA": "4044ae0a4523b3c5369965aa3b380fb030ce482a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-27T19:54:02Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				5
+			],
+			"Message": "feat(Mountain): Implement debug session tracking and DAP adapter spawning\n\nAdd DebugSessionEntry struct and DebugSessions map to DebugState for lifecycle management of active debug sessions. Implement StartDebugging to spawn executable adapters (node, chrome, etc.) with stdin/stdout/stderr pipes, parse DAP frames from adapter stdout, and emit messages on `sky://debug/dap-message`. Implement SendCommand to route DAP requests to the spawned adapter's stdin or fall back to reverse-RPC for inline-implementation adapters. Implement StopDebugging to send DAP disconnect and unregister the session.\n\nAlso implement OnSaveCustomDocument in CustomEditorProvider to reverse-RPC to the extension sidecar via `$onSaveCustomDocument`, replacing the stub.\n\nFix char-aware truncation in WindServiceHandlers and OutputChannelAppend to avoid panics when slicing multi-byte UTF-8 codepoints (e.g., `•` in SCM progress messages).",
+			"SHA": "0b6ac619c4e7e5af9b04d1cd45731dbdd4959176"
 		}
 	],
-	"TimeStamp": 1779378426241
+	"TimeStamp": 1779544409174
 }

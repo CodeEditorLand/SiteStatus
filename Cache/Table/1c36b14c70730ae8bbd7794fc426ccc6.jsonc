@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-07T18:59:57Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				83,
-				4
-			],
-			"Message": "refactor(Sky): Enable runtime relative imports for Electron workbench\n\nSimplify the Electron workbench loading by moving baseUrl computation from build-time JS patching to runtime configuration:\n\n- Add `_VSCODE_USE_RELATIVE_IMPORTS` global in Base.astro that tells the Electron workbench to use relative imports against http://localhost instead of vscode-file:// URIs\n- Remove the Step 5 build hook patch for workbench.js baseUrl computation - no longer needed since the runtime flag handles it\n- Add vscode-file: to CSP script-src, style-src, and connect-src allowlists in Electron.astro and index.astro for non-module assets (fetch, images, JSON) handled by the native Rust Scheme.rs\n\nThis reduces build complexity while maintaining compatibility with Tauri's WKWebView.",
-			"SHA": "ce2d34822277acd672db7505c441bd4d3b905fc3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-07T18:04:29Z",
+			"Date": "2026-04-11T11:38:00Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
-				83,
-				6
-			],
-			"Message": "refactor(Sky): Simplify Electron workbench loading with Effect.runPromise\n\nRefactor the Electron workbench (A3 approach) to use proper Effect-TS patterns and simplify script loading:\n\n- Update Bootstrap.ts and Mountain.astro to wrap runBootstrap() with Effect.runPromise() since runBootstrap() returns an Effect, not a Promise\n- Consolidate Layout.astro from 4 separate script tags into a single sequential await chain (Preload → Polyfills → Bootstrap → Workbench)\n- Simplify Workbench.ts to use direct /Static/Application/ import path with improved error handling for MIME errors\n- Add chatDebugTokenizer to Electron worker allowlist in Electron.astro\n- Add astro.config.ts build hooks for:\n  1. Patching Electron workbench.js baseUrl computation to use /Static/Application/ instead of vscode-file:// URIs\n  2. Injecting __name shim into extension host iframe HTML\n\nThese changes enable the Electron workbench to function in Tauri by fixing asset path resolution and providing required globals.",
-			"SHA": "28938a5ef61079b1cd4e1f1b21df1ec1a6424d1a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-07T05:33:17Z",
-			"File": [
-				"⡏⠀⠀⠀⠀",
-				83,
-				11
-			],
-			"Message": "refactor(Sky): Revert to /Static/Application/ paths with build-time asset consolidation\n\nRevert the /vs/ URL prefix approach from the previous commit. Instead:\n- Revert _VSCODE_FILE_ROOT to /Static/Application/ in all page templates (Base, BrowserProxy, Electron, Mountain)\n- Delete Public/vs symlink (no longer needed)\n- Enhance astro.config.ts build hook to:\n  1. Copy ESBuild-processed files from Output/vs to Static/Application/vs/\n  2. Supplement missing files from Dependency/Editor/out/vs (e.g., workbench.web.main.js)\n  3. Copy Worker.js from node_modules to Target/Worker.js\n  4. Strip CSS imports from VS Code JS files for Tauri WKWebView (which lacks service worker interception). Replaced with _LOAD_CSS_WORKER calls to inject <link> elements.\n- Add __name esbuild helper polyfill in Base.astro for extension host worker contexts\n- Add ipc: to CSP connect-src and chatDebugTokenizer to worker allowlist\n\nThis approach consolidates VS Code assets at /Static/Application/vs/ with a two-source strategy (Output primary, Dependency for gaps), ensuring all required files are present while maintaining Tauri compatibility.",
-			"SHA": "7210878e677ffa4789ad2d15faa099108b178e3a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-07T03:11:09Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				84,
-				7
-			],
-			"Message": "build(Sky): Simplify VS Code asset paths with /vs/ prefix\n\nUpdate all VS Code asset references to use root-relative /vs/ paths instead of /Static/Application/vs/. Changes:\n- Update _VSCODE_FILE_ROOT in Base.astro, BrowserProxy.astro, Electron.astro, and Mountain.astro from `/Static/Application/` to `/`\n- Update NLS script path in NLS.astro to use `/vs/nls.js`\n- Add astro.config.ts build hook to copy VS Code assets from Output/Target/Microsoft/VSCode/vs to Target/vs/ at build time\n- Create Public/vs symlink pointing to the Output VS Code assets\n\nThis extends the /vs/ URL path standardization from the previous commit to all asset references, simplifying the path structure and enabling the build hook to handle asset deployment.",
-			"SHA": "99caf0606e34acbe5abc4809fe4a5b887deee7fe"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-07T02:03:21Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				83,
-				1
+				79,
+				5
 			],
 			"Message": "",
-			"SHA": "5e2d32840d65b324b71b40a5759fa1524aaa1e8a"
+			"SHA": "87d0b745da6a7d66f42647368a564dfec98d076f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-11T10:03:15Z",
+			"File": [
+				"⣿⠀⠀⠀⠀",
+				79,
+				16
+			],
+			"Message": "feat(Sky): Add OTEL + PostHog telemetry bridges and streamline workbench loading\n\nImplement build-baked telemetry for debug builds:\n- Add OTELBridge.ts: PerformanceObserver capturing all `land:*` marks → OTLP/HTTP\n- Add PostHogBridge.ts: Error tracking and analytics via CDN (tree-shaken in prod)\n- Add TelemetryBridge.astro: Shared component loading both bridges for all workbenches\n\nRefactor workbench loading to use performance.mark() instead of console.log:\n- Browser.astro, BrowserTest.astro, Electron/Layout.astro, Mountain.astro\n- Consistent `land:{workbench}:{stage}:{start|done|error}` naming\n- Enables OTELBridge to capture complete boot sequence timing\n\nUpdate Wind preload import paths:\n- `@codeeditorland/wind/Target/Function/Install` → `@codeeditorland/wind/Target/Function/Install/Function/Install`\n\nEnhance astro.config.ts build:\n- Step 13: Copy built-in VS Code extensions from .build/extensions/\n- PostHog build telemetry: sends step timings to analytics on build complete\n- Vite proxy: OTLP /v1/traces → localhost:4318 for Jaeger/OTEL collector\n\nBREAKING CHANGE: Wind preload import path changed; ensure Wind is rebuilt.",
+			"SHA": "b9eccec52dd42ce47ea4a0248d2c18fe3568dd9d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-11T06:31:20Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				76,
+				1
+			],
+			"Message": "docs: backticks on tech names, em quad spacing, Astro version badge accuracy, interaction flow enriched",
+			"SHA": "35dd98edbb19ba3a477358dc3d5dbbf433ed53f5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-11T05:31:47Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				76,
+				2
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "34f547a7850ca98ed3d5bc9455bdb2bf6e3d93c6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-11T05:21:28Z",
+			"File": [
+				"⡏⠀⠀⠀⠀",
+				76,
+				10
+			],
+			"Message": "",
+			"SHA": "61bbf7c522da92f942009a13f9d9edd9348b6834"
 		}
 	],
-	"TimeStamp": 1779378445771
+	"TimeStamp": 1779544376024
 }

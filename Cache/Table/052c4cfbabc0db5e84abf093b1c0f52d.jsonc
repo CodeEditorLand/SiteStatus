@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:52:47Z",
+			"Date": "2026-04-26T20:30:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				102,
 				1
 			],
-			"Message": "refactor(Mountain): Migrate notification handlers to Batch 15-16 atoms\n\nConsolidate inline notification handler bodies in MountainVinegRPCService into delegations to atom functions in Vine::Server::Notification. Batch 15 migrates 8 handlers (ExtensionHostMessage, ExtensionActivated/ExtensionDeactivated, WebviewReady, ProgressStart/ProgressReport/ProgressEnd, LanguagesSetDocumentLanguage, WorkspaceApplyEdit, WindowShowTextDocument). Batch 16 adds 10 new handlers (WebviewLifecycle, WindowCreateTerminal, TerminalLifecycle covering 4 wire methods, DecorationTypeLifecycle, DebugLifecycle, StatusBarLifecycle covering 2 methods, StatusBarMessage, WindowShowMessage, RegisterCommand, UnregisterCommand).\n\nThis removes dead handler bodies at the bottom of match arms that were unreachable after Rust selected the first matching arm, keeping MountainVinegRPCService thin with one-line delegations. TerminalLifecycle and StatusBarLifecycle are group atoms covering methods sharing sky:// relay and provider-side drive.\n\nImpact: Consistent atom-layer dispatch pattern across all 26+ notification types.",
-			"SHA": "07242d034472307f1b6610234b2c848d8def4c25"
+			"Message": "feat(Mountain): Add workspace trust handlers for vscode.git and mute API gap logs\n\nSubmodule synchronization bringing two Mountain changes:\n\n1. Workspace Trust Handlers:\n   - Implement Workspace.RequestResourceTrust and Workspace.IsResourceTrusted handlers\n   - Route through Mountain instead of falling back to Cocoon's permissive heuristic\n   - vscode.git's Model.openRepository now calls these before constructing Repository\n   - Enables GenerateRouteManifest.sh to auto-switch Cocoon from heuristic to gRPC routing\n   - Future work can replace trust-by-default with real per-OS trust queries (Gatekeeper/SmartScreen/xattrs)\n\n2. Log Noise Reduction:\n   - Mute vscode-api-gap dev logs in short mode\n   - These log when extensions use unshimmed vscode API methods\n   - Useful for API gap audits but noisy in default dev runs\n   - Enable via LAND_DEV_LOG=all or LAND_DEV_LOG=vscode-api-gap when needed\n\nImpact: vscode.git extension now properly routes through Mountain's trust handlers with future extensibility for real OS-level trust queries.",
+			"SHA": "bd777531a7bf4fdfeb693820ba44cc9efc7237b6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:48:42Z",
+			"Date": "2026-04-26T20:10:59Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				102,
 				1
 			],
-			"Message": "feat(Project): Add notification atom handlers and stub disposition tracking\n\nCoordinate submodule updates across Mountain, Output, and Wind to complete VS Code notification IPC and improve stub diagnostics:\n\n- **Mountain:** Add 25 new notification atom handlers in Vine::Server::Notification covering output channel lifecycle (create, append, appendLine, clear, dispose, replace, show), status bar text updates, progress lifecycle, webview reverse messaging, provider unregistration, and misc handlers (openExternal, security.incident, set_language_configuration). Add ExtractDevTag module to parse Cocoon stdout [DEV:<TAG>] prefixes and re-emit under Mountain's matching tag for bootstrap-stage, ext-activate, config-prime, breaker filtering.\n\n- **Mountain Refactor:** Consolidate singular WindServiceHandler into plural WindServiceHandlers atoms - delete 24 dead duplicate files, re-implement 3 live handlers as atoms (extensions:install, extensions:uninstall, nativeHost.showOpenDialog). Add 9 new notification atoms: ExtensionActivated, ExtensionDeactivated, ExtensionHostMessage, LanguagesSetDocumentLanguage, ProgressStart, ProgressReport, ProgressEnd, WebviewReady, WorkspaceApplyEdit.\n\n- **Output:** Add __initialize stub for PlaywrightChannelClient constructor protocol version negotiation. Replace binary present=true/false stub-hit logging with three-state disposition: value (real payload), noop (intentionally undefined), drift (stub key missing - sync issue). Add explicit setExtensionGalleryManifest stub.\n\n- **Wind:** Add IPC stub for extensionGalleryManifest channel and __initialize to playwright stub. Enhance stub-hit logging with three-state disposition tracking using hasOwnProperty for reliable checking.\n\nImpact: Extension output channels, status bar, progress, and webview messaging now flow through Mountain. Cocoon bootstrap logs are tag-filterable. Stub drift detection helps developers distinguish sync issues from intentional undefined returns.",
-			"SHA": "e7be1cbc0e4ef27e79a20cc9ada12db5165eecd3"
+			"Message": "chore(Project): Sync Element submodule with bug fixes and URI improvements\n\nSubmodule synchronization bringing in latest changes addressing search and URI handling:\n\n1. Sky: Fix text search result mapping to use Mountain's actual response format - `Hit.resource` instead of `Hit.uri`, and `Hit.matches[]` array with `preview` and `line_number` instead of flat hit shape. Add backwards-compat support for old flat `{uri, lineNumber, preview}` format.\n\n2. Sky: Fix search:findFiles IPC call to include required null exclude parameter. Previously MaxResults was shifted into wrong slot, causing glob extractor to ignore max and default to 10000. This resolves empty search results.\n\n3. Output: Add missing URI class import to ExposeWorkbenchAccessor transform, enabling SkyBridge to construct resource objects the workbench accepts directly.\n\n4. Mountain: Use DebugOnce instead of dev_log! for unregistered view-action and workbench-internal commands to reduce log noise.\n\nImpact: Text search and file search now return correct results using Mountain's response format, eliminating empty results from parameter order mismatch.",
+			"SHA": "efc8c47b9443c033122f0f4d22e4086edb1c693f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:59:42Z",
+			"Date": "2026-04-26T15:41:56Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				100,
-				1
+				"⣿⣿⣿⣿⣿",
+				102,
+				300
 			],
-			"Message": "feat(Project): Expand provider type coverage to full VS Code surface\n\nSubmodule sync to a3764731 coordinating Common and Mountain to add 7 new ProviderType enum variants: InlineEdit, MappedEdits, MultiDocumentHighlight, NotebookContent, RemoteAuthorityResolver, ResourceLabelFormatter, and ScmResourceGroup. This expands provider coverage from ~25 to 51 types.\n\nMountainVinegRPCService adds corresponding provider type handlers matching Cocoon's complete VS Code API shim, enabling extensions that register these previously-unhandled providers (e.g., GitLens, live share, remote tunnels) to activate successfully.\n\nRefs: b71ab93f22e526a1a9cc961706c66040fd2a9be6",
-			"SHA": "c5fbb6ce3e814930df7b6d5ee79540c4a3c3a7fa"
+			"Message": "chore(cleanup): delete stale target folder\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "ac94e887445add5b3f4bb326b2faa981df51638e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:25:41Z",
+			"Date": "2026-04-26T10:44:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
-				1
+				5214,
+				2
 			],
-			"Message": "feat(Project): Update Element submodule with Git IPC and tree-view round-trip\n\nSubmodule sync to 6f49be5 bringing coordinated changes across Common, Mountain, Output, Sky, and Wind:\n\n- **Git IPC:** Route localGit channel to Mountain's git subprocess handlers, fixing SourceControl panel hang with InvokeMountain(\"undefined:exec\"). Common adds Git IPC definitions (cancel, checkout, clone, exec, fetch, isAvailable, pull, revListCount, revParse).\n\n- **Tree-View:** Add tree:getChildren invoke handler in Mountain to forward to Cocoon's $provideTreeChildren. Sky adds cel:tree-view:create listener that re-dispatches as cel:tree-view:items, completing the F1.1 handoff contract.\n\n- **Diagnostics:** Add ext-scan and scheme-assets diagnostic tags. Add tauri-invoke timing instrumentation to distinguish webview transport latency from Mountain handler slowness.\n\nImpact: Built-in Git extension now functions with native git binaries. Extension tree views (GitLens, SCM, debug, tasks) render with data from providers.",
-			"SHA": "a4feadcddd29b833207b91a5a20820f388483486"
+			"Message": "",
+			"SHA": "38b3ba9759c13da31792965004037c4f61c7bd1f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:02:00Z",
+			"Date": "2026-04-26T09:59:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5214,
 				1
 			],
-			"Message": "feat(Project): Coordinate performance optimization and diagnostic instrumentation\n\nThree coordinated changes eliminate ~156 unnecessary Tauri IPC round-trips per editor boot and add comprehensive diagnostic capabilities:\n\n- **Performance (Wind/Output):** Add no-op IPC stubs for telemetryAppender (155 calls/boot) and mcpGalleryManifest (1 call/boot). These channels were falling through to Rust invoke with undefined handlers, adding latency to every editor startup. Stubs short-circuit in the TypeScript layer.\n\n- **Diagnostics (Mountain):** Add Git service handlers implementing the full localGit channel (clone, pull, checkout, revParse, fetch, etc.). Add SkyEmit instrumentation logging all Mountain→Wind/Sky emits under the sky-emit tag. Expand provider registration from 8 to 34+ types with scheme extraction.\n\n- **Diagnostics (Sky):** Track cel:* CustomEvent listener registration via document.addEventListener patching. Log consumer-present flag on every dispatch to identify orphan events (Mountain emits but no workbench listener). These are F1.1 indicators where features silently fail.\n\nImpact: Editor startup latency reduced by eliminating ~156 IPC round-trips. Developers can now audit SkyEmit traffic via LAND_DEV_LOG=sky-emit and identify dead event routes via cel-dispatch consumer-present=false.",
-			"SHA": "2d95bc0ae30754abf7c20dabc8b7feb319499429"
+			"Message": "fix(Project): Fix search result handling with Mountain's response format\n\nSynchronize Element submodule with critical bug fixes:\n\n1. Sky: Fix text search result mapping to use Mountain's actual response format - `Hit.resource` instead of `Hit.uri`, and `Hit.matches[]` array (with `preview` and `line_number`) instead of flat hit shape. Add backwards-compat support for old flat `{uri, lineNumber, preview}` format.\n\n2. Sky: Fix search:findFiles IPC call to include required null exclude parameter. Previously MaxResults was shifted into wrong slot, causing glob extractor to ignore max and default to 10000. This resolves empty search results where previous code produced resource=MakeFileUri(\"\") with empty results array.\n\n3. Cocoon: Submodule sync to latest extension host changes.\n\nImpact: Text search and file search now return correct results using Mountain's response format, eliminating empty results from parameter order mismatch.",
+			"SHA": "fe18d940fdbcd0272f2abe9a594c4b536121704b"
 		}
 	],
-	"TimeStamp": 1779378426312
+	"TimeStamp": 1779544369752
 }

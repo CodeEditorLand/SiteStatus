@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:15:01Z",
+			"Date": "2026-05-23T10:33:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				129,
+				133,
 				1
 			],
-			"Message": "refactor(Project): Advance Element submodule with dispatcher extraction and runtime fixes\n\nAdvance the Element submodule to a74c89e5, pulling in a coordinated commit spanning Cocoon, Mountain, and Worker that extracts large inline match blocks into dedicated modules and addresses three runtime bugs exposed during the refactor.\n\nCocoon lifts RegisterCustomEditor and six shared provider/registry maps (CustomEditorProviders, TreeDataProviders, WebviewViewProviders, WebviewPanels) from the ~2500-line Namespace.ts into dedicated RegisterCustomEditor.ts and Registry.ts modules. Namespace.ts shrinks by ~170 lines and re-exports through the existing path, preserving all registration behaviour unchanged.\n\nMountain extracts the 1400-line `process_mountain_request` and 600-line `send_mountain_notification` match blocks from CocoonService/mod.rs into GenericRequest::Dispatcher and GenericNotification::Dispatcher modules, reducing mod.rs by ~1900 lines. Three fixes accompany the structural extraction: scope the MutexGuard on WorkspaceFolders to a block so it is dropped before await (restoring Send for `tauri::async_runtime::spawn`); replace a permanent-None OnceLock with a two-phase RESOLVED/RETRY system that retries log resolution after Tauri creates the app-data directory; and replace a bare `return Ok(...)` inside a WindServiceHandlers match arm that broke `Scheduler::Submit`'s `Output = ()` bound with an if/else expression. A clippy-nit removing redundant `.as_str()` in AliasPath.rs is included, and two follow-up commits normalize dispatcher indentation and update dev-profile build identifiers.\n\nWorker normalises indentation across all three ESBuild config files to hard tabs across two style-only commits. Zero functional changes — build output is identical.\n\nThe structural decompositions reduce module surface area across all three components, and the runtime fixes correct latent concurrency, deferred-resolution, and control-flow bugs in Mountain.",
-			"SHA": "35ece0fa0ff4a2d343c635caa89af1b4f18d825c"
+			"Message": "refactor(Mountain): Consolidate Cocoon forwarding logic via macro\n\nEliminate the fragmented `Source/IPC/WindServiceHandlers` directory structure containing repetitive boilerplate for forwarding IPC commands to the Cocoon extension host. Introduce a centralized `forward_to_cocoon` macro and `cocoon_payload` helper in `mod.rs` to unify payload serialization and gRPC invocation.\n\nThis refactoring consolidates the handling logic for SCM, Debug, Tasks, and Authentication namespaces within the main IPC dispatcher. The new macro standardizes argument normalization and manages the connection lifecycle, significantly reducing code duplication while preserving the functional bridge to the VS Code runtime.",
+			"SHA": "f62307d656582ee216c55a5bed8ebb0fb298ec14"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:38:55Z",
+			"Date": "2026-05-23T10:13:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				129,
+				133,
 				1
 			],
-			"Message": "feat(Project): Advance Element submodule with Cocoon decomposition, hierarchy RPC, and IPC fixes\n\nAdvance the Element submodule to 3e397f73, pulling in a coordinated commit spanning Cocoon, Mountain, and Sky that decomposes the extension host monolith, wires call/type hierarchy RPC, and fixes data accuracy across the IPC pipeline.\n\nCocoon splits the ~1500-line inline extension host handler into three focused modules (VscodeModuleHooks, EnsureVscodeAPI, ActivateExtension) and fixes five real-world extension compatibility issues: Copilot dist-preflight failure, `context.extension.packageJSON` populated from the real manifest, workspace config cache seeded from `contributes.configuration.properties` before activation, `activate()` return value backfilled into the registry, and a POJO-tolerant RelativePattern wrapper for Shopify.ruby-lsp. Six missing VS Code API enums (LogLevel, OverviewRulerLane, UIKind, TextEditorCursorStyle, DebugConfigurationProviderTriggerKind, IndentAction) are now defined.\n\nMountain adds language-scoped configuration overrides for per-language formatter support, a OnceLock-backed static session ID for consistent telemetry, and dispatches `$provideCallHierarchyItems`/`$provideTypeHierarchyItems` RPC endpoints unblocking call/type hierarchy in the editor. Three `mountain_*` IPC stubs return real data, SOCKS proxy env-var parsing emits the correct PAC keyword, and the `didChangeTextEditorSelection` Vine notification now includes accurate `viewColumn` from split-editor layouts.\n\nSky replaces the hardcoded `viewColumn: 1` in editor IPC payloads with a `GetViewColumn()` helper reading `EditorGroups.activeGroup.index` and converting to the 1-based view column expected by the VS Code API.\n\nExtension host reliability and IPC data accuracy are materially improved across all three layers of the round-trip.",
-			"SHA": "6ccd9cba20f3630bfb390502807d9b17accd94b0"
+			"Message": "chore(Land): Sync Element submodule for IPC standardization and webview lifecycle\n\nUpdate the Element git submodule from 6e6a6c5 to 2a9e60e to synchronize revisions for Mountain, Output, and Sky.\n\n**Mountain:** Correct the `postMessage` Tauri event suffix to PascalCase (`postMessage`) to comply with project-wide naming standards. Refactor `SetLanguageConfiguration` to emit the full parameter object, aligning with generic notification patterns.\n\n**Output:** Expand `browserViewGroup` channel stubs in `TauriMainProcessService` to include `updateKeybindings`, `updateTheme`, `updateConfiguration`, `getBrowserViews`, and dev tools commands, pre-emptively aligning bundled artifacts with upcoming Wind and Sky requirements.\n\n**Sky:** Implement bridge listeners for `setTitle`, `setIconPath`, and `reveal` in the `InstallWebview` layer to manage DOM synchronization, native method invocation, and view focus logic. Restore `dispose` registration to ensure proper cleanup of webview panels.\n\nThese changes enforce strict PascalCase conventions, eliminate IPC naming inconsistencies, and complete the runtime control surface for the webview component layer.",
+			"SHA": "5623db3af452a2703f6eaa8e734f698f60168847"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:22:29Z",
+			"Date": "2026-05-23T10:03:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				129,
+				133,
 				1
 			],
-			"Message": "chore(Project): Advance Element submodule with save notifications, IPC hardening, and Sky bridge decomposition\n\nAdvance the Element submodule to 21c3681b, pulling in two coordinated commits spanning Mountain, Cocoon, and Sky.\n\nMountain fires $acceptModelSaved via Vine after disk writes in FileWriteNative and TextfileWrite, enabling Cocoon to dispatch onDidSaveTextDocument to format-on-save and organize-imports extensions. On macOS, Undo/Redo is removed from the native Edit submenu via AppMenu::SetAppMenu so Cmd+Z and Cmd+Shift+Z reach Monaco's keydown handler instead of AppKit's responder chain. File write handlers now propagate configuration.change notifications to invalidate Cocoon's ConfigCache. A StorageWriteDebouncer race is fixed by reordering the flush loop, and boot latency is reduced by removing a 3-second blocking WaitForClientConnection from language handlers.\n\nCocoon replaces stale/empty state placeholders with live-tracking counterparts: __visibleTextEditors is upserted on selection changes and filtered on model removal, terminals are tracked with proper dispose cleanup, and a module-level _AllDiagnostics cache mirrors every DiagnosticCollection call with didChange event emission.\n\nSky decomposes ~2500 lines of inline handler registrations in Bridge.ts into four dedicated modules via dynamic imports — InstallWebview.ts, InstallEditorOperations.ts, InstallTreeView.ts (with exponential backoff retry), and InstallUiRequests.ts — each receiving only required dependencies through a thin injector interface.\n\nMaintain regenerates rustdoc output against Rust nightly 1.97.0.",
-			"SHA": "69fc21edf6ba430415e91ed6e74b3fdf2cf8da23"
+			"Message": "chore(Land): Sync Element submodule for native dialog interactivity\n\nUpdate the Element git submodule from 70e79155 to 6e6a6c5 to synchronize the latest revisions for Cocoon and Mountain on the Current branch.\n\n**Cocoon:** Consolidate fragmented window message handling into a single `Window.ShowMessage` gRPC method, delegating action button rendering to Mountain. Enhance URI resolution to explicitly validate `scheme`, `authority`, and `path` properties to prevent broken icon paths.\n\n**Mountain:** Standardize Tauri event naming to PascalCase (e.g., `postMessage`) and refactor `Window.ShowMessage` to use atomic sequence counters. This enables blocking behavior that renders action buttons in the native UI and awaits user selection.\n\nThese changes ensure consistent event naming, prevent illegal event crashes, and restore full interactivity for notification actions across the extension host IPC layer.",
+			"SHA": "059ed59eab25c6f01cef5659514630c910180c20"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:08:53Z",
+			"Date": "2026-05-23T09:40:14Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				129,
-				8
+				"⠀⠀⠀⠀⠀",
+				133,
+				1
 			],
-			"Message": "refactor(Land): Move Brotli pre-bake to beforeBundleCommand and add user env override support\n\nRelocate the Brotli compression step from the Debug/Release Build.sh scripts into Mountain's Tauri beforeBundleCommand hook, where it runs automatically during the native build rather than requiring an explicit post-build invocation. The PreBake.ts script receives cleaner logging — per-file progress lines are removed in favour of a single summary showing write/skip counts, total bytes, and compression percentage — reducing noise in CI output.\n\nTierEnvironment.sh gains a user-environment-override mechanism: any Tier*, Product*, Network* prefix variables, plus known runtime keys (Disable, Trace, Record, etc.), exported by the caller before sourcing the script are now snapshotted and reapplied after every .env.Land overlay is sourced. This makes `export TierIPC=Node` (or any runtime switch) reliably take final precedence without editing .env files, enabling ad-hoc testing across build tiers without config file mutation.\n\nThe `Disable` master kill-switch is added to `.env.Land.Sample` under a new Build/debug switches section, and a duplicated comment block in `.env.Land.Diagnostics.Sample` is removed. Both Element and Documentation/Rust submodules advance, bringing in Mountain's beforeBundleCommand integration and 14-element ecosystem maintenance.",
-			"SHA": "4927578d08df7eb15dbfc5beaa19252679635a44"
+			"Message": "chore(Land): Sync Element submodule for URI lifecycle and browser view preparation\n\nUpdate the Element git submodule from 4b0d889a to 70e79155 to synchronize the latest revisions for Mountain and Wind on the Current branch.\n\n**Mountain:** Implement gRPC notification handlers for `UnregisterExternalUriOpener` and `UnregisterRemoteAuthorityResolver` within the Vine protocol. These handlers leverage existing `UnregisterByHandle` utilities to ensure consistent lifecycle management for remote authority and URI opener extensions.\n\n**Wind:** Expand the `StubChannels` registry in `TauriMainProcessService` to include definitions for the `browserViewGroup` service. Add stubs for `updateKeybindings`, `updateTheme`, `updateConfiguration`, `getBrowserViews`, and dev tools commands to establish the contract for upcoming native browser view operations.\n\nThese changes ensure full lifecycle support for extension URI handlers and lay the groundwork for advanced view management in the Workbench service layer.",
+			"SHA": "c4db0cd318e34bd96e288b5ebc3e0322026b03e7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T02:19:50Z",
+			"Date": "2026-05-23T09:36:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				129,
+				133,
 				1
 			],
-			"Message": "feat(Project): Wire full editor IPC pipeline for decorations, text edits, selections, and hierarchy\n\nAdvance 8 element submodules in a coordinated update that completes the editor IPC round-trip from extension host to native backend to editor UI, enabling real-world extensions to manipulate text editors, decorations, and call/type hierarchy panels.\n\n**Cocoon** backfills critical VS Code API shims discovered through integration testing: extension exports resolution (`getExtension(id).exports`), call/type hierarchy prepare entry points, live `workspace.textDocuments` tracking via `$acceptModelAdded`/`$acceptModelRemoved`, `document.willSave` listener dispatch with edit collection, and a robust `activeTextEditor` stub supporting `setDecorations`, `edit`, `insertSnippet`, `revealRange`, and live selection tracking.\n\n**Common** extends the IPC event surface in SkyEvent.rs with five new URIs (`DecorationSetRanges`, `EditorApplyTextEdits`, `EditorSelectionChanged`, `EditorActiveChanged`, `EditorRevealRange`) and adds `PrepareCallHierarchy`/`PrepareTypeHierarchy` to the LanguageFeatureProviderRegistry trait, completing the hierarchy provider lifecycle defined by the VS Code LanguageFeatureRequest contract.\n\n**Mountain** implements the full gRPC+LSP pipeline for hierarchy prepare in new `PerformCallHierarchy`/`PerformTypeHierarchy` provider modules, bridges `window.setTextEditorDecorations` via a channel-drain batching mechanism (16 ms frame-aligned aggregation), and wires `window.applyTextEdits`/`window.revealRange` through to Sky events. A new `document.willSave` fire event grants extension listeners a 1.5-second grace window before disk write. Two new `mountain_ipc_invoke` handlers (`sky:editor:selectionChanged`, `sky:editor:activeChanged`) forward editor state changes from Sky to Cocoon.\n\n**Sky** registers four IPC bridge handlers matching editors by URI or filename segment: decoration range application via `ICodeEditorService`, text edit execution with dual-range-format normalization, reveal range delegation with the five standard strategies, and active editor/selection change subscription pushing state up to Mountain.\n\n**Wind** adds the five new Sky IPC event constants to `Source/IPC/SkyEvent.ts` while purging over 400 zero-byte generated stub files (`I*Upstream.ts`, `CommandCatalog.ts`, `ServiceCatalog.ts`, `*BridgeShapeGenerated.ts`).\n\n**Air** applies consistent import ordering and single-expression formatting across 4 subsystems. **Output** removes 160+ stale zero-byte build artifacts. **Grove** syncs the Rust documentation submodule. **Echo** advances to a clean commit.\n\nThis completes the editor IPC round-trip for text editor manipulation and call/type hierarchy, enabling extensions that depend on `window.activeTextEditor`, `editor.edit()`, `setDecorations`, `revealRange`, hierarchy providers, and format-on-save listeners to function correctly.",
-			"SHA": "6f099a0735770518cac2a3476158965f14b899dd"
+			"Message": "chore(Land): Sync Element submodule for URI robustness in Cocoon and Sky\n\nUpdate the Element git submodule to commit 4b0d889a, addressing URI reconstruction issues across the gRPC bridge and Source Control Manager layers.\n\n**Cocoon:** Replace reliance on default `.toString()` and `.external` properties with explicit structural checks for `scheme`, `authority`, and `path`. This ensures valid URI strings are constructed and transmitted to Mountain, preventing malformed requests in document and notification flows.\n\n**Sky:** Refine URI parsing in `InstallScm.ts` to distinguish custom URI stringification from default `Object.prototype` methods. This prevents generic objects from triggering false positives during immediate service execution, aligning with the simplified bridge logic.\n\nThese changes restore stability in file access, language provider invocations, and source control operations by guaranteeing accurate type handling and robust request routing.",
+			"SHA": "09652f8f2c47a788f358a6e272d24e5c27e5d006"
 		}
 	],
-	"TimeStamp": 1779378390029
+	"TimeStamp": 1779544352294
 }

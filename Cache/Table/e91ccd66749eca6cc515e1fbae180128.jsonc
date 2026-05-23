@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:20:49Z",
+			"Date": "2026-04-24T23:05:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
+				872,
 				2
 			],
-			"Message": "",
-			"SHA": "040bfbacb2ba90145b5feb6c5b41cd11e5e2f120"
+			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to the properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those - the \"dead code that needs to be connected\" the user flagged.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.",
+			"SHA": "5f23bca601cb496e0c86114e0aaf8db93c22cde4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:20:49Z",
+			"Date": "2026-04-24T21:47:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
-				2
+				872,
+				4
 			],
-			"Message": "fix(Mountain): Fix extension location URI marshalling for VS Code renderer\n\nVS Code's URI revival system ignores objects lacking the `$mid === 1` marshalling marker. Without it, extension locations sent to the renderer become plain `UriComponents` bags where `.fsPath` and `.with` are undefined — the sidebar silently filters the entire batch out.\n\nThis change adds three functions in Extensions.rs:\n- `Normalize_Location_To_UriComponents`: converts the scanner's raw `file://` URL string into VS Code's `UriComponents` object shape\n- `Stamp_Mid_Uri`: attaches `$mid: 1` to any UriComponents that lack it\n- `Parse_File_Url_To_UriComponents`: parses `file:///absolute/path` URLs into the required structure\n\nAlso extends `BuildInitialUrl` to recognize Mountain's own `{ uri: \"file://…\" }` format (written by the recently opened persistence) alongside VS Code's historical `folderUri`/`workspace.configPath` shapes for backward compatibility with imported profiles.\n\nExtension locations in the sidebar now resolve correctly.",
-			"SHA": "07b4da763e4acaec886915effcb6b6c49eb0d689"
+			"Message": "feat(Mountain): Add VS Code IPC command aliases and stub handlers\n\nAdd command aliases in WindServiceHandlers to bridge Mountain's native Effect-TS IPC layer with VS Code's binary IPC bridge (DiskFileSystemProviderClient, ConfigurationService):\n- Configuration: `configuration:getValue` / `configuration:updateValue` → `configuration:get` / `configuration:update`\n- File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`\n- Add stub handlers for `file:watch` / `file:unwatch` that return Null to prevent channel promise leaks\n- Add `configuration:onDidChange` handler that acks the channel listener with Null\n\nAlso enhance Cocoon stderr filtering to suppress follow-up stack frames from extension errors (EntryNotFound, FileNotFound) that Node.js prints across multiple stderr lines. This keeps the main cocoon channel clean while routing benign extension path-probing to verbose.",
+			"SHA": "661fe2405f2f71c5710b1b1e6dfb59272896fd30"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:12:01Z",
+			"Date": "2026-04-24T21:25:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
-				3
+				872,
+				4
 			],
-			"Message": "feat(Mountain): Restore recently opened folder on launch, fix macOS window drag\n\nTwo improvements to the window boot sequence:\n\n1. **Recently opened folder restoration (Atom W7):** Add BuildInitialUrl to read `~/.land/workspaces/RecentlyOpened.json` and pass `?folder=<path>` to the initial webview URL. This skips the destructive round-trip where every launch landed on Welcome, forced users to click \"Open Folder\", and triggered a hard reload that wiped workbench state. That reload was the direct cause of the purple splash flash, stuttering paint, empty `@builtin` sidebar, and broken keybindings (every layer boots twice, second pass loses first-pass references).\n\n2. **Fix macOS window dragging:** Remove `maximized(true)` from the window builder. Maximized macOS windows are pinned to the screen and refuse all drag events regardless of `-webkit-app-region: drag` CSS. Replace with `TitleBarStyle::Overlay` + `hidden_title(true)` which keeps traffic lights visible while letting VS Code's custom titlebar paint the drag region. Windows/Linux continue using `decorations(false)` for chrome-less operation.\n\nAlso fix en-dash to hyphen in three documentation comments (ExtensionDescriptionStateDTO, LandFixTier) to match project convention.",
-			"SHA": "aa5eafbd77da6ffa239edf2a45206ae3dfa1e4cc"
+			"Message": "feat(Mountain): Fire workspaceContains and onStartupFinished extension activation\n\nImplement comprehensive startup extension activation matching VS Code's behavior:\n\n1. **Extension activation phases**: Fire three bursts at startup:\n   - `*` - unconditional activation (existing)\n   - `workspaceContains:<pattern>` - for each pattern matched by workspace\n   - `onStartupFinished` - after 2s delay for late-binding extensions\n\n2. **Pattern matching**: Add `FindMatchingWorkspaceContainsPatterns` that walks\n   workspace folders (depth 3, 4096 entries max) and matches against extension-\n   contributed `workspaceContains:` patterns using a minimal glob matcher.\n\n3. **Stderr filtering**: Downgrade benign Node.js/macOS noise to `cocoon-stderr-verbose`:\n   - macOS codesign messages (\"is already signed\", \"replacing existing signature\")\n   - Node deprecation warnings (DeprecationWarning, --trace-deprecation)\n   - Keeps main cocoon channel clean for actionable errors only.\n\n4. **Rust edition**: Upgrade from 2021 to 2024.\n\nThis fixes extensions that never activated without user interaction because they\ngate on `workspaceContains:package.json`, `onStartupFinished`, or similar events.",
+			"SHA": "72db08550a3a7b20669947fe3bac64deb2e0300d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:11:44Z",
+			"Date": "2026-04-24T20:52:00Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				774,
-				5
+				"⠁⠀⠀⠀⠀",
+				872,
+				11
 			],
-			"Message": "feat(Mountain): Initialize PostHog telemetry client at boot\n\nAdd PostHogPlugin initialization at the start of Entry.rs Fn() to capture any errors during the boot process in telemetry. This runs before all other boot steps, including CLI parsing and state initialization, ensuring crash logs include PostHog context.\n\nAdditional improvements:\n- Remove incorrectly placed #[tauri::command] attribute from internal IPC dispatcher in mod.rs, adding docstring clarifying it's not directly reachable from the frontend\n- Fix en-dash to hyphen in three documentation comments (UI-Backend, timezone offset, lifecycle phase)",
-			"SHA": "4ff7003125814f3d5be66877b4fe2de4c52f2281"
+			"Message": "refactor(Mountain): Move high-frequency logging to verbose/opt-in tags\n\nContinue reducing default log volume by routing per-operation lines to dedicated verbose tags that are muted in `short` mode:\n\n1. **Command registration**: `commands` → `commands-verbose` for setContext (~130/session) and command execution in CommandProvider\n2. **Output channels**: `grpc` → `output-verbose` for append/create events (200+ appends per boot from language servers)\n3. **Command registry**: `grpc` → `command-register` for register/unregister notifications (~100 commands/session)\n4. **Provider registration**: `grpc`/extensions → `grpc-verbose`/`provider-register` for duplicate provider registration logs\n5. **Extension scanning**: `extensions` → `ext-scan-verbose` for per-candidate package.json probes (203/session)\n6. **Scheme assets**: `lifecycle` → `scheme-assets` for per-asset vscode-file:// requests (worker/wasm/font loading)\n\nNew tags added to SHORT_MODE_MUTED_TAGS: output-verbose, command-register, provider-register, ext-scan-verbose, channel-stub, commands-verbose, scheme-assets.",
+			"SHA": "7d046f166e341789c3445eb14c727db2ed044a11"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:27:19Z",
+			"Date": "2026-04-24T20:37:22Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				774,
-				1
+				"⠁⠀⠀⠀⠀",
+				872,
+				23
 			],
-			"Message": "docs: improve LandFixTier.rs module header",
-			"SHA": "957f84e8bf064fe68b3f05c6cdeca1e1848fa23f"
+			"Message": "refactor(Mountain): Reduce high-frequency log noise in default mode\n\nMove per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants that are muted in `short` mode:\n\n1. **DevLog infrastructure** (`DevLog.rs`):\n   - Add `SHORT_MODE_MUTED_TAGS` constant listing tags silenced by `short` mode\n   - Update `IsEnabled()` to respect muted list while preserving explicit tag overrides\n\n2. **gRPC layer** (`MountainVinegRPCService.rs`):\n   - Move per-request banners to `grpc-verbose`: receive, dispatch, params, completion\n   - Move latency timestamps to `rpc-latency` for profiling\n   - Extend 404 downgrade to both `FileSystem.ReadFile` and `FileSystem.Stat`\n   - Move notification receive banners to `grpc-verbose`\n\n3. **VFS operations** (all FileSystem handlers):\n   - Change `vfs` → `vfs-verbose` for stat/read/write/mkdir/delete/copy/move operations\n   - Per-path stat fires thousands of times during workbench boot\n\n4. **Storage operations** (`StorageProvider.rs`, `SecretProvider.rs`):\n   - Change `storage` → `storage-verbose` for updateItems, getAllStorage, setAllStorage\n   - Short-form storage logs also use `storage-verbose` for consistency\n\n5. **IPC routing** (`WindServiceHandlers/mod.rs`):\n   - Expand high-frequency skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme\n   - These fire thousands of times per session and add no signal beyond the IPC summary line\n\n6. **NLS scanning** (`Scanner.rs`):\n   - Change `extensions` → `nls` for NLS placeholder resolution and bundle loading\n\n7. **Tree latency** (`TreeView.rs`, `DispatchSideCarRequest.rs`):\n   - Change `grpc` → `tree-latency` / `grpc-verbose` for dispatch timing\n\nThis reduces default log volume from ~14k+ lines per session to ~500, while preserving full verbosity via `LAND_DEV_LOG=all` or explicit tag matching. The failure paths for each subsystem still log at the default level, so errors remain visible.",
+			"SHA": "9aa00458dcaa47d38fe44223376a186373386db0"
 		}
 	],
-	"TimeStamp": 1779378428429
+	"TimeStamp": 1779544413694
 }

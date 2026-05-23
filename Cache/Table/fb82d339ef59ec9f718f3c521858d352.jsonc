@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:39:12Z",
+			"Date": "2026-04-29T16:59:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
-				8
-			],
-			"Message": "refactor(Mountain): Wire Cocoon RPC handlers to trait implementations for state tracking\n\nReplace direct Sky event emissions with proper trait implementations across SCM, StatusBar, Webview, and Search handlers:\n\n1. **SCM**: RegisterScmProvider and UpdateScmGroup now use SourceControlManagementProvider trait to materialize state in ApplicationState::SourceControl. Previously the direct Sky emit bypassed state tracking, so SCM providers (gitlens, svn) never appeared in Sky's SCM view until UpdateScmGroup - and the header row never materialized.\n\n2. **StatusBar**: CreateStatusBarItem and SetStatusBarText now use StatusBarProvider::SetStatusBarEntry to store entries in ActiveStatusBarItems. Without registration, the workbench had no memory of entries and set_status_bar_text calls leaked state.\n\n3. **Webview**: CreateWebviewPanel and SetWebviewHtml now use WebviewProvider trait to register panels in ApplicationState::WebviewState. Previously the extension got a handle but Mountain never knew about the panel - DisposeWebviewPanel failed with \"unknown handle\" and webviews leaked DOM.\n\n4. **Search**: findFiles delegates to WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker); findTextInFiles delegates to SearchProvider::TextSearch. This replaces naive inline fs-walk implementations that lacked .gitignore support, regex engine, parallel walks, and proper Url construction.\n\nAll handlers retain fallback to direct Sky emit on trait failure to preserve existing behavior for callers that don't depend on state tracking.",
-			"SHA": "f8de3e0f52def4658f2be37feceb8ce43e035bca"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:15:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				1
-			],
-			"Message": "feat(Mountain): Implement regex and multiline search options in TextSearchQuery\n\nAdd missing `isRegExp` and `isMultiline` fields to TextSearchQuery, mirroring VS Code's `ITextSearchQuery` interface. When `isRegExp` is false (the default), escape the search pattern via `regex::escape()` to prevent literal searches for strings containing regex metacharacters (`.`, `(`, `[`, `*`, `?`, etc.) from crashing the regex compiler or silently matching incorrectly. Add `.multi_line()` support for multiline regex searches.\n\nThis fixes the Search view's plain-text mode which was broken for queries containing characters like `obj.method(` or `file[1].txt`.",
-			"SHA": "d0117a0eb6379a9473082566dec2a8775df35577"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:05:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
+				859,
 				2
 			],
-			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to the properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those - the \"dead code that needs to be connected\" the user flagged.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.",
-			"SHA": "5f23bca601cb496e0c86114e0aaf8db93c22cde4"
+			"Message": "refactor(Mountain): Simplify binary and product names\n\nRename the Mountain binary, library, and default-run targets from the verbose development profile name to simply \"Mountain\". This follows the project's PascalCase naming convention and removes the debug build artifact naming.\n\nIn tauri.conf.json, simplify the identifier from the lengthy development-specific string to \"land.editor.binary\" and the productName from the long debug name to \"Mountain\". Also remove the duplicate \"Binary/node\" entry from externalBin.\n\nThese changes clean up the build configuration for proper release builds while maintaining the same functionality.",
+			"SHA": "db5f0f7bc58c4108ea4f51ec3ac0d30bb008def3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:47:23Z",
+			"Date": "2026-04-29T16:55:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
-				4
+				859,
+				3
 			],
-			"Message": "feat(Mountain): Add VS Code IPC command aliases and stub handlers\n\nAdd command aliases in WindServiceHandlers to bridge Mountain's native Effect-TS IPC layer with VS Code's binary IPC bridge (DiskFileSystemProviderClient, ConfigurationService):\n- Configuration: `configuration:getValue` / `configuration:updateValue` → `configuration:get` / `configuration:update`\n- File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`\n- Add stub handlers for `file:watch` / `file:unwatch` that return Null to prevent channel promise leaks\n- Add `configuration:onDidChange` handler that acks the channel listener with Null\n\nAlso enhance Cocoon stderr filtering to suppress follow-up stack frames from extension errors (EntryNotFound, FileNotFound) that Node.js prints across multiple stderr lines. This keeps the main cocoon channel clean while routing benign extension path-probing to verbose.",
-			"SHA": "661fe2405f2f71c5710b1b1e6dfb59272896fd30"
+			"Message": "",
+			"SHA": "f2b5c349377b143b33dab188478a947d77522a46"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:25:18Z",
+			"Date": "2026-04-29T05:16:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
-				4
+				859,
+				1
 			],
-			"Message": "feat(Mountain): Fire workspaceContains and onStartupFinished extension activation\n\nImplement comprehensive startup extension activation matching VS Code's behavior:\n\n1. **Extension activation phases**: Fire three bursts at startup:\n   - `*` - unconditional activation (existing)\n   - `workspaceContains:<pattern>` - for each pattern matched by workspace\n   - `onStartupFinished` - after 2s delay for late-binding extensions\n\n2. **Pattern matching**: Add `FindMatchingWorkspaceContainsPatterns` that walks\n   workspace folders (depth 3, 4096 entries max) and matches against extension-\n   contributed `workspaceContains:` patterns using a minimal glob matcher.\n\n3. **Stderr filtering**: Downgrade benign Node.js/macOS noise to `cocoon-stderr-verbose`:\n   - macOS codesign messages (\"is already signed\", \"replacing existing signature\")\n   - Node deprecation warnings (DeprecationWarning, --trace-deprecation)\n   - Keeps main cocoon channel clean for actionable errors only.\n\n4. **Rust edition**: Upgrade from 2021 to 2024.\n\nThis fixes extensions that never activated without user interaction because they\ngate on `workspaceContains:package.json`, `onStartupFinished`, or similar events.",
-			"SHA": "72db08550a3a7b20669947fe3bac64deb2e0300d"
+			"Message": "docs(Mountain): Rework CHANGELOG to prose format, add v2.2 section\n\nRestructure the Mountain CHANGELOG from itemized bullet points to narrative prose paragraphs, improving readability while preserving all historical content. Add new v2.2 section documenting bundled-electron correctness pass including: JSON-RPC -32004 for benign 404s, deferred-no-op file watching, canonical-path comparison for Volumes mounts, Identifier field on SCM provider DTO, sky:replay-events handler, 64KB terminal ring buffer, and tree:getChildren timeout reduction.\n\nThe new format emphasizes user-facing impact over file references, making it more useful for release notes and external communication.",
+			"SHA": "9515b2f72adf9866c58023f42f52630759ffa3da"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T04:21:45Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				2
+			],
+			"Message": "feat(Mountain): Buffer terminal output for late-listener replay\n\nAdd per-terminal output buffering to solve the same race condition that\nwas fixed for tree-views and SCM in 1599d766. The PTY reader task and\nSkyBridge's `listen(\"sky://terminal/*\")` installation race: in the\nbundled-electron profile, the shell's first prompt fires ~50ms after\n`spawn_command` while Sky's bundle still parses for ~1500ms. Without a\nbuffer, zsh MOTD, direnv exports, fish greetings are silently dropped\nand the user sees an empty pane until they type.\n\nThe implementation adds:\n- `AppendTerminalOutput()`: capture PTY bytes into a 64KB bounded buffer\n  (keeps most recent suffix to preserve the prompt)\n- `DrainTerminalOutputBuffer()`: retrieve all buffered terminal data\n- `RemoveTerminalOutputBuffer()`: clean up on terminal exit\n- Extended `sky:replay-events` to emit `sky://terminal/create` for each\n  active terminal AND replay any buffered `sky://terminal/data` bytes\n\nThis completes the replay system for all three major feature areas:\ntree-views, SCM providers, and terminals.",
+			"SHA": "2fee91e5d72c7b86eb194a55de12d4d33f8aac92"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T04:01:25Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				2
+			],
+			"Message": "refactor(Mountain): Use actual SCM provider identifier in replay, add command replay, reduce tree timeout\n\nThree improvements to Sky event replay:\n\n1. **SCM Provider Identifier**: The `ProviderState` DTO now carries the original `Identifier` field from `ProviderData.ID`. SCM replay uses this instead of hardcoded \"git\", enabling multi-SCM support (github, hg, etc.). Pre-existing DTOs default to \"git\" for backward compatibility.\n\n2. **Command Registration Replay**: Add replay for extension-registered commands (`vscode.commands.registerCommand`). Native Rust handlers are excluded since they're not exposed via the Vine notification channel. This ensures `ICommandService` knows about extension commands after bridge install.\n\n3. **Tree-View Timeout**: Reduce `$provideTreeChildren` timeout from 5000ms to 1500ms. User-interactive RPCs should show a spinner and fail gracefully — real workloads (gitlens, rust-analyzer) finish in <500ms. Slow producers fall through to empty-array and retry on scroll.\n\nExtends the sky:replay-events handler added in 1599d766.",
+			"SHA": "1f93b7ef93262b34e18e1109e24268a36e2caf07"
 		}
 	],
-	"TimeStamp": 1779378425029
+	"TimeStamp": 1779544405986
 }

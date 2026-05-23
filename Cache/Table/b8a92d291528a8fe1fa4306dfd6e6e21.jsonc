@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-05-11T02:44:31Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-13T23:00:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1490,
 				1
 			],
-			"Message": "",
-			"SHA": "48d8f0a267819c656ffb6700f5f6b256da744f18"
+			"Message": "build(Mountain): Enable experimental feature flags for terminals and debug protocol\n\nUpdate the default feature set in `Cargo.toml` to conditionally enable `terminals`, `debug-protocol`, `scm-support`, `child-processes`, and `Development` alongside existing `Cocoon`, `Mist`, and `Air` integrations. This consolidates the build configuration to activate support for terminal emulation, debugging capabilities, source control management, and child process handling by default.\n\nRemove the now-unused `grove` and `cocoon` feature placeholders from the list, aligning the feature registry with the current implementation status. This prepares the native backend for upcoming component integration while maintaining the explicit `Telemetry` and `Test` flags for optional toggling.",
+			"SHA": "a2869e478f35c9bc90a23edc28e7a95f066f88a9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:59:03Z",
+			"Date": "2026-05-13T22:38:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1490,
 				1
 			],
-			"Message": "fix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with an early error return\n\nThe `$resolveCustomEditor` arm contained:\n\n    let resource_uri = Url::parse(resource_uri_str)\n        .unwrap_or_else(|_| Url::parse(\"file:///tmp/test.txt\").unwrap());\n\nThe `unwrap_or_else` silently swallowed a malformed or missing URI and\nsubstituted the hardcoded test path `file:///tmp/test.txt`. Two\nconsequences:\n\n  1. A caller that passes an empty or invalid URI (e.g., an extension\n     registering a custom editor for a virtual scheme that Mountain\n     does not yet translate) receives a resolved result for\n     `/tmp/test.txt` instead of an error. The provider's\n     `ResolveCustomEditor` then opens or creates that file, which:\n     - Leaks a sentinel file to the OS tmp directory on every\n       such call.\n     - Returns success to Cocoon, which treats the editor as\n       resolved. The extension's `openCustomDocument` never fires\n       for the real resource, and the editor panel stays empty.\n\n  2. The fallback URI makes the log completely undiagnosable: every\n     failed resolve shows `resource=file:///tmp/test.txt` regardless\n     of what the caller sent, masking the real resource path.\n\nFix: return an `Err` immediately when the URI is empty or fails to\nparse. The error string is deliberately plain (no `resource not\nfound` suffix) because a malformed URI is a caller contract violation,\nnot a benign 404 probe - it should surface at error level in the\n`grpc` log and NOT be swallowed by `LooksLike404`.",
-			"SHA": "8b3f1a90730370b689d1269d924f04f906624966"
+			"Message": "feat(Mountain): Enable content protection for macOS overlay title bar\n\nAdd the `content_protected(true)` setting to the macOS `WindowBuilder` configuration in `WindowBuild.rs`. While the `TitleBarStyle::Overlay` is required for custom traffic light rendering, it allows webview content to extend underneath the system window controls by default.\n\nThis protection flag reserves a safe zone around the traffic-light cluster on macOS, preventing the `WKWebView` from rendering underneath the native buttons. This resolves potential click-through issues and visual overlap between the editor workbench and the system titlebar, ensuring the custom traffic lights remain interactive and visually distinct.",
+			"SHA": "2d569c4b2d69bcbff098a7bcaf449f7098f3db8b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:57:08Z",
+			"Date": "2026-05-13T22:23:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1490,
 				1
 			],
-			"Message": "Merge pull request #46 from CodeEditorLand/fix/TVIEW-unreg-dispose-emit\n\nfix(TVIEW): wire tree.unregister + tree.dispose to provider; emit TreeViewDispose",
-			"SHA": "22734234c478e2281666ae644675fcab1aece7f7"
+			"Message": "fix(Mountain): Wrap webview scheme handler closure in AssertUnwindSafe\n\nUpdate the `catch_unwind` invocation in `VscodeWebviewSchemeHandler` within `Scheme.rs` to explicitly wrap the closure in `AssertUnwindSafe`. The previous implementation omitted this trait requirement, causing compilation failures when attempting to catch panics inside the async closure passed to the panic handler.\n\nThis restores the ability to gracefully handle panics within the VS Code webview asset loading path, ensuring that errors in MIME resolution or file reading return HTTP 500 responses rather than crashing the editor process. The change aligns `VscodeWebviewSchemeHandler` with the established panic recovery pattern used in `VscodeFileSchemeHandler`.",
+			"SHA": "01422c257e48f4a9f8a8fb32093daf2a7d283073"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:54:41Z",
+			"Date": "2026-05-13T22:16:54Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1490,
 				1
 			],
-			"Message": "fix(TVIEW): wire tree.unregister + tree.dispose to provider + emit TreeViewDispose\n\n`tree.unregister` / `tree.dispose` were no-ops: the effect body\nlogged the handle but never called the provider and never emitted a\nSkyEvent. The consequence:\n\n  - Provider registry in `Sky/Source/TreeView/TreeViewService.ts`\n    kept the `_dataProvider` slot live after the extension called\n    `vscode.window.registerTreeDataProvider(...).dispose()`. A\n    subsequent re-registration from the same extension (reload,\n    update) produced a duplicate registration warning from Sky and\n    the new provider was ignored.\n\n  - `getChildren()` calls on a disposed tree continued to hit the\n    old provider pointer, producing stale results or panics if the\n    provider had been GC'd from the Cocoon side.\n\nFix: call `provider.UnregisterTreeDataProvider(view_id)`, emit\n`SkyEvent::TreeViewDispose` (parity with the register arm's\n`TreeViewCreate`), and log both outcomes under the same `tree-view`\nand `grpc` tags used by the register arm.",
-			"SHA": "90a62cdda4de6b6184a0e80498676c96d39f3f4d"
+			"Message": "fix(Mountain): Consolidate panic recovery logic in scheme handlers\n\nMigrate the panic recovery implementation in `VscodeWebviewSchemeHandler` to match the established pattern in `VscodeFileSchemeHandler`. The previous implementation attempted to use `catch_unwind` but failed to handle the `AssertUnwindSafe` trait requirement and redundantly implemented the result matching logic inside the closure.\n\nUpdate `VscodeWebviewSchemeHandler` to use `catch_unwind` with `AssertUnwindSafe` for the closure wrapper and move the `match` result handling and `dev_log` error reporting to the function scope. This ensures that panics within the webview asset loading path (e.g., in MIME type resolution or file reading) are caught, logged with backtrace details, and converted to HTTP 500 responses without crashing the editor process.\n\nAlign the import structure in `Scheme.rs` to group `panic` imports correctly. This change unifies the error handling strategy for both file and webview scheme handlers, ensuring consistent graceful degradation across the native backend's asset serving layer.",
+			"SHA": "139de360adc2c0b17a5adbef32cee1d8d6e06c54"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:51:24Z",
+			"Date": "2026-05-13T22:10:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
-				1
+				1490,
+				2
 			],
-			"Message": "fix(FSSRV): add empty-path guard + URI strip to Stat, ReadDirectory, ReadFile\n\nFileSystem.Stat and FileSystem.ReadDirectory had no empty-path guard,\nunlike FileSystem.ReadFile which already had one (added in the\n`LooksLike404` classifier batch). An extension passing an empty string\nto `vscode.workspace.fs.stat` or `readDirectory` (probe-on-activate\npattern) hit PathBuf::from(\"\") which:\n  - On Stat: reached the OS with an empty path and returned a\n    platform-dependent error string that did NOT match any of the eight\n    known \"not found\" patterns in MountainVinegRPCService, so the\n    LooksLike404 guard logged it at grpc/error and incremented the\n    circuit-breaker counter.\n  - On ReadDirectory: same failure path, plus PathSecurity could emit\n    \"path outside workspace\" which was previously only guarded on the\n    ReadFile arm.\n\nFix: mirror the ReadFile guard verbatim on both Stat and ReadDirectory.\nThe \"resource not found\" suffix in the error string is the canonical\nkey the LooksLike404 classifier matches on, so these errors now\ndowngrade to grpc-verbose and use code -32004 like ReadFile does.\n\nStripFileUriScheme is already called on the path_str in both arms;\nthis commit makes that call consistent - the strip was missing on\nReadDirectory before the empty-path branch was added, leaving\nfile:///absolute/path inputs reaching the OS with the scheme intact\nand 404-ing with a literal \"file:\" prefix in the error.",
-			"SHA": "701563143aa3d55befc5f0b1adc173057a1dc30c"
+			"Message": "fix(Mountain): Migrate VS Code webview scheme handler to internal panic wrapper\n\nMove the VS Code webview scheme handler logic into a private `_VscodeWebviewSchemeHandler` function and wrap the public entry point with `std::panic::catch_unwind`. This mirrors the protective pattern recently implemented for the file scheme handler to prevent editor crashes caused by panics crossing the Objective-C FFI boundary.\n\nConcurrently, remove the `LSEnvironment` dictionary from `Info.plist`. These runtime configuration values (including network ports and feature tiers) were previously stored in the property list but are now generated and injected at build time via `build.rs` and `Scheme.rs`. Removing the dead XML nodes cleans up the configuration file and aligns the binary structure with the current build process.\n\nThis change ensures graceful error recovery for webview asset requests and resolves configuration drift by centralizing environment setup in the Rust build logic.",
+			"SHA": "230ca02557a152875ce896802af0b4c5ec9d5929"
 		}
 	],
-	"TimeStamp": 1779378404131
+	"TimeStamp": 1779544364079
 }

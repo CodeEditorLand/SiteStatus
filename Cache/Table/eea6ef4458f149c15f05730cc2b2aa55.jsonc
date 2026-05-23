@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:21Z",
+			"Date": "2026-05-03T08:17:15Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1143,
+				1362,
+				7
+			],
+			"Message": "feat(Mountain): Implement enhanced IPC connection pool with health monitoring\n\nIntroduce a robust, bounded connection pool subsystem under `Source/IPC/Enhanced/ConnectionPool` to manage IPC backend resources efficiently. This module replaces ad-hoc connection handling with a scalable architecture featuring automatic lifecycle management, health scoring, and statistical telemetry.\n\nThe implementation adheres to the project's PascalCase naming and 'one struct per file' architecture:\n- `ConnectionHandle::Struct`: Tracks per-connection metadata including UUID, timestamps, error counts, and a dynamic health score that decays on failures and recovers on success.\n- `ConnectionHealth::Enum`: Defines states (`Healthy`, `Unhealthy`, `Degraded`) for precise resource filtering.\n- `HealthChecker::Struct`: Implements asynchronous health probes with configurable timeouts to validate connection viability.\n- `Pool::Struct`: The core aggregator managing a bounded semaphore, a wait queue for contention handling, and background Tokio tasks for periodic health monitoring and stale connection cleanup.\n- `PoolConfig::Struct` & `PoolStats::Struct`: Provide serialization support for tunable parameters (timeouts, bounds) and runtime telemetry (error rates, active counts).\n\nThis enhancement ensures the Mountain backend can sustain high-throughput IPC operations with automatic failover and resource recycling, crucial for the editor's stability during heavy extension host activity.",
+			"SHA": "abce84b95074b8849ebd1542814a776d4541f0d5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:17:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1354,
+				8
+			],
+			"Message": "feat(Mountain): Implement Tauri command handlers for text model lifecycle and file I/O\n\nIntroduce a comprehensive suite of Wind IPC service handlers under `Source/IPC/WindServiceHandlers/Model/` to bridge the Mountain backend with the editor's document registry and filesystem operations. These handlers fulfill the contract required by Wind's text model service to manage the full lifecycle of open files.\n\nThe implementation covers the core CRUD operations for in-memory document models and raw file access:\n- **Model Lifecycle:** `ModelOpen` reads content from disk, infers language ID from extensions, and registers a `DocumentStateDTO` in `ApplicationState.Feature.Documents` with correct EOL handling. `ModelClose` removes entries idempotently.\n- **Model State:** `ModelGet` and `ModelGetAll` return snapshots of open documents (content, version, language ID) for UI restoration and cache hydration. `ModelUpdateContent` applies edits, increments version numbers, and marks documents as dirty.\n- **File I/O:** `TextfileRead` and `TextfileWrite` provide direct verbatim file access for tooling and resolvers without polluting the document registry. `TextfileSave` acts as a save-intent hint to clear dirty markers and log traces.\n\nAll handlers adhere to PascalCase naming, strict error handling, and the project's modular architecture, ensuring the native backend can reliably synchronize state with the Wind/Sky frontend.",
+			"SHA": "4f13441eff41ba8384cc274c2eca1a8d0377bac7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:16:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1345,
 				5
 			],
-			"Message": "feat(Mountain): Atomize scheduler initialization into dedicated PascalCase modules\n\nDecompose the runtime scheduler bring-up logic into a focused directory of modules (`Build`, `BuildDebug`, `BuildWithConfig`, `CreateBuilder`, `SchedulerConfig`) to enforce the project's `Struct::Struct` and `Fn` naming conventions. The new `SchedulerConfig::Struct` defines tuning knobs for worker count, metrics, and log levels that adapt automatically to the active build profile (`Debug`, `Telemetry`, `Development`).\n\n`Build::Fn` and `BuildDebug::Fn` serve as profile-specific entry points that delegate to `BuildWithConfig::Fn`, which orchestrates the creation of an `Echo` scheduler instance via `CreateBuilder::Fn`. The builder logic clamps worker counts to the `[1, 256]` range to prevent misconfiguration. This change isolates the scheduler boot path from the binary initialization, providing atomic, testable units for the `Echo` integration while maintaining strict separation of concerns between configuration, construction, and execution.",
-			"SHA": "7469788102dc319e5db53b52b342a961b70d2401"
+			"Message": "feat(Mountain): Implement output channel lifecycle handlers for Sky\n\nIntroduce a complete suite of Tauri command handlers under `Source/IPC/WindServiceHandlers/Output/` to manage the editor's output panel lifecycle. This bridges the Wind service layer with the Sky frontend for displaying and manipulating output streams.\n\nThe implementation adds five new modules adhering to the project's PascalCase naming and `one struct per file` architecture:\n- `OutputCreate`: Acknowledges channel creation and logs to the dev console.\n- `OutputAppend` & `OutputAppendLine`: Emit `sky://output/append` events to stream text into the Sky scroll buffer, with the latter automatically appending newlines.\n- `OutputClear` & `OutputShow`: Emit `sky://output/clear` and `sky://output/show` events respectively, allowing the frontend to reset buffers or bring a specific channel to focus.\n\nThese handlers utilize the `CommonLibrary::IPC::SkyEvent` system to trigger reactive updates in the Sky UI, completing the native backend support for the integrated output terminal.",
+			"SHA": "70253806a73d36c1bcc9269c4d4c468497bf3be7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:15Z",
+			"Date": "2026-05-03T08:16:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1137,
-				1
+				1339,
+				5
 			],
-			"Message": "refactor(Mountain): Enforce explicit Fn path for ExtensionInstall\n\nUpdate the import in `ExtensionInstall.rs` to use the fully qualified path `UriComponents::FromFilePath::Fn` instead of the module alias `UriFromFilePath`.\n\nThis change aligns the extension installation handler with the project's strict `Struct::Struct` and `Fn` naming conventions, ensuring all function calls are explicit and removing implicit module re-exports. This maintains consistency with recent refactoring efforts in `FileRealpath` and other IPC handlers that migrate inline types and functions to dedicated PascalCase modules, reducing ambiguity in the Wind service handler layer.",
-			"SHA": "40e5b9780834547f1338ff3c4a23c7b42ec4abff"
+			"Message": "feat(Mountain): Implement RBAC enforcement engine with audit logging\n\nIntroduce the `PermissionManager` subsystem within `Source/IPC/Security` to enforce Role-Based Access Control (RBAC) on all IPC operations. This module provides the `Manager::Struct` enforcement core, which validates operations against user `SecurityContext` data (roles and permissions) before dispatch.\n\nKey components include:\n- `Manager::Struct`: Maintains role/permission tables and a rolling 1,000-entry audit log. Implements `validate_permission` to gate access and `log_security_event` for telemetry.\n- `SecurityContext::Struct`: The request envelope carrying user identity, roles, and origin IP.\n- `SecurityEvent::Struct` & `SecurityEventType::Enum`: Standardized audit log entries for access grants, denials, and violations.\n- `initialize_defaults`: Bootstraps standard roles (User, Developer, Admin) and permission definitions (file, config, storage, system).\n\nThe implementation adheres to PascalCase naming and the project's modular architecture, ensuring the native backend can strictly enforce least-privilege principles for file I/O, configuration updates, and system extensions.",
+			"SHA": "429102af223fb0f5403463c95f8e492f94e7e879"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:11Z",
+			"Date": "2026-05-03T08:16:46Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1137,
-				1
+				1333,
+				16
 			],
-			"Message": "refactor(Mountain): Atomize RecoverState into dedicated PascalCase modules\n\nDecompose the 177-line `RecoverState.rs` monolith into a directory of focused modules (`ValidateAndCleanState`, `SafeStateOperationWithTimeout`, `RecoverStateWithBackoff`) to enforce the project's `Struct::Struct` and `Fn` naming conventions. The original file contained three distinct recovery primitives: predicate-driven map filtering, off-thread blocking operations with timeout, and async retry with exponential backoff.\n\nThese utilities are now exposed as individual module files with a clear \"one export per file\" identity, aligning with recent architectural shifts seen in `MementoLoader` and `FileRealpath`. The parent file now serves strictly as a barrel export and architectural documentation, clarifying the separation between validation, timeout handling, and backoff logic while awaiting formal integration into the `ApplicationState` recovery flow.",
-			"SHA": "6d642b4185fabe075f5b5494b534ca4b97974a19"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:04:59Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1137,
-				1
-			],
-			"Message": "refactor(Mountain): Atomize MementoLoader into dedicated function modules\n\nDecompose the 190-line `MementoLoader.rs` monolith into a directory of focused PascalCase modules (`LoadInitialMementoFromDisk`, `LoadMementoWithRecovery`, `AttemptMementoRecovery`, `CreateCorruptedBackup`) to enforce the project's `Struct::Struct` and `Fn` naming conventions.\n\nThe original file contained logic for best-effort loading, recovery flows, and timestamped backup creation. These are now exposed as individual module files with a clear \"one export per file\" identity, aligning with the architectural shift seen in recent commits (`RecoverState`). The file itself now serves as a barrel export and architectural documentation, clarifying the separation between the best-effort `default()` loader and the error-propagating recovery loader.\n\nThis change prepares the persistence layer for cleaner dependency injection from `Environment::StorageProvider` and reduces coupling in the `ApplicationState` boot path.",
-			"SHA": "600afe5343df30878c1aaea0f8fd7a9b6be7b7fd"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:04:53Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1137,
-				1
-			],
-			"Message": "refactor(Mountain): Enforce explicit Fn path for UriFromFilePath\n\nUpdate the import in `FileRealpath.rs` to use the fully qualified path `UriComponents::FromFilePath::Fn` instead of the module alias `UriFromFilePath`. This change aligns the file handler with the project's strict `Struct::Struct` and `Fn` naming conventions, ensuring all function calls are explicit and removing implicit module re-exports.\n\nThis maintains consistency with recent refactoring efforts that migrate inline types and functions to dedicated PascalCase modules, reducing ambiguity in the IPC service layer.",
-			"SHA": "131a323c4b30b6ec65ba209721d9e3ffd554fd24"
+			"Message": "feat(Mountain): Implement IPC message compression and RBAC role engine\n\nIntroduce two critical subsystems within the Mountain backend's `Source/IPC` layer to optimize bandwidth and enforce access control.\n\n**Message Compression & Batching:**\nAdd the `Enhanced::MessageCompressor` module to aggregate IPC payloads before transmission. The `Compressor::Struct` buffers messages until size or time thresholds are met, then flushes using configurable algorithms (Brotli, Gzip, Zlib) and levels. Supporting DTOs (`BatchConfig`, `CompressedBatch`, `CompressionInfo`) provide telemetry and serialization support, reducing network overhead for high-frequency native-to-extension communications.\n\n**Role-Based Access Control (RBAC):**\nEstablish the `Permission::Role::ManageRole` engine with strict `category.action` naming validation. Define the `Role::Struct` and `Permission::Struct` with support for sensitivity flags (e.g., `system.execute`, `role.manage`) to trigger elevated audit logging. Implement factory functions (`CreateAdminRole`, `CreateDeveloperRole`, `CreateUserRole`) to bootstrap the standard security hierarchy, ensuring the IPC layer enforces least-privilege principles across the editor's distributed components.\n\nBoth modules adhere to PascalCase naming and the project's modular 'one struct per file' architecture.",
+			"SHA": "a74d4b330ceea060804b0ab8fd5957ac1676f1a8"
 		}
 	],
-	"TimeStamp": 1779378412534
+	"TimeStamp": 1779544378308
 }

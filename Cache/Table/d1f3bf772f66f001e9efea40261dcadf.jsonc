@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:13:26Z",
+			"Date": "2026-04-24T16:45:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
+				872,
+				4
+			],
+			"Message": "feat(Mountain): Expand trusted paths and add exec-bit magic-number detection\n\nThree complementary improvements for extension runtime reliability:\n\n1. **Extended trusted paths** (`PathSecurity.rs`):\n   - Add `/tmp`, `/private/tmp`, `/var/tmp` for language servers (ruby-lsp, pyright, etc.)\n   - Add third-party tool state: `~/.gitkraken`, `~/.gk`, `~/.copilot`, `~/.config/git`\n   - Add read-only POSIX OS files (`/etc/os-release`, `/proc/*`, etc.)\n\n2. **Magic-number executable detection** (`VsixInstaller.rs`):\n   - Enhance extraction to probe file headers for ELF, Mach-O fat/thin, and shebang\n   - Detect bin paths (`bin/`, `server/`, `tools/`, `omnisharp`, `adapter`, `native`)\n   - Promote 0o644 → 0o755 for detected executables, fixing EACCES on spawn\n   - Add `HealExecutableBits()` to retroactively fix pre-existing installs\n\n3. **Boot-time exec-bit heal** (`Scanner.rs`):\n   - Walk user extensions (`~/.land/extensions/`) at scan time\n   - Apply same heuristic to recover extensions installed before the fix\n\n4. **Benign ENOENT** (`DevLog.rs`):\n   - Add vim registers, globalStorage probing, chat editing sessions\n\nThese changes unblock extension binaries (rust-analyzer, GitLens, Copilot) that were failing with EACCES due to missing exec bits.",
+			"SHA": "713fc89729f6f995808d00db9ca625cdfc93f906"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T15:07:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
 				2
 			],
-			"Message": "docs(Mountain): Streamline extension path and NodeResolver module docs\n\nSimplify comments in ScanPathConfigure for extension skip flags and builtin path override to be more concise while preserving the technical details.\n\nCondense the NodeResolver module docstring from verbose prose to a compact ladder list showing the resolution order: LAND_NODE_BINARY → shipped runtime → fnm/volta/asdf/nvm → homebrew → PATH. The resolution behavior is unchanged, only the documentation format is improved for scannability.",
-			"SHA": "bcc45254e06f84f91d17cb58716d12de486805f9"
+			"Message": "feat(Mountain): Add trusted system paths bypass and idempotent VSIX installs\n\nImplement two related extension-management improvements:\n\n1. **Trusted system paths** (`PathSecurity.rs`): Add `IsTrustedSystemPath` that defines directories Land owns (`.land/`, Application Support, bundled extension roots, TMPDIR) which bypass the workspace-folder sandbox check. Without this, the extension scanner's read of `~/.land/extensions` was rejected as \"outside workspace\" - user-installed VSIXes never reached the Extensions sidebar.\n\n2. **Idempotent VSIX reinstalls** (`VsixInstaller.rs`): Remove `AlreadyInstalled` error and instead treat re-installs as no-op when the target already exists with a readable manifest. Matches VS Code's semantics and prevents the renderer crash where `ExtensionsWorkbenchService` dereferences a null result. Corrupt/partial installs are wiped and re-extracted.\n\nBoth changes unblock the extension loading pipeline.",
+			"SHA": "e49563563641f0491ec4cb23c2ea1809d455feea"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:03:13Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				774,
-				12
-			],
-			"Message": "feat(Mountain): Add extension metadata passthrough, IPC round-trip, and Node version checking\n\nThree major improvements for extension handling and IPC reliability:\n\n1. **Extension manifest passthrough (Atom TH1):** Add 14 new fields to ExtensionDescriptionStateDTO for VS Code package.json metadata: Categories, DisplayName, Description, Keywords, Repository, Bugs, Homepage, License, Icon, AiKey, ExtensionKind, Capabilities, ExtensionDependencies, ExtensionPack. Wind's Extensions sidebar filter `@builtin category:themes` now works — previously categories were absent so the filter never matched.\n\n2. **IPC round-trip for applyEdit/showTextDocument (Atom T1):** Replace fire-and-forget event emission with request/response pattern using SendUserInterfaceRequest. Extensions awaiting workspace.applyEdit() now block until Sky actually applies the edit, fixing races with listeners expecting post-apply state. Also made SendUserInterfaceRequest pub(crate) so Track effect creators reuse the same pattern.\n\n3. **Node version checking (Atom N1):** ResolveNodeBinary now queries `node --version` and logs the resolved version. Emits a warning when major version falls below LAND_NODE_MIN_MAJOR (default 20). Helps diagnose extension host boot failures.\n\n4. **Compile-time PostHog config (Atom P2):** PostHogPlugin now reads API key/host/enable flag from env! baked in build.rs via PropagatePostHogSentinel(). Supports LAND_POSTHOG_DISTINCT_ID for CI correlation. Combined with debug_assertions gate for cheaper no-op path.\n\n5. **IPC logging improvement (Atom I13):** Add paired entry/exit lines per invoke. `done: <cmd> ok=... t_ns=...` on the way out enables latency diagnosis via single grep without Jaeger hopping.",
-			"SHA": "f24e444f42f611f00e844728138c5036e8f28793"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T14:19:44Z",
+			"Date": "2026-04-24T14:49:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				774,
-				1
+				872,
+				2
 			],
-			"Message": "",
-			"SHA": "12de818c4d637c9baa99ed0690625ee482720398"
+			"Message": "chore(Mountain): Add payload preview to notif-drop logging and register benign ENOENT paths\n\nTwo logging improvements for Mountain's developer diagnostics:\n\n1. **Notif-drop payload preview**: When a notification falls through to the Cocoon event handler, include a truncated payload preview (160 bytes max) in the dev log. This helps diagnose which new upstream notifications are reaching the catch-all without needing a second debug run.\n\n2. **Benign ENOENT paths**: Register additional file paths that commonly return ENOENT but aren't errors:\n   - MCP config files (.vscode/mcp.json, .mcp.json)\n   - User snippets and keybindings (/User/snippets, /User/keybindings.json)\n   - AI-generated workspace storage (aiGeneratedWorkspaces.json)\n   - Git config for non-repo folders (/.git/config)\n\nThese paths reduce noise in dev logs while preserving signal for genuine file-access issues.",
+			"SHA": "f1de83d594ad1a3f7c893f0ecbf92581f8029abb"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T14:19:43Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				774,
-				51
-			],
-			"Message": "feat(Mountain): Add Node binary resolver and extension path environment variables\n\nImplement two significant features for Cocoon sidecar spawning and extension management:\n\n1. **NodeResolver (Atom N1):** New module that resolves Node.js binary for Cocoon spawn, checking in order: explicit override (LAND_NODE_BINARY), shipped runtime (Tauri bundle or dev-tree sibling), version managers (fnm, volta, asdf, nvm), Homebrew, and PATH fallback. Logs source for forensics.\n\n2. **Extension path configuration (Atom U1):** Add support for environment variables controlling extension scan paths:\n  - LAND_DISABLE_BUILTIN_EXTENSIONS: Same effect as LAND_SKIP_BUILTIN_EXTENSIONS\n  - LAND_BUILTIN_EXTENSIONS_DIR: Override bundle path for CI builds\n  - LAND_USER_EXTENSIONS_DIR: Override ~/.land/extensions for sandboxes\n  - LAND_EXTRA_EXTENSIONS_DIRS: Multi-path separator (semicolon Windows, colon elsewhere)\n  - LAND_DEV_EXTENSIONS_DIR: Development extensions that always load\n\n3. **Profile sentinel fix:** Replace runtime std::env::var(\"LAND_PROFILE\") with compile-time option_env! in build.rs so profile resolves correctly after binary launch (previously showed \"unknown\" when run outside Build.sh shell).\n\n4. **IPC handler improvements:** Add extensions:resetPinnedStateForAllUserExtensions handler (Atom P1), improve error handling in showSaveDialog/showMessageBox with proper Join handling.",
-			"SHA": "458377b0d14a3611cc723298645f95d86eebfd80"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T12:58:23Z",
+			"Author": "github-actions[bot]",
+			"Date": "2026-04-24T07:53:45Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				773,
+				872,
 				1
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "edeef4b1eb18a7b9c3bcb7a3cdc2f7a15f48efe4"
+			"Message": "Merge pull request #42 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-2.2.1\n\nchore(deps): Bump pozil/auto-assign-issue from 2.2.0 to 2.2.1",
+			"SHA": "77025119a1c3843e843bcaa42b0a31fabcad5bb7"
+		},
+		{
+			"Author": "dependabot[bot]",
+			"Date": "2026-04-24T07:53:34Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				872,
+				1
+			],
+			"Message": "chore(deps): Bump pozil/auto-assign-issue from 2.2.0 to 2.2.1\n\nBumps [pozil/auto-assign-issue](https://github.com/pozil/auto-assign-issue) from 2.2.0 to 2.2.1.\n- [Release notes](https://github.com/pozil/auto-assign-issue/releases)\n- [Commits](https://github.com/pozil/auto-assign-issue/compare/v2.2.0...v2.2.1)\n\n---\nupdated-dependencies:\n- dependency-name: pozil/auto-assign-issue\n  dependency-version: 2.2.1\n  dependency-type: direct:production\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "7ac71734f23f84b929347fa75ffc0bda336b807a"
 		}
 	],
-	"TimeStamp": 1779378428734
+	"TimeStamp": 1779544414388
 }

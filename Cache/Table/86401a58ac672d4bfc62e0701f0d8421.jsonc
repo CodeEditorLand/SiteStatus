@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:32:04Z",
+			"Date": "2026-05-02T09:05:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1007,
+				1137,
+				1
+			],
+			"Message": "refactor(Mountain): Atomize RecoverState into dedicated PascalCase modules\n\nDecompose the 177-line `RecoverState.rs` monolith into a directory of focused modules (`ValidateAndCleanState`, `SafeStateOperationWithTimeout`, `RecoverStateWithBackoff`) to enforce the project's `Struct::Struct` and `Fn` naming conventions. The original file contained three distinct recovery primitives: predicate-driven map filtering, off-thread blocking operations with timeout, and async retry with exponential backoff.\n\nThese utilities are now exposed as individual module files with a clear \"one export per file\" identity, aligning with recent architectural shifts seen in `MementoLoader` and `FileRealpath`. The parent file now serves strictly as a barrel export and architectural documentation, clarifying the separation between validation, timeout handling, and backoff logic while awaiting formal integration into the `ApplicationState` recovery flow.",
+			"SHA": "6d642b4185fabe075f5b5494b534ca4b97974a19"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:04:59Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1137,
+				1
+			],
+			"Message": "refactor(Mountain): Atomize MementoLoader into dedicated function modules\n\nDecompose the 190-line `MementoLoader.rs` monolith into a directory of focused PascalCase modules (`LoadInitialMementoFromDisk`, `LoadMementoWithRecovery`, `AttemptMementoRecovery`, `CreateCorruptedBackup`) to enforce the project's `Struct::Struct` and `Fn` naming conventions.\n\nThe original file contained logic for best-effort loading, recovery flows, and timestamped backup creation. These are now exposed as individual module files with a clear \"one export per file\" identity, aligning with the architectural shift seen in recent commits (`RecoverState`). The file itself now serves as a barrel export and architectural documentation, clarifying the separation between the best-effort `default()` loader and the error-propagating recovery loader.\n\nThis change prepares the persistence layer for cleaner dependency injection from `Environment::StorageProvider` and reduces coupling in the `ApplicationState` boot path.",
+			"SHA": "600afe5343df30878c1aaea0f8fd7a9b6be7b7fd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:04:53Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1137,
+				1
+			],
+			"Message": "refactor(Mountain): Enforce explicit Fn path for UriFromFilePath\n\nUpdate the import in `FileRealpath.rs` to use the fully qualified path `UriComponents::FromFilePath::Fn` instead of the module alias `UriFromFilePath`. This change aligns the file handler with the project's strict `Struct::Struct` and `Fn` naming conventions, ensuring all function calls are explicit and removing implicit module re-exports.\n\nThis maintains consistency with recent refactoring efforts that migrate inline types and functions to dedicated PascalCase modules, reducing ambiguity in the IPC service layer.",
+			"SHA": "131a323c4b30b6ec65ba209721d9e3ffd554fd24"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:04:49Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1137,
 				3
 			],
-			"Message": "feat(Mountain): Implement Cocoon initialization handshake and operation cancellation\n\nIntroduce three new gRPC handlers in the `Mountain` backend to formalize the startup sequence and lifecycle management with the Cocoon extension host sidecar:\n\n- `InitialHandshake`: A ping from Cocoon to signal readiness, acknowledging the connection before data transfer.\n- `InitExtensionHost`: Receives workspace folder lists and configuration from the client, parsing and persisting them into `ApplicationState.Workspace` via `WorkspaceFolderStateDTO` to ensure the boot path has access to the current workspace context.\n- `CancelOperation`: Enables cancellation of in-flight operations by looking up the request identifier in `Service.ActiveOperations` and firing the associated token.\n\nThese handlers adhere to the project's PascalCase naming conventions (`Fn`, `DTO`) and explicit trait method resolution patterns. This completes the foundational IPC contract required for the extension host to receive state and support graceful operation termination.",
-			"SHA": "b0a8fa23c5d8797b0a011977b8f1c59073f3c700"
+			"Message": "feat(Mountain): Add robust state recovery primitives with backoff and timeout\n\nExtract core recovery logic into dedicated PascalCase modules under `RecoverState` to enforce the project's `Struct::Struct` naming convention and isolate failure handling for `ApplicationState`.\n\nIntroduce three new utilities:\n1. `RecoverStateWithBackoff`: Implements exponential backoff (100ms doubling) for async recovery operations, yielding the runtime during wait periods.\n2. `SafeStateOperationWithTimeout`: Executes blocking state operations on a detached thread with a hard timeout to prevent hung repairs from stalling the main event loop.\n3. `ValidateAndCleanState`: Filters state maps in-place using a validator predicate, logging removals for observability.\n\nThese components provide the atomic building blocks required for the `MementoLoader` to handle corrupted `ApplicationState` gracefully, ensuring the editor can degrade to a clean state without crashing during startup or recovery flows.",
+			"SHA": "9b58d4d4e5ff9f5e01e82549344e29bbc6c4b021"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:31:54Z",
+			"Date": "2026-05-02T09:04:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1003,
-				1
+				1133,
+				4
 			],
-			"Message": "fix(Mountain): Apply explicit trait resolution for gRPC extension notifications\n\nCorrect the invocation of `Vine::Client::SendRequest` in `NotifyCocoonDeltaExtensions` by switching from direct call syntax to explicit trait method resolution (`::Fn`). The previous syntax failed to resolve the trait method in the current compilation context, preventing the dispatch of `$deltaExtensions` and `$activateByEvent` notifications to the Cocoon extension host.\n\nThis aligns the IPC handler with the strict trait-based interaction patterns established in recent fixes for `PickFolder` and other Wind service handlers, ensuring reliable gRPC communication between the Mountain backend and the Cocoon sidecar.",
-			"SHA": "41e2292edc78f7ded8fcee80584bcc758db0ed0d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:31:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1003,
-				2
-			],
-			"Message": "refactor(Mountain): Canonicalize path resolution in ConfigurationProvider\n\nUpdate the import structure in `ConfigurationProvider/Loading.rs` and `ConfigurationProvider/UpdateValue.rs` to use the explicit nested path resolution for `ApplicationRunTime`. Replace the deprecated `RuntimeStruct::ApplicationRunTime` with the flattened canonical path `ApplicationRunTime::ApplicationRunTime`, aligning with the recent module flattening strategy applied to `ExtensionState` and `ConfigurationState`.\n\nAdditionally, correct the type signature in `collect_default_configurations` to reference the fully qualified canonical path `ApplicationState::State::ApplicationState::ApplicationState`. This ensures consistent symbol resolution across the `Mountain` backend and adheres to the project's strict PascalCase naming conventions for module hierarchies.",
-			"SHA": "429aa1f742bb34e1554c3f3d4416c7f196ade0ad"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:31:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1003,
-				1
-			],
-			"Message": "refactor(Mountain): Canonicalize path resolution in PickFolder handler\n\nUpdate the import structure in `Source/IPC/WindServiceHandlers/NativeHost/PickFolder.rs` to use explicit nested path resolution for `ApplicationState` and `UpdateWorkspaceFoldersAndBroadcast`. Replace the wildcard-style direct imports with the fully qualified path under `State::`.\n\nThis change aligns `PickFolder` with the recent module flattening strategy applied to `ConfigurationState`, `ExtensionState`, and `Keybindings`, ensuring consistent symbol resolution and adherence to the project's strict PascalCase naming conventions for module hierarchies.",
-			"SHA": "fd18b0640561c1048b8f272dd0ec346cdac4bd43"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:31:34Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1003,
-				1
-			],
-			"Message": "fix(Mountain): Correct method invocation on Client::SendNotification\n\nChange the invocation of `Client::SendNotification` from direct function call syntax to explicit trait method resolution (`::Fn`). The previous syntax failed to resolve correctly in the current compilation context, causing a build error when dispatching workspace folder deltas to the Cocoon extension host.\n\nThis ensures the notification `$deltaWorkspaceFolders` is successfully sent to the \"cocoon-main\" client upon workspace changes, adhering to the strict trait-based interaction patterns used in the Mountain backend.",
-			"SHA": "5ae45559141de37b2e1ee90ac139df85a2e3412c"
+			"Message": "feat(Mountain): Implement robust memento loading with corruption recovery\n\nExtract memento persistence logic into dedicated PascalCase modules under `MementoLoader` to handle `ApplicationState` initialization safely. Introduce `LoadInitialMementoFromDisk` for best-effort loading that returns an empty map on failure, ensuring the editor never crashes during startup. Add `LoadMementoWithRecovery` for recovery flows requiring explicit error propagation, automatically archiving corrupted JSON to timestamped `.backup` files via `CreateCorruptedBackup` and `AttemptMementoRecovery`.\n\nThis structural change enforces the project's `Struct::Struct` naming convention for function paths (e.g., `LoadInitialMementoFromDisk::Fn`) and guarantees that invalid state files are preserved for debugging while allowing the application to degrade gracefully to a clean state.",
+			"SHA": "53a15341654dd27f1f702944adcfb3f295ea434b"
 		}
 	],
-	"TimeStamp": 1779378415838
+	"TimeStamp": 1779544385722
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:01Z",
+			"Date": "2026-05-03T08:17:45Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1169,
-				4
+				1400,
+				1
 			],
-			"Message": "feat(Mountain): Introduce stub health probe commands for backend services\n\nAdd a new suite of Tauri commands under `Source/Binary/IPC/HealthCommand` to expose readiness states for internal and sidecar services to the Wind frontend. This includes `cocoon_debug_service_health`, `cocoon_extension_host_health`, and `cocoon_search_service_health` for the extension host subsystem, alongside a generic `shared_process_service_health` dispatcher.\n\nThe implementation follows the project's PascalCase naming conventions for command registration while intentionally retaining snake_case function names to align with the `SharedProcessProxy` invoker in the Wind service layer. `cocoon_search_service_health` and `shared_process_service_health` currently return `true` to signal filesystem readiness or known service availability, whereas DAP and extension host probes return `false` as stubs pending the actual gRPC wire-up with Cocoon.\n\nThis establishes the initial IPC interface for service liveness monitoring, allowing the frontend to conditionally enable features based on backend component status without blocking the main thread.",
-			"SHA": "ba9d963cc9fe42079f53c1ca6177d9ad57ae0ca8"
+			"Message": "refactor(Mountain): Remove empty Permission validation stub\n\nDelete the `ValidatePermission.rs` file which was present as an empty placeholder with no implementation. This cleanup removes dead code artifacts from the `Source/IPC/Permission/Validate` directory, streamlining the permission handling module structure.\n\nThe removal ensures the codebase reflects the current architectural state where specific permission validation logic is either implemented inline with IPC handlers or managed by the Common trait definitions, avoiding confusion from orphaned stub files.",
+			"SHA": "0158bbcdd21075e4419f77fedc6a76253be574af"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:50Z",
+			"Date": "2026-05-03T08:17:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1164,
-				6
+				1401,
+				10
 			],
-			"Message": "feat(Mountain): Implement cross-platform process introspection commands\n\nAdd a suite of new Tauri commands within `Binary/IPC/ProcessCommand` to expose essential runtime environment data to the Wind frontend. These commands include `ProcessGetArch`, `ProcessGetPlatform`, `ProcessGetPid`, `ProcessGetExecPath`, `ProcessGetShellEnv`, and `ProcessGetMemoryInfo`.\n\nThe implementation bridges the gap between Rust's native system calls and VS Code's Node-style expectations. `ProcessGetPlatform` normalizes OS names (e.g., mapping `macos` to `darwin`), while `ProcessGetMemoryInfo` executes platform-specific probes (`ps` on macOS, `tasklist` on Windows, `/proc/self/statm` on Linux) to calculate private, shared, and resident set memory in bytes. All commands return results as `Result` types with graceful fallbacks (zeroed values or empty maps) if underlying system queries fail, ensuring the renderer remains stable even during environment anomalies.\n\nThis establishes the foundational IPC layer for the `ProcessPolyfill` service, allowing the editor to correctly identify the host architecture, platform, and resource constraints without relying on external Node.js shims.",
-			"SHA": "e1803d15dcd25dea32c474b7aa749ec60a9954da"
+			"Message": "feat(Mountain): Implement TLS certificate management IPC command suite\n\nIntroduce a comprehensive set of Tauri commands under `Source/Binary/Build/TlsCommands/` to expose the `CertificateManager` to the Wind/Sky frontend for local TLS/HTTPS provisioning.\n\nThe implementation adheres to PascalCase naming and the project's modular architecture, adding:\n- **DTOs:** `CertificateGenerationResult` and `CertificateStatus` to structure payload responses including expiry timelines and renewal flags.\n- **Lifecycle:** `tls_initialize` loads or generates the root CA; `tls_generate_cert` issues or retrieves server certificates for specific hostnames.\n- **Monitoring:** `tls_check_cert_status` calculates days until expiry and flags renewal needs based on the configured threshold.\n- **Inspection:** `tls_get_all_certs`, `tls_get_server_cert_info`, and `tls_get_ca_cert` provide diagnostic data for the security panel.\n- **Maintenance:** `tls_renew_certificate` and `tls_delete_cert` (currently aliased to renewal) allow manual certificate rotation.\n\nThese commands gate access via the `CertificateManager` state mutex, enabling secure, asynchronous certificate lifecycle operations from the editor UI.\n\nNote: `tls_delete_cert` currently regenerates the certificate as a placeholder until a dedicated deletion logic is implemented in `CertificateManager`.",
+			"SHA": "8e396fbf31d1bb878c5a4609f59a4e823f0f2871"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:44Z",
+			"Date": "2026-05-03T08:17:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1157,
-				8
+				1390,
+				14
 			],
-			"Message": "feat(Mountain): Introduce modular PostHog telemetry plugin\n\nAtomize the PostHog telemetry integration into a dedicated plugin structure within `Binary/Build/PostHogPlugin`. This introduces a strict separation of concerns: `CaptureAllowed` acts as a compile-time and env-var gate to disable telemetry in non-debug builds; `Initialize` bootstraps the singleton `Client` instance and emits the session start event; `CaptureEvent` handles the core logic of stamping standard metadata (`$app`, `$component`) before dispatching; and specific wrappers (`CaptureError`, `CaptureIPC`) provide typed instrumentation for error logging and gRPC method tracing.\n\nThe implementation adheres to project naming conventions with dedicated `Fn::Fn` modules and uses `env!` macros to bake credentials (`Authorize`, `Beam`, `Report`) from `.env.Land.PostHog` at compile time, ensuring a clean checkout builds without runtime dependency on external secrets. This lays the foundation for observability within the Mountain backend without blocking the primary IPC or UI loops.",
-			"SHA": "20a80336a80f6ead98f874736b87a6cc20ecfdf6"
+			"Message": "feat(Mountain): Implement DNS diagnostic and health-check IPC commands\n\nIntroduce a complete suite of Tauri commands under `Source/Binary/Build/DnsCommands/` to expose the internal DNS server state to the Wind/Sky frontend for diagnostic and monitoring purposes. This implements the backend support for a DNS health dashboard and resolution tester.\n\nThe commit adds:\n- **DTOs:** `DnsHealthStatus`, `DnsServerInfo`, `DnsResolutionResult`, `ZoneInfo`, `ZoneRecord`, and `ForwardAllowList` to structure return payloads, adhering to PascalCase naming.\n- **Server Info & Startup:** `dns_get_server_info` returns port status and a persistent startup timestamp captured via `StartupTime`.\n- **Health Monitoring:** `dns_get_health_status` and `dns_health_check` provide aggregated health snapshots and boolean checks for the server, zone, and forwarder states.\n- **Zone Inspection:** `dns_get_zone_info` returns the static `editor.land` authoritative zone snapshot, including SOA, NS, A records, and DNSSEC keys/signatures.\n- **Resolution Logic:** `dns_resolve` handles manual queries, routing `editor.land` to `127.0.0.1` and allowlisted external domains to `TEST-NET-1` placeholders, while rejecting others.\n- **Helpers:** `dns_get_forward_allowlist` and `dns_test_resolution` provide simplified access for automated health loops.\n\nAll commands gate access on the `DnsPort` state, ensuring safe interaction with the underlying Hickory DNS server lifecycle.",
+			"SHA": "004e560b79b0d6cb9ff67b09d4f9de615720c1a3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:39Z",
+			"Date": "2026-05-03T08:17:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1148,
-				2
+				1375,
+				7
 			],
-			"Message": "feat(Mountain): Introduce webview lifecycle state and message envelope types\n\nDefine the `WebviewLifecycleState::Enum` and `WebviewMessage::Struct` within the `Environment/WebviewProvider` module to establish the core data contracts for Tauri webview management.\n\nThe `WebviewLifecycleState::Enum` mirrors the VS Code webview state machine, explicitly defining the lifecycle transitions from `Unloaded` through `Loading`, `Loaded`, `Visible`, `Hidden`, to `Disposed`. The `WebviewMessage::Struct` serves as the serialization envelope for host-to-webview communication, encapsulating the `MessageIdentifier`, `MessageType` tag, `Payload`, and optional `Source` context.\n\nBoth types adhere to the project's strict PascalCase naming conventions and are configured with `Serialize` and `Deserialize` traits to support JSON transmission over the Tauri event bus, laying the groundwork for the `Wind` frontend service layer to manage native webview panel lifecycles.",
-			"SHA": "c10618c8025d32eac34106831406614f1f7eb38a"
+			"Message": "feat(Mountain): Standardize PostHog telemetry namespace and add handler instrumentation\n\nRefactor the PostHog telemetry plugin to adopt the unified `land:<component>:<event>` naming convention, replacing the previous `mountain:` prefix with `land:mountain:` to align with the global telemetry schema used by Cocoon and Sky. This enables consistent aggregation in the Errors & Reliability dashboard via a single `event LIKE 'land:%:error'` query.\n\nKey changes:\n- **Namespace Unification:** Update `CaptureError`, `CaptureIPC`, and `Initialize` to emit events under the `land:mountain:` prefix. Append system metadata (PID, OS, Arch) to session start events.\n- **Handler Instrumentation:** Introduce `CaptureHandler` to emit `land:mountain:handler:complete` events. This tracks `Feature` (IPC route key), `DurationMs`, and success status, enabling the Feature Parity dashboard to compare latency between migrated Mountain (Rust) and Cocoon (Node) handlers.\n- **Configuration Hardening:** Extend `Constants` with OTLP-specific build flags (`OTLPEndpoint`, `OTLPEnabled`) and a master `Capture` kill switch that gates both PostHog and OTLP pipelines. Distinct from the `Disable` flag which controls polyfills.\n- **Runtime Hydration:** Add `HydrateRuntimeEnvironment` to inject build-time telemetry constants into the runtime environment. This ensures child processes (Cocoon, Sky webview) inherit consistent config even when running bare binaries without sourcing `.env` files, while remaining idempotent to allow CI overrides.\n\nThese changes ensure telemetry data is correctly scoped, aggregated, and available for debugging IPC performance and error rates across the entire editor stack.",
+			"SHA": "fa1f78af8f15df86681a6a8307fdf13e12d649bc"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:33Z",
+			"Date": "2026-05-03T08:17:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1146,
-				2
+				1373,
+				10
 			],
-			"Message": "feat(Mountain): Introduce atomic performance and throughput metrics modules\n\nEstablish the `PerformanceMetrics` and `ThroughputMetrics` structs within `Source/IPC/Common` to provide a centralized mechanism for tracking IPC performance across the Mountain backend. Adhering to the strict PascalCase naming convention (`Struct::Struct`, `Fn::Fn`), these modules define state containers for latency (average/peak), throughput (messages/bytes per second), resource utilization (CPU/memory), and error rates.\n\nThe `PerformanceMetrics::Struct` implements an unbiased running mean for latency updates via `RecordMessage::Fn` and includes logic for calculating success rates and latency threshold violations. The `ThroughputMetrics::Struct` captures per-direction counters with a fixed start time to derive rates dynamically. These new types serve as the foundation for the `Echo` scheduler and `Mist` communication layers, enabling precise observability of the gRPC and Tauri IPC boundaries without relying on external telemetry agents.",
-			"SHA": "2be1a2667b6af7ed494d04fbe7f5a14bfb3cbd86"
+			"Message": "feat(Mountain): Implement native Git IPC service handlers\n\nIntroduce a complete suite of Tauri command handlers under `Source/IPC/WindServiceHandlers/Git` to bridge the Mountain backend with the Wind/Sky frontend for version control operations. This implementation fulfills the `localGit` service contract required for the editor's SCM integration.\n\nThe commit adds:\n- **Shared Runtime (`Shared.rs`):** A `RunningProcesses` map to track PIDs per `OperationId`, enabling cross-invocation cancellation. `RunGit` handles spawning `git` with `kill_on_drop`, logging, and result parsing.\n- **Lifecycle & Discovery:** `HandleIsAvailable` (cached `git --version` check), `HandleClone` (with optional branch), and `HandleCheckout` (supporting detached heads).\n- **Remote Operations:** `HandleFetch` and `HandlePull` (enforcing `--ff-only` with HEAD diff validation).\n- **Inspection:** `HandleRevParse` and `HandleRevListCount` for commit history and ahead/behind badges.\n- **Execution & Control:** `HandleExec` for arbitrary Git CLI arguments and `HandleCancel` (SIGTERM/TaskKill) to terminate in-flight processes.\n\nAll handlers adhere to PascalCase naming, strict error handling, and the project's modular architecture, ensuring reliable asynchronous Git operations from the native backend.",
+			"SHA": "2152034f2d8c2f3973951b61c59bcda758010e53"
 		}
 	],
-	"TimeStamp": 1779378412255
+	"TimeStamp": 1779544377595
 }

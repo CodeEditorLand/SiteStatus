@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:57:08Z",
+			"Date": "2026-04-24T22:31:08Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				218,
-				3
-			],
-			"Message": "feat(Output): Add DevLogForward to mirror IPC channel traffic to Mountain\n\nAdd a _DevLogForward helper function to TauriMainProcessService that mirrors IPC channel routing decisions into Mountain's dev-log file sink. This enables developers to trace TS-originated IPC traffic alongside Rust dev_log! output using LAND_DEV_LOG=channel-stub tail -f Mountain.dev.log.\n\nThe helper is invoked in three code paths: fire-and-forget channels (logger, output), stub hits (channel has a handler), and misses (no route, no stub). Each invocation logs the channel name, command, route prefix, and hit/miss status.\n\nThis is a fire-and-forget mechanism that never awaits or throws, matching the existing _Trace helper. It's a mirror of the helper already present in Wind's TauriMainProcessService.",
-			"SHA": "618100a9bddfce70247a0abee72adcbc42a5e133"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:33:12Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				218,
-				3
-			],
-			"Message": "fix(Output): Add missing diagnostics stub methods\n\nAdd `getWorkspaceFileExtensions` and fix `reportWorkspaceStats` stub shapes in TauriMainProcessService diagnostics channel.\n\nThe `languageDetectionWorker ServiceImpl.resolveWorkspaceLanguageIds` iterates `fileExtensions.extensions` directly and throws without this stub, causing renderer crashes when language detection runs. Also fixes `reportWorkspaceStats` from `undefined` to a proper object shape with configFiles, fileTypes, and launchConfigFiles arrays.\n\nThis ensures the diagnostics IPC channel returns valid shapes that VS Code's services expect.",
-			"SHA": "8131d76472e855192ba38169571d6c956eddc6b4"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-23T03:23:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				218,
-				1
-			],
-			"Message": "",
-			"SHA": "1000c0465fcaa11d972f4f9fc0af24698d9cc6e4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:45:59Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				218,
+				221,
 				6
 			],
-			"Message": "feat(Output): Add StripWebviewIframeSandbox transform plugin\n\nAdd Step 16 to the build pipeline that removes the sandbox attribute from VS Code's webview iframe. WKWebView (Tauri on macOS) blocks custom protocol loads (`vscode-webview://`, `land://`) from sandboxed iframes, causing webview panels in extensions to fail with:\n\n  [Error] Ignoring request to load this main resource because it has a custom protocol and comes from a sandboxed iframe (x12)\n\nThe plugin patches `workbench/contrib/webview/browser/pre/index.html` to remove the `setAttribute('sandbox', ...)` call. This is safe for Land because it runs as a single-user desktop editor where the upstream sandbox's threat model (untrusted extension HTML in a browser tab) does not apply.",
-			"SHA": "868f077360f8c7bb3c8af52b2899a1f8631b9ab4"
+			"Message": "refactor(Output): Use static ES imports instead of runtime require() in ExposeWorkbenchAccessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of web.main.js instead of using runtime require() calls to resolve VS Code service modules. The transform now anchors on the stable `import { mark } from '../../base/common/performance.js'` line and adds IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports.\n\nThis eliminates the AMD require() resolution at runtime which could fail in the WKWebView context, ensuring `__CEL_SERVICES__` is populated synchronously before the microtask queue drains. Also adds the `cel:services-ready` DOM event dispatch and Mountain diagnostic logging on success/failure.\n\nThe transform now includes a guard check for the import marker to avoid matching unrelated files.",
+			"SHA": "ed06cce024f3c78dbd8db6ce7d842748a5094fa7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:28:21Z",
+			"Date": "2026-04-24T21:47:14Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				215,
+				221,
 				3
 			],
-			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, not the flat structure the scanner was expecting. This caused all extensions to appear as 'unknown' with empty names/publishers.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility with older backend envelopes. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures @builtin/@installed extension split works correctly in the sidebar.",
-			"SHA": "b95789339ceca34e67c990698cbbae249e435711"
+			"Message": "feat(Output): Route VS Code binary IPC channels to Mountain instead of stubs\n\nAdd MapChannelMethodToTauri, MapChannelToMountainPrefix, CoerceTauriParameters, and InvokeMountainRaw to route the VS Code workbench's binary IPC protocol (ChannelClient) to real Mountain backend handlers. Previously, channels like `localFilesystem`, `storage`, and `configuration` returned synchronous stub responses - filesystem ops returned FileNotFound, storage returned empty arrays, and configuration returned empty objects.\n\nNow these channels invoke Mountain asynchronously via the MountainIPCInvoke Tauri command, and the PromiseSuccess/PromiseError responses are relayed back through the binary IPC protocol. This enables the file explorer, search, settings editor, and workspace storage to persist data to the real filesystem and backend instead of operating on in-memory stubs.\n\nThe routing map covers 25+ channels: file, storage, configuration, search, workspaces, terminal, textFile, output, notification, progress, quickInput, environment, decorations, workingCopy, label, model, extensions, extensionHostStarter, localPty, nativeHost, themes, keybinding, lifecycle, url, menubar, encryption, and git.",
+			"SHA": "67176ce21428951e8f07ce8a45ce3252ef478961"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T20:51:51Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				221,
+				3
+			],
+			"Message": "fix(Output): Suppress benign ENOENT errors in Tauri invoke logging\n\nExtensions probe for optional workspace files (`.vscode/settings.json`,\n`.vscode/tasks.json`, etc.) that don't exist on fresh installs. Each probe\nwas logging a `tauri-invoke-error` entry, flooding the dev log with expected\nENOENT failures. Add logic to detect benign ENOENT errors for the\n`file:stat` and `file:readFile` methods by checking the error message for\n\"No such file or directory\", \"os error 2\", or \"Resource not found\" patterns.\nOnly non-benign errors forward to the log; legitimate errors still surface\nwhile harmless file probes stay quiet.",
+			"SHA": "358f7f7c1c2c6c46b8c24f22cc1baaab6a18ab9a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T20:37:08Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				221,
+				6
+			],
+			"Message": "feat(Output): Expose IViewsService and TreeViewByViewId in workbench accessor\n\nExtend the ExposeWorkbenchAccessor ESBuild transform to expose IViewsService alongside the existing Statusbar, Commands, CommandRegistry, and Search services. Add a TreeViewByViewId function that resolves ITreeView instances from the ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\nAlso separate error logging in TauriMainProcessService by tagging failed invokes with \"tauri-invoke-error\" instead of \"tauri-invoke\", allowing success logs to be opt-in via LAND_DEV_LOG while errors always forward.",
+			"SHA": "7b0b915803bc81fd576b9f5236ee75d13d0b1052"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T15:37:09Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				221,
+				3
+			],
+			"Message": "feat(Output): Add ISearchService to pre-resolved workbench services\n\nExtend the ExposeWorkbenchAccessor ESBuild transform to expose the ISearchService alongside the existing Statusbar, Commands, and CommandRegistry services.\n\nThis adds a require for `vs/workbench/services/search/common/search` and includes a `Search` entry in the `__CEL_SERVICES__` global object, allowing Sky-side bridge code to access the search service directly without re-entering the workbench's AMD loader.\n\nThe search service is now available at `globalThis.__CEL_SERVICES__.Search` for direct method surface access from the Land editor UI.",
+			"SHA": "f651b48fefe02cafb42eb682b2da760108ceb154"
 		}
 	],
-	"TimeStamp": 1779378420260
+	"TimeStamp": 1779544368773
 }

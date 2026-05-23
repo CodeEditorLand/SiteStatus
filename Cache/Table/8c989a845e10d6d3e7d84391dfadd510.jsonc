@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:04Z",
+			"Author": "Auto",
+			"Date": "2026-05-10T02:34:59Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1415,
-				8
-			],
-			"Message": "refactor(Mountain): Modularize WindServiceHandlers into discrete sub-modules\n\nDecompose the monolithic `WindServiceHandlers` modules (Extensions, Git, Model, Navigation, Output, Storage, Terminal) into a structured tree of individual files, one per exported handler. This aligns with the project's modular architecture and PascalCase naming convention, replacing large stub files with thin `mod.rs` dispatchers that delegate to specific handler implementations.\n\nKey changes:\n- **Extensions:** Extract `GetInstalled`, `GetAll`, `Get`, and `IsActive` into separate modules. Preserve the critical boot-race polling logic (up to 5s) and manifest skeletonization in `ExtensionsGetInstalled` to prevent UI crashes during trusted-publishers migration.\n- **Git:** Isolate `HandleExec` and `HandleClone` etc. into distinct units while retaining the shared `Shared` module for process registration and PID tracking.\n- **Model/Navigation/Storage/Terminal:** Refactor each into a family of single-purpose modules (e.g., `ModelOpen`, `HistoryGoBack`, `StorageSet`) to improve testability and readability.\n- **Dispatcher Update:** Update `mountain_ipc_invoke` in `mod.rs` to route commands to the new nested module paths (e.g., `Git::HandleExec::HandleExec`).\n- **Telemetry:** Standardize OTLP span names to `land:mountain:ipc:<command>` and inject the `CaptureHandler` instrumentation to track per-invocation duration for the Feature Parity dashboard.\n\nThis restructuring eliminates `dead_code` and `unused_variables` lints while clarifying the IPC surface area for future Wind service migrations.",
-			"SHA": "f7f34e5ab2e7ad549f1ea09c3416588942ea7a19"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:52Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1415,
-				14
-			],
-			"Message": "feat(Mountain): Implement Wind service adapter bridge and DTOs\n\nIntroduce a comprehensive adapter layer under `Source/IPC/WindServiceAdapters/` to bridge the Mountain Rust backend with the Wind TypeScript UI service contracts. This module serializes Mountain's sandbox configuration into the `WindDesktopConfiguration` structure expected by Sky during boot, and provides concrete implementations for Wind's core service interfaces (File, Storage, Configuration, Environment) using the `CommonLibrary` trait definitions.\n\nKey additions include:\n- **DTOs:** `MountainSandboxConfiguration`, `WindDesktopConfiguration`, and file-specific structures (`FileToDiff`, `FilesToWait`) to serialize launch parameters and state.\n- **Service Wrappers:** `WindFileService`, `WindStorageService`, `WindConfigurationService`, and `WindEnvironmentService` that inject `CommonLibrary` providers (FileSystemReader/Writer, StorageProvider) to satisfy Wind's async service requirements.\n- **Adapter Logic:** `WindServiceAdapter` which transforms raw JSON sandbox configs into the typed `WindDesktopConfiguration` and instantiates service instances with the current `ApplicationRunTime` context.\n\nThis enables the Wind frontend to operate on native Rust services via the Tauri IPC layer, decoupling UI service logic from the underlying OS implementation.\n\nRefs: Land Element Architecture, IPC Bridge",
-			"SHA": "1dd8948da9ad46dd9e6188992b3288afae914b16"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:45Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1400,
+				1505,
 				1
 			],
-			"Message": "refactor(Mountain): Remove empty Permission validation stub\n\nDelete the `ValidatePermission.rs` file which was present as an empty placeholder with no implementation. This cleanup removes dead code artifacts from the `Source/IPC/Permission/Validate` directory, streamlining the permission handling module structure.\n\nThe removal ensures the codebase reflects the current architectural state where specific permission validation logic is either implemented inline with IPC handlers or managed by the Common trait definitions, avoiding confusion from orphaned stub files.",
-			"SHA": "0158bbcdd21075e4419f77fedc6a76253be574af"
+			"Message": "",
+			"SHA": "376388a488fba37e3baa35a53eafec548b72462b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:41Z",
+			"Date": "2026-05-09T17:29:08Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1401,
-				10
+				"⣿⠀⠀⠀⠀",
+				1505,
+				300
 			],
-			"Message": "feat(Mountain): Implement TLS certificate management IPC command suite\n\nIntroduce a comprehensive set of Tauri commands under `Source/Binary/Build/TlsCommands/` to expose the `CertificateManager` to the Wind/Sky frontend for local TLS/HTTPS provisioning.\n\nThe implementation adheres to PascalCase naming and the project's modular architecture, adding:\n- **DTOs:** `CertificateGenerationResult` and `CertificateStatus` to structure payload responses including expiry timelines and renewal flags.\n- **Lifecycle:** `tls_initialize` loads or generates the root CA; `tls_generate_cert` issues or retrieves server certificates for specific hostnames.\n- **Monitoring:** `tls_check_cert_status` calculates days until expiry and flags renewal needs based on the configured threshold.\n- **Inspection:** `tls_get_all_certs`, `tls_get_server_cert_info`, and `tls_get_ca_cert` provide diagnostic data for the security panel.\n- **Maintenance:** `tls_renew_certificate` and `tls_delete_cert` (currently aliased to renewal) allow manual certificate rotation.\n\nThese commands gate access via the `CertificateManager` state mutex, enabling secure, asynchronous certificate lifecycle operations from the editor UI.\n\nNote: `tls_delete_cert` currently regenerates the certificate as a placeholder until a dedicated deletion logic is implemented in `CertificateManager`.",
-			"SHA": "8e396fbf31d1bb878c5a4609f59a4e823f0f2871"
+			"Message": "refactor(Mountain): Strip verbose logging and unused imports across Mountain backend\n\nSystematically remove development-time logging noise (`dev_log!`, `println!`) and unused imports (`serde_json::Value`, `tauri::Emitter`, `tokio::time::Instant`) from the Mountain backend source tree.\n\nThis cleanup targets over 400 files across `ApplicationState`, `Binary`, `Command`, `IPC`, `RPC`, `Track`, and `Vine` modules. Key areas affected include:\n- **State Management:** Removed verbose logging from Extension, Configuration, Debug, Terminal, and Workspace state initialization and mutation paths.\n- **IPC & Handlers:** Stripped debug prints from FileSystem, Git, Terminal, and UI service handlers that previously logged every argument and return value.\n- **Cocoon gRPC Services:** Removed per-call logging from Extension, FileSystem, Terminal, and Window service implementations.\n- **Vine Notifications:** Cleaned up notification handlers for Output, Progress, SCM, and Webview events.\n\nThe codebase now relies on structured telemetry (OpenTelemetry spans) and specific error logging rather than high-volume informational prints. This reduces binary size, improves runtime performance by eliminating string formatting overhead, and clarifies the signal-to-noise ratio in production logs.",
+			"SHA": "d495abe4f84e4359b7842bf9e2bdce8babd069ca"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:17:38Z",
+			"Date": "2026-05-09T16:35:08Z",
+			"File": [
+				"⣿⠀⠀⠀⠀",
+				1505,
+				300
+			],
+			"Message": "",
+			"SHA": "dbbf758d4309f57906d786092afd284ff22e3363"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-09T02:31:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1390,
-				14
+				1507,
+				1
 			],
-			"Message": "feat(Mountain): Implement DNS diagnostic and health-check IPC commands\n\nIntroduce a complete suite of Tauri commands under `Source/Binary/Build/DnsCommands/` to expose the internal DNS server state to the Wind/Sky frontend for diagnostic and monitoring purposes. This implements the backend support for a DNS health dashboard and resolution tester.\n\nThe commit adds:\n- **DTOs:** `DnsHealthStatus`, `DnsServerInfo`, `DnsResolutionResult`, `ZoneInfo`, `ZoneRecord`, and `ForwardAllowList` to structure return payloads, adhering to PascalCase naming.\n- **Server Info & Startup:** `dns_get_server_info` returns port status and a persistent startup timestamp captured via `StartupTime`.\n- **Health Monitoring:** `dns_get_health_status` and `dns_health_check` provide aggregated health snapshots and boolean checks for the server, zone, and forwarder states.\n- **Zone Inspection:** `dns_get_zone_info` returns the static `editor.land` authoritative zone snapshot, including SOA, NS, A records, and DNSSEC keys/signatures.\n- **Resolution Logic:** `dns_resolve` handles manual queries, routing `editor.land` to `127.0.0.1` and allowlisted external domains to `TEST-NET-1` placeholders, while rejecting others.\n- **Helpers:** `dns_get_forward_allowlist` and `dns_test_resolution` provide simplified access for automated health loops.\n\nAll commands gate access on the `DnsPort` state, ensuring safe interaction with the underlying Hickory DNS server lifecycle.",
-			"SHA": "004e560b79b0d6cb9ff67b09d4f9de615720c1a3"
+			"Message": "",
+			"SHA": "d3ca9528bf3052561f9838fcc921a0b2ef29ee09"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-08T11:18:55Z",
+			"File": [
+				"⣿⠀⠀⠀⠀",
+				1507,
+				300
+			],
+			"Message": "chore(Mountain): reformat",
+			"SHA": "ad44e8ffac199e618b810f0dd1297b0a5dc8a439"
 		}
 	],
-	"TimeStamp": 1779378409009
+	"TimeStamp": 1779544369655
 }

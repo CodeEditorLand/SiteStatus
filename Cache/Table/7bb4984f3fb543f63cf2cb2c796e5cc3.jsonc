@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:07:27Z",
+			"Date": "2026-04-30T23:34:25Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				365,
+				7
+			],
+			"Message": "feat(Output): Add RewriteWebviewShellCSP transform and fix icon URL rewriting\n\nAdd a new transform plugin that loosens the webview shell's CSP script-src from a stale sha256 hash to `'unsafe-inline' 'self' blob:`. Stock VS Code pins the hash; WKWebView computes it differently from Chromium, and any transform that touches the inline script body silently invalidates it. This matches Land's single-user desktop threat model and lets every extension webview boot.\n\nAlso fix RewriteIconsStyleSheetURLs to handle a third URL scheme that leaks through under Tauri/WKWebView: plain `file:///` URLs. Stock VS Code's FileAccess.uriToBrowserUri only converts file→vscode-file when process.versions.node exists, but the shim isn't always installed before iconsStyleSheet.getCSS() runs. The @font-face rule then fetches a 0-byte mixed-scheme response and codicons render as missing-glyph boxes. Add a third replace: `file:///...` → `<origin>/Extension/...`.\n\nBump marker version to _V2 so prior builds get re-patched rather than skipped. Update regex patterns to handle trailing replace chains from previous transform versions.",
+			"SHA": "8a3e8d281a0c6815422cea9dd2278e24923ff677"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T20:27:12Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				363,
+				19
+			],
+			"Message": "feat(Output): Add macOS titlebar offset and z-index CSS transforms\n\nAdd two new Output transforms that inject runtime CSS to fix WKWebView visual issues:\n\n- InjectMacTitlebarOffsetCSS: Reserve ~80px on the left of the workbench titlebar so the in-window menubar (`File / Edit / View / ...`) and command-center quick-pick stop overlapping with macOS traffic lights. Targets `.monoco-workbench.mac` only via the standard marker pattern.\n\n- InjectPartZIndexCSS: Establish explicit z-index hierarchy for every workbench part (`isolation: isolate` + numeric z-indexes) so a sibling that accidentally creates a stacking context (transform, opacity) can't hide the activity bar, sidebar, panel resize handle, status bar badges, or command-center dropdown.\n\nAlso expand StripWebviewIframeSandbox to patch BOTH the outer iframe creation site (`webviewElement.js`'s `element.sandbox.add(...)`) AND the pending-frame-swap site (`pre/index.html`'s `setAttribute('sandbox', ...)`). The earlier single-file patch wasn't sufficient - the outer iframe remained sandboxed and blocked all webview loads with the \"custom protocol from sandboxed iframe\" error.\n\nAdd RewriteWebviewShellCSP: loosen the webview shell's CSP script-src from a stale sha256 hash (WKWebView normalizes CR/LF differently) to `'unsafe-inline' 'self' blob:`. Matches Land's single-user desktop threat model; every extension webview now boots.",
+			"SHA": "0d47460778c1a546313b88539815d6ebde3bb03e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T18:59:27Z",
+			"File": [
+				"⣿⣿⡟⠀⠀",
+				350,
+				189
+			],
+			"Message": "",
+			"SHA": "fc91741983660b9ae401dd22f9fbfa1fa3a1301f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T05:00:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				267,
+				255,
 				1
 			],
 			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "99efc02f89574f4e46a52eeb1611ac4103262602"
+			"SHA": "151dce184be08ba55c2f5dc406c5ff914a82ea70"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:01:14Z",
+			"Date": "2026-04-30T04:54:25Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				267,
-				5
+				"⠃⠀⠀⠀⠀",
+				255,
+				15
 			],
-			"Message": "fix(Output): Add user extension retry + short-circuit Promise probes\n\nTwo fixes to the Output build pipeline:\n\n1. ExtensionScannerIPC: Mirror retry logic on user extensions scan path\n   The system extensions path had retry on empty response but user\n   extensions did not. Without it, an empty initial user-extensions\n   response silently passes 0 extensions through to viewsExtensionPoint\n   and ExtensionsRegistry, leaving every user extension contribution\n   (gitlens, clangd, commands, configuration, languages) unregistered.\n   Also switch to exponential backoff (100, 200, 400, 800, 1500ms) from\n   fixed 1000ms delays - Mountain's scan usually completes in ~500ms.\n\n2. TauriMainProcessService: Short-circuit Promise protocol probes\n   When VS Code resolves a channel-returned thenable, the JS runtime\n   accesses .then, .catch, .finally, constructor, valueOf, toString,\n   toJSON, @@iterator, @@asyncIterator on the proxy to determine if it's\n   a Promise. Each access became a channel call with the property name,\n   surfacing as \"Unknown IPC command: localPty:then\" on every workbench\n   wake. Returning undefined synchronously matches stock VS Code's\n   IChannel behaviour for unknown methods - the runtime sees a non-\n   thenable and stops probing. Saves ~15-25ms of round-trip per probe\n   and removes the noisiest IPC error in the dev log.\n\nRefs a28351b7240a5a722ebef039f3370ac90240818c (system ext retry)",
-			"SHA": "2924f2ae8bb3b41fa32ae0fd965804a80d548dfa"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T03:40:20Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				1
-			],
-			"Message": "fix(Output): Add retry logic to user extension scan path\n\nThe system extension scan path had retry logic but user extension scan\ndid not. Without retry on the user path, an empty initial response\nsilently passes 0 user extensions through to viewsExtensionPoint and\nExtensionsRegistry, which means every user-extension contribution\n(gitlens panes, clangd views, commands, configuration, languages)\nstays unregistered for the rest of the session.\n\nAdd the same retry logic to `extensions:scanUserExtensions` as already\nexists for `extensions:scanSystemExtensions`. Also switch to exponential\nbackoff (100, 200, 400, 800, 1500ms) instead of fixed 1000ms delays,\nsince Mountain's scan usually completes in ~500ms and the longer delays\nwere just padding boot time.\n\nUser extensions now load properly at boot even if Mountain's async disk\nscan hasn't completed yet.",
-			"SHA": "a28351b7240a5a722ebef039f3370ac90240818c"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-29T03:39:30Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				1
-			],
-			"Message": "",
-			"SHA": "c7eef6cacab62664fa2fd8f62cd83b84fcfc397a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:08:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				3
-			],
-			"Message": "fix(Output): Fix ExposeWorkbenchAccessor import markers and add service error isolation\n\nTwo fixes to the ExposeWorkbenchAccessor transform that were causing SkyBridge bridges to silently fail:\n\n1. Import marker quote style: The transform was using single-quote import markers that matched stock VS Code source, but esbuild/Land's Output bundler rewrites quotes to double quotes in the post-bundle file. The marker mismatch caused `Source.includes(ImportMarker)` to return false, silently no-opping the entire `__CEL_SERVICES__` patch. All SkyBridge hooks (search registration, SCM, status bar, tree views) were offline because `__CEL_SERVICES__` stayed undefined.\n\n2. Service error isolation: Each `invokeFunction` is now wrapped in its own try-IIFE. Previously, a single failed service lookup (interface decorator missing in this profile, service not yet registered) would throw out of the entire `__CEL_SERVICES__` object literal, leaving the whole facade undefined. Now each service degrades to `null` individually, preserving all other bridges.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNodeModulesPath + expose IMarkerService)",
-			"SHA": "f55a02821a2d7acad85060cf17796f62fda700d9"
+			"Message": "feat(Output): Expand workbench service exposure and add config/storage overlays\n\nAdd 21 new service handles to ExposeWorkbenchAccessor for Wind consumption:\nConfiguration, Storage, Lifecycle, Theme, WorkbenchTheme, Keybinding,\nNotification, File, Dialog, FileDialog, Clipboard, ContextKey, Host,\nExtension, Workspace, Product, Progress, Editor, EditorGroups, TextFile,\nActivity, Title, PaneComposite, ViewDescriptor, Layout.\n\nAdd two new transforms enabling Wind to inject runtime overrides without\ndisk persistence:\n- InjectConfigurationOverlay: consults `globalThis.__CEL_OVERRIDE_CONFIG__`\n  before upstream's default→user→workspace→folder chain in\n  IConfigurationService.getValue(). Bag is opt-in; unset preserves\n  upstream behavior.\n- InjectStorageOverlay: consults `globalThis.__CEL_OVERRIDE_STORAGE__` on\n  every AbstractStorageService.{get,getBoolean,getNumber,getObject} call.\n  Composite key `<scope>:<key>` disambiguates across\n  APPLICATION/PROFILE/WORKSPACE scopes.\n\nOther changes:\n- RewriteWorkerURLs: generalize pattern from specific file paths to\n  `*WorkerMain.ts` / `*Iframe.html` glob so future worker types are\n  covered automatically. Also handle `.ts`→`.js` suffix mapping.\n- StaticToDynamicImport: skip rewrite when `Pack` env var is set (bundled\n  profiles), since Vite needs static imports to walk the graph for CSS\n  extraction and tree-shaking.\n- ESBuild: add `.css` to copy-loader to avoid esbuild's default CSS\n  parser silently dropping modern syntax (@property, container queries).",
+			"SHA": "b20d23f9eed8c644fca5b50dc734a87d1fb03f53"
 		}
 	],
-	"TimeStamp": 1779378410625
+	"TimeStamp": 1779544365634
 }

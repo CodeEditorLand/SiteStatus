@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:26:24Z",
+			"Date": "2026-05-22T00:53:46Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
+				"⠃⠀⠀⠀⠀",
 				26,
-				2
+				1
 			],
-			"Message": "chore(Project): Update Air and Output submodules\n\nAdvance `Air` to v1.3.0 to introduce strict modularization of the daemon's CLI, Downloader, Plugins, and Updates subsystems. This refactor extracts domain-specific value types, `CommandTypes` for hierarchical dispatch, `RateLimit` token-bucket logic, and `EventBus` publish/subscribe mechanisms into dedicated modules, enforcing separation of concerns within the native sidecar.\n\nAdvance `Output` to resolve a minor type definition patch for `@types/node` (v25.9.0 -> v25.9.1) pulled via Dependabot, ensuring TypeScript safety for the bundled extension host artifacts.\n\nThese updates align the daemon architecture with the project's effect-based principles and maintain dependency hygiene for the bundled VS Code platform code.",
-			"SHA": "30aab8c049f4342aa714fe02200c9589d3fe13ba"
+			"Message": "feat(Mountain): Read TierSchemeAssets from .env.Land env file fallback\n\nAdvance the Mountain submodule with a build.rs helper that reads the TierSchemeAssets variable from a .env.Land file when the process environment variable is unset.\n\nThe previous commit introduced $TierSchemeAssets gating, but a stale exported env var from a prior build tier could cause the build.rs tauri.conf.json mutation to disagree with the cfg-gated Rust code. ReadTierValueFromEnvFile walks up to 5 ancestor directories from CARGO_MANIFEST_DIR looking for .env.Land or .env.Land.Sample, applying the same file-reading logic as PropagateTierGating in the Rust tier system. Resolution priority is: process env var > env file key > hard-coded default \"Embedded\". A found env file with a missing key returns None immediately rather than falling through to a parent directory, preventing accidental cross-project key leakage.\n\nBuild-time consistency between build.rs and the cfg-gated tier system is maintained even when a shell carries a stale $TierSchemeAssets export.",
+			"SHA": "2a5399abce8caadf47b586362f6d568764d205ee"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:18:09Z",
+			"Date": "2026-05-20T08:33:20Z",
 			"File": [
-				"⣿⠇⠀⠀⠀",
+				"⠃⠀⠀⠀⠀",
 				26,
-				7
+				1
 			],
-			"Message": "chore(Project): Update submodules to consolidate IPC routing, logging, and modularization\n\nAdvance all core Element submodules (Air, Cocoon, Common, Mountain, Output, Sky, Wind) to integrate the dual-track IPC architecture and standardize logging across the Tauri/Rust stack.\n\n**Key Changes:**\n- **IPC & Tiers:** Implement a three-tier `TierIPC` routing strategy (`Mountain`, `NodeDeferred`, `Node`) across Cocoon, Wind, Output, and Mountain. This enables graceful fallback to the Node.js extension host when native Tauri handlers are unavailable or deferred.\n- **Logging Unification:** Migrate all `console.*` calls in Cocoon, Output, Sky, and Wind to a centralized `MountainIPCInvoke` (`diagnostic:log`) or `CocoonDevLog` system. This ensures diagnostic data is captured in the native `Mountain.dev.log` rather than the browser console.\n- **Modularization:** Refactor the Mountain IPC layer to extract inline handlers into atomic modules (`WindServiceHandlers`, `CocoonService`, `SkyEmit`, `NLSResolver`). Add new IPC channels for Storage, Workspace, SCM, Debug, and Auth in Common to support full VS Code API parity.\n- **Resilience:** Introduce `RetryManager`, `TimeoutManager`, and `SchemaValidation` in Air to handle transient failures and configuration validation for the daemon.\n\n**Impact:** The editor boot sequence is now more robust against race conditions, logs are centralized for easier debugging, and the IPC layer supports flexible backend routing for the transition to a fully native extension host.",
-			"SHA": "e363785695a702badc0d40679e2c77280a233e2a"
+			"Message": "feat(Mountain): Gate asset deployment strategy behind $TierSchemeAssets env var\n\nAdvance the Mountain submodule with a build-time gating mechanism that selects between two asset deployment modes: Embedded (default, assets Brotli-compressed into the binary) and FileSystem (full disk layout in Contents/Resources/ served via the localhost plugin static_root fallback).\n\nbuild.rs reads $TierSchemeAssets (defaults to \"Embedded\") and mutates tauri.conf.json at build time accordingly — Embedded sets frontendDist=\"../Sky/Target\" with minimal bundle.resources (bootstrap, extensions, nls, node_modules, product.json), while FileSystem sets frontendDist=null and maps the full Sky/Target tree. LocalhostPlugin.rs wraps the static_root disk-fallback code in #[cfg(feature = \"TierSchemeAssetsFileSystem\")] so it compiles only when FileSystem mode is active. The feature flag is added to IsDeclaredTierFeature rather than being a silent default.\n\nThis completes the foundation laid by the Static/Application/ prefix refactoring, making the deployment mode selectable at build time via a single environment variable rather than manual tauri.conf.json editing.",
+			"SHA": "0211d129196ffef2b812a8e3c1ab1d58211d703b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:49:08Z",
+			"Date": "2026-05-20T08:22:36Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
+				"⣿⠀⠀⠀⠀",
 				26,
-				4
+				5
 			],
-			"Message": "",
-			"SHA": "bf55904456b5e9f7047f4181cb350c0a63785163"
+			"Message": "refactor(Project): Advance 5 Element submodules with Mountain bundle consolidation and style normalisation across configs\n\nAdvance five Land/Element submodules in a coordinated update that restructures Mountain's Tauri bundle layout and normalises indentation conventions across the remaining four.\n\n**Mountain** consolidates bundle resources under a `Static/Application/` prefix, unifying the flat bundle layout (Contents/Resources/extensions) with the monorepo dev layout (Sky/Target/Static/Application/extensions) under a single source of truth. `tauri.conf.json` remaps all resource entries to `Static/Application/...`, sets `frontendDist` to null so the dev server delegates to the localhost plugin's disk fallback, and adds `static_root` resolution in LocalhostPlugin.rs that probes both production and dev paths. ScanPathConfigure.rs registers the new canonical extensions path before legacy flat paths, which are retained as fallback for existing development environments.\n\n**Cocoon, Output, Wind, and Worker** align their ESBuild configuration files and compiled artifacts to the project-wide tab-based indentation convention (reversing the 2-space style from a prior pass), with trailing commas, import-before-declaration ordering, and consolidated export blocks applied across all config modules. Output additionally hoists static imports above helper shim declarations for a consistent imports-first preamble order.\n\nZero functional changes across Cocoon, Output, Wind, and Worker — build outputs and runtime behaviour are identical. Mountain retains flat-path fallbacks so existing dev runs and CI pipelines continue unbroken during the migration.",
+			"SHA": "9ea797675c2545ab8721abb6954fb4e70661ab16"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:07:23Z",
+			"Date": "2026-05-20T06:38:35Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
+				"⣿⠀⠀⠀⠀",
 				26,
-				2
+				5
 			],
-			"Message": "feat(Project): Add Tauri IPC diagnostic hooks and bridge retry logic\n\nIntroduce cross-layer safeguards for the Tauri IPC bridge between Mountain and Sky to prevent initialization race conditions and aid debugging.\n\n**Mountain (+1 commit, feat):** Inject a diagnostic script at `document_start` in `WindowBuild.rs` to populate `window.__MOUNTAIN_TAURI_DIAG`. This captures early IPC bridge state (`window.__TAURI_INTERNALS__`, `window.__TAURI__`) and lifecycle timestamps before application scripts execute, allowing DevTools verification of capability scoping and timing without full bundle loading.\n\n**Sky (+1 commit, feat):** Replace the synchronous check for `__TAURI__` globals in `Layout.astro` with a 5-second polling loop (`ResolveInvoke`, `WaitForInvoke`). This addresses race conditions where ES-module evaluation outpaces Wry's content-script injection, which previously caused silent drops of lifecycle phases (e.g., `lifecycle:advancePhase(3)`). The retry mechanism ensures the `lifecycle:Restored` phase is reached reliably, enabling immediate interaction with native features like Open Folder and dialogs.\n\nTogether these changes eliminate startup race conditions causing \"Sky did not advance to Restored\" errors and provide a dedicated diagnostic surface for early IPC failure detection.",
-			"SHA": "064bb9f856469dcec07902620189d0ef7ba960eb"
+			"Message": "style(Project): Normalize indentation across 5 Element submodule configs\n\nAdvance five Land/Element submodules with formatting consistency passes across ESBuild configuration files, compiled output artifacts, and Tauri configuration.\n\n**Cocoon** converts all Configuration/ESBuild/*.js files from tab to 2-space indentation, reorders import/export declarations so re-exports appear before local imports, and deduplicates default import aliases in Target.js. RouteManifest timestamp updated and Target/ artifacts regenerated.\n\n**Mountain** reverts the verbose DevelopmentNodeEnvironment_MicrosoftVSCodeDependency naming scheme from a prior transitional debug phase, restoring the stable `\"fiddee.editor.binary\"` identifier and `\"Mountain\"` productName in tauri.conf.json, along with collapsing externalBin/targets arrays back to single-line format. Backup files created alongside the verbose identifiers are deleted.\n\n**Output** consolidates compiled JavaScript artifacts under Configuration/ to uniform 2-space indentation with hoisted helper shims, stripped trailing commas, and multi-line export blocks — semantically identical to their tab-indented predecessors.\n\n**Wind** reformats all ESBuild configuration modules under Configuration/ESBuild/ to 2-space indentation and reorders import/export to a declaration-before-export pattern.\n\n**Worker** applies 2-space indentation to Target.js and Worker.js ESBuild configs, collapses single-line arrow functions, and expands exports to multi-line named blocks.\n\nZero functional changes across all five submodules — build outputs and runtime behaviour are identical.",
+			"SHA": "cf4b0c66a6b82012bbe224c00afeb69bbfedc1ec"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:02:19Z",
+			"Date": "2026-05-20T06:14:14Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
+				"⡏⠀⠀⠀⠀",
 				26,
-				4
+				3
 			],
-			"Message": "",
-			"SHA": "fa903600e15697c37927ddae2bfa35a3cbd7ab31"
+			"Message": "refactor(Project): Extract Cocoon namespace maps, Mountain dispatchers\n\nAdvance three Element submodules with structural extractions, runtime fixes, and formatting alignment.\n\n**Cocoon** lifts the inline RegisterCustomEditor function and six shared registry maps (CustomEditorProviders, CustomEditorProvidersByViewType, TreeDataProviders, TreeDataProvidersByViewId, WebviewViewProviders, WebviewViewBuilders, WebviewPanels) from Namespace.ts into dedicated RegisterCustomEditor.ts and Registry.ts modules. Namespace.ts shrinks by ~170 lines and re-exports the relocated maps through the existing path, preserving all provider registration and lifecycle behaviour unchanged.\n\n**Mountain** extracts the 1400-line `process_mountain_request` and 600-line `send_mountain_notification` match blocks from CocoonService/mod.rs into GenericRequest::Dispatcher and GenericNotification::Dispatcher modules, reducing mod.rs by ~1900 lines and clarifying the gRPC service boundary. Three fixes accompany the refactor: (1) scope the MutexGuard on WorkspaceFolders to a block so it is dropped before any await point, restoring Send-ness for tauri::async_runtime::spawn; (2) replace the OnceLock that caches a permanent None (routing all dev logs to /tmp after the first failed resolution) with a two-phase RESOLVED/RETRY system that retries after Tauri creates the app-data directory; (3) replace a bare `return Ok(...)` inside a WindServiceHandlers match arm (which exited the enclosing async block and broke Scheduler::Submit's `Output = ()` bound) with an if/else expression. A clippy-nit removing redundant `.as_str()` in AliasPath.rs is included. Two follow-up style commits normalize dispatcher indentation and update Cargo.toml/tauri.conf.json build identifiers for the dev profile.\n\n**Worker** normalises indentation across all three ESBuild configuration files to hard tabs via two style-only commits (spaces → tabs, then tabs → fully aligned tabs). Zero functional changes — build output is identical.\n\nAll Target/ compiled artifacts and RouteManifest files are regenerated for Cocoon.",
+			"SHA": "a74c89e53e1c6310ff031e05dafc682fd0b0c121"
 		}
 	],
-	"TimeStamp": 1779378391724
+	"TimeStamp": 1779544353282
 }

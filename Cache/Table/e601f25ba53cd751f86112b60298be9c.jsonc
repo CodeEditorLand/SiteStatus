@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:16:54Z",
+			"Date": "2026-05-19T23:42:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1522,
+				6
+			],
+			"Message": "feat(Mountain): Wire Mountain IPC commands into Tauri 2 ACL system\n\nMountain's native Tauri commands (e.g., `MountainProvideHover`, `MountainWorkspaceOpenFolder`, `DnsResolve`) were being rejected at runtime with \"Plugin not found\" errors because Tauri 2 requires explicit permission entries for all `#[tauri::command]` definitions.\n\nIntroduce `permissions/default.toml` to define the custom permission identifier `allow-mountain-commands`. This file aggregates the complete allow-list for every Mountain IPC handler defined in `Source/Binary/Main/Entry.rs`.\n\nUpdate `capabilities/default.json` to reference this new `default` permission set alongside existing `fs`, `log`, and core plugin permissions. Regenerate the ACL manifests and JSON schemas (`gen/schemas/`) to reflect the new permission identifiers.\n\nThis ensures the webview can invoke Mountain's native methods without failing the security check, completing the IPC bridge required for Wind/Sky to communicate with the Rust backend.",
+			"SHA": "bff5321e154a82323fa9e65a9e0aaa3ff6c0358b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T23:06:40Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1520,
 				1
 			],
-			"Message": "fix(Mountain): Consolidate panic recovery logic in scheme handlers\n\nMigrate the panic recovery implementation in `VscodeWebviewSchemeHandler` to match the established pattern in `VscodeFileSchemeHandler`. The previous implementation attempted to use `catch_unwind` but failed to handle the `AssertUnwindSafe` trait requirement and redundantly implemented the result matching logic inside the closure.\n\nUpdate `VscodeWebviewSchemeHandler` to use `catch_unwind` with `AssertUnwindSafe` for the closure wrapper and move the `match` result handling and `dev_log` error reporting to the function scope. This ensures that panics within the webview asset loading path (e.g., in MIME type resolution or file reading) are caught, logged with backtrace details, and converted to HTTP 500 responses without crashing the editor process.\n\nAlign the import structure in `Scheme.rs` to group `panic` imports correctly. This change unifies the error handling strategy for both file and webview scheme handlers, ensuring consistent graceful degradation across the native backend's asset serving layer.",
-			"SHA": "139de360adc2c0b17a5adbef32cee1d8d6e06c54"
+			"Message": "feat(Mountain): Inject Tauri IPC diagnostic script for early failure detection\n\nIntroduce a diagnostic initialization script in WindowBuild.rs that executes at document_start, prior to any application scripts. This script captures the state of Tauri's IPC bridge and global objects (window.__TAURI_INTERNALS__, window.__TAURI__, window.ipc) immediately upon injection.\n\nThe script populates a global window.__MOUNTAIN_TAURI_DIAG object with timestamps and boolean flags indicating the presence and functionality of core IPC methods. It also records lifecycle events (DOMContentLoaded, load) to help pinpoint timing-related race conditions.\n\nThis addition enables developers to verify the integrity of the Tauri runtime and capability scoping directly from the DevTools console if the editor fails to initialize, without relying on the full bundle loading or downstream error handling.",
+			"SHA": "b5d79001860a7305fbe97f13f69ce906bdded054"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:10:11Z",
+			"Date": "2026-05-19T23:00:22Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				2
+				1520,
+				5
 			],
-			"Message": "fix(Mountain): Migrate VS Code webview scheme handler to internal panic wrapper\n\nMove the VS Code webview scheme handler logic into a private `_VscodeWebviewSchemeHandler` function and wrap the public entry point with `std::panic::catch_unwind`. This mirrors the protective pattern recently implemented for the file scheme handler to prevent editor crashes caused by panics crossing the Objective-C FFI boundary.\n\nConcurrently, remove the `LSEnvironment` dictionary from `Info.plist`. These runtime configuration values (including network ports and feature tiers) were previously stored in the property list but are now generated and injected at build time via `build.rs` and `Scheme.rs`. Removing the dead XML nodes cleans up the configuration file and aligns the binary structure with the current build process.\n\nThis change ensures graceful error recovery for webview asset requests and resolves configuration drift by centralizing environment setup in the Rust build logic.",
-			"SHA": "230ca02557a152875ce896802af0b4c5ec9d5929"
+			"Message": "",
+			"SHA": "21065aa39c3c860d98d46791dc5ab3a3019fb968"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:05:17Z",
+			"Date": "2026-05-19T22:40:56Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1519,
+				16
+			],
+			"Message": "",
+			"SHA": "14a5ec8100c65cd46fa4a7393f614ee5ae7daa3d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T22:22:38Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1517,
 				1
 			],
-			"Message": "fix(Mountain): Wrap scheme handlers in panic catch to prevent editor crash\n\nAdd `std::panic::catch_unwind` guards around `_VscodeFileSchemeHandler` and `_VscodeWebviewSchemeHandler` to prevent the entire editor process from aborting. These handlers run inside the `wkwebview` Objective-C FFI boundary, where panics crossing the `extern \"C\"` limit cause immediate process termination.\n\nThe implementation catches panics, logs the error message and current thread backtrace via the `lifecycle` dev_log, and returns a standard HTTP 500 Internal Server Error response instead. This ensures that bugs in memory mapping (mmap) or MIME type handling within the asset loading path result in a graceful failure rather than a full application crash.",
-			"SHA": "478ca92acb177ec84b73c6e5faf4f56c4d4b5ddf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T21:54:43Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				2
-			],
-			"Message": "chore(Mountain): Align documentation structure with recent refactoring and cleanup configuration\n\nUpdate README.md to reflect the current source directory structure following the recent migration from `Binary.rs` to the `Binary/` module folder and the addition of new components like `IPC/`, `RPC/`, `Telemetry/`, and `Cache/`. Correct the architectural diagram and module descriptions to match the actual file layout in `Source/`.\n\nAdditionally, clean up `Info.plist` by removing extraneous indentation and empty XML nodes around the `LSEnvironment` key to ensure a valid, consistent property list format. Remove trailing whitespace to maintain formatting standards.\n\nThis change synchronizes the project documentation with the current codebase state and resolves formatting inconsistencies in the build configuration.",
-			"SHA": "4ce8e735fd7551cdf8c3d5c41f2820eaef15eefc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T21:13:48Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1490,
-				33
-			],
-			"Message": "refactor(Mountain): Consolidate imports and reformat Rust code across core modules\n\nStandardize multi-line import blocks to use brace-compressed syntax in CertificateManager.rs. Apply consistent line-wrapping and removal of unnecessary vertical whitespace across the Environment provider modules, Command handlers, and Track effect handlers.\n\nThis change focuses purely on formatting and code style alignment. No functional logic, business rules, or error handling flows are altered. The modifications ensure uniform indentation and line length compliance (typically wrapping comments and long method chains at 100 characters) across the Mountain native backend codebase.\n\nThis improves readability and prepares the codebase for automated linting enforcement.",
-			"SHA": "c8a486c1635ccee407de53db21f6127a3cce049b"
+			"Message": "feat(Mountain): Wire workspace save/saveAs/saveAll through to Sky\n\nAdd three IPC handler arms to the Workspace dispatch table in CreateEffectForRequest so Cocoon's vscode.workspace.save() and related extension API calls reach the workbench textfile service running in Sky.\n\n- `Workspace.Save` — extracts the URI from parameter position 0 or the \"uri\" key, routes to `sky://workspace/save`, and returns the URI on success so the caller can confirm persistence.\n- `Workspace.SaveAs` — mirrors the Save path but dispatches to `sky://workspace/saveAs`; the Sky handler can later drive a standalone Save-As dialog.\n- `saveAll` / `Workspace.SaveAll` — accepts the legacy `saveAll` method name (used by gRPC/Client.ts) and routes to `sky://workspace/saveAll`, returning null on failure instead of crashing the workbench.\n\nAll three handlers degrade gracefully: if Sky does not respond, they log a warning and return the original URI (for Save/SaveAs) or null (for SaveAll), preventing extension host crashes on missing handlers.",
+			"SHA": "5afb710dc67ede34e2939e573ca97cf05f3e8590"
 		}
 	],
-	"TimeStamp": 1779378398620
+	"TimeStamp": 1779544359533
 }

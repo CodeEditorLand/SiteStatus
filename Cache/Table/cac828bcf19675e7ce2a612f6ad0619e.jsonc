@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:12:50Z",
+			"Date": "2026-05-20T08:32:14Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1508,
-				8
-			],
-			"Message": "feat(Mountain): Implement native AES-256-GCM encryption and async lifecycle synchronization\n\nIntroduce a complete encryption subsystem for the Wind service handlers to support VS Code's `IEncryptionService`. Implement `encryption:encrypt` and `encryption:decrypt` using AES-256-GCM via the `ring` crate. The 256-bit key is derived from the host machine's hardware UUID (macOS `IOPlatformUUID`, Linux `/etc/machine-id`, Windows `MachineGuid`), ensuring stored secrets survive process restarts but remain unreadable on other machines, matching native editor semantics.\n\nRefactor the application lifecycle state to eliminate 100ms polling loops. Replace `LifecycleWhenPhase` busy-wait logic with `tokio::sync::Notify` primitives in `LifecyclePhaseState`. Handlers now await specific phase transitions immediately, reducing boot latency and CPU usage during startup.\n\nUpdate `DecorationTypeLifecycle` notification handling to use a single batched emit operation per channel, reducing IPC overhead during high-frequency UI updates.",
-			"SHA": "eafc4a40a6dc02017466152643d736c8eccced92"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:07:52Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1503,
+				1580,
 				1
 			],
 			"Message": "",
-			"SHA": "b0efb2cbc7f5e481b38f8b4190c511a99c41388e"
+			"SHA": "52d240d6376d08d9e81c1bc50e34b336e36ead59"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:07:52Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1503,
-				26
-			],
-			"Message": "feat(Mountain): Replace polling loops with async notifies and wire native IPC handlers\n\nRefactor extension scanning and sidecar connection logic to replace busy-wait polling with `tokio::sync::Notify` synchronization primitives. Introduce `ExtensionState.ScanReady` and per-sidecar connection notifiers to unblock callers (e.g., `extensions:getInstalled`, `WaitForClientConnection`) immediately upon state transition, eliminating 50ms polling intervals and reducing boot latency.\n\nImplement full handlers for the `nativeHost` lifecycle surface (Exit, Quit, Relaunch, Reload, KillProcess, Install/UninstallShellCommand) and filesystem watching (`file:watch`, `file:unwatch`). These replace previous stub acknowledgments, enabling proper process management and native file system event routing to extensions.\n\nOptimize high-frequency gRPC notification paths (`RegisterCommand`, `ProgressReport`, `DecorationTypeLifecycle`) by migrating from per-call task spawning to a single long-lived mpsc-backed batch flusher. This reduces IPC saturation and task overhead during extension boot by coalescing thousands of rapid updates into single frame-aligned events.\n\nUpdate `Entitlements.plist` to use block-style XML formatting and clarify sandbox exemptions for the non-sandboxed editor environment.",
-			"SHA": "41b8029154da51b0556aa59039f99e6a7751c31c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T00:58:05Z",
+			"Date": "2026-05-20T08:32:14Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1492,
+				1580,
+				2
+			],
+			"Message": "feat(Mountain): Gate asset deployment strategy behind $TierSchemeAssets env var\n\nIntroduce a build-time gating mechanism that selects between two asset deployment modes: Embedded (default, assets Brotli-compressed into the binary) and FileSystem (full disk layout in Contents/Resources/ served via the localhost plugin static_root fallback).\n\nIn build.rs, read $TierSchemeAssets (defaults to \"Embedded\") and mutate tauri.conf.json at build time:\n- Embedded: frontendDist=\"../Sky/Target\", bundle.resources holds only Cocoon-needed files (bootstrap, extensions, nls, node_modules, product.json).\n- FileSystem: frontendDist=null, bundle.resources maps the full Sky/Target/ tree (Browser, BrowserProxy, Bundled, vs/, _astro/, index.html, etc.).\n\nIn LocalhostPlugin.rs, wrap the static_root resolution and Builder.static_root() call in #[cfg(feature = \"TierSchemeAssetsFileSystem\")] so the disk-fallback code is compiled only when FileSystem mode is active. Add \"TierSchemeAssetsFileSystem\" to IsDeclaredTierFeature and remove \"FileSystem\" from IsDefaultTierValue so it now emits a cfg feature rather than being a silent default.\n\nThis completes the foundation laid by the Static/Application/ prefix refactoring, making the deployment mode selectable at build time via a single environment variable rather than manual tauri.conf.json editing.",
+			"SHA": "a9e4b2d9bf9e3ed04251361f03325445f343e208"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T08:21:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1580,
 				4
 			],
-			"Message": "feat(Mountain): Implement dual-layer debug server and SCM diff handling\n\nUpgrade the `WebkitServer` debug utility into a configurable dual-layer diagnostics tool supporting independent activation for the Mountain (Rust) and Cocoon (Node.js) layers. Introduce a unified `DebugServer` environment variable to select mode (mountain, cocoon, both, or off) and distinct ports (default 9933/9934). Add new HTTP endpoints for layer discovery (`/health`, `/layers`), iframe inspection, workbench command invocation, and transparent HTTP proxying to the Cocoon extension host.\n\nImplement the `vscode.diff` and `$scm:openDiff` command handlers in `SCM.rs` to bridge the VS Code Git extension with the editor UI. When triggered, these commands now forward the request to the `sky://editor/diff` endpoint via the Effect system, ensuring the native backend correctly resolves the promise and opens the diff editor as expected.\n\nThese changes restore full debuggability across the full stack and enable native Git workflows by correctly handling the canonical diff command invoked by upstream VS Code extensions.",
-			"SHA": "6ae748d57faee496b259c4f513cf2c296f4dc585"
+			"Message": "refactor(Mountain): Consolidate bundle resources under Static/Application prefix\n\nTransition the Tauri bundle layout from flat resource paths to a structured \"Static/Application/\" prefix, unifying the bundle and development directory trees under a single source of truth. This eliminates the mismatch between the flat bundle layout (Contents/Resources/extensions) and the monorepo layout (Sky/Target/Static/Application/extensions).\n\nIn tauri.conf.json, remap all resource entries to target \"Static/Application/...\" and set frontendDist to null so the dev server delegates to the localhost plugin's static_root disk fallback. Add static_root resolution in LocalhostPlugin.rs that probes both the production bundle path (../Resources/) and the monorepo dev path (../../../Sky/Target/).\n\nIn ScanPathConfigure.rs, register the new canonical extensions path (Resources/Static/Application/extensions) before the legacy flat paths, which are retained as fallbacks for existing development environments.\n\nLegacy flat paths remain functional during the transition, so existing dev runs and CI pipelines continue to work until all resource mapping is migrated.",
+			"SHA": "58b34f8a23c47aec5c01e92c493060403c7159b4"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-05-18T02:52:37Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T06:37:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1492,
+				1576,
+				4
+			],
+			"Message": "chore(Mountain): Strip verbose build identifiers, restore compact names\n\nRevert the DevelopmentNodeEnvironment_MicrosoftVSCodeDependency verbose naming scheme introduced in the previous commit for Cargo.toml bin/lib/package names and tauri.conf.json identifier/productName. Replace identifier with the stable \"fiddee.editor.binary\" key and set productName to \"Mountain\".\n\nAlso collapse externalBin and targets arrays back to single-line format (reverting the formatting change from the previous commit) and delete the .Backup files that were created alongside the verbose identifiers.\n\nThe verbose identifiers were only needed during a transitional Electron-profile debugging phase and are no longer required for the production Rust/Tauri pipeline.",
+			"SHA": "f3219cd8532d03baa1cef3f2a23e51c026653c44"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T06:37:25Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1578,
 				1
 			],
-			"Message": "",
-			"SHA": "7de344c980125a4acd67895fe0730d84681ea75c"
+			"Message": "style(Mountain): Format arrays in tauri.conf.json\n\nReformat `externalBin` and `targets` arrays in tauri.conf.json from single-line to multi-line for consistency with the rest of the configuration file. Also strip the trailing newline to match convention.\n\nNo functional changes — purely cosmetic formatting.",
+			"SHA": "4b54b6c25ffbf182ea9e813b5027759384979cf7"
 		}
 	],
-	"TimeStamp": 1779378395350
+	"TimeStamp": 1779544357887
 }

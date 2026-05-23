@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T16:47:33Z",
+			"Date": "2026-05-15T22:32:43Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
-				738,
-				116
+				"⠀⠀⠀⠀⠀",
+				739,
+				6
 			],
-			"Message": "",
-			"SHA": "bf5f2ef27350c3efcfd8a419cfd16ce22e2dcd71"
+			"Message": "feat(Output): Enable cross-origin relay for inner-frame diagnostics\n\nExtend the `RuntimeDiagnosticsInner` and `RuntimeDiagnostics` transform plugins to support diagnostic telemetry relay via `postMessage` when direct `DEBUG_WV` access is blocked by cross-origin policies.\n\nThe inner frame script now packages diagnostics into a `_landDiag` payload and posts them to the parent window. The outer frame listener intercepts this specific payload type, allowing diagnostics to reach the parent context even when direct function calls are restricted. The outer limit for these relayed messages is set to 200, distinct from the 50-event cap for standard cross-frame traffic.\n\nAdditionally, update `Documentation/GitHub/Architecture.md` with a Mermaid diagram illustrating the `Output` build artifact management flow, including the interaction between ESBuild, the Plugin system, Polyfill injection, and the final consumption by Cocoon, Sky, and Wind.\n\nThis ensures robust observability of extension webview lifecycles regardless of same-origin restrictions.",
+			"SHA": "d0bdf8c16755a8ec1533f0fad48c8db81b079a0c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T16:42:33Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				738,
-				125
-			],
-			"Message": "feat(Output): Inject Webview debugging diagnostics and update CSP\n\nIntroduce three new transform plugins to the Output build pipeline to diagnose extension webview loading failures under WKWebView/Tauri:\n\n- `InjectWebviewDebugLogging`: Injects a `DEBUG_WV` helper and lifecycle logging (INDEX_BOOT, SW_REGISTER, SIGNAL_START/OK/FAIL, CONTENT_EVENT, INNER_FRAME_FAKE/LOADED/WRITE) into the webview preloader.\n- `InjectWebviewRuntimeDiagnostics`: Injects global error handlers, console interception, and React/DOM mutation observers into the runtime to capture unhandled rejections and render failures.\n- `InjectWebviewRuntimeDiagnosticsInner`: Injects diagnostic hooks into the inner iframe creation routine (`toContentHtml`) to monitor module loading and DOM insertion within the extension's isolated context.\n\nSimultaneously, update `RewriteWebviewShellCSP` to include `'unsafe-eval'`, `'wasm-unsafe-eval'`, and explicit `vscode-webview-resource:`/`vscode-file:` permissions in the Content Security Policy to accommodate dynamic extension execution requirements.\n\nThese changes enable detailed traceability of webview bootstrapping and execution phases, facilitating diagnosis of silent hangs and extension load failures.",
-			"SHA": "7747bbddd0bbdb2f8cd153d7b7bf90475f70df85"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-14T03:52:53Z",
+			"Date": "2026-05-15T22:24:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
+				739,
+				9
+			],
+			"Message": "feat(Output): Expand webview diagnostics with cross-frame telemetry\n\nExtend the RuntimeDiagnostics and Logging transform plugins to provide comprehensive observability into extension webview lifecycles and cross-frame communication.\n\nThe `RuntimeDiagnosticsInner` inject now performs periodic DOM state checks (every 500ms for 30s), inspects React internal hooks, captures full DOM snapshots, and verifies `acquireVsCodeApi` availability at multiple stages. The outer `RuntimeDiagnostics` inject adds listeners for `postMessage` events (capped at 50) and tracks SkyBridge `setHtml` operations via global markers.\n\nAdditionally, update the `Logging` transform to instrument the primary `content` handler in VS Code's webview pipeline, logging processed HTML length and structure immediately after `toContentHtml` execution. Introduce a new `INNER_DIAG` protocol to relay inner-frame diagnostics to the parent context even under cross-origin restrictions.\n\nDocumentation for the Output build artifact management and plugin system has been added to `Documentation/GitHub/Architecture.md`. These changes significantly enhance debugging capabilities for UI bridging and rendering issues in the Land editor.",
+			"SHA": "823457eef7412b0f06d561b04552a7d557af67a0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-15T21:37:43Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				738,
 				1
 			],
-			"Message": "",
-			"SHA": "298f24e30f786c977ab12320c0ee28ce688c355f"
+			"Message": "feat(Output): Inject cross-frame postMessage and SkyBridge diagnostics\n\nExtend the `RuntimeDiagnostics` transform plugin to capture cross-frame communication telemetry and specific `SkyBridge` lifecycle events within extension webviews.\n\nThe injected runtime code now includes:\n1. A `message` event listener that logs `postMessage` traffic between the inner iframe and extension host, capped at 50 events to prevent log flooding. It extracts origin, channel, target, and payload structure.\n2. A delayed check (3s) for `__CEL_LATEST_SET_HTML_INFO__` and `__CEL_LAST_SET_HTML_INFO__` globals to report `setHtml` operations via `SKY_SET_HTML` and `SKY_FIRST_SET_HTML` events.\n\nThese additions enhance observability for debugging UI bridging issues between the Sky component layer and the extension host, complementing existing DOM state and React hook diagnostics.",
+			"SHA": "d82670e97566c7c52afc693f1a485b6e89e3f032"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T01:31:06Z",
+			"Date": "2026-05-15T21:36:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
-				3
+				738,
+				1
 			],
-			"Message": "feat(Output): Add environment gate to disable UI/CSS rendering fixes\n\nIntroduce the `DisableUIFixes` environment variable check within the `BuildPipeline` logic to selectively omit UI-stabilization transforms. When enabled, the pipeline splices out plugins responsible for WKWebView compositor workarounds, including `InjectDisableLazyPaint`, `InjectPartZIndexCSS`, `InjectMacTitlebarOffsetCSS`, and GPU-layer hints for Terminal/Editor canvases.\n\nThis modification preserves all non-visual wire-level patches (IPC, URL rewriting, telemetry, service disabling) while restoring stock VS Code CSS and rendering behavior. It facilitates targeted debugging of compositor-specific artifacts without reverting core integration changes.\n\nThe corresponding JavaScript artifacts and source maps in `Configuration/Plugin/` and `Source/Plugin/` are regenerated to reflect the conditional pipeline construction.",
-			"SHA": "49bbdd825717ad64e2cd31da059e97fcc40ccdd9"
+			"Message": "feat(Output): Add runtime DOM state and React hook diagnostics\n\nInject comprehensive runtime diagnostics into the webview content pipeline to aid debugging of rendering issues and API availability in custom environments. The injected script now performs periodic DOM state checks (every 500ms) to monitor the presence and children of the root element, logs React internal hook status (renderer count), captures a full DOM snapshot at 5s, verifies `acquireVsCodeApi` availability, and dumps the initial body structure.\n\nThese diagnostics are scoped to the first 30 seconds of the session and provide detailed telemetry on the webview's lifecycle, ensuring robust observability for the `RuntimeDiagnosticsInner` transform plugin.",
+			"SHA": "6fc80a51d44e5cb0cdc23387a481beb61e170e1c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T00:51:55Z",
+			"Date": "2026-05-15T21:34:05Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
-				725,
-				63
+				"⠀⠀⠀⠀⠀",
+				738,
+				1
 			],
-			"Message": "refactor(Output): Encapsulate polyfill markers to local scope\n\nMove `Marker` constants from module-level exports to local variables within the `Polyfill` and `Inject` plugins across the entire `Output` configuration tree. Previously, these unique string identifiers (e.g., `__LAND_DISABLE_LAZY_PAINT__`, `__LAND_PART_ZINDEX__`) were exported from the `Source/Plugin/Polyfill` definitions and imported by their respective `Inject` wrappers.\n\nThis change removes the unnecessary module-level export in the source TypeScript files and re-declares the markers locally within the IIFE generation logic in the transform plugins. The `Configuration` artifacts (compiled JS) are regenerated to reflect this scoping adjustment, removing the `Marker` export from the default import statements in the injectors.\n\nThis reduces the public API surface of the polyfill modules and ensures the marker strings are strictly internal implementation details used only for idempotency checks within the injected runtime code.",
-			"SHA": "c38a082a4f95320fdfca197556ce3db39b7e6402"
+			"Message": "fix(Output): Standardize escaped quotes in webview logging diagnostics\n\nCorrect the escaping of quote characters within the injected `DEBUG_WV` logging call in `Source/Plugin/Transform/Inject/Webview/Debug/Logging.ts`. Replace double-escaped quotes (`\\\"`) with single-escaped quotes (`\"`) for the `id=\"root\"` and `type=\"module\"` string checks.\n\nThis ensures the generated JavaScript string literals are syntactically correct and the runtime diagnostics correctly identify the presence of the React root element and module scripts during webview content processing.",
+			"SHA": "209fb282cd419882fa267cb175e539a004ef0421"
 		}
 	],
-	"TimeStamp": 1779378395240
+	"TimeStamp": 1779544357060
 }

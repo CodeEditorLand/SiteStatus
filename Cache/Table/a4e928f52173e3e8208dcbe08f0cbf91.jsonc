@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T20:53:06Z",
+			"Author": "Auto",
+			"Date": "2026-05-01T02:40:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				1
 			],
-			"Message": "feat(Mountain): Add cocoon:request IPC handler for extension host RPC bridge\n\nIntroduce a generic renderer→Cocoon RPC bridge in WindServiceHandlers to allow Sky-side bridges (e.g., webview.resolveView) to dispatch requests into the extension host.\n\nThe handler accepts params in the shape `[Method, Payload]`, forwards the request to Cocoon via `Vine::Client::SendRequest` with a 30s timeout, and returns the response verbatim. On failure, it returns a stringified error so the renderer can fall back to its alternative path (CustomEvent fan-out for legacy observers).\n\nThis enables extension callbacks like `resolveWebviewView` to flow through Mountain's IPC layer rather than requiring separate channel registrations for each bridge type.",
-			"SHA": "4044ae0a4523b3c5369965aa3b380fb030ce482a"
+			"Message": "",
+			"SHA": "51d4bddbf442268c76e36e70ef9e176c98fe2c3b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T19:54:02Z",
+			"Date": "2026-05-01T01:32:25Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				5
+				"⠇⠀⠀⠀⠀",
+				868,
+				55
 			],
-			"Message": "feat(Mountain): Implement debug session tracking and DAP adapter spawning\n\nAdd DebugSessionEntry struct and DebugSessions map to DebugState for lifecycle management of active debug sessions. Implement StartDebugging to spawn executable adapters (node, chrome, etc.) with stdin/stdout/stderr pipes, parse DAP frames from adapter stdout, and emit messages on `sky://debug/dap-message`. Implement SendCommand to route DAP requests to the spawned adapter's stdin or fall back to reverse-RPC for inline-implementation adapters. Implement StopDebugging to send DAP disconnect and unregister the session.\n\nAlso implement OnSaveCustomDocument in CustomEditorProvider to reverse-RPC to the extension sidecar via `$onSaveCustomDocument`, replacing the stub.\n\nFix char-aware truncation in WindServiceHandlers and OutputChannelAppend to avoid panics when slicing multi-byte UTF-8 codepoints (e.g., `•` in SCM progress messages).",
-			"SHA": "0b6ac619c4e7e5af9b04d1cd45731dbdd4959176"
+			"Message": "refactor(Mountain): Rename IPC handler functions to follow PascalCase convention\n\nRename all `handle_*` IPC handler functions in WindServiceHandlers, ConfigurationBridge, TauriIPCServer, and related modules to match the PascalCase naming convention specified in CLAUDE.md. Functions like `handle_commands_execute` → `CommandsExecute`, `handle_configuration_get` → `ConfigurationGet`, `handle_incoming_message` → `IncomingMessage`, etc. The new names align with the command/channel names they service (e.g., `commands:execute` → `CommandsExecute`), improving code clarity and consistency across the Mountain IPC layer.\n\nThis is a pure refactor with no functional changes.",
+			"SHA": "9134f4bf64e3333b62d9591a5c58b4764b8d5b47"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T15:54:09Z",
+			"Date": "2026-05-01T01:17:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				4
-			],
-			"Message": "fix(Mountain): Fix workspace boot seeding from recently-opened list and SCM handle alignment\n\nTwo issues addressed in this commit:\n\n1. **Recently-opened workspace fallback (CliParse.rs)**\n   The webview's initial URL is built from `~/.land/workspaces/RecentlyOpened.json`'s top entry (see `Binary/Build/WindowBuild.rs::BuildInitialUrl`), but Mountain's boot-time seeder previously fell straight through to CWD walk-up. This caused a mismatch: webview title said \"Mountain\" while Cocoon's init payload shipped \"Land\", vscode.git scanned the wrong root, and the SCM panel reported zeros despite uncommitted changes in the actual folder.\n\n   Add a fallback that probes the same source of truth as `BuildInitialUrl`, slotting it between env/CLI (explicit user intent) and CWD walk-up (last resort).\n\n2. **SCM provider handle alignment (3 files)**\n   Mountain was allocating new handles via DJB hash while Cocoon uses sequential handles from `ScmNamespace.ts`. When `UpdateSourceControlGroup` arrived with Cocoon's sequential handle, the lookup in Mountain's marker map failed because it was keyed by the hash instead.\n\n   - Honor caller-supplied `Handle` in `CreateSourceControl` (SourceControlManagementProvider.rs)\n   - Pass the same `Handle` through to `CreateData` in RPC/CocoonService/SCM.rs\n   - Include `handle` on the wire in Vine notification (RegisterScmProvider.rs)\n\nThis ensures all three components key their marker maps under the same identifier, allowing group updates to reach the SCM viewlet correctly.",
-			"SHA": "c6897f8464e700b43fbece81e2be179d6e418623"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T15:18:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				2
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "dcaa4d503dd7943dcba75ba06c867c9da7377a2d"
+			"Message": "perf(Mountain): Batch command registration emits to reduce IPC saturation\n\nDuring extension boot, 1000+ `registerCommand` notifications fire in a tight burst (113 extensions × ~10 commands each). Each notification was emitting a separate Tauri event, saturating the shared WKWebView IPC channel that also carries keystroke delivery. Users could type for a split second before the burst hit, then nothing.\n\nAdd a `CommandEmitBatch` struct that buffers commands and flushes after 16ms (one frame), reducing 1000+ individual emits to a single batched `{ commands: [...] }` emit. SkyBridge's listener already accepts both shapes (single `{ id, commandId, kind }` or batch `{ commands: [...] }`), so no Sky changes required.\n\nThis keeps the IPC channel free for keystrokes during extension boot when the renderer is most busy.",
+			"SHA": "f304bd408f391d1848c357b909b09e5f5906ae99"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T14:48:29Z",
+			"Date": "2026-05-01T00:15:58Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				859,
-				21
+				"⠀⠀⠀⠀⠀",
+				868,
+				1
 			],
-			"Message": "fix(Mountain): Align event payloads to Sky listener wire shapes and fix silent event drops\n\nThis commit addresses multiple issues where Mountain was emitting events that never reached Sky because of mismatched channel names or payload keys.\n\n**Event Channel Corrections (5 files)**\n- Terminal: `sky://terminal/opened` → `sky://terminal/create`, `sky://terminal/closed` → `sky://terminal/exit` (Sky listens on the new names at SkyBridge.ts:1736,1752)\n- Debug: `sky://debug/stop` → `sky://debug/sessionEnd` (SkyBridge.ts:2234)\n- StatusBar: `sky://statusbar/create` → `sky://statusbar/set-entry` (SkyBridge.ts:744 has no create listener)\n- Webview message: `sky://webview/message` → `sky://webview/post-message` (matches SkyBridge.ts:2344)\n- Progress: `sky://progress/report` → `sky://notification/progress-update` (aligns with notification namespace)\n\n**Payload Key Casing (8 files)**\n- OutputProvider: PascalCase keys (`Id`, `AppendedText`, `Name`, `LanguageId`) → camelCase (`channel`, `text`, `name`, `languageId`)\n- StatusBarProvider: Align all keys to camelCase\n- TreeViewProvider: `ViewIdentifier` → `viewId`, `ElementHandle` → `elementHandle`, `IsExpanded` → `expanded`\n- UserInterfaceProvider: `Severity`, `Message`, `Items` → `severity`, `message`, `items`\n- Window: `panelId` key alignment\n\n**Parameter Key Fallback (4 files)**\n- RegisterCommand/Provider: Probe camelCase first (`languageSelector`, `extensionId`) then snake_case for transitional compatibility\n- RegisterScmProvider/ResourceGroup: Probe camelCase (`scmHandle`, `rootUri`) then legacy snake_case\n\n**SCM RootUri Fix (RegisterScmProvider.rs)**\n- Previous extraction read only `path` component from UriComponents, producing relative URLs that failed to parse\n- Now reconstructs full `<scheme>://<authority><path>` triple from scheme/authority/path/query/fragment components\n- Falls back to `file://` prefix for bare paths, never emits relative URLs\n\n**Command Registry Sync (RegisterCommand.rs, UnregisterCommand.rs)**\n- Add emissions to `sky://command/register` and `sky://command/unregister` so Sky's workbench command palette sees extension-contributed commands\n\nWithout these fixes, terminal panes, tree views, status bar entries, and command palette entries were silently failing to render despite Mountain processing the underlying requests.",
-			"SHA": "ba479c6a5ea13640cdd3164452f55f429472915f"
+			"Message": "perf(Mountain): Gate sync/performance emits behind env vars and add subscriber fast-path\n\nTwo optimizations to reduce IPC channel contention:\n\n1. **Env var gating**: The `mountain_sync_status_update` and `mountain_performance_update` events were emitting on every tick even though Sky has no subscriber. Every emit now waits behind keystrokes on the shared Tauri IPC pipe. Gate both behind `LAND_SYNC_STATUS_EMIT=1` and `LAND_PERF_EMIT=1` respectively for debugging or future Sky consumers.\n\n2. **Subscriber fast-path**: The 100ms real-time updates tick was acquiring the lock and draining pending updates even with zero subscribers. Add an early check to skip the entire lock-and-drain path when `Subscribers.is_empty()`, making the tick a true no-op until a subscriber registers.\n\nTogether these keep the shared IPC channel free for keystrokes during extension boot when the renderer is most busy.",
+			"SHA": "75d2f1dbe4d77d92e1f679c84aa4885ce355a12d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T23:34:46Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				2
+			],
+			"Message": "feat(Mountain): Add Disable env var and fix first-click focus issue\n\nTwo unrelated but complementary fixes:\n\n1. **accept_first_mouse(true)**: Fix the \"I clicked, I'm typing, nothing's happening\" bug where WKWebView swallows the first click on an unfocused window as a \"make me key\" no-op. The user had to click twice - first to focus the NSWindow, second to focus the Monaco textarea. This change flips the responder chain so the first click already reaches WKWebView's content.\n\n2. **Disable environment variable**: Add master \"disable Land customisations\" gate via `Disable=true` env var. When enabled, Mountain skips: WindowEvent::CloseRequested intercept (Cmd+W routes natively), Cocoon/Air sidecar spawn, and Wind/SkyBridge registration. This is useful for bisecting whether typing-input regressions originate in the extension host or upstream/Tauri/WKWebView. Also rename DevTools auto-open from LAND_OPEN_DEVTOOLS to `Inspect=1` to follow Land's PascalCase env var convention.",
+			"SHA": "14b86efb22e841a2d2fa91ea12ba33c37b6cec33"
 		}
 	],
-	"TimeStamp": 1779378423222
+	"TimeStamp": 1779544402262
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T23:48:12Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				868,
-				53
-			],
-			"Message": "refactor(Mountain): Rename IPC handler bindings to PascalCase\n\nComplete the PascalCase migration started in the previous commit by renaming all local identifiers in WindServiceHandlers to match the project convention: runtime → RunTime, args → Arguments, app_handle → ApplicationHandle, and error bindings such as e → Error. Update doc comments and JSON field names that referenced the old identifiers.\n\nAlso fix a boot-time URI normalization bug in BuildInitialUrl: RecentlyOpened.json stores workspace URIs with a trailing slash (file:///.../Mountain/). Strip it before URL-encoding the folder path so that workbench-side URI.revive produces a folder URI matching URI.from, which never carries a trailing slash on the parent directory. The mismatch caused IUriIdentityService.extUri.relativePath to return absolute paths, making breadcrumbs, quick-pick, and Problems-panel labels render full /Volumes/... paths instead of the workspace-relative short form.",
-			"SHA": "fd28a7bd6076ee9b112d8a1d8b5301c11b75bfc9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T23:02:00Z",
+			"Date": "2026-05-02T06:30:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
-				2
-			],
-			"Message": "perf(Mountain): Batch decoration and progress emits to reduce IPC load\n\nExtend the 16ms coalescing strategy to two additional high-frequency Vine notification handlers, following the `CommandEmitBatch` pattern established for command registration.\n\n`DecorationTypeLifecycle`: Extension activation generates ~650 create/dispose calls per session, mostly registering syntax-highlight decorations. Previously each call fired an individual Tauri event on `sky://decoration/<suffix>`. Add `DecorationEmitBatch`, grouping payloads by channel and emitting a single `{ batch: [...] }` per channel per 16ms frame. SkyBridge demultiplexes these back into individual `cel:decoration:*` CustomEvents.\n\n`ProgressReport`: The git extension alone fires 6000+ `progress.report` calls per session during repository scans. Add `ProgressEmitBatch`, accumulating per-handle `increment` deltas and keeping the latest non-empty `message` over a 16ms window. Each progress handle receives one coalesced update per frame preserving the same final cumulative state, instead of dozens of individual emits.\n\nBoth use `OnceLock`-initialised static singletons with atomic flush scheduling to prevent duplicate timer tasks. This keeps the shared WKWebView IPC channel clear for keystrokes during extension boot and repository scanning when the renderer is most busy.",
-			"SHA": "644b96ee46ecc92796e2b34d2dcce2dc1c9be91f"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-01T02:40:30Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
+				1003,
 				1
 			],
-			"Message": "",
-			"SHA": "51d4bddbf442268c76e36e70ef9e176c98fe2c3b"
+			"Message": "refactor(Mountain): Correct ExtensionState path in ScanAndPopulateExtensions\n\nUpdate the type signature for `ScanAndPopulateExtensions` and `ScanExtensionsWithRecovery` in `ScanAndPopulateExtensions.rs` to reflect the new canonical module hierarchy. Replace the deprecated `ExtensionState::State::State` path with `State::ExtensionState::State::State`.\n\nThis adjustment ensures consistent symbol resolution following the recent flattening of the `ExtensionState` and `ApplicationState` modules, aligning with the decomposition pattern applied to `LifecyclePhase`, `Decorations`, and `Keybindings` in previous commits.",
+			"SHA": "337ec95a06eb2b086f69ebdd2003e0bcf90245ab"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:32:25Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				868,
-				55
-			],
-			"Message": "refactor(Mountain): Rename IPC handler functions to follow PascalCase convention\n\nRename all `handle_*` IPC handler functions in WindServiceHandlers, ConfigurationBridge, TauriIPCServer, and related modules to match the PascalCase naming convention specified in CLAUDE.md. Functions like `handle_commands_execute` → `CommandsExecute`, `handle_configuration_get` → `ConfigurationGet`, `handle_incoming_message` → `IncomingMessage`, etc. The new names align with the command/channel names they service (e.g., `commands:execute` → `CommandsExecute`), improving code clarity and consistency across the Mountain IPC layer.\n\nThis is a pure refactor with no functional changes.",
-			"SHA": "9134f4bf64e3333b62d9591a5c58b4764b8d5b47"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:17:29Z",
+			"Date": "2026-05-02T06:30:03Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
-				2
+				1003,
+				1
 			],
-			"Message": "perf(Mountain): Batch command registration emits to reduce IPC saturation\n\nDuring extension boot, 1000+ `registerCommand` notifications fire in a tight burst (113 extensions × ~10 commands each). Each notification was emitting a separate Tauri event, saturating the shared WKWebView IPC channel that also carries keystroke delivery. Users could type for a split second before the burst hit, then nothing.\n\nAdd a `CommandEmitBatch` struct that buffers commands and flushes after 16ms (one frame), reducing 1000+ individual emits to a single batched `{ commands: [...] }` emit. SkyBridge's listener already accepts both shapes (single `{ id, commandId, kind }` or batch `{ commands: [...] }`), so no Sky changes required.\n\nThis keeps the IPC channel free for keystrokes during extension boot when the renderer is most busy.",
-			"SHA": "f304bd408f391d1848c357b909b09e5f5906ae99"
+			"Message": "refactor(Mountain): Flatten Keybindings module structure\n\nRemove the wildcard re-export pattern in `Keybindings/mod.rs` and retain only the module declaration for `KeybindingState`. Add `#![allow(non_snake_case)]` and update documentation to reflect the canonical symbol resolution path `Keybindings::KeybindingState::{KeybindingEntry, KeybindingState}`.\n\nThis aligns with the ongoing decomposition of `FeatureState` into file-per-struct PascalCase modules, ensuring consistency with recent flattening of `Decorations`, `LifecyclePhase`, `ScannedExtensions`, `ExtensionRegistry`, and `ProviderRegistration`.",
+			"SHA": "359a42c1c423a251f717ef65e761e74fa91d36cd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T06:29:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1003,
+				1
+			],
+			"Message": "refactor(Mountain): Flatten Decorations module structure\n\nRemove the intermediate re-export pattern in `Decorations/mod.rs` and retain only the module declaration for `DecorationsState`. This aligns with the ongoing decomposition of `FeatureState` into file-per-struct PascalCase modules, ensuring the `DecorationsState` struct resides in its own canonical path (`Decorations/DecorationsState.rs`).\n\nAdd `#![allow(non_snake_case)]` and clarify documentation to reflect the updated symbol resolution path `Decorations::DecorationsState::{DecorationData, DecorationsState}`, consistent with recent flattening of `LifecyclePhase`, `ScannedExtensions`, and `ExtensionRegistry`.",
+			"SHA": "744e68bd0e805fad23e48ec1d18ed5b7e44e9be8"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T06:28:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1003,
+				1
+			],
+			"Message": "refactor(Mountain): Flatten LifecyclePhase module structure\n\nRemove extensive header documentation and flatten the `LifecyclePhase` module hierarchy in `ApplicationState`. Replace the previous dual-module pattern (`mod.rs` re-exporting `LifecyclePhaseState.rs`) with a single canonical path where the struct resides in `LifecyclePhaseState/LifecyclePhaseState.rs`.\n\nThis aligns with the ongoing decomposition of `FeatureState` into file-per-struct PascalCase modules, ensuring consistent symbol resolution for the boot-phase state used during Mountain initialization.",
+			"SHA": "dc431c7588e62cce9383ee2313b33c8e33050b3e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T06:28:34Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1003,
+				1
+			],
+			"Message": "refactor(Mountain): Flatten ScannedExtensions module structure\n\nRemove extensive header documentation and flatten the `ScannedExtensions` module hierarchy in `ApplicationState`. Replace the previous dual-module pattern (`mod.rs` re-exporting `ScannedExtensions.rs`) with a single canonical path where the struct resides in `ScannedExtensions/ScannedExtensions.rs`.\n\nThis aligns with the ongoing decomposition of `ExtensionState` into file-per-struct PascalCase modules, ensuring consistent symbol resolution for the `Registration` DTO used by the gRPC `Vine` protocol handlers.",
+			"SHA": "98bc90589b049c48e10d0b6e2db4e8aee4984815"
 		}
 	],
-	"TimeStamp": 1779378419680
+	"TimeStamp": 1779544394590
 }

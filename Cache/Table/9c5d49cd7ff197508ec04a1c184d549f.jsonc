@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-18T00:30:44Z",
+			"Date": "2026-05-20T06:13:28Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1492,
-				12
+				1578,
+				7
 			],
-			"Message": "refactor(Mountain): Rename application identity to FIDDEE\n\nUpdate the native backend to rebrand the editor from 'Land' to 'FIDDEE'. This involves a comprehensive change of product identifiers, folder names, URI schemes, and application metadata across configuration files and source code.\n\nIn `Info.plist`, update `ProductNameShort`, `ProductNameLong`, `ProductDataFolderName`, and `ProductUrlProtocol` to use 'FIDDEE' and 'fiddee'. Modify `tauri.conf.json` to change the bundle identifier to `fiddee.editor.binary` and the development team to 'FIDDEE'.\n\nUpdate internal references in `Entry.rs`, `Scheme.rs`, `CliParse.rs`, `InitializationData.rs`, and `WindServiceHandlers/mod.rs` to ensure the URI scheme, window titles, and VS Code `productConfiguration` fields correctly reflect the new identity. Adjust `PostHogPlugin/CaptureEvent.rs` to tag telemetry under 'fiddee'. Remove the deprecated `WebkitServer.rs` debug utility.\n\nThis change aligns the binary artifacts and runtime data with the new project branding while maintaining the existing architectural structure.",
-			"SHA": "37e1304709590ce001a8ffbb2707cf477074204b"
+			"Message": "style(Mountain): Normalize dispatcher indentation; update Cargo/tauri build identifiers\n\nRe-indent the extracted GenericNotification/Dispatcher and GenericRequest/Dispatcher files to remove the spurious extra block indentation level that was carried over from their original inline positions in CocoonService/mod.rs. Reorder imports (std before third-party) and collapse import brace formatting. No logic changes in either dispatcher.\n\nUpdate Cargo.toml binary/lib/package names and tauri.conf.json identifier/productName to the verbose build configuration string for the development/debug Electron profile, distinguishing this build artifact from production Mountain releases. Preserve originals as .Backup copies.\n\nOutcome: dispatcher code now matches project style conventions, and the development build artifact is correctly labelled for toolchain identification.",
+			"SHA": "e78bf315d71ba4a49c4200d7f7002d24f6058255"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-17T15:45:01Z",
+			"Date": "2026-05-20T06:13:01Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1499,
-				13
+				1576,
+				9
 			],
-			"Message": "refactor(Mountain): Migrate domain configuration to land.playform.cloud\n\nReplace all instances of the `editor.land` domain with `land.playform.cloud` across the Mountain native backend. This includes updating the `README.md` documentation, `tauri.conf.json` security policies (CSP), and internal service configurations.\n\nUpdate the `Scheme`, `ServiceRegistry`, and `CertificateManager` modules to reference `code.land.playform.cloud` and `api.land.playform.cloud` as the primary hostnames for local service routing and TLS certificate generation. Align DNS command logic (`DnsCommands`) to resolve the new zone `land.playform.cloud` and its subdomains to `127.0.0.1` for the diagnostic panel.\n\nRefactor unit and integration tests in `certificate_tests.rs` and `service_registry_tests.rs` to assert behavior against the new domain strings, ensuring consistency across the build artifacts and runtime environment.",
-			"SHA": "87ada867c668fef848ce561612d365d9baab197f"
+			"Message": "refactor(Mountain): Extract CocoonService dispatchers; fix Send-ness in InitData; retry AppDataPrefix\n\nThe 1400+ line `process_mountain_request` and 600+ line `send_mountain_notification` handlers were inlined in `CocoonService/mod.rs`, making the file unwieldy and obscuring the gRPC service boundary. Extract both match blocks into dedicated `GenericRequest::Dispatcher` and `GenericNotification::Dispatcher` modules, reducing `mod.rs` by ~1900 lines.\n\nIn `InitializationData.rs`, the `MutexGuard` on `WorkspaceFolders` was held across an `.await` call, making the future non-`Send` and breaking `tauri::async_runtime::spawn`. Scope the guard to a block so it is dropped before any await point; extract logging scalars before moving `FoldersWire` into `WorkspaceDTO`.\n\nIn `AppDataPrefix.rs`, replace the `OnceLock<Option<String>>` that caches `None` forever (routing all dev logs to `/tmp` after the first failed resolution) with a two-phase system: `RESOLVED: OnceLock<String>` for the permanent prefix, and `RETRY: Mutex<bool>` that stays `true` on first failure so subsequent writes retry after Tauri has created the app-data directory.\n\nIn `WindServiceHandlers/mod.rs`, the previous boot-latency fix used a bare `return Ok(...)` inside a match arm, which exits the enclosing async block (not just the arm), changing the block's inferred return type from `()` to `Result<Value, _>` and breaking `Scheduler::Submit`'s `Output = ()` bound. Replace with an `if/else` expression that evaluates to `Ok(...)` in both branches.\n\nAlso fix a minor clippy-nit in `AliasPath.rs` by removing the redundant `.as_str()` call.",
+			"SHA": "47a603158ca0d368b2ae744ef8fd7edcf5ed7410"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-05-17T02:42:21Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:37:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1499,
+				1574,
+				4
+			],
+			"Message": "style(Mountain): Reflow long lines and brace placement across four files\n\nNormalize formatting in `UpdateValue.rs`, `WindServiceHandlers/mod.rs`, `InitializationData.rs`, and `CocoonService/mod.rs` to align with Rust style conventions. Changes are limited to comment reflow, static declaration compaction, method body compression, and brace positioning — no logic is altered.\n\nCleans up artifacts from prior commits where formatter passes were missed, keeping the codebase consistent.",
+			"SHA": "65f1cf26cfa85fc1639f84d0458df61276bfa44a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:37:05Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1574,
+				6
+			],
+			"Message": "feat(Mountain): Add lang-scoped config override, stable session ID\n\n**Language-scoped configuration overrides** — `UpdateValue` now writes into\n`\"[<langId>]\": { key: value }` when the `ConfigurationOverridesDTO` carries a\nnon-empty `OverrideIdentifier`, matching the VS Code convention used by\nprettier-vscode, vscode-eslint, and other per-language formatters. The scope\nkey is cleaned up when its last entry is removed.\n\n**Stable session ID** — `ConstructSandboxConfiguration` and\n`ConstructExtensionHostInitializationData` now share a `OnceLock`-backed\nstatic `SESSION_ID` instead of generating a fresh `Uuid::new_v4()` per call.\nExtensions comparing `telemetryInfo.sessionId` across initialization calls now\nsee a consistent value for the process lifetime.\n\n**Call/Type hierarchy RPC handlers** — `CocoonService` now dispatches\n`$provideCallHierarchyItems`/`prepareCallHierarchy` and\n`$provideTypeHierarchyItems`/`prepareTypeHierarchy` generic requests to\n`Environment::PrepareCallHierarchy` and `PrepareTypeHierarchy` respectively,\nunblocking F12 / Go to References / Call Hierarchy in the editor.\n\n**Real IPC stubs** — `mountain_get_configuration` returns the live merged\nconfig object; `mountain_get_services_status` reports actual Cocoon connection\nstate; `mountain_get_state` surfaces real workspace folder count and active\ndocument URI. Eliminates hardcoded mock data.\n\n**SOCKS proxy support** — Proxy env-var parsing now emits the correct PAC\nkeyword (`SOCKS` for socks/socks4/socks5 URIs, `PROXY` for http/https),\nso extensions using the `proxy` setting work behind SOCKS proxies.\n\n**Dev-log lock contention** — `FlushDedup::Fn` switches from `lock()` to\n`try_lock()` so a contended dedup mutex never parks a Tokio worker thread.\nThe dedup line is cosmetic; missing one flush costs nothing.\n\n**Atomic always-on-top toggle** — Replaces the heuristic title-prefix proxy\nwith a `static AtomicBool` so `nativeHost:toggleWindowAlwaysOnTop` correctly\nflips and sets the opposite state on each invocation.\n\n**ViewColumn forwarding** — The `window.didChangeTextEditorSelection`\nVine notification now includes `viewColumn` from the incoming arguments,\nso extensions calling `activeTextEditor.viewColumn` see the correct pane\nnumber in split-editor layouts.",
+			"SHA": "5c627091d0aecbc4b96f536dde7bdf12242cc6f7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:21:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1574,
 				1
 			],
 			"Message": "",
-			"SHA": "ee4c027dc9e99b134829ad4e8808c1a633738765"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T21:43:34Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1499,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "69c1510bf5f8b6d214a55a379a40785e1933f45a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T21:43:32Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1499,
-				3
-			],
-			"Message": "refactor(Mountain): Optimize IPC handling and enable diagnostic tracing\n\nEnable full diagnostic tracing by setting the `Trace` configuration in `Info.plist` to `all`.\n\nRefactor `Entry.rs` to implement robust TTY detection logic. Check `TERM_PROGRAM` or verify `TERM` is not `dumb`/`unknown` before attempting shell environment enhancement or loading `.env.Land` files, ensuring these operations are skipped when the binary is launched from an interactive terminal that already provides the correct environment.\n\nOptimize the `mountain_ipc_invoke` handler in `WindServiceHandlers` by introducing a high-frequency command filter. Identify silent commands (e.g., `logger:*`, `file:watch`, `storage` events) to:\n- Skip expensive OTLP span creation and PostHog capture events\n- Avoid Echo scheduler submission for known no-ops, returning `Value::Null` immediately\n- Suppress verbose per-call logging\n\nThis significantly reduces CPU overhead and log noise during boot and high-frequency UI updates driven by VS Code workbench services.",
-			"SHA": "ee7a36e9f45ce5ec94d67b9caf025ac5b2db4e72"
+			"SHA": "07bd1cd0f25a8de5e7c19ec3eb0eab1bfabc8eca"
 		}
 	],
-	"TimeStamp": 1779378395737
+	"TimeStamp": 1779544358141
 }
