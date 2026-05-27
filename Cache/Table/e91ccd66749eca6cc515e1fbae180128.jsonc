@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:05:17Z",
+			"Date": "2026-04-28T04:52:52Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				859,
+				20
+			],
+			"Message": "Refactor environment variable names for consistency and clarity\n\n- Replaced occurrences of LAND_* environment variables with more descriptive PascalCase names such as `Skip`, `Ship`, `Lodge`, `Extend`, `Probe`, `Pick`, `Require`, `Spawn`, and `Trace`.\n- Updated related comments and documentation to reflect the new environment variable names.\n- Ensured that all references to the previous LAND_* variables are replaced throughout the codebase, including in logging and configuration functions.\n- Adjusted the logic in various modules to accommodate the new environment variable names while maintaining existing functionality.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "ce8f07da8643093964f0b944ac8d1009092af34b"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-28T02:33:40Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
+				859,
+				1
+			],
+			"Message": "",
+			"SHA": "45689ef731c4f9a4540fa723921e97620024dab2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T00:04:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
+			],
+			"Message": "feat(Scheme): Add CSS-as-JS shim for vscode-file scheme handling\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "204f51e4b2ea706a8247605d05466c67d1af4f76"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-27T21:27:11Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
 				2
 			],
-			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to the properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those - the \"dead code that needs to be connected\" the user flagged.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.",
-			"SHA": "5f23bca601cb496e0c86114e0aaf8db93c22cde4"
+			"Message": "feat(Mountain): Add cocoon:notify handler and webview notification channels\n\nAdd a new `cocoon:notify` IPC handler as a fire-and-forget companion to the existing `cocoon:request` bridge. This handles one-way wire methods (webview.message, webview.dispose, webview.viewState, etc.) where the extension host doesn't reply, avoiding the 30s request timeout penalty when the renderer just wants to push data into Cocoon.\n\nAlso extend the webview notification relay in MountainVinegRPCService to handle `webview.updateView` and `webview.reveal` in addition to the existing setTitle, setIconPath, and setHtml. These new channels route through the WebviewLifecycle notification handler for proper translation to Sky's kebab-case channel registry.\n\nThis completes the one-way communication path complementing the request/response RPC bridge added in the prior commit.",
+			"SHA": "c3883463d357d421647827bc32d7e8435cf36d48"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:47:23Z",
+			"Date": "2026-04-27T21:02:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
-				4
+				859,
+				1
 			],
-			"Message": "feat(Mountain): Add VS Code IPC command aliases and stub handlers\n\nAdd command aliases in WindServiceHandlers to bridge Mountain's native Effect-TS IPC layer with VS Code's binary IPC bridge (DiskFileSystemProviderClient, ConfigurationService):\n- Configuration: `configuration:getValue` / `configuration:updateValue` → `configuration:get` / `configuration:update`\n- File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`\n- Add stub handlers for `file:watch` / `file:unwatch` that return Null to prevent channel promise leaks\n- Add `configuration:onDidChange` handler that acks the channel listener with Null\n\nAlso enhance Cocoon stderr filtering to suppress follow-up stack frames from extension errors (EntryNotFound, FileNotFound) that Node.js prints across multiple stderr lines. This keeps the main cocoon channel clean while routing benign extension path-probing to verbose.",
-			"SHA": "661fe2405f2f71c5710b1b1e6dfb59272896fd30"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:25:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				4
-			],
-			"Message": "feat(Mountain): Fire workspaceContains and onStartupFinished extension activation\n\nImplement comprehensive startup extension activation matching VS Code's behavior:\n\n1. **Extension activation phases**: Fire three bursts at startup:\n   - `*` - unconditional activation (existing)\n   - `workspaceContains:<pattern>` - for each pattern matched by workspace\n   - `onStartupFinished` - after 2s delay for late-binding extensions\n\n2. **Pattern matching**: Add `FindMatchingWorkspaceContainsPatterns` that walks\n   workspace folders (depth 3, 4096 entries max) and matches against extension-\n   contributed `workspaceContains:` patterns using a minimal glob matcher.\n\n3. **Stderr filtering**: Downgrade benign Node.js/macOS noise to `cocoon-stderr-verbose`:\n   - macOS codesign messages (\"is already signed\", \"replacing existing signature\")\n   - Node deprecation warnings (DeprecationWarning, --trace-deprecation)\n   - Keeps main cocoon channel clean for actionable errors only.\n\n4. **Rust edition**: Upgrade from 2021 to 2024.\n\nThis fixes extensions that never activated without user interaction because they\ngate on `workspaceContains:package.json`, `onStartupFinished`, or similar events.",
-			"SHA": "72db08550a3a7b20669947fe3bac64deb2e0300d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:52:00Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				872,
-				11
-			],
-			"Message": "refactor(Mountain): Move high-frequency logging to verbose/opt-in tags\n\nContinue reducing default log volume by routing per-operation lines to dedicated verbose tags that are muted in `short` mode:\n\n1. **Command registration**: `commands` → `commands-verbose` for setContext (~130/session) and command execution in CommandProvider\n2. **Output channels**: `grpc` → `output-verbose` for append/create events (200+ appends per boot from language servers)\n3. **Command registry**: `grpc` → `command-register` for register/unregister notifications (~100 commands/session)\n4. **Provider registration**: `grpc`/extensions → `grpc-verbose`/`provider-register` for duplicate provider registration logs\n5. **Extension scanning**: `extensions` → `ext-scan-verbose` for per-candidate package.json probes (203/session)\n6. **Scheme assets**: `lifecycle` → `scheme-assets` for per-asset vscode-file:// requests (worker/wasm/font loading)\n\nNew tags added to SHORT_MODE_MUTED_TAGS: output-verbose, command-register, provider-register, ext-scan-verbose, channel-stub, commands-verbose, scheme-assets.",
-			"SHA": "7d046f166e341789c3445eb14c727db2ed044a11"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:37:22Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				872,
-				23
-			],
-			"Message": "refactor(Mountain): Reduce high-frequency log noise in default mode\n\nMove per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants that are muted in `short` mode:\n\n1. **DevLog infrastructure** (`DevLog.rs`):\n   - Add `SHORT_MODE_MUTED_TAGS` constant listing tags silenced by `short` mode\n   - Update `IsEnabled()` to respect muted list while preserving explicit tag overrides\n\n2. **gRPC layer** (`MountainVinegRPCService.rs`):\n   - Move per-request banners to `grpc-verbose`: receive, dispatch, params, completion\n   - Move latency timestamps to `rpc-latency` for profiling\n   - Extend 404 downgrade to both `FileSystem.ReadFile` and `FileSystem.Stat`\n   - Move notification receive banners to `grpc-verbose`\n\n3. **VFS operations** (all FileSystem handlers):\n   - Change `vfs` → `vfs-verbose` for stat/read/write/mkdir/delete/copy/move operations\n   - Per-path stat fires thousands of times during workbench boot\n\n4. **Storage operations** (`StorageProvider.rs`, `SecretProvider.rs`):\n   - Change `storage` → `storage-verbose` for updateItems, getAllStorage, setAllStorage\n   - Short-form storage logs also use `storage-verbose` for consistency\n\n5. **IPC routing** (`WindServiceHandlers/mod.rs`):\n   - Expand high-frequency skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme\n   - These fire thousands of times per session and add no signal beyond the IPC summary line\n\n6. **NLS scanning** (`Scanner.rs`):\n   - Change `extensions` → `nls` for NLS placeholder resolution and bundle loading\n\n7. **Tree latency** (`TreeView.rs`, `DispatchSideCarRequest.rs`):\n   - Change `grpc` → `tree-latency` / `grpc-verbose` for dispatch timing\n\nThis reduces default log volume from ~14k+ lines per session to ~500, while preserving full verbosity via `LAND_DEV_LOG=all` or explicit tag matching. The failure paths for each subsystem still log at the default level, so errors remain visible.",
-			"SHA": "9aa00458dcaa47d38fe44223376a186373386db0"
+			"Message": "fix(Mountain): Translate webview.setHtml to kebab-case for Sky channel alignment\n\nAdd suffix mapping in WebviewLifecycle to convert VS Code's camelCase\nwire format (`setHtml`) to Sky's canonical kebab-case channel registry\n(`set-html`). The translation happens before emitting so events like\nHTML assignment correctly route to sky://webview/set-html where Sky's\nlistener expects them. Other methods pass through unchanged since\nSky uses camelCase for setTitle and setIconPath.\n\nThis follows the event channel corrections in the prior commit that\naligned Terminal, Debug, StatusBar, Progress, and Output channels.",
+			"SHA": "728ab19ea1e973ad206d97d450e44ab69ab15ee4"
 		}
 	],
-	"TimeStamp": 1779544413694
+	"TimeStamp": 1779882123113
 }

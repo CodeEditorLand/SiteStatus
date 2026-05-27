@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:21:19Z",
+			"Date": "2026-05-23T01:56:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1574,
-				6
+				1739,
+				8
 			],
-			"Message": "fix(Mountain): Reduce lock contention; notify Cocoon on config change\n\n**Lock contention fixes** — In `ScanAndPopulateExtensions`, replace the N-insert\nloop under `ScannedExtensions` lock with a single pointer-swap (`*Guard = All.clone()`),\nreducing lock hold time from 100–500 ms to a clone duration. In `DiagnosticProvider`,\nsnapshot the `DiagnosticsMap` under the lock then aggregate outside it, so concurrent\n`SetDiagnostics`/`ClearDiagnostics` calls are not blocked during serialization.\n\n**Cocoon config notification** — After a successful configuration value write in\n`UpdateValue`, fire a `configuration.change` Vine notification to `cocoon-main` so\nextensions' `ConfigCache` invalidates the affected key and re-primes on next access.\nWithout this, `workspace.getConfiguration().get(key)` returns stale cached data until\nthe next full re-merge notification.\n\n**Cleanup** — Group `SkyEvent` import into existing block in `UpdateValue`; collapse\n`TextfileSave` import paths; fix `AppMenu` and `FileWriteNative` formatting.",
-			"SHA": "7018ff29e26f00125ebe80f2482765bbdb842202"
+			"Message": "refactor(Mountain): Normalize entry points to `Fn` and fix document sync IPC\n\nContinue the standardization of binary and service entry points by renaming descriptive function names (e.g., `ExtensionPopulate`, `CocoonStart`) to the universal `Fn` identifier across `AppLifecycle.rs` and `Entry.rs`. This aligns the main entry flow with the recent changes to `WindServiceHandlers`.\n\nCorrect the `Mountain` ↔ `Cocoon` IPC for `sky:model:contentChanged`. Ensure `Uri` existence is validated before accessing `Payload` fields to prevent null dereferences. Move the `cocoon-main` notification emission inside the valid block to guarantee extensions only receive updates for existing documents. Explicitly cast `Line` and `Character` to `u32` when constructing `PositionDTO` to satisfy strict Rust type requirements.\n\nUpdate `.gitignore` to correctly distinguish between the `Mountain` binary and the `Target/debug/Mountain/` artifact directory, preventing accidental commits of generated build files. Remove previously tracked `index.html` artifacts from the `Target` directory.",
+			"SHA": "2981699766b232f95ff57b662c457ef16797e679"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:20:43Z",
+			"Date": "2026-05-23T01:21:12Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1574,
-				2
+				"⠃⠀⠀⠀⠀",
+				1745,
+				89
 			],
-			"Message": "fix(Mountain): Fix StorageProvider race and Cocoon-connect boot latency\n\n**StorageWriteDebouncer race** — Reorder the flush loop to take the pending\nitem before clearing `FlushScheduled`, so a concurrent `Queue()` call\ncannot observe the flag as `false` and the slot as empty, scheduling a\nno-op flush.\n\n**Scope-correct debouncer** — Select `GetWorkspaceDebouncer` for workspace\nscopes instead of always routing through the global debouncer, preventing\na workspace bulk-save and global bulk-save from sharing the same pending\nslot.\n\n**Dev-log noise suppression** — Add `file:open`, `file:close`, and\n`textFile:save` to the low-level noise skip list. These fire once per file\nduring project-open cascades and once/second per dirty file for auto-save\nintent, polluting IPC logs without diagnostic value.\n\n**Cocoon-connect boot latency** — Remove the 3-second blocking\n`WaitForClientConnection` from `languages:getAll` and\n`languages:getEncodedLanguageId` handlers. Tokenizer calls\n`getEncodedLanguageId` synchronously on first editor open. With the old\nwait, the worker stalls for up to 3 s before Cocoon is available. Return an\nempty fallback array immediately when Cocoon isn't connected; the workbench\nretries on next keystroke.",
-			"SHA": "920f9dc6bbda677a2de6d3018582afbb14de5b26"
+			"Message": "",
+			"SHA": "17dc9a00fe6ffc1d0feaba2e6c5735aca98df40a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:13:04Z",
+			"Date": "2026-05-23T00:59:29Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1574,
-				3
+				"⠃⠀⠀⠀⠀",
+				1692,
+				87
 			],
-			"Message": "fix(IPC): Enhance file write and save handlers to update metadata and notify configuration changes\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "37d18e0da89ec21186531428f1ddec68815699df"
+			"Message": "",
+			"SHA": "1a2c20eb6537fd77be321ea3e04470b07e3dd4cf"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:06:47Z",
+			"Date": "2026-05-23T00:32:33Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1574,
-				5
+				"⡇⠀⠀⠀⠀",
+				1657,
+				156
 			],
-			"Message": "feat(Mountain): Fire $acceptModelSaved after disk writes; strip Undo/Redo from native Edit menu\n\n**T1.4 save notification** — `FileWriteNative` and `TextfileWrite` now fire `$acceptModelSaved` via Vine after a successful disk write, so Cocoon can dispatch `onDidSaveTextDocument` to subscribed extensions (format-on-save, organize-imports, save listeners). The save is fire-and-forget (tokio::spawn) so a Vine failure never cascades back to the workbench IPC caller. Both handlers also gain `dev_log` instrumentation for write latency and byte count.\n\n**Cmd+Z routing fix** — On macOS, Tauri's default `Builder::default()` installs an Edit submenu with native Undo/Redo items that intercept Cmd+Z at the AppKit responder-chain level before the WKWebView's keydown handler fires, preventing VS Code's Monaco editor from seeing `meta+z`. The new `AppMenu::SetAppMenu` builds a custom Edit submenu containing only Cut/Copy/Paste/SelectAll, removing Undo/Redo so Cmd+Z and Cmd+Shift+Z reach the JS layer. Called from `AppLifecycleSetup` immediately after window creation. Non-fatal; logs a warning and keeps the default menu if the override fails. No-op on Windows/Linux.",
-			"SHA": "f79990166465444bbe3a00ca968af7527b0bea13"
+			"Message": "",
+			"SHA": "8846c77c5f57d9cf8c8b039b1ccfe0d5cb982dff"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T04:39:32Z",
+			"Date": "2026-05-22T10:35:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1573,
-				10
+				1589,
+				1
 			],
-			"Message": "fix(Mountain): Fix shell PATH, git cache, build constraints, and import paths\n\n**EnhanceShellEnvironment** — Allow shell PATH to override the Finder/Dock\nminimal default (`/usr/bin:/bin:/usr/sbin:/sbin`) when `IsTty()` is false,\nso git, Node, and language servers resolve correctly after launchd/Dock\nlaunches.\n\n**HandleIsAvailable** — Cache only a `true` result. A transient `false`\nfrom the first git probe (fired before EnhanceShellEnvironment extends\nPATH) must not permanently disable the SCM UI.\n\n**CocoonService/mod.rs** — Remove `prepare_call_hierarchy` and\n`prepare_type_hierarchy` gRPC handlers that were prematurely introduced\nin the previous commit. Rename `GenericNotification` and `GenericRequest`\nimports with `Msg` aliases to avoid name clashes with sibling modules.\n\n**Import path fixes** — Qualify `MountainVinegRPCService` path in\nRegisterLanguageProvider and call `RunTime()` as a method; fix `MetricType`\nimport alias in DashboardHelpers; add missing `CommandExecutor` import in\nGenericNotification and GenericRequest commands.\n\n**build.rs** — Gate `tauri_build::build()` behind an absent\n`CARGO_BUILDING_DOCS` var so `cargo doc` succeeds without Sky Astro assets.\n\n**tauri.conf.json** — Add Brotli pre-bake as `beforeBundleCommand`.\n\nBump `Record` to 1 in Info.plist.",
-			"SHA": "36c8655681c646f7f1119aac1cbca04346b69d91"
+			"Message": "",
+			"SHA": "d54260e4ede053270aba03d438af776baa2e9cbc"
 		}
 	],
-	"TimeStamp": 1779544358408
+	"TimeStamp": 1779882038897
 }

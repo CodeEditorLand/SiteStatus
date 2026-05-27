@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T19:53:53Z",
+			"Date": "2026-04-29T17:42:41Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				230,
+				270,
 				6
 			],
-			"Message": "feat(Output): Add ReplaceSearchService transform plugin\n\nAdd a new build-pipeline transform that replaces VS Code's web-worker-\nbacked `RemoteSearchService` with a Tauri-IPC client delegating to\nMountain's `search:findFiles` / `search:findInFiles` Rust handlers.\n\nThe upstream search service uses `LocalFileSearchWorkerClient` which\ndepends on the HTML File System Access API (unavailable under\nTauri/WKWebView) and walks files without respecting `.gitignore`. This\ncaused two problems in Land: (1) the search panel showed files in the\nexplorer but the match counter stayed at 0 because no text-search backend\nran, and (2) ignored folders like `Target/` / `node_modules/` appeared\nin results.\n\nThe transform rewrites `searchService.js` with a `MountainTauriSearchProvider`\nthat invokes `MountainIPCInvoke` with the search channel name, then shapes\nthe response into `ISearchComplete`. It preserves the DI registration so\nthe workbench transparently receives the Mountain-backed implementation.\nBoth `search:findFiles` and `search:findInFiles` are `.gitignore`-aware via\nRust's `ignore::WalkBuilder` and run native (faster than the browser worker).",
-			"SHA": "b769bd954a5d923805706b02221538d95cff3c60"
+			"Message": "feat(Output): Add PatchTerminalGpuAcceleration transform for WKWebView terminal\n\nAdd a new transform plugin that patches the terminal configuration schema to default `terminal.integrated.gpuAcceleration` to `'off'` instead of stock VS Code's `'auto'`. Under WKWebView, xterm.js's WebGL renderer builds its texture atlas before the Menlo font resolves, causing wrong cell widths and rendering glitches (overlapping characters, double-width glyph gaps, halos around anti-aliased edges due to texImage2D premultiplication differences).\n\nThe transform is currently NOT wired into the BuildPipeline by default. It was disabled after enabling revealed a \"black shadow over text\" artifact from xterm's DOM-renderer cursor/accessibility layer in WKWebView. The transform exists on disk so it can be re-enabled if the original WebGL atlas font drift issue resurfaces after the deferred-create race fix lands.\n\nUsers can still opt into WebGL by setting `terminal.integrated.gpuAcceleration: \"on\"` in settings.json — the schema enum is unchanged.",
+			"SHA": "8d7a19d0e4241a66065c7e53257283843fae4c27"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-04-27T03:36:56Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T05:25:19Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				227,
+				267,
 				1
 			],
-			"Message": "",
-			"SHA": "b15b23fcc0bb6abe76c9a5368f90a6c924b6c1f0"
+			"Message": "docs(Output): Rewrite CHANGELOG to document v2.x release chain\n\nComprehensive CHANGELOG rewrite documenting Output's evolution from v0.0 through v2.2. Adds new sections for the three v2.x releases:\n\n- v2.2: ExposeWorkbenchAccessor transform, service-IIFE wrapping for bundled profile, Mountain→Cocoon buffer decoding, JSDoc nested comment fixes\n- v2.1: Polyfill hardening (6 Electron-to-Tauri shims, TauriMainProcessService IPC adapter, DevLog/Trace/telemetry)\n- v2.0: Source compilation migration from prebuilt artifacts to compiling from Dependency/Microsoft/Dependency/Editor/src\n\nRestructures older v1.x entries and adds inception details for v0.0-v0.2. Previously the changelog only documented up to v2.0 with minimal detail.",
+			"SHA": "214a9ffb6fc64120ec88a3635c37af8be60d74db"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:05:00Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				227,
-				5
-			],
-			"Message": "feat(Output): Add InstrumentVscodeGit transform plugin\n\nAdd the InstrumentVscodeGit transform to the build pipeline, which\ninjects `process.stdout.write('[GIT-MARK-X] ...')` diagnostic markers\ninto the bundled vscode.git extension's main.js and model.js at\nstrategic activation-pipeline points.\n\nThe markers bypass Cocoon's outputChannel routing (which is muted in\nLAND_DEV_LOG=short) to provide unambiguous progress signals during\nthe F6 diagnostic workflow. Each marker has a distinct prefix that can\nbe grepped to identify exactly where vscode.git's activation silently\nbails out, leaving the SCM viewlet empty despite the extension\nactivating within 2814-4173ms.\n\nThe transform is self-idempotent — it skips injection if the marker\nis already present, allowing safe re-runs of the build pipeline.",
-			"SHA": "d70e115fe483bffb3f7391d3692c590b5e525ad6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:04:45Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				225,
-				5
-			],
-			"Message": "feat(Output): Expand workbench service exports + add git instrumentation\n\nExpand the ExposeWorkbenchAccessor transform to export additional\nservices and classes needed by SkyBridge's in-process providers:\n\n- SCM, Debug, CustomEditor service decorators - allow SkyBridge to\n  register providers that mirror Cocoon's extension-host registrations\n  (sky://scm/*, sky://debug/*, sky://customEditor/* events)\n- Emitter, Disposable, toDisposable - required for SCM provider shim's\n  event interface (ISCMService expects onDidChange* events matching\n  vs/base/common/event.js::Emitter's shape)\n- IModelService + ILanguageService - needed to construct real ITextModel\n  for the SCM inputBox (MainThreadSCMProvider rejects null inputBox)\n- ResourceTree + IUriIdentityService - for grouped SCM repository rendering\n\nAlso add InstrumentVscodeGit, a new diagnostic transform that injects\nprocess.stdout.write('[GIT-MARK-X] ...') markers into the bundled\nvscode.git extension's main.js and model.js. This bypasses Cocoon's\noutputChannel routing (muted in LAND_DEV_LOG=short) to diagnose why\nthe SCM viewlet stays empty despite vscode.git activating within\n2814-4173ms. The last visible marker identifies the exact bail point.",
-			"SHA": "a349f4ae1e12e98b33334504832d802cdbf6d3b4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:50:00Z",
+			"Date": "2026-04-29T04:58:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				224,
-				2
+				267,
+				3
 			],
-			"Message": "feat(Output): Add URI import to ExposeWorkbenchAccessor transform\n\nComplete the workbench accessor patch by statically importing the `URI` class alongside the existing service decorators. The previous commit exposed the URI via the `__CEL_SERVICES__` object, but the import statement was missing from the transform's header injection.\n\nThis fix ensures the transform plugin injects the necessary import for `URI` when patching `web.main.js` and `desktop.main.js`, allowing SkyBridge's search provider to construct resource objects the workbench accepts directly without a `URI.revive` round-trip.",
-			"SHA": "3db8e24cd143fa7887d7395c6a0a2fbf53ac02f4"
+			"Message": "feat(Output): Bridge localPty channel events through Tauri's sky:// event system\n\nAdd ChannelEventBridge to map VS Code's IPC channel.listen() calls to Tauri's native event system. The localPty channel now routes onProcessData, onProcessReady, and onProcessExit events from Mountain's PTY reader (sky://terminal/*) to the workbench's terminal service handlers with proper payload transformation.\n\nPreviously, channel.listen() returned a no-op handler that silently discarded all event subscriptions. This caused the terminal's xterm panel to stay blank despite Mountain emitting sky://terminal/data hundreds of times - the callback never fired because there was no connection between Tauri's event system and VS Code's channel event surface.\n\nThe bridge maps Mountain's `{id, data|pid|code}` payload shape to VS Code's expected `{id, event: ...}` format and wires the listener through Tauri's @tauri-apps/api/event.listen(). Terminals now render properly.",
+			"SHA": "471479a2554333d215fad46705e9873c5fa671a1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T04:07:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				267,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
+			"SHA": "99efc02f89574f4e46a52eeb1611ac4103262602"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T04:01:14Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				267,
+				5
+			],
+			"Message": "fix(Output): Add user extension retry + short-circuit Promise probes\n\nTwo fixes to the Output build pipeline:\n\n1. ExtensionScannerIPC: Mirror retry logic on user extensions scan path\n   The system extensions path had retry on empty response but user\n   extensions did not. Without it, an empty initial user-extensions\n   response silently passes 0 extensions through to viewsExtensionPoint\n   and ExtensionsRegistry, leaving every user extension contribution\n   (gitlens, clangd, commands, configuration, languages) unregistered.\n   Also switch to exponential backoff (100, 200, 400, 800, 1500ms) from\n   fixed 1000ms delays - Mountain's scan usually completes in ~500ms.\n\n2. TauriMainProcessService: Short-circuit Promise protocol probes\n   When VS Code resolves a channel-returned thenable, the JS runtime\n   accesses .then, .catch, .finally, constructor, valueOf, toString,\n   toJSON, @@iterator, @@asyncIterator on the proxy to determine if it's\n   a Promise. Each access became a channel call with the property name,\n   surfacing as \"Unknown IPC command: localPty:then\" on every workbench\n   wake. Returning undefined synchronously matches stock VS Code's\n   IChannel behaviour for unknown methods - the runtime sees a non-\n   thenable and stops probing. Saves ~15-25ms of round-trip per probe\n   and removes the noisiest IPC error in the dev log.\n\nRefs a28351b7240a5a722ebef039f3370ac90240818c (system ext retry)",
+			"SHA": "2924f2ae8bb3b41fa32ae0fd965804a80d548dfa"
 		}
 	],
-	"TimeStamp": 1779544367719
+	"TimeStamp": 1779882088895
 }

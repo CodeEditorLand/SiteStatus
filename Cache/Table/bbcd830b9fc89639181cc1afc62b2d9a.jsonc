@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-05-10T02:02:43Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T05:17:57Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				64,
-				1
+				105,
+				2
 			],
-			"Message": "",
-			"SHA": "4c781198dcac1254b4434e8ad493cebd408b102a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-09T16:35:44Z",
-			"File": [
-				"⣿⣿⡇⠀⠀",
-				64,
-				32
-			],
-			"Message": "",
-			"SHA": "110d4280872ed9c653ee0c8fb781c3a667209c55"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-09T11:27:02Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				66,
-				1
-			],
-			"Message": "Merge branches 'Current' and 'Current' of ssh://github.com/CodeEditorLand/Maintain into Current",
-			"SHA": "acec523fdea3779e7016bd4fbf69fdf6f18c34b7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-09T11:07:28Z",
-			"File": [
-				"⣿⣿⡇⠀⠀",
-				66,
-				33
-			],
-			"Message": "refactor(Maintain): Refactor build system into configuration-driven CLI with Rhai scripting\n\nReplace the legacy environment-variable-based build orchestration with a robust, configuration-driven CLI system. This overhaul introduces a unified `maintain` binary capable of handling both build and run workflows via subcommands, profile aliases, and dynamic Rhai scripting.\n\nKey modifications include:\n- **Architecture**: Added `TargetArchitecture` struct with support for macOS (Intel/Apple Silicon), Linux, and Windows triples.\n- **Build System**: Replaced static logic with `Build/CLI.rs` featuring subcommands (`build`, `list-profiles`, `resolve`, `validate`) and layered environment resolution (templates -> shell -> profile -> CLI overrides).\n- **Run System**: Introduced `Run/` module mirroring build architecture for development workflows with hot-reload and watch capabilities.\n- **Scripting**: Integrated Rhai engine (`Build/Rhai/`) to execute profile-specific scripts for dynamic environment generation, allowing complex logic without recompilation.\n- **Tooling**: Enhanced `JsonEdit` and `TomlEdit` utilities for safe, atomic updates to `tauri.conf.json` and `Cargo.toml` during build prep.\n- **Documentation**: Added extensive examples and integration tests verifying Rhai script outputs against expected environment variables.\n\nThis enables flexible, per-profile build configurations defined in `.vscode/land-config.json`, reducing shell script reliance and improving cross-platform consistency.",
-			"SHA": "968a8a6e76d8221a7e5f946f8522288adc6b7900"
+			"Message": "fix(eliminate): skip inlining when free vars in Init are moved before substitution site\n\nFixes #56.\n\nBefore this change, a candidate like:\n\n  let display = var.clone();\n  ... var moved into struct field ...\n  devlog!(..., display, ...);\n\npassed every safety check (count=1, not in closure, not unsafe, not\noversized) and was inlined, placing var.clone() after the move, which\nproduces E0382.\n\nThe new IsFreeVarSafe function in Safe.rs collects all plain-identifier\nfree variables from Init, then scans the statements between the\ncandidate declaration and the substitution site. If any of those\nstatements contain a by-value use (pass to a function, struct field\nshorthand, or assignment) of a free variable, the candidate is skipped.\n\nThe check is conservative: it only looks at Expr::Path single-segment\nidentifiers, so it never produces false negatives for qualified paths or\nmethod receivers. It may produce false positives (keeping a binding that\nwould actually have been safe) but never produces a false negative that\nresults in a compile error.\n\nA regression test covering the exact get_file_info / get_configuration\npattern from Mountain/Source/Air/AirClient.rs is included in Inline.rs.",
+			"SHA": "f495f73bfda5e0a7422b4ae1f63f2c0ff71cd68c"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-05-09T02:02:28Z",
+			"Date": "2026-05-25T02:35:57Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				66,
+				"⠀⠀⠀⠀⠀",
+				105,
 				1
 			],
 			"Message": "",
-			"SHA": "c85be4b60cc323a1536f17fb1acbe8baabf47ec2"
+			"SHA": "272f255c5bd1f37f9c1398251fa8bf5ec88c9112"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-24T16:09:59Z",
+			"File": [
+				"⣿⠁⠀⠀⠀",
+				105,
+				23
+			],
+			"Message": "test(Maintain): split integration tests into Syntactic and Integration suites\n\nSplit the original Eliminate integration tests into two binary-compatible\nsuites: Syntactic (for fast, string-based comparison) and Integration\n(for semantically-validating via rustc).  The integration suite now compiles\ntransformed snippets to validate semantic equivalence.\n\nThis separation allows for faster, more targeted testing of the elimination\nlogic (syntactic) versus real-world usage (integration) and improves\nmaintainability by modularising the test files.\n\nRename `tests/Eliminate.rs` → `tests/Eliminate/Syntactic.rs` and\nintroduce `tests/Eliminate/Integration.rs` with per-test files under\n`tests/Eliminate/Integration/`.  Both test suites are built by `cargo test`.",
+			"SHA": "ad03561e6603ff1f089e8e4fa4859c9a2ad3f24c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-24T15:55:32Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "test(Maintain): Add comprehensive test cases for Eliminate pass transformations\n\nExpand test coverage in `tests/Eliminate.rs` with detailed assertions for expression inlining, macro handling, and real-world Mountain backend patterns. Key additions include:\n\n- Cast expression handling (`CastExprInlined`, `CastExprNeedsParen`)\n- JSON macro token handling (`DerefOnceLockIntoJsonMacro`, `TypeAnnotatedCollectIntoJsonMacro`)\n- Closure-local binding inlining (`ClosureLocalBindingsInlined`)\n- Match scrutinee inlining (`OptionBindingIntoMatchScrutinee`, `ChainIntoMatchDiscriminant`)\n- Async inlining patterns with `tokio::fs` and `json!` macro use\n- Safety assertions for multi-use variables and pre-clone handling (`RangeDoubleBoundKept`, `PreCloneForMoveClosureKept`)\n\nThese test cases validate the `Eliminate` transformer's behavior in complex expression contexts, including real-world patterns from the Mountain backend.",
+			"SHA": "eaa6a54c54224b010bbef7a8bfb2b892e96bf48f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-24T15:40:56Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				81,
+				2
+			],
+			"Message": "test(Maintain): Expand Eliminate tests for casts, derefs, and Mountain patterns\n\nExtend `tests/Eliminate.rs` with Batch-2 coverage to validate complex inlining scenarios identified during core backend optimization. The new tests verify:\n\n1. **Expression Handling**: Correct parenthesization of cast expressions in binary operations, dereferencing of `OnceLock` results into `json!` macros, and negated boolean guards.\n2. **Control Flow**: Inlining into match scrutinees, discriminants, and `if let` guards, including block expressions that manage mutex guards.\n3. **Async & Closures**: Collapsing single-use bindings inside async blocks and closure bodies (e.g., `.map()` iterators) where variables feed directly into struct literals.\n4. **Mountain Patterns**: Real-world reproductions from `Mountain` including exit code casting, clipboard text passing, terminal revival chains, and stat metadata extraction.\n5. **Safety Constraints**: Ensuring multi-use variables (e.g., range bounds, borrow aliases in `json!`) and pre-clone bindings for move closures are preserved.\n\nThese additions ensure the transformer safely handles the dense expression chains common in the Rust backend while respecting scope and lifetime constraints.",
+			"SHA": "154dbdfb2d3994b6cabd2f2590e95712e7d93689"
 		}
 	],
-	"TimeStamp": 1779544353664
+	"TimeStamp": 1779882030183
 }

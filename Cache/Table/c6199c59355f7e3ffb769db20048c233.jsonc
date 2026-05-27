@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:25:57Z",
+			"Date": "2026-04-29T01:41:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
-				2
+				102,
+				1
 			],
-			"Message": "feat(Project): Implement workspaceContains activation and improve route manifest script\n\nElement submodule sync bringing two complementary improvements:\n\n1. **Extension Activation (Mountain/Cocoon)**: Implement VS Code-style workspaceContains and onStartupFinished activation. Mountain now fires three activation bursts: `*`, `workspaceContains:<pattern>` (glob matching against workspace folders, depth 3, 4096 entries max), and `onStartupFinished` (2s delay). Add FindMatchingWorkspaceContainsPatterns for glob matching. Filter benign stderr noise (macOS codesign, Node.js deprecation warnings) to cocoon-stderr-verbose channel. Upgrade Rust edition from 2021 to 2024.\n\n2. **Route Manifest Script (Maintain)**: Reformat pipe chains in GenerateRouteManifest.sh to use `|` at line ends consistently instead of trailing backslashes. Fix variable redirections to remove spaces after `<` (e.g., `< \"$file\"` → <\"$file\").\n\nImpact: Extensions gated on workspaceContains:package.json and workspaceContains:**/now activate correctly. Default stderr is cleaner while preserving error visibility. Route manifest generation script follows consistent shell style.",
-			"SHA": "1353aed19c582c4cb1a6ff9ac69462e69032705b"
+			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nSynchronize Mountain submodule with two bug fixes:\n\n1. **FileWatcher.rs**: Handle both numeric and string handle types in `RegisterWatcher` and `UnregisterWatcher`. The newer `NextProviderHandle()` returns a number while older callers pass strings. Previously, numeric handles were silently converted to empty strings causing failures.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without regex string parsing, while `-32000` remains the catch-all for genuine failures.\n\nImpact: File watcher registration now works correctly regardless of handle type. Directory listing 404s are properly distinguished from genuine errors, improving error handling accuracy in Cocoon.",
+			"SHA": "0d6755b26af812f8135b6a51610c3738e357e026"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:52:48Z",
+			"Date": "2026-04-29T01:05:18Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				5214,
-				1
+				"⠃⠀⠀⠀⠀",
+				102,
+				5
 			],
-			"Message": "refactor(Project): Continue logging noise reduction across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
-			"SHA": "1271d7fded155a605359db1131df59c7eaf6be5f"
+			"Message": "chore(Land): Refactor env var handling with allow-list and fix errexit bug\n\nMulti-component synchronization and build system improvements:\n\n1. **TierEnvironment**: Switch from regex sweep (`^LAND_*`) to explicit allow-list of PascalCase keys (Pick, Require, Ship, Lodge, Extend, Probe, Skip, Mute, Wire, Install, Authorize, Beam, Report, Throttle, Buffer, Batch, Cap, Replay, Ask, Brand). This prevents unrelated OS/dev environment variables from polluting the diagnostic block. Also fix errexit bug by replacing `&&`-chain with `if [ -n ... ]; then ... fi` form - the `printenv` command exits non-zero for unset variables, which trips `set -e` when captured in command substitution.\n\n2. **turbo.json**: Remove `.env` files from globalDependencies since TierEnvironment.sh now handles env loading with explicit overlay sourcing.\n\n3. **Submodule sync**: Output adds RewritePerfBaselineWorker transform to fix timer service worker bootstrap crashes caused by Vite mangling `__name(...)` decoration in inlined Astro chunks.\n\n4. **Changelog**: Minor wording tweak (\"test suite\" → \"suite\").\n\nImpact: Build diagnostics now display only explicitly-allowlisted runtime variables, debug profiles no longer silently abort under errexit, and timer service worker boots correctly without reference errors.",
+			"SHA": "a72870e9e95eaae2ec835dac7e09af244a6b727a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:37:56Z",
+			"Date": "2026-04-28T23:07:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				103,
 				1
 			],
-			"Message": "feat(Project): Wire extension tree views and reduce Mountain log noise\n\nCross-cutting sync across four submodules:\n\n1. **Mountain (refactor):** Reduce high-frequency log noise in default mode by moving per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants muted in `short` mode. Expand IPC skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme. Reduces default log volume from ~14k+ lines per session to ~500 while preserving error visibility.\n\n2. **Output (feat):** Expose IViewsService and TreeViewByViewId in workbench accessor ESBuild transform. Enables Sky to resolve ITreeView instances from ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\n3. **Sky (feat):** Wire extension tree views into workbench rendering pipeline. Attach data providers to tree views that call `tree:getChildren` via MountainIPCInvoke, converting Cocoon wire shape into workbench ITreeItem. Add retry logic (5 attempts, 150ms spacing) for async workbench init. Implement `cel:tree-view:refresh` and `cel:tree-view:dispose` handlers.\n\n4. **Cocoon (sync):** Submodule update.\n\nImpact: Extension-registered tree views (from extensions like GitLens, Debugger) now render in the workbench pane. Default logs are actionable rather than noisy.",
-			"SHA": "c26be973866e6bcb67c7da99093ef59e06ba2d0a"
+			"Message": "chore(Project): Sync Element submodule with diagnostics pipeline and service worker fix\n\nMulti-component synchronization enabling language extension diagnostics to render in the editor UI:\n\n1. **Mountain**: Extend DiagnosticsChanged event with per-URI marker payloads and cap keyring crate logging to Warn level. The new `changedURIs` field enables direct `IMarkerService.changeOne()` calls without extra IPC round-trips.\n\n2. **Output**: Add RewriteNodeModulesPath transform to fix hardcoded `vs/../../node_modules` paths that were causing grammar/tokenization to silently fail (returning SPA fallback). Also expose IMarkerService on `__CEL_SERVICES__.Markers` for SkyBridge to push diagnostics.\n\n3. **Sky**: Add `sky://diagnostics/changed` handler that translates Mountain events into editor markers. Receives `{ owner, changedURIs: [{ uri, markers }] }` and calls `Markers.changeOne()` for each entry - enabling red squiggles and Problems panel population.\n\n4. **Worker**: Remove obsolete precache paths from Service Worker that caused `Failed to fetch` errors on every install (paths moved to Astro chunks).\n\nImpact: Language extension compile errors, lint warnings, and type errors from extensions like rust-analyzer, TypeScript, and ESLint now render as visible markers in the editor.",
+			"SHA": "a630f00bcff2c393d74f5bb16eff01c8a9e73537"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:35:03Z",
+			"Date": "2026-04-28T21:54:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				103,
 				1
 			],
-			"Message": "VS Code API Coverage Matrix\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "e9ca317693c51acb95c66c8df11556c35b625ab0"
+			"Message": "chore(Project): Sync Element submodule with Monaco worker fixes and polyfill telemetry\n\nSubmodule synchronization bringing stability improvements across multiple components:\n1. Mountain: Fix 404s for extension webview assets by extending vscode-file URI handling to support arbitrary authorities beyond \"vscode-app\". Also reduce extension-scanner logging noise by capping ignore-related targets to Warn level.\n2. Output: Fix Monaco worker bootstrap crashes with InjectWorkerBootstrapShim (injects __name/__defProp shim into webWorkerServiceImpl.js blob factory) and RewriteNestedWorkerBootstrap (replaces .toString() pattern with JSON.stringified source). Switch RewriteStaticBlockSelfRef from hardcoded whitelist to auto-detection. Add __LAND_POLYFILL_TELEMETRY__ hook.\n3. Sky: Wire polyfill telemetry through PostHog bridge to capture errors via PH.captureException with categorized properties.\n4. Wind: Remove deprecated Electron polyfill shims as functionality moves to Mountain's native Rust implementations.\n\nImpact: Extension webview assets now load correctly, Monaco language workers no longer crash on startup, production polyfill failures are captured for debugging, and obsolete Electron shims are cleaned up.",
+			"SHA": "cf08b5fec5bd1eead24636eadf43c81f8f5b9584"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T17:08:49Z",
+			"Date": "2026-04-28T20:56:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				103,
 				1
 			],
-			"Message": "chore(Land): Sync Element submodule to e792634e04de\n\nUpdate Element from 991e3b3 to e792634e, pulling in upstream Cocoon extension host runtime improvements.\n\nThis sync brings the latest Cocoon submodule state (cb1a388) into the Land build, ensuring the extension host has access to recent runtime changes.",
-			"SHA": "83083f528b4c94eb04130b730863979183254a87"
+			"Message": "fix(CHANGELOG): Replace em dashes with en dashes for consistency\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "d090d6d4030dc99ac4a7bdcb46a4aa1389bed063"
 		}
 	],
-	"TimeStamp": 1779544371019
+	"TimeStamp": 1779882064280
 }

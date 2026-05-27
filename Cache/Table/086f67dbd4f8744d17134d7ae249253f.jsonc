@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-07T19:00:12Z",
+			"Date": "2026-04-22T18:31:40Z",
 			"File": [
-				"⣿⠇⠀⠀⠀",
+				"⠁⠀⠀⠀⠀",
 				28,
-				8
+				1
 			],
-			"Message": "build(Project): Coordinate Electron workbench integration across Land submodules\n\nSynchronize eight Land submodules to enable VS Code Electron workbench to run in Tauri:\n\n- **Air**: Style cleanup - remove obsolete TODOs and improve code formatting\n- **Common**: Update author metadata to CodeEditorLand branding and fix TypeScript rootDir\n- **Mountain**: Add vscode-file:// protocol handler to serve embedded frontend assets; update Tauri schema with new fs permissions and event IPC\n- **Output**: Add Electron environment variable for build targeting with three scenarios (Electron/Browser/neither)\n- **Rest**: Rebuild binary artifact following style standardization\n- **Sky**: Refactor workbench loading with Effect.runPromise patterns; enable runtime relative imports via _VSCODE_USE_RELATIVE_IMPORTS flag to bypass vscode-file:// URI scheme limitations in WKWebView\n- **Wind**: Add complete INativeWindowConfiguration to ResolveConfiguration including appRoot, profiles, product metadata; set VSCODE_DEV=true to enable relative imports and fix hrtimeStart null reference\n- **Worker**: Reformat ESBuild configuration indentation\n\nThis resolves the core incompatibility where WKWebView (macOS) cannot use custom URL schemes with dynamic imports, enabling the VS Code workbench to render in Tauri's webview by switching to http://localhost relative imports.",
-			"SHA": "e08ce22743c83f3f6399c83319f47505d34bc275"
+			"Message": "refactor(Mountain): Centralize UriComponents construction with $mid marker\n\nAdd a shared UriComponents helper module ensuring every URI payload sent to the VS Code renderer carries the required `$mid: 1` marshalling marker. Without it, VS Code's IPC reviver leaves URIs as plain objects where `.fsPath` and `.with` are undefined, causing the sidebar and icon loader to silently fail.\n\nIntroduce FromFilePath, FromUrl, StampMidUri, and Normalize helpers that are now used consistently in handle_extensions_install (Extension.rs), handle_file_realpath (WindServiceHandler and WindServiceHandlers FileSystem.rs), and any other IPC handlers returning URI-shaped payloads.\n\nThis prevents regression of the earlier extension location URI fix — inline json! builders elsewhere risked the same silent break in the renderer's URI revival chain.",
+			"SHA": "f6f57e18385a44df9beaeaaa7e5bf27c16dcfc59"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-07T05:52:10Z",
+			"Date": "2026-04-22T18:22:25Z",
 			"File": [
-				"⣿⡟⠀⠀⠀",
+				"⡟⠀⠀⠀⠀",
 				28,
-				10
+				4
 			],
-			"Message": "",
-			"SHA": "3ee88d93ec6a0d6df16403b6a3332ff45845f9c0"
+			"Message": "build(Project): Coordinate Element submodule updates across 4 components\n\nSynchronize Mountain, Output, Sky, and Wind submodules with the following changes:\n- **Mountain:** Fix extension location URI marshalling for VS Code renderer — VS Code's URI revival ignores objects without `$mid === 1` marker. Add Normalize_Location_To_UriComponents, Stamp_Mid_Uri, and Parse_File_Url_To_UriComponents functions to properly format extension locations. Extend BuildInitialUrl to recognize Mountain's `{uri:\"file://…\"}` format alongside VS Code's historical folderUri/workspace.configPath shapes for backward compatibility.\n- **Output:** Document CopyNodeModules-StripDanglingSourceMap pairing rationale explaining why they're expressed as separate plugins with role-scoped matching rather than using AfterCopy hook.\n- **Sky:** Delegate build pipeline to Output plugins (Steps 1-7, 10-12, 14) via reusable plugin system. Move phase advancement from Astro script block into workbench.js to prevent chunk hoisting from delaying phase advances past Mountain's fallback timers. Remove ext-registry-probe as it's noisy (monacoExtensionsApi not on globalThis). Gate missing browser bundle warnings behind LAND_WARN_MISSING_BROWSER_BUNDLES env var.\n- **Wind:** Complete polyfill re-export migration — Target/Polyfills/* files are now minimal re-export proxies delegating to @codeeditorland/output/Polyfill/* implementations.\n\nThis coordinated update delivers extension sidebar location resolution, build pipeline modularity, and polyfill consolidation while maintaining identical runtime behavior.",
+			"SHA": "1ebc9a799d4910f9d12cec9f96bc1ad620ca4db7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-06T10:56:06Z",
+			"Date": "2026-04-22T17:25:49Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
 				28,
 				3
 			],
-			"Message": "build(Project): Coordinate Sky workbench URL paths and Worker target rebuilds\n\nSynchronize three Land submodules with build configuration and target updates:\n\n- **Sky**: Standardize VS Code workbench loading by replacing @codeeditorland/output package specifiers with runtime /vs/ URL paths. Apply is:inline to bypass Vite/Rollup bundling, use variable assignment for truly dynamic imports, add try/catch error handling, and update astro.config.ts external resolver for /vs/ prefix.\n\n- **Worker**: Rebuild all target files (Worker.js, CSS/Load.js, Policy.js, Register.js) following ESBuild configuration changes. No functional changes, target files regenerated with current configuration.\n\n- **Mountain**: Submodule pointer update.\n\nThis resolves Rollup's inability to resolve package specifiers at build time while maintaining dynamic loading at runtime.",
-			"SHA": "5b04b8ffe42664ac65bb799574d7ebf13048e997"
+			"Message": "refactor(Project): Consolidate polyfill implementations into Output module\n\nExtract Sky's inline build plugins into a reusable Output module and migrate all polyfill implementations from Wind to Output as the single source of truth.\n\nChanges:\n- Output: Add Plugin module with CopyVSOutput, CopyVSRootFiles, SupplementFromDependency, CopyWorker, CopyNodeModules, StubUnpublishedAddons, CopyTauriMainProcessService copy plugins and StripCSSImport, InjectNameShim, ReplaceElectronIPCService, ReplaceSharedProcess, StaticToDynamicImport, StripDanglingSourceMap, ExtensionScannerIPC transform plugins\n- Sky: Update polyfill imports from @codeeditorland/wind/Target/Polyfills/* to @codeeditorland/output/Polyfill/*\n- Wind: Replace polyfill implementations with thin re-exports pointing to Output (ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill, IPCRendererShim, NativeModulePolyfill, ProcessPolyfill, SharedProcessProxy)\n\nThis eliminates duplicate code across the monorepo — polyfill fixes now only need to be made in Output to propagate to all consumers (Sky, Wind, Cocoon, and any future desktop shells).",
+			"SHA": "dccf43cee4990710f009f59f6dd3c99febf7f1f6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-06T10:21:04Z",
+			"Date": "2026-04-22T17:12:19Z",
 			"File": [
-				"⣿⠇⠀⠀⠀",
+				"⡿⠀⠀⠀⠀",
 				28,
-				8
+				5
 			],
-			"Message": "refactor(Project): Replace hand-written shims with real VS Code types across Land submodules\n\nCoordinate eight Land submodules with refactoring and build improvements:\n\n- **Cocoon**: Replace hand-written VS Code type shims with re-exports from @codeeditorland/output. Centralize Position, Range, Location, Selection, MarkdownString, Hover, CompletionItem, Diagnostic, TextEdit, WorkspaceEdit and 40+ more types in Platform/VSCode/Type barrel. Remove duplicate shims from Handler.ts, TypeConverter.ts, GRPCServerService.ts, ViewColumn.ts, TreeView/Item.ts, APIFactoryService.ts, Window.ts.\n\n- **Wind**: Replace hand-written type definitions with re-exports from @codeeditorland/output. Swap VSCodeWorkbenchOptionsType, VSCodeConfigurationType, VSCodeLoggerType, FileType, URI, IStat to source from canonical VS Code locations. Fix uri.fsPath() bug where it was called as method instead of getter.\n\n- **Output**: Lazy-load RestPlugin only when Compiler=Rest env var is set, avoiding node:fs imports during normal ESBuild builds.\n\n- **Sky**: Convert workbench.js to dynamic import to prevent Rollup hard-failures on unresolved package specifiers.\n\n- **Rest/Echo/Cocoon**: Dependency updates (protobufjs, @cloudflare/workers-types, @tauri-apps/plugin-fs, @types/node) and POSIX shell redirection style fixes.\n\nThis eliminates duplicate shim implementations scattered across the codebase, establishing @codeeditorland/output as the single source of truth for VS Code types.",
-			"SHA": "c1ed90a0645accfbcb7284633adc98cec7d9e9ae"
+			"Message": "build(Project): Coordinate Element submodule updates across 5 components\n\nSynchronize Cocoon, Mountain, Output, Sky, and Wind submodules with the following changes:\n\n- **Mountain:** Initialize PostHog telemetry at boot before CLI parsing to capture early crash context. Fix incorrect #[tauri::command] attribute on internal dispatcher with clarifying docstring. Restore recently opened folder via BuildInitialUrl reading RecentlyOpened.json and passing ?folder=<path> to skip Welcome → Open Folder → hard reload round-trip (fixes purple splash flash, stuttering, empty @builtin sidebar, broken keybindings from double layer boot). Fix macOS window dragging by replacing maximized(true) with TitleBarStyle::Overlay + hidden_title(true) (keeps traffic lights visible, allows VS Code custom titlebar drag). Normalize en-dashes to hyphens in documentation.\n\n- **Sky:** Eliminate early paint flash by adding inline CSS in <head> matching VS Code Dark+ (#1e1e1e background, #d4d4d4 text). Add client-side PostHog throttling with 10s window and 2×/sec per-event limit, reporting dropped events as land:sky:throttle-dropped. Fix lifecycle phase signaling by moving phase 3→4 advancement to separate <script> before workbench import, fixing Tauri invoke signature from mountain_ipc_invoke to MountainIPCInvoke (previously caused silent deserialization failures). Adjust timing: phase 3 immediate, phase 4 at 1500ms.\n\n- **Wind:** Route all colon-prefixed IPC methods (file:read, file:write, shared_process:invoke) through MountainIPCInvoke to work around Rust function name limitations. Update TauriIPC.ts to use consistent PascalCase \"MountainIPCInvoke\" instead of snake-case. Fix em dashes to hyphens in LifecycleService and PostHog/Fallback comments.\n\n- **Output:** Route colon-prefixed Tauri commands in polyfills (ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill, IPCRendererShim, NativeModulePolyfill, ProcessPolyfill, SharedProcessProxy) through MountainIPCInvoke. Update sendTauri in IPCRendererShim for consistency.\n\n- **Cocoon:** Submodule updated to a5ec2e6d.\n\nThis coordinated update delivers recently opened folder restoration, macOS window drag fixes, IPC routing consistency, and early paint flash elimination while maintaining identical runtime behavior.",
+			"SHA": "ec42cbd0d685c2846cb80972bf002a309fbafc3c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-06T08:08:56Z",
+			"Date": "2026-04-22T16:13:45Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
+				"⡇⠀⠀⠀⠀",
 				28,
-				2
+				3
 			],
-			"Message": "fix(Project): Coordinate Cocoon and Mountain submodule updates for language provider registration\n\nSynchronize two Land submodules to fix language provider lookup failures:\n- **Cocoon**: Enhance VS Code shims with structural methods (Position.isBefore/isAfter, Range.contains/intersection), add language ID detection from file extensions, and support singular provider method names ($provideCompletion, $provideCodeAction, etc.)\n- **Mountain**: Align provider selector format to canonical [{ \"language\": ... }], always route SideCarIdentifier to \"cocoon-main\" for FeatureMethods, and add language inference fallback from file extension when document not open\n\nThis resolves the broken language feature IPC chain where Sky requests hover/completion → Mountain calls gRPC → Cocoon invokes provider but lookup was failing due to format mismatches and missing language detection.",
-			"SHA": "3550f99860c218a19fffdd4b4ec80753b3e43f5f"
+			"Message": "build(Project): Coordinate Element submodule updates across 3 components\n\nSynchronize Cocoon, Mountain, and Wind submodules with the following changes:\n- **Mountain:** Streamline extension path and NodeResolver module docs — simplify ScanPathConfigure comments for extension skip flags and builtin path override. Condense NodeResolver module docstring to compact ladder list showing resolution order: LAND_NODE_BINARY → shipped runtime → fnm/volta/asdf/nvm → homebrew → PATH. Behavior unchanged.\n- **Wind:** Split monolithic PostHogBridge.ts into modular components under Source/Telemetry/PostHog/ — Browser.ts (window.posthog lookup), Configuration.ts (import.meta.env config), Fallback.ts (fetch POST fallback), Identifier.ts (distinct_id resolution), Properties.ts (base event properties). PostHogBridge.ts now composes these modules for improved testability.\n- **Cocoon:** Submodule updated to 33544546.\n\nThis coordinated update delivers documentation improvements and modular telemetry architecture while maintaining identical runtime behavior.",
+			"SHA": "6b50bc739324d0d9404e706f7c8adb5a33206b71"
 		}
 	],
-	"TimeStamp": 1779544371896
+	"TimeStamp": 1779882075050
 }

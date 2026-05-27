@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-04T17:43:12Z",
+			"Date": "2026-05-19T22:42:22Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
+				"⡟⠀⠀⠀⠀",
+				26,
+				4
+			],
+			"Message": "refactor(Project): Rename user-data directory root from .land to .fiddee\n\nAfter the product rebranding to FIDDEE, the hardcoded `$HOME/.land/...` path literals scattered across Cocoon, Output, and Wind were inconsistent with the new product identity. Normalise all references to `$HOME/.fiddee/...` so the user-data directory mirrors the product name.\n\nCocoon (+1 commit): Extract the FIDDEE user-data path into a shared `FiddeeRoot()` atom at Source/Platform/FiddeeRoot.ts, mirroring the Rust atom in Mountain. Replace hardcoded `$HOME/.land` prefixes in Extension Context.ts, Host Handler.ts (extensionStorage, globalStorage, logs), and add `/.fiddee/extensions/` to the extension-bug frame matcher in Notification Handler.ts. All ESBuild Target/ artifacts rebuilt.\n\nOutput (+1 commit): Update all documentation comments and inline `Why` strings in Pipeline.ts, Plugin Index.ts, Extension Gallery Service.ts, and Icon Stylesheet URL rewriter.ts to reference `~/.fiddee/extensions/` instead of `~/.land/extensions/`. Compiled bundles and source maps regenerated.\n\nWind (+1 commit): Update the inline comment in ResolveConfiguration referencing `~/.land/workspaces/RecentlyOpened.json` to `~/.fiddee/workspaces/RecentlyOpened.json`.\n\nMountain (+1 commit): Synchronised to matching HEAD — no functional delta for this change.\n\nTogether these changes ensure a single source of truth for the product data directory path across the TypeScript layers, with new code reading from `FiddeeRoot()` and all stale documentation strings corrected.",
+			"SHA": "b953180e3e03fd1e284ed751416d908d7c6b60a8"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T22:23:14Z",
+			"File": [
+				"⡏⠀⠀⠀⠀",
+				26,
+				3
+			],
+			"Message": "feat(Project): Wire workspace save methods and fix Tauri IPC fallback in Wind\n\nAdvance Cocoon, Mountain, and Wind submodules to collectively enable `vscode.workspace.save()` / `saveAll()` / `saveAs()` from extensions and fix two workbench boot crash categories in Wind.\n\n**Mountain (+1 commit, feat):** Add three new IPC handler arms to the Workspace dispatch table in `CreateEffectForRequest` — `Workspace.Save`, `Workspace.SaveAs`, and `Workspace.SaveAll` (including the legacy `saveAll` method name used by gRPC/Client.ts). All three degrade gracefully when Sky has no handler registered, logging a warning and returning the original URI (for Save/SaveAs) or null (for SaveAll) instead of crashing the extension host.\n\n**Cocoon (+1 commit, chore):** Rebuild all 39 `Target/` ESBuild bundles and regenerate the `RouteManifest` to track the four new Mountain RPC methods, raising `MountainMethods` count from 130 to 134 with a generation timestamp of `2026-05-19T22:15:03Z`.\n\n**Wind (+1 commit, fix):** Fix two boot-time crash sources in `ResolveConfiguration` — (1) add `(window as any).__TAURI_INTERNALS__?.invoke` to the fallback chain before the `__TAURI__` variants so the Tauri IPC bridge is found in Tauri v2 webview contexts; (2) replace all `|| undefined` path fallbacks (homeDir, tmpDir, userDataDir, logsPath) with concrete defaults like `/tmp/.fiddee` so `path.posix.join(undefined, 'User')` no longer throws \"The path argument must be of type string\" during workbench initialisation. Propagate the fallback to `extensionsPath` via `userDataDir` so extension scanning never receives undefined.\n\nTogether these changes complete the workspace document save IPC round-trip from Cocoon through Mountain to Sky, while hardening Wind against Tauri version mismatch and missing IPC responses at startup.",
+			"SHA": "bbd041b6c55c90b3e0432757dbf463009fc6e181"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:53:42Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				26,
+				2
+			],
+			"Message": "feat(Project): Synchronize Cocoon and Mountain submodules\n\nAdvance Cocoon and Mountain to their latest commits, wiring active editor tracking and caching OS property queries.\n\n**Cocoon (+1 commit):** Wire `window.didChangeActiveTextEditor` from Handler.ts into a minimal TextEditor stub derived from URI/languageId, patching `__activeTextEditor` on Context so extensions reading `vscode.window.activeTextEditor` synchronously in `activate()` see the current value. Upgrade `showTextDocument` from a fire-and-forget notification to a `sendRequest` round-trip returning the TextEditor stub from Mountain, with a disposable fallback to prevent crashes when `await`ing and chaining `.selection` or `.revealRange`. Migrate ExtensionSecretStorage from `sendNotification` to `sendRequest` with namespaced methods (`secrets.get`, `secrets.store`, `secrets.delete`) and scoped `extensionId` isolation.\n\n**Mountain (+1 commit):** Cache OS property collection (type, release, arch, CPU topology) and Rosetta 2 detection behind `OnceLock` to eliminate ~10 ms subprocess overhead per IPC call. After document open, call `SetActiveDocumentURI` on application state and fire a fire-and-forget gRPC `window.didChangeActiveTextEditor` notification to keep Cocoon's shim in sync. Refactor `localPty:getTerminalLayoutInfo`/`setTerminalLayoutInfo` to use `GetStorageValue`/`UpdateStorageValue` on StorageProvider, removing manual JSON serialization.\n\nTogether these changes eliminate three extension-host crash categories (synchronous reads of undefined `activeTextEditor`, awaited `showTextDocument` returning undefined, and unhandled secret storage notification rejections) while reducing IPC latency for OS queries and keeping terminal layout persistence simpler.",
+			"SHA": "504dc46bc62f73b572c19cfe712435e193eba139"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:47:00Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				26,
+				4
+			],
+			"Message": "chore(Project): Synchronize Cocoon, Mountain, Output, and Sky submodules\n\nAdvance four Element submodules to their latest states, incorporating dependency updates, terminal state persistence logic, and build script formatting fixes.\n\n**Cocoon (+2 commits):** Update `@types/node` to 25.9.1 and `protobufjs` to 8.4.0 via Dependabot to align type definitions and protocol buffer runtime with upstream releases.\n\n**Mountain (+1 commit):** Implement terminal layout persistence by wiring `localPty:getTerminalLayoutInfo` and `localPty:setTerminalLayoutInfo` to the `StorageProvider`. This enables the restoration of active terminal tabs and dimensions after window reloads. Additionally, cache the native color scheme detection result in a `OnceLock` to eliminate repeated OS syscalls during boot and focus events.\n\n**Output (+1 commit):** Normalize indentation in `Run.sh` and `prepublishOnly.sh` case statements, replacing mixed tabs/spaces with consistent 0-tab labels and 1-tab branch bodies to adhere to project whitespace standards.\n\n**Sky (+2 commits):** Bump `@astrojs/ts-plugin` to 1.10.9 and `astro` to 6.3.5 via Dependabot to ensure toolchain compatibility.\n\nThese updates restore terminal state across reloads, improve startup performance, and maintain dependency alignment.",
+			"SHA": "a433ff6521a0ce8adb66d86c7a42e518cf1efd4c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:45:10Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				26,
 				1
 			],
-			"Message": "chore(Wind): Synchronize submodule and update Tauri/CI dependencies\n\nUpdate the Wind submodule from commit d16471af to 8ebca896 to incorporate upstream dependency updates. This synchronizes the `pnpm/action-setup` GitHub Action from v6.0.3 to v6.0.5 and bumps `@tauri-apps/plugin-dialog` from v2.7.0 to v2.7.1.\n\nThese changes ensure the extension host service layer utilizes the latest patch versions of critical build tools and native Tauri plugins, maintaining compatibility with the current upstream release channel.",
-			"SHA": "4b17dffc6f7a64f6fb342471c0c253d1145724a0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-04T17:40:21Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				28,
-				4
-			],
-			"Message": "chore(Element): Synchronize submodules to enforce PascalCase directory hierarchy and remove legacy artifacts\n\nUpdate four core submodules to align the entire Land application with the project's strict PascalCase naming convention for all modules, files, and directory paths.\n\n- **Cocoon**: Refactor the extension host source tree into a nested PascalCase hierarchy (e.g., `TypeConverter.ts` to `Type/Converter.ts`) and update all import paths. This enforces semantic modularity across the module graph.\n- **Output**: Reorganize the build pipeline and ESBuild plugin configurations into a deep PascalCase structure, updating artifact exports and asset path resolution to prevent Tauri/WKWebView path errors.\n- **Sky**: Apply the hierarchical restructuring to `Source/Function` and `Source/Workbench` modules, ensuring workbench proxies and entry points follow the architectural standard.\n- **Wind**: Remove deprecated `*Upstream.ts` and legacy `*BridgeShapeGenerated.ts` artifacts from the previous VS Code sync, clearing the way for the new Common/Mountain contract generation workflow.\n\nThese content-preserving structural changes enhance codebase navigability and ensure all file system paths strictly adhere to CodeEditorLand conventions.",
-			"SHA": "49dbb790cecfa7cc36544d5bb833001bae514a40"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-04T17:27:34Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				28,
-				4
-			],
-			"Message": "chore(Element): Synchronize submodules to restore extension webview asset loading and stabilize rendering\n\nUpdate four core submodules to resolve critical failures where popular extensions (e.g., Roo, GitLens) failed to render assets due to WebKit Service Worker restrictions on custom protocols.\n\n- **Cocoon**: Implement `asWebviewUri` to translate legacy VS Code URI schemes (`vscode-resource`, `vscode-webview-resource`) into the native `vscode-file://vscode-app` scheme, bypassing Service Worker requirements.\n- **Mountain**: Register asynchronous handlers for legacy schemes and enforce `Cross-Origin-Resource-Policy` headers to satisfy WebKit's COEP security policies, allowing extension assets to load in isolated iframes.\n- **Output**: Introduce `PatchWebviewIframeServiceWorker` to disable Service Worker registration checks that cause bootstrap hangs, and implement a global port capture hook to recover from missed message port transfers.\n- **Sky**: Normalize formatting in `SkyBridge.ts` for visual consistency.\n\nThese changes bridge the gap between VS Code's URI handling and Tauri's custom protocol implementation, ensuring extension sidebars and webview panels render correctly without hanging.",
-			"SHA": "02bfbd71813d007e3a93b2bd5dfe1cd4f6031669"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-04T15:10:22Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				28,
-				4
-			],
-			"Message": "chore(Element): Synchronize submodules to resolve webview hangs and race conditions\n\nUpdate four core submodules to address critical UI stalls in extension webviews and restore deterministic rendering behavior. Output patches the ESBuild pipeline to disable ServiceWorkers on Tauri/WKWebView custom protocols and short-circuits extension activation deadlocks for `onView` events. Cocoon refactors all Webview RPC handlers to use named-key payloads, eliminating reliance on positional argument mapping. Sky implements a real `WebviewInput` integration with a pending HTML cache to replay synchronous HTML assignments that previously occurred before resolver registration.\n\nThese changes ensure extension sidebars and webview panels render correctly without hanging on the chrome shell, while strengthening IPC payload safety against future Rust-side refactors.",
-			"SHA": "66245bba3ae4b5286f8d189acd651d014b9bb1bc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-04T11:34:23Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "chore(Element): Synchronize Sky submodule for Webview registration diagnostics\n\nUpdate the Sky submodule from commit 3c05f5e8 to 7fd7402c to address silent failures in the WebviewView registration lifecycle. The update inserts a diagnostic probe immediately after the `register` call to verify that the `_resolvers` map in the workbench correctly contains the new `ViewId`.\n\nThis change targets a specific failure mode where registration appears successful but the `resolve` callback never fires, often caused by a dependency injection scope mismatch between the SkyBridge and `WebviewViewPane` instances. The probe validates internal state by checking both `_resolvers` and `_awaitingRevival` maps, emitting structured diagnostic logs to Mountain via IPC. This provides a deterministic signal to differentiate between registration failures and resolver isolation issues during extension host hot-reloads, complementing existing entry-trace logging.",
-			"SHA": "81a96c69b59bedb6a2a3ece5ab31f653f0534856"
+			"Message": "",
+			"SHA": "b0d4545a1c258201122fc446fc0fcaae3c997f13"
 		}
 	],
-	"TimeStamp": 1779544360978
+	"TimeStamp": 1779882043917
 }

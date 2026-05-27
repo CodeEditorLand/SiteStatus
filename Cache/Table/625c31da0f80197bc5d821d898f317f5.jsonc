@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T18:03:18Z",
+			"Date": "2026-05-19T22:40:56Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1498,
-				1
-			],
-			"Message": "docs(Mountain): Standardize emoji spacing and escape special characters in README\n\nReformat all instances of the Mountain emoji (⛰️) and Land emoji (🏞️) to use the standard non-breaking space HTML entity (`&#x2001;`) instead of varied spacing or direct adjacency. This ensures consistent rendering across different Markdown viewers and aligns with the project's strict formatting guidelines.\n\nAdditionally, escape the ampersand in the 'Funding & Acknowledgements' header to prevent HTML parsing issues in stricter Markdown renderers.\n\nThe Mermaid diagram labels are also updated to move emojis to the end of text strings with consistent spacing, improving readability in generated diagrams while maintaining the original semantic content.",
-			"SHA": "46e0d4dfd7cc35683abc48bf789e35eda895828f"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-15T02:45:01Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				1519,
+				16
 			],
 			"Message": "",
-			"SHA": "35e511df0aed26c7b256d265871d28498ed18ed1"
+			"SHA": "14a5ec8100c65cd46fa4a7393f614ee5ae7daa3d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T21:17:00Z",
+			"Date": "2026-05-19T22:22:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1498,
-				5
-			],
-			"Message": "refactor(Mountain): Decouple console log capture from debug server\n\nSeparate the JavaScript console log interception logic into `WindowBuild.rs` and remove it from `WebkitServer.rs`. The window builder now injects a script on page load to populate `window.__MOUNTAIN_DEBUG_CONSOLE` when `DEBUG_SERVER=1` is set, ensuring logs are captured before the TCP server initializes.\n\nRefactor `WebkitServer.rs` to rely on the injected JavaScript buffer instead of the Tauri `ConsoleEvent` listener. This eliminates the dependency on the internal Tauri console event API for log retrieval, allowing the HTTP server to simply query the DOM via `eval`.\n\nUpdate the request handling to support a new GET `/eval` endpoint for arbitrary script execution, replacing the removed `/dom` endpoint. Consolidate error handling and improve type safety using `once_cell::sync::Lazy` for global window storage and `BufReader` for HTTP parsing.",
-			"SHA": "fd6648d17f6c0f7846eb45b9080b999506e186dc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T21:16:54Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1491,
-				3
-			],
-			"Message": "feat(Mountain): Introduce HTTP debug server for WKWebView inspection\n\nImplement a native debug server in `Source/Binary/Debug/WebkitServer.rs` to facilitate automated inspection of the native WKWebView instance on macOS. This component runs a lightweight HTTP server on `127.0.0.1:9933` (configurable) when `DEBUG_SERVER=1` is set, exposing endpoints for JavaScript evaluation, DOM querying, iframe enumeration, and console log retrieval.\n\nThe implementation installs a console event listener on the Tauri `WebviewWindow` to capture logs and spawns a background thread to handle incoming TCP connections. New routes include `GET /console`, `GET /dom`, `GET /iframes`, and `POST /execute`, allowing external tools or scripts to interact with the editor's runtime state.\n\nIntegrate the module into `Source/Binary/Debug/mod.rs` and invoke `WebkitServer::install` within `Source/Binary/Main/AppLifecycle.rs` after window creation. This complements the existing conditional devtools flag by providing programmatic access to the WebView for advanced debugging scenarios.",
-			"SHA": "f14f21a072eaf20ed73ec9d69cb6da22c75fe3a0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T18:38:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
+				1517,
 				1
 			],
-			"Message": "feat(Mountain): Enable conditional WKWebView inspection in debug builds\n\nAdd a conditional check in `Source/Binary/Build/WindowBuild.rs` to enable the `devtools` flag for the Tauri `WindowBuilder` when running in `debug_assertions` mode and the `Inspect` environment variable is set to a non-empty, non-zero value.\n\nThis modification allows external inspection tools (such as Safari Web Inspector or MCP) to attach to the native WKWebView instance on macOS during development, facilitating deep debugging of the editor's UI layer. The change preserves the existing behavior of disabling decorations on non-macOS platforms while introducing a gated mechanism for developer tooling on macOS.\n\nThe implementation leverages Wry's underlying `devtools` configuration to expose the native inspection interface only when explicitly requested.",
-			"SHA": "6e51ac8b9e213cd70f7a379fd3d3ba091f41e54f"
+			"Message": "feat(Mountain): Wire workspace save/saveAs/saveAll through to Sky\n\nAdd three IPC handler arms to the Workspace dispatch table in CreateEffectForRequest so Cocoon's vscode.workspace.save() and related extension API calls reach the workbench textfile service running in Sky.\n\n- `Workspace.Save` — extracts the URI from parameter position 0 or the \"uri\" key, routes to `sky://workspace/save`, and returns the URI on success so the caller can confirm persistence.\n- `Workspace.SaveAs` — mirrors the Save path but dispatches to `sky://workspace/saveAs`; the Sky handler can later drive a standalone Save-As dialog.\n- `saveAll` / `Workspace.SaveAll` — accepts the legacy `saveAll` method name (used by gRPC/Client.ts) and routes to `sky://workspace/saveAll`, returning null on failure instead of crashing the workbench.\n\nAll three handlers degrade gracefully: if Sky does not respond, they log a warning and return the original URI (for Save/SaveAs) or null (for SaveAll), preventing extension host crashes on missing handlers.",
+			"SHA": "5afb710dc67ede34e2939e573ca97cf05f3e8590"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:53:10Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1517,
+				4
+			],
+			"Message": "perf(Mountain): Cache OS properties and Rosetta; track active document\n\nReduce redundant OS syscalls and system-info queries while keeping Cocoon's\nactiveTextEditor shim in sync when Wind opens a document.\n\n**Cached OS Properties (OSProperties.rs):**\nWrap sysinfo::System-based OS attribute collection (type, release, arch,\nCPU topology) behind a OnceLock, extracting the computation into a\ncompute_os_properties() helper. Spawning sw_vers/uname and refreshing CPU\ndata on every IPC call was wasting ~10 ms per invocation.\n\n**Cached Rosetta Detection (mod.rs):**\nMove the sysctl.proc_translated subprocess behind a OnceLock — a process\neither runs under Rosetta 2 or it does not for its entire lifetime.\n\n**Active Document Tracking (ModelOpen.rs):**\nAfter opening a document, call SetActiveDocumentURI on the application\nstate and fire a fire-and-forget gRPC notification\nwindow.didChangeActiveTextEditor to Cocoon so its\nvscode.window.activeTextEditor shim updates immediately.\n\n**Terminal Layout Persistence (mod.rs):**\nRefactor localPty:getTerminalLayoutInfo and\nlocalPty:setTerminalLayoutInfo to use\nGetStorageValue(true, ...)/UpdateStorageValue(true, ...) on\nStorageProvider, eliminating manual JSON serialization and improving\nerror resilience.\n\nImpact: Reduced IPC latency for OS queries, correct active editor state\nfor extensions, simpler terminal layout persistence code.",
+			"SHA": "2a0e335eb7bc17b03b24d928c97dfd124542cd12"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:46:15Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1517,
+				2
+			],
+			"Message": "feat(Mountain): Wire terminal layout persistence and cache color scheme detection\n\nComplete the terminal state restoration cycle and optimize startup performance by implementing missing IPC handlers and caching expensive OS queries.\n\n**Terminal Layout Persistence:**\nImplement `localPty:getTerminalLayoutInfo` and `localPty:setTerminalLayoutInfo` to bridge the workbench's terminal panel state. These handlers now delegate to the `StorageProvider` service to read/write the `terminal:layoutInfo` key, enabling the restoration of active tabs and dimensions after window reloads (replacing previous `Value::Null` no-ops).\n\n**Color Scheme Caching:**\nIntroduce a `OnceLock` cache for the `NativeGetColorScheme` result. The underlying `detect_dark_mode` function now executes only once per process lifetime, reducing the ~5–15 ms OS syscall overhead on subsequent calls during boot and window focus events. This aligns Mountain's behavior with stock VS Code's expectation that users restart the editor to apply system theme changes.\n\nImpact: Terminal layouts persist across reloads; cold-start performance improves for theme detection calls.",
+			"SHA": "123d5b073d0bdec64ccbae19fe9b245979ea5141"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:44:44Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1517,
+				21
+			],
+			"Message": "refactor(Mountain): Extract shared notification relay/unregister helpers\n\nSixteen Cocoon-to-Mountain notification handler files contained nearly\nduplicated inline code — every output, progress, channel, and\nprovider-unregistration atom repeated the same three-step pattern\n(emit a Tauri sky:// event + dev_log, or extract a u32 handle +\nunregister + dev_log).\n\nCollapse all of them into two shared helpers under a new\n`Support/` submodule:\n\n- `RelayToSky` — calls `ApplicationHandle.emit(SkyEvent, Parameter)`\n  and optionally writes a dev-log line. Used by OutputAppend,\n  OutputClear, OutputCreate, OutputDispose, OutputShow,\n  OutputChannelClear, OutputChannelCreate, OutputChannelDispose,\n  OutputChannelShow, ProgressComplete, and ProgressUpdate — each now\n  a single delegation call.\n- `UnregisterByHandle` — reads a `handle` u64 from the parameter,\n  guards against zero, calls\n  `ProviderRegistration::UnregisterProvider`, and logs the provider\n  kind. Used by UnregisterAuthenticationProvider,\n  UnregisterDebugAdapter, UnregisterDebugConfigurationProvider,\n  UnregisterFileSystemProvider, UnregisterTaskProvider, and\n  UnregisterUriHandler.\n\n`UnregisterFileSystemProvider` and `UnregisterUriHandler` additionally\nlog their scheme field before delegating, preserving the traceability\ninformation that was unique to those atoms.\n\n21 files changed, 67 insertions, 231 deletions.\n\nNo behavioural changes — every handler produces the same Tauri\nsky:// event and the same dev-log output as before.",
+			"SHA": "3427a0c39e6129a8df9ff50b6b1015a70c4dd2e2"
 		}
 	],
-	"TimeStamp": 1779544362643
+	"TimeStamp": 1779882050395
 }

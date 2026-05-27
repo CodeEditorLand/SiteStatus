@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:20:46Z",
+			"Date": "2026-05-20T05:06:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
-				3
+				1574,
+				5
 			],
-			"Message": "",
-			"SHA": "af45c696979f36bc068823417654b96805b2d491"
+			"Message": "feat(Mountain): Fire $acceptModelSaved after disk writes; strip Undo/Redo from native Edit menu\n\n**T1.4 save notification** — `FileWriteNative` and `TextfileWrite` now fire `$acceptModelSaved` via Vine after a successful disk write, so Cocoon can dispatch `onDidSaveTextDocument` to subscribed extensions (format-on-save, organize-imports, save listeners). The save is fire-and-forget (tokio::spawn) so a Vine failure never cascades back to the workbench IPC caller. Both handlers also gain `dev_log` instrumentation for write latency and byte count.\n\n**Cmd+Z routing fix** — On macOS, Tauri's default `Builder::default()` installs an Edit submenu with native Undo/Redo items that intercept Cmd+Z at the AppKit responder-chain level before the WKWebView's keydown handler fires, preventing VS Code's Monaco editor from seeing `meta+z`. The new `AppMenu::SetAppMenu` builds a custom Edit submenu containing only Cut/Copy/Paste/SelectAll, removing Undo/Redo so Cmd+Z and Cmd+Shift+Z reach the JS layer. Called from `AppLifecycleSetup` immediately after window creation. Non-fatal; logs a warning and keeps the default menu if the override fails. No-op on Windows/Linux.",
+			"SHA": "f79990166465444bbe3a00ca968af7527b0bea13"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:20:44Z",
+			"Date": "2026-05-20T04:39:32Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
-				7
+				1573,
+				10
 			],
-			"Message": "feat(Mountain): Implement native file descriptor API and refine Tauri window handlers\n\nComplete the implementation of the `nativeHost` IPC surface by adding `file:open` and `file:close` handlers. These functions establish a process-global file descriptor table (backed by `HashMap<u32, File>` and `AtomicU32`) to support VS Code's `DiskFileSystemProvider` for large binary I/O, replacing previous full-read/write fallbacks.\n\nRefine window management handlers: implement `setDocumentEdited` for the macOS dirty-dot indicator, `setMinimumSize` to prevent workbench collapse, and `positionWindow` for multi-window restoration. Update `setRepresentedFilename` to display the filename component in the title bar. Re-evaluate `is_alive` connection logic to remove artificial sleep delays.\n\nOptimize `tree-view/create` event emission in `EnqueueTreeViewEmit` by migrating from per-call `tokio::spawn` to a persistent mpsc channel with a 16ms frame-aligned batcher. This eliminates task overhead during boot. Additionally, reduce the terminal startup delay from 120ms to 20ms, matching M-series hardware capabilities, and improve `LifecyclePhaseState` formatting.",
-			"SHA": "8cde99c082f32ec6c8726e947e7a696d2c3ccf7e"
+			"Message": "fix(Mountain): Fix shell PATH, git cache, build constraints, and import paths\n\n**EnhanceShellEnvironment** — Allow shell PATH to override the Finder/Dock\nminimal default (`/usr/bin:/bin:/usr/sbin:/sbin`) when `IsTty()` is false,\nso git, Node, and language servers resolve correctly after launchd/Dock\nlaunches.\n\n**HandleIsAvailable** — Cache only a `true` result. A transient `false`\nfrom the first git probe (fired before EnhanceShellEnvironment extends\nPATH) must not permanently disable the SCM UI.\n\n**CocoonService/mod.rs** — Remove `prepare_call_hierarchy` and\n`prepare_type_hierarchy` gRPC handlers that were prematurely introduced\nin the previous commit. Rename `GenericNotification` and `GenericRequest`\nimports with `Msg` aliases to avoid name clashes with sibling modules.\n\n**Import path fixes** — Qualify `MountainVinegRPCService` path in\nRegisterLanguageProvider and call `RunTime()` as a method; fix `MetricType`\nimport alias in DashboardHelpers; add missing `CommandExecutor` import in\nGenericNotification and GenericRequest commands.\n\n**build.rs** — Gate `tauri_build::build()` behind an absent\n`CARGO_BUILDING_DOCS` var so `cargo doc` succeeds without Sky Astro assets.\n\n**tauri.conf.json** — Add Brotli pre-bake as `beforeBundleCommand`.\n\nBump `Record` to 1 in Info.plist.",
+			"SHA": "36c8655681c646f7f1119aac1cbca04346b69d91"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:12:50Z",
+			"Date": "2026-05-20T04:38:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1508,
+				1573,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "681cfe8f308427aac8ffd722e8e54fa78590d634"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-20T02:49:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1568,
 				1
 			],
 			"Message": "",
-			"SHA": "6d6a91d70b16bd92b1e029b42f68b7a60810df75"
+			"SHA": "36da8bc51580580fa19bb4f352b28c37e57a7073"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:12:50Z",
+			"Date": "2026-05-20T02:17:51Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1508,
-				8
+				"⠁⠀⠀⠀⠀",
+				1573,
+				42
 			],
-			"Message": "feat(Mountain): Implement native AES-256-GCM encryption and async lifecycle synchronization\n\nIntroduce a complete encryption subsystem for the Wind service handlers to support VS Code's `IEncryptionService`. Implement `encryption:encrypt` and `encryption:decrypt` using AES-256-GCM via the `ring` crate. The 256-bit key is derived from the host machine's hardware UUID (macOS `IOPlatformUUID`, Linux `/etc/machine-id`, Windows `MachineGuid`), ensuring stored secrets survive process restarts but remain unreadable on other machines, matching native editor semantics.\n\nRefactor the application lifecycle state to eliminate 100ms polling loops. Replace `LifecycleWhenPhase` busy-wait logic with `tokio::sync::Notify` primitives in `LifecyclePhaseState`. Handlers now await specific phase transitions immediately, reducing boot latency and CPU usage during startup.\n\nUpdate `DecorationTypeLifecycle` notification handling to use a single batched emit operation per channel, reducing IPC overhead during high-frequency UI updates.",
-			"SHA": "eafc4a40a6dc02017466152643d736c8eccced92"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:07:52Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1503,
-				1
-			],
-			"Message": "",
-			"SHA": "b0efb2cbc7f5e481b38f8b4190c511a99c41388e"
+			"Message": "feat(Mountain): Implement hierarchy prepare, editor text IPC, and selection forwarding\n\nAdd call hierarchy and type hierarchy prepare entry-points across the full gRPC+LSP provider pipeline. The new `PerformCallHierarchy` and `PerformTypeHierarchy` provider modules in `Source/RPC/CocoonService/Provider/` parse the URI+position request and delegate to `PrepareCallHierarchy`/`PrepareTypeHierarchy` on the `LanguageFeatureProviderRegistry`, which invokes `$prepareCallHierarchyItems`/`$prepareTypeHierarchyItems` on the registered extension provider via Cocoon. This unblocks the incoming/outgoing calls and subtypes/supertypes panels in the editor UI.\n\nBridge two new Cocoon→Mountain→Sky notification atoms for extension-driven editor mutations: `window.setTextEditorDecorations` uses a channel-drain batching mechanism (16 ms frame-aligned aggregation, unbounded sender) to coalesce ~5-200+ calls/second into a single `sky://decoration/set-ranges` Tauri event per frame; `window.applyTextEdits` forwards `{uri, edits}` directly as `sky://editor/apply-text-edits` for `editor.edit(cb)` callers (formatters, code actions, vim-mode, Error Lens).\n\nAdd the `window.revealRange` Track Effect to `Source/Track/Effect/CreateEffectForRequest/Workspace.rs`, routing extension calls through `SendUserInterfaceRequest` to `sky://editor/revealRange` for go-to-definition and error-navigation scrolling.\n\nFire `document.willSave` to Cocoon before writing to disk in the workspace-save Track Effect, giving `onWillSaveTextDocument` listeners (format-on-save, organize-imports, trailing-whitespace strippers) a 1.5-second grace window before the actual disk write.\n\nWire two new Sky→Mountain IPC handlers in the `mountain_ipc_invoke` dispatcher — `sky:editor:selectionChanged` and `sky:editor:activeChanged` — which store the active document URI in workspace state and forward the notification to Cocoon so `activeTextEditor.selection` and `onDidChangeTextEditorSelection`/`onDidChangeActiveTextEditor` stay live.\n\nRecord `TierIPC: Mountain` in Info.plist alongside existing tier metadata.\n\nIncludes pervasive `cargo fmt` reformatting across 30+ source files: single-line short signatures, collapsed nested expressions, reordered import blocks for PascalCase alphabetic consistency.",
+			"SHA": "e85d15aa92cb2b7f45eb50f92c2c3613b10e4b56"
 		}
 	],
-	"TimeStamp": 1779544360280
+	"TimeStamp": 1779882044097
 }

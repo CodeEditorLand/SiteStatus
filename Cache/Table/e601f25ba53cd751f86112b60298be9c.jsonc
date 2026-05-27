@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:42:07Z",
+			"Author": "Auto",
+			"Date": "2026-05-21T02:52:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1522,
-				6
-			],
-			"Message": "feat(Mountain): Wire Mountain IPC commands into Tauri 2 ACL system\n\nMountain's native Tauri commands (e.g., `MountainProvideHover`, `MountainWorkspaceOpenFolder`, `DnsResolve`) were being rejected at runtime with \"Plugin not found\" errors because Tauri 2 requires explicit permission entries for all `#[tauri::command]` definitions.\n\nIntroduce `permissions/default.toml` to define the custom permission identifier `allow-mountain-commands`. This file aggregates the complete allow-list for every Mountain IPC handler defined in `Source/Binary/Main/Entry.rs`.\n\nUpdate `capabilities/default.json` to reference this new `default` permission set alongside existing `fs`, `log`, and core plugin permissions. Regenerate the ACL manifests and JSON schemas (`gen/schemas/`) to reflect the new permission identifiers.\n\nThis ensures the webview can invoke Mountain's native methods without failing the security check, completing the IPC bridge required for Wind/Sky to communicate with the Rust backend.",
-			"SHA": "bff5321e154a82323fa9e65a9e0aaa3ff6c0358b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:06:40Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1520,
+				1580,
 				1
 			],
-			"Message": "feat(Mountain): Inject Tauri IPC diagnostic script for early failure detection\n\nIntroduce a diagnostic initialization script in WindowBuild.rs that executes at document_start, prior to any application scripts. This script captures the state of Tauri's IPC bridge and global objects (window.__TAURI_INTERNALS__, window.__TAURI__, window.ipc) immediately upon injection.\n\nThe script populates a global window.__MOUNTAIN_TAURI_DIAG object with timestamps and boolean flags indicating the presence and functionality of core IPC methods. It also records lifecycle events (DOMContentLoaded, load) to help pinpoint timing-related race conditions.\n\nThis addition enables developers to verify the integrity of the Tauri runtime and capability scoping directly from the DevTools console if the editor fails to initialize, without relying on the full bundle loading or downstream error handling.",
-			"SHA": "b5d79001860a7305fbe97f13f69ce906bdded054"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:00:22Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1520,
-				5
-			],
 			"Message": "",
-			"SHA": "21065aa39c3c860d98d46791dc5ab3a3019fb968"
+			"SHA": "b702320d74f87a6d04c892b6dfd073fc8c00bd17"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:40:56Z",
+			"Date": "2026-05-20T08:38:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1519,
-				16
-			],
-			"Message": "",
-			"SHA": "14a5ec8100c65cd46fa4a7393f614ee5ae7daa3d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:22:38Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1517,
+				1580,
 				1
 			],
-			"Message": "feat(Mountain): Wire workspace save/saveAs/saveAll through to Sky\n\nAdd three IPC handler arms to the Workspace dispatch table in CreateEffectForRequest so Cocoon's vscode.workspace.save() and related extension API calls reach the workbench textfile service running in Sky.\n\n- `Workspace.Save` — extracts the URI from parameter position 0 or the \"uri\" key, routes to `sky://workspace/save`, and returns the URI on success so the caller can confirm persistence.\n- `Workspace.SaveAs` — mirrors the Save path but dispatches to `sky://workspace/saveAs`; the Sky handler can later drive a standalone Save-As dialog.\n- `saveAll` / `Workspace.SaveAll` — accepts the legacy `saveAll` method name (used by gRPC/Client.ts) and routes to `sky://workspace/saveAll`, returning null on failure instead of crashing the workbench.\n\nAll three handlers degrade gracefully: if Sky does not respond, they log a warning and return the original URI (for Save/SaveAs) or null (for SaveAll), preventing extension host crashes on missing handlers.",
-			"SHA": "5afb710dc67ede34e2939e573ca97cf05f3e8590"
+			"Message": "feat(Mountain): Read TierSchemeAssets from .env.Land as env fallback\n\nAdd the helper function `ReadTierValueFromEnvFile` to build.rs that walks up the directory tree from `CARGO_MANIFEST_DIR` (up to 5 ancestors) looking for `.env.Land` or `.env.Land.Sample` to resolve the `TierSchemeAssets` key. The resolution priority is: process environment variable first, then the env file, then the hard-coded default of `\"Embedded\"`.\n\nThis mirrors the file-reading logic already used by `PropagateTierGating` in the Rust tier system, ensuring the tauri.conf.json mutation in build.rs agrees with the cfg-gated Rust code even when a shell has a stale exported `$TierSchemeAssets` from a previous build tier. If the env file is found but the key is absent, the function returns `None` immediately rather than falling through to a parent directory — preventing accidental cross-project key leakage.",
+			"SHA": "4ba376b9241d0f9cc58e68f6cb1be03affa8000c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T08:32:14Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1580,
+				1
+			],
+			"Message": "",
+			"SHA": "52d240d6376d08d9e81c1bc50e34b336e36ead59"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T08:32:14Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1580,
+				2
+			],
+			"Message": "feat(Mountain): Gate asset deployment strategy behind $TierSchemeAssets env var\n\nIntroduce a build-time gating mechanism that selects between two asset deployment modes: Embedded (default, assets Brotli-compressed into the binary) and FileSystem (full disk layout in Contents/Resources/ served via the localhost plugin static_root fallback).\n\nIn build.rs, read $TierSchemeAssets (defaults to \"Embedded\") and mutate tauri.conf.json at build time:\n- Embedded: frontendDist=\"../Sky/Target\", bundle.resources holds only Cocoon-needed files (bootstrap, extensions, nls, node_modules, product.json).\n- FileSystem: frontendDist=null, bundle.resources maps the full Sky/Target/ tree (Browser, BrowserProxy, Bundled, vs/, _astro/, index.html, etc.).\n\nIn LocalhostPlugin.rs, wrap the static_root resolution and Builder.static_root() call in #[cfg(feature = \"TierSchemeAssetsFileSystem\")] so the disk-fallback code is compiled only when FileSystem mode is active. Add \"TierSchemeAssetsFileSystem\" to IsDeclaredTierFeature and remove \"FileSystem\" from IsDefaultTierValue so it now emits a cfg feature rather than being a silent default.\n\nThis completes the foundation laid by the Static/Application/ prefix refactoring, making the deployment mode selectable at build time via a single environment variable rather than manual tauri.conf.json editing.",
+			"SHA": "a9e4b2d9bf9e3ed04251361f03325445f343e208"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T08:21:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1580,
+				4
+			],
+			"Message": "refactor(Mountain): Consolidate bundle resources under Static/Application prefix\n\nTransition the Tauri bundle layout from flat resource paths to a structured \"Static/Application/\" prefix, unifying the bundle and development directory trees under a single source of truth. This eliminates the mismatch between the flat bundle layout (Contents/Resources/extensions) and the monorepo layout (Sky/Target/Static/Application/extensions).\n\nIn tauri.conf.json, remap all resource entries to target \"Static/Application/...\" and set frontendDist to null so the dev server delegates to the localhost plugin's static_root disk fallback. Add static_root resolution in LocalhostPlugin.rs that probes both the production bundle path (../Resources/) and the monorepo dev path (../../../Sky/Target/).\n\nIn ScanPathConfigure.rs, register the new canonical extensions path (Resources/Static/Application/extensions) before the legacy flat paths, which are retained as fallbacks for existing development environments.\n\nLegacy flat paths remain functional during the transition, so existing dev runs and CI pipelines continue to work until all resource mapping is migrated.",
+			"SHA": "58b34f8a23c47aec5c01e92c493060403c7159b4"
 		}
 	],
-	"TimeStamp": 1779544359533
+	"TimeStamp": 1779882040888
 }

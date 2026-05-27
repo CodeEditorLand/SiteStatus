@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:10:10Z",
+			"Date": "2026-04-29T04:58:32Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "fix(Project): Sync submodules with terminal event bridging and search schema migration\n\nMulti-component synchronization restoring terminal rendering and search functionality:\n\n1. **Output**: Bridge localPty channel events through Tauri's sky:// event system - Add ChannelEventBridge to map VS Code's IPC `channel.listen()` calls to Tauri's native event system. The localPty channel now routes `onProcessData`, `onProcessReady`, and `onProcessExit` events from Mountain's PTY reader to the workbench's terminal service handlers. Previously, `channel.listen()` returned a no-op handler that silently discarded all event subscriptions, causing the terminal's xterm panel to stay blank despite Mountain emitting `sky://terminal/data` hundreds of times.\n\n2. **Sky**: Migrate search result format to VS Code ≥1.92 schema - VS Code ≥1.92 renamed the search result shape: `preview.text` → `previewText`, `preview.matches` + `ranges` → `rangeLocations[]` with `{source, preview}` pairs. Stock vscode's `searchResult.add()` reads the new fields and silently rejects entries with the old shape. This transforms Mountain's ripgrep results into the current `ITextSearchMatch` format, restoring search functionality.\n\n3. **Cocoon**: Submodule synchronization to latest downstream.\n\nImpact: Terminals now render properly. Search panel now displays results (was showing 0 despite 2560 line-matches).",
+			"SHA": "8273c1268659fc3a973f289a7162ac7a49cc5de6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T04:34:06Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				28,
 				2
 			],
-			"Message": "",
-			"SHA": "b9aba51b638679d3b95e7d7bb14f1aac0c703b2a"
+			"Message": "chore(Project): Sync Cocoon and Sky submodules\n\nUpdate Cocoon to d3408e6f8ffafedcf209a780133a8176bf0d9972 and Sky to b8a380955bb3217237de5df8129e2cadee710b52, bringing in the latest downstream improvements.\n\nThis synchronization pulls in recent changes from both component repositories.",
+			"SHA": "faf66cd74f2ea263dedc12d8f1cafa7a410d6a7e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:52:37Z",
+			"Date": "2026-04-29T04:22:01Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⡿⠀⠀⠀⠀",
 				28,
-				1
+				5
 			],
-			"Message": "refactor(Mountain): Migrate notification handlers to Batch 15-16 atoms\n\nConsolidate inline notification handler bodies in MountainVinegRPCService into delegations to atom functions in Vine::Server::Notification::*. Batch 15 migrates 8 handlers (ExtensionHostMessage, ExtensionActivated/ExtensionDeactivated, WebviewReady, ProgressStart/ProgressReport/ProgressEnd, LanguagesSetDocumentLanguage, WorkspaceApplyEdit, WindowShowTextDocument). Batch 16 adds 10 new handlers (WebviewLifecycle, WindowCreateTerminal, TerminalLifecycle covering 4 wire methods, DecorationTypeLifecycle, DebugLifecycle, StatusBarLifecycle covering 2 methods, StatusBarMessage, WindowShowMessage, RegisterCommand, UnregisterCommand).\n\nThis removes dead handler bodies at the bottom of match arms that were unreachable after Rust selected the first matching arm, keeping MountainVinegRPCService thin with one-line delegations. TerminalLifecycle and StatusBarLifecycle are group atoms covering methods sharing sky:// relay and provider-side drive.\n\nImpact: Consistent atom-layer dispatch pattern across all 26+ notification types.",
-			"SHA": "f98c216d220c60e19149360cd179b8e67a4b4363"
+			"Message": "feat(Project): Add terminal output buffering for late-listener replay\n\nMulti-component synchronization solving the same race condition that was fixed for tree-views and SCM:\n\n1. **Mountain**: Add per-terminal output buffering - `AppendTerminalOutput()` captures PTY bytes into a 64KB bounded buffer (keeps most recent suffix to preserve the prompt), `DrainTerminalOutputBuffer()` retrieves buffered data, `RemoveTerminalOutputBuffer()` cleans up on exit. Extend `sky:replay-events` to emit `sky://terminal/create` for each active terminal AND replay any buffered `sky://terminal/data` bytes.\n\n2. **Sky**: Extend replay-events log with terminal visibility - Add `terminals?: number` and `terminalDataBytes?: number` to the type definition and include them in the log summary alongside tree-views, SCM providers, and commands. This provides visibility into terminal sessions active during early boot when extensions may create terminals before the frontend is ready.\n\nThe PTY reader task and SkyBridge's `listen(\"sky://terminal/*\")` installation race: in bundled-electron profile, the shell's first prompt fires ~50ms after `spawn_command` while Sky's bundle still parses for ~1500ms. Without buffering, zsh MOTD, direnv exports, fish greetings are silently dropped.\n\nImpact: Terminal output is now preserved and replayed for late listeners, completing the replay system for all three major feature areas: tree-views, SCM providers, and terminals.",
+			"SHA": "f7bd709946d39df256b3b6eedbb0e64dece31154"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:47:16Z",
+			"Date": "2026-04-29T04:01:56Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
+				"⡿⠀⠀⠀⠀",
 				28,
-				4
+				5
 			],
-			"Message": "feat(Project): Add notification atom handlers and stub disposition tracking\n\nCoordinate submodule updates across Mountain, Output, and Wind to complete VS Code notification IPC and improve stub diagnostics:\n\n- **Mountain (27652fa6):** Add 25 new notification atom handlers in `Vine::Server::Notification` covering output channel lifecycle (create, append, appendLine, clear, dispose, replace, show), status bar text updates, progress lifecycle, webview reverse messaging, provider unregistration, and misc handlers (openExternal, security.incident, set_language_configuration). Also add `ExtractDevTag` module to parse Cocoon stdout `[DEV:<TAG>]` prefixes and re-emit under Mountain's matching tag for bootstrap-stage, ext-activate, config-prime, breaker filtering.\n\n- **Mountain (c8bfb37b):** Refactor consolidating singular `WindServiceHandler` into plural `WindServiceHandlers` atoms - delete 24 dead duplicate files, re-implement 3 live handlers as atoms (extensions:install, extensions:uninstall, nativeHost.showOpenDialog). Add 9 new notification atoms: ExtensionActivated, ExtensionDeactivated, ExtensionHostMessage, LanguagesSetDocumentLanguage, ProgressStart, ProgressReport, ProgressEnd, WebviewReady, WorkspaceApplyEdit.\n\n- **Output (b7dc4a72):** Add `__initialize` stub for PlaywrightChannelClient constructor protocol version negotiation. Replace binary present=true/false stub-hit logging with three-state disposition: `value` (real payload), `noop` (intentionally undefined), `drift` (stub key missing - sync issue). Add explicit `setExtensionGalleryManifest` stub.\n\n- **Wind (5e66b9dc):** Add IPC stub for `extensionGalleryManifest` channel and `__initialize` to playwright stub. Enhance stub-hit logging with three-state disposition tracking using `hasOwnProperty` for reliable checking.\n\nImpact: Extension output channels, status bar, progress, and webview messaging now flow through Mountain. Cocoon bootstrap logs are tag-filterable. Stub drift detection helps developers distinguish sync issues from intentional undefined returns.",
-			"SHA": "42e7481d6b25f3be78474382d883159376fede9c"
+			"Message": "refactor(Project): Sync submodules with SCM identifier, command replay, and retry logic\n\nMulti-component synchronization enabling multi-SCM support and improving boot reliability:\n\n1. **Common**: Add Identifier field to SourceControlManagementProviderDTO - enables provider identification (\"git\", \"github\", \"hg\") for multi-SCM support, maps to `scmId` in sky://scm/register events.\n\n2. **Mountain**: Use actual SCM provider identifier in replay instead of hardcoded \"git\", add command registration replay for extension-registered commands, reduce tree-view timeout from 5000ms to 1500ms for graceful failure.\n\n3. **Output**: Mirror retry logic on user extensions scan path (was missing), switch to exponential backoff (100-200-400-800-1500ms), short-circuit Promise protocol probes to eliminate spurious \"Unknown IPC command\" errors.\n\n4. **Sky**: Display commands count in replay-events log for visibility into early-boot command replay.\n\nImpact: Multi-SCM providers (github, hg) now replay correctly. User extensions load at boot even when Mountain scan is slow. Promise probes reduced from ~25ms to <1ms per wake cycle.",
+			"SHA": "b15e1d818609f1ab74584410abb5c73f3628d9bf"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:59:35Z",
+			"Date": "2026-04-29T03:40:55Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
+				"⣿⠇⠀⠀⠀",
 				28,
-				2
+				8
 			],
-			"Message": "feat(Project): Expand provider type coverage to full VS Code surface\n\nCoordinate submodule updates across Common and Mountain to complete VS Code language server protocol provider alignment:\n\n- **Common**: Add 7 new ProviderType enum variants (InlineEdit, MappedEdits, MultiDocumentHighlight, NotebookContent, RemoteAuthorityResolver, ResourceLabelFormatter, ScmResourceGroup), bringing the total to 51 provider types.\n\n- **Mountain**: Add corresponding provider type handlers in MountainVinegRPCService to match Cocoon's complete VS Code API shim. New handlers cover authentication, SCM, resource labels, full notebook support, advanced editing features, debug infrastructure, and remote workspace features.\n\nThis expansion from ~25 to 50+ provider types enables extensions that register these previously-unhandled providers (e.g., GitLens, live share, remote tunnels) to activate successfully.\n\nRefs: b71ab93f22e526a1a9cc961706c66040fd2a9be6",
-			"SHA": "a37647319ace9635d470212de20ffe2bb2fa4271"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:25:24Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				28,
-				6
-			],
-			"Message": "feat(Project): Complete Git IPC routing and tree-view data round-trip\n\nCoordinate submodule updates across Common, Mountain, Output, Sky, and Wind to enable the built-in Git extension and fix extension tree views:\n\n- **Git IPC (Common/Output/Wind):** Route `localGit` channel to Mountain's git subprocess handlers. This fixes the SourceControl panel hanging at load with `InvokeMountain(\"undefined:exec\")`. Common also adds Git IPC channel definitions (cancel, checkout, clone, exec, fetch, isAvailable, pull, revListCount, revParse).\n\n- **Tree-View Round-Trip (Mountain/Sky):** Add `tree:getChildren` invoke handler in Mountain to forward requests to Cocoon's `$provideTreeChildren` handler. Sky adds a `cel:tree-view:create` listener that retrieves children and re-dispatches as `cel:tree-view:items`, completing the F1.1 handoff contract and eliminating the orphan event pattern.\n\n- **Diagnostics (All):** Add diagnostic tags (`ext-scan`, `scheme-assets`) for extension scanner and asset routing visibility. Add `tauri-invoke` timing instrumentation to distinguish webview transport latency from Mountain handler slowness.\n\nImpact: Built-in Git extension now functions correctly with native git binaries. Extension tree views (GitLens, SCM, debug, tasks) render with data from providers. Developers can audit extension scanning and routing via tagged dev logs.",
-			"SHA": "6f49be59dba4dbe5c03b05a45e01ff11e8d15321"
+			"Message": "fix(Project): Sync submodules with sidebar fix and extension scan improvements\n\nMulti-component synchronization addressing Activity Bar emptiness and extension loading:\n\n1. Mountain: Add Sky event replay on listener registration - Mountain emits events before Sky listeners install, causing dropped `sky://tree-view/create` and `sky://scm/register` events. New `sky:replay-events` handler iterates active TreeViews and SCM providers to re-emit. Also adds path security checks and SCM provider emit failure logging.\n\n2. Output: Add retry logic to user extension scan path - User extension paths lacked the retry logic that system paths had, causing silent 0-extension responses. Add exponential backoff (100-200-400-800-1500ms) for async disk scans.\n\n3. Sky: Fix Rollup no-external dropping VS Code contribution imports - Activity Bar came up empty because Rollup was dropping side-effect imports (`extensions.contribution`, `scm.contribution`, `files.contribution`, `*.viewlet.js`...). Add normalized path matching for disk paths, package specs, and lowercase variants.\n\n4. Cocoon: Refactor code structure for improved readability and maintainability.\n\nImpact: Activity Bar now populates with extension-contributed views (GitLens, jsdebug, SCM providers). User extensions load properly at boot even when Mountain's async scan hasn't completed.",
+			"SHA": "972a110b4e940290d87a1a0af952d93f16b42318"
 		}
 	],
-	"TimeStamp": 1779544367122
+	"TimeStamp": 1779882063538
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:24:57Z",
+			"Date": "2026-05-03T08:17:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1225,
-				1
+				1375,
+				7
 			],
-			"Message": "fix(ProcessManagement): Enhance AppRoot resolution for Tauri launches with improved fallback handling\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "b4cf3afab7fe6d7f7a504e9b9af74ef518556bd6"
+			"Message": "feat(Mountain): Standardize PostHog telemetry namespace and add handler instrumentation\n\nRefactor the PostHog telemetry plugin to adopt the unified `land:<component>:<event>` naming convention, replacing the previous `mountain:` prefix with `land:mountain:` to align with the global telemetry schema used by Cocoon and Sky. This enables consistent aggregation in the Errors & Reliability dashboard via a single `event LIKE 'land:%:error'` query.\n\nKey changes:\n- **Namespace Unification:** Update `CaptureError`, `CaptureIPC`, and `Initialize` to emit events under the `land:mountain:` prefix. Append system metadata (PID, OS, Arch) to session start events.\n- **Handler Instrumentation:** Introduce `CaptureHandler` to emit `land:mountain:handler:complete` events. This tracks `Feature` (IPC route key), `DurationMs`, and success status, enabling the Feature Parity dashboard to compare latency between migrated Mountain (Rust) and Cocoon (Node) handlers.\n- **Configuration Hardening:** Extend `Constants` with OTLP-specific build flags (`OTLPEndpoint`, `OTLPEnabled`) and a master `Capture` kill switch that gates both PostHog and OTLP pipelines. Distinct from the `Disable` flag which controls polyfills.\n- **Runtime Hydration:** Add `HydrateRuntimeEnvironment` to inject build-time telemetry constants into the runtime environment. This ensures child processes (Cocoon, Sky webview) inherit consistent config even when running bare binaries without sourcing `.env` files, while remaining idempotent to allow CI overrides.\n\nThese changes ensure telemetry data is correctly scoped, aggregated, and available for debugging IPC performance and error rates across the entire editor stack.",
+			"SHA": "fa1f78af8f15df86681a6a8307fdf13e12d649bc"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:50Z",
+			"Date": "2026-05-03T08:17:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1225,
+				1373,
+				10
+			],
+			"Message": "feat(Mountain): Implement native Git IPC service handlers\n\nIntroduce a complete suite of Tauri command handlers under `Source/IPC/WindServiceHandlers/Git` to bridge the Mountain backend with the Wind/Sky frontend for version control operations. This implementation fulfills the `localGit` service contract required for the editor's SCM integration.\n\nThe commit adds:\n- **Shared Runtime (`Shared.rs`):** A `RunningProcesses` map to track PIDs per `OperationId`, enabling cross-invocation cancellation. `RunGit` handles spawning `git` with `kill_on_drop`, logging, and result parsing.\n- **Lifecycle & Discovery:** `HandleIsAvailable` (cached `git --version` check), `HandleClone` (with optional branch), and `HandleCheckout` (supporting detached heads).\n- **Remote Operations:** `HandleFetch` and `HandlePull` (enforcing `--ff-only` with HEAD diff validation).\n- **Inspection:** `HandleRevParse` and `HandleRevListCount` for commit history and ahead/behind badges.\n- **Execution & Control:** `HandleExec` for arbitrary Git CLI arguments and `HandleCancel` (SIGTERM/TaskKill) to terminate in-flight processes.\n\nAll handlers adhere to PascalCase naming, strict error handling, and the project's modular architecture, ensuring reliable asynchronous Git operations from the native backend.",
+			"SHA": "2152034f2d8c2f3973951b61c59bcda758010e53"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:17:15Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1362,
+				7
+			],
+			"Message": "feat(Mountain): Implement enhanced IPC connection pool with health monitoring\n\nIntroduce a robust, bounded connection pool subsystem under `Source/IPC/Enhanced/ConnectionPool` to manage IPC backend resources efficiently. This module replaces ad-hoc connection handling with a scalable architecture featuring automatic lifecycle management, health scoring, and statistical telemetry.\n\nThe implementation adheres to the project's PascalCase naming and 'one struct per file' architecture:\n- `ConnectionHandle::Struct`: Tracks per-connection metadata including UUID, timestamps, error counts, and a dynamic health score that decays on failures and recovers on success.\n- `ConnectionHealth::Enum`: Defines states (`Healthy`, `Unhealthy`, `Degraded`) for precise resource filtering.\n- `HealthChecker::Struct`: Implements asynchronous health probes with configurable timeouts to validate connection viability.\n- `Pool::Struct`: The core aggregator managing a bounded semaphore, a wait queue for contention handling, and background Tokio tasks for periodic health monitoring and stale connection cleanup.\n- `PoolConfig::Struct` & `PoolStats::Struct`: Provide serialization support for tunable parameters (timeouts, bounds) and runtime telemetry (error rates, active counts).\n\nThis enhancement ensures the Mountain backend can sustain high-throughput IPC operations with automatic failover and resource recycling, crucial for the editor's stability during heavy extension host activity.",
+			"SHA": "abce84b95074b8849ebd1542814a776d4541f0d5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:17:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1354,
+				8
+			],
+			"Message": "feat(Mountain): Implement Tauri command handlers for text model lifecycle and file I/O\n\nIntroduce a comprehensive suite of Wind IPC service handlers under `Source/IPC/WindServiceHandlers/Model/` to bridge the Mountain backend with the editor's document registry and filesystem operations. These handlers fulfill the contract required by Wind's text model service to manage the full lifecycle of open files.\n\nThe implementation covers the core CRUD operations for in-memory document models and raw file access:\n- **Model Lifecycle:** `ModelOpen` reads content from disk, infers language ID from extensions, and registers a `DocumentStateDTO` in `ApplicationState.Feature.Documents` with correct EOL handling. `ModelClose` removes entries idempotently.\n- **Model State:** `ModelGet` and `ModelGetAll` return snapshots of open documents (content, version, language ID) for UI restoration and cache hydration. `ModelUpdateContent` applies edits, increments version numbers, and marks documents as dirty.\n- **File I/O:** `TextfileRead` and `TextfileWrite` provide direct verbatim file access for tooling and resolvers without polluting the document registry. `TextfileSave` acts as a save-intent hint to clear dirty markers and log traces.\n\nAll handlers adhere to PascalCase naming, strict error handling, and the project's modular architecture, ensuring the native backend can reliably synchronize state with the Wind/Sky frontend.",
+			"SHA": "4f13441eff41ba8384cc274c2eca1a8d0377bac7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-03T08:16:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1345,
 				5
 			],
-			"Message": "feat(Mountain): Introduce URI parsing and normalization utilities for IPC\n\nAdd a new `UriComponents` module to handle the serialization and deserialization of URIs between the Mountain backend and the Tauri/Cocoon frontends. This implementation aligns with VS Code's `URI` IPC protocol, specifically addressing the requirements of `_transformIncomingURIs` in the renderer.\n\nThe new module includes:\n- `MID_URI`: Defines the `$mid: 1` constant used as a flag for the URI reviver.\n- `StampMidUri`: A utility to inject the `$mid` marker into JSON objects, ensuring VS Code's deserializer recognizes them as valid URI instances.\n- `FromFilePath`: Constructs `file://` URI objects from absolute paths without percent-encoding, matching VS Code's `URI.file()` expectations.\n- `FromUrl`: Parses generic URL strings (including non-file schemes) into component objects, with a fallback to `file://` for invalid inputs.\n- `Normalize`: A robust handler that accepts strings, objects, or nulls, standardizing all inputs into the tagged URI component format required by extension metadata.\n\nThese utilities ensure that extension locations and other URI-bearing payloads are correctly structured for transport over gRPC and Tauri events, preventing deserialization errors in the `Wind` and `Cocoon` layers.",
-			"SHA": "30f30fde1c2dd64aca45fe06e144fb1d4eddba6f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:28Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1219,
-				2
-			],
-			"Message": "fix(Mountain): Ensure workspace auto-seed defaults to HOME on GUI launch\n\nAddress a boot-time regression where releasing Mountain via Finder (macOS `.app` launch) resulted in an empty workspace because `current_dir` defaults to `/`. The previous debug-only autoload logic left release builds with no folder, causing tree views and SCM panels to remain empty.\n\nRefactor `Source/Binary/Initialize/CliParse.rs` to:\n- Unconditionally attempt CWD autoload (overridable via `Walk=0`).\n- Skip CWD if it is the filesystem root `/` (safety check against full-disk scans).\n- Add a final fallback to the user's `$HOME` directory when no workspace is detected, ensuring a visible directory tree on first launch.\n\nAdditionally, restructure `Source/Binary/Initialize/RuntimeBuild.rs` to align with the project's modular naming conventions. The file now serves as an index exporting submodules (`SchedulerConfig`, `Build`, `BuildDebug`, etc.) for the Echo scheduler configuration, as the primary usage has moved inline to `Binary::Main`.\n\nThis change guarantees a consistent user experience across debug and release profiles regardless of the launch method (CLI vs. GUI).",
-			"SHA": "c9ba82bedba46712b6b4b21def8272290ce7087a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:22Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1219,
-				5
-			],
-			"Message": "feat(Mountain): Expose keybinding management commands to Tauri frontend\n\nAdd the initial Tauri command layer for the keybinding subsystem to enable communication between the `Wind` service and the `Mountain` backend. Implement five new command handlers in `Source/Command/Keybinding/` to support the Keyboard Shortcuts UI:\n\n- `CheckKeybindingConflicts`: Detect chord-sequence overlaps (stub implementation).\n- `GetResolvedKeybindings`: Fetch the weighted aggregation of defaults and user overrides.\n- `GetUserKeybindings`: Return user-defined overrides (stub pending persistence).\n- `RegisterExtensionKeybindings`: Accept contribution payloads from the extension host.\n- `UnregisterExtensionKeybindings`: Remove bindings contributed by a specific extension.\n\nEach command retrieves the `KeybindingProvider` from the shared `ApplicationRunTime` state via the `Requires` trait, establishing the contract for future logic implementation. While most handlers currently return stub JSON responses or pass-through errors, this commit completes the IPC interface required for the frontend to manage and visualize keybinding states.",
-			"SHA": "c0b7bc5676e38b05ef0199ea3d46838fff4cde32"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1213,
-				2
-			],
-			"Message": "feat(Mountain): Inject user shell environment for GUI launches\n\nImplement a boot-time utility in `Source/Environment/Utility/EnhanceShellEnvironment` to resolve the minimal environment problem inherent in macOS/Linux GUI app launches (e.g., Finder, Dock, Spotlight).\n\nWhen launched non-interactively, the app receives a bare `PATH` missing user customizations like `NVM_DIR`, `HOMEBREW_PREFIX`, and `JAVA_HOME`. This previously caused child processes (Cocoon's Node, language servers, Git extensions) to fail or use outdated system binaries.\n\nThe solution spawns the user's login shell with `-ilc env` to capture their full runtime environment, then safely merges new variables into the parent process environment. It includes:\n- A 2-second timeout to prevent boot hangs from misbehaving `.rc` files.\n- A check to skip injection if already running from a TTY.\n- A safety filter (`IsPortableEnvName`) to reject non-standard variable names.\n- A strict policy to preserve existing environment variables unless they are unset, ensuring no overwrites of deliberate user overrides.\n\nThis ensures Mountain and its sidecars (Cocoon, Air) operate with the same environment context as a user's terminal session.",
-			"SHA": "240102ddfe032c28ba28bd65c16ce7412642abf1"
+			"Message": "feat(Mountain): Implement output channel lifecycle handlers for Sky\n\nIntroduce a complete suite of Tauri command handlers under `Source/IPC/WindServiceHandlers/Output/` to manage the editor's output panel lifecycle. This bridges the Wind service layer with the Sky frontend for displaying and manipulating output streams.\n\nThe implementation adds five new modules adhering to the project's PascalCase naming and `one struct per file` architecture:\n- `OutputCreate`: Acknowledges channel creation and logs to the dev console.\n- `OutputAppend` & `OutputAppendLine`: Emit `sky://output/append` events to stream text into the Sky scroll buffer, with the latter automatically appending newlines.\n- `OutputClear` & `OutputShow`: Emit `sky://output/clear` and `sky://output/show` events respectively, allowing the frontend to reset buffers or bring a specific channel to focus.\n\nThese handlers utilize the `CommonLibrary::IPC::SkyEvent` system to trigger reactive updates in the Sky UI, completing the native backend support for the integrated output terminal.",
+			"SHA": "70253806a73d36c1bcc9269c4d4c468497bf3be7"
 		}
 	],
-	"TimeStamp": 1779544382720
+	"TimeStamp": 1779882101071
 }

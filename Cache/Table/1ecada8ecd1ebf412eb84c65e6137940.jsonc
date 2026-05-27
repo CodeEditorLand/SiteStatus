@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T00:53:46Z",
+			"Date": "2026-05-25T21:54:15Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				26,
+				2
+			],
+			"Message": "fix(Land): Advance Element submodules — command execution notification relay\n\nRelay executed command notifications from Mountain to Cocoon so that `vscode.commands.onDidExecuteCommand` callbacks fire inside Node.js extensions.\n\nCocoon replaces the dead `@tauri-apps/api/event`.listen call (which never fires without `window.__TAURI__`) with a subscription to the `commands.executed` Emitter channel, fed by two sources: the `$acceptCommandExecuted` Vine notification from Mountain and local command routes in Commands/Namespace.ts for extension-to-extension `executeCommand` calls. Also extends the `viewId` dual-key resolution strategy (established for `setHtml`/`postMessage`) to five more webview mutators — `dispose`, `setTitle`, `setIconPath`, `setOptions`, `reveal` — so panel mutations arriving before the workbench mounts the IOverlayWebview still reach their target.\n\nMountain dual-emits `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, alongside the existing Tauri event that reaches the renderer. The Vine notification is fire-and-forget — failure is non-fatal since renderer-side observers are already notified. Adds the `tauri::Emitter` trait import in CreateEffectForRequest/Commands.rs to satisfy the compiler.\n\nExtension `onDidExecuteCommand` hooks now fire correctly, webview panel mutations during mount race conditions resolve via the viewId fallback, and Cocoon's Terminal/Service.ts is marked deprecated pending vertical-split cleanup.",
+			"SHA": "69826df910f62df0c9a34707500640a4dfddc7fc"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T21:39:06Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				26,
+				2
+			],
+			"Message": "fix(Land): Advance Element submodules — webview first-paint race, unhandled IPC notifications\n\nAdvance Cocoon and Mountain submodules to fix a webview panel first-paint race condition and add four IPC notification handlers that were missing from the Mountain dispatch table.\n\nCocoon sends `viewId: ViewType` alongside `handle` in the `webview.setHtml` and `webview.postMessage` request payloads. During first-paint, the `webview.create` acknowledgement can arrive before the workbench's `IOverlayWebview` instantiation has bound the handle to a WebviewInput, causing the initial `setHtml` to land in `ParkedHtml` and `postMessage` to miss its target. Sending both identifiers provides a fallback viewType-keyed lookup in Sky's `InstallWebview.ts` resolution. Also deprecates the `MountainGRPCClientLayer` Effect-TS service tag with documentation pointing consumers to canonical wire-method names.\n\nMountain forwards four previously unhandled IPC notification types: `ScanPathConfigure` to scan `~/.land/extensions` alongside the FIDDEE user directory for pre-migration extension discovery; `debug.dap-response` from Cocoon inline-implementation adapters to the workbench via `sky://debug/dap-message`, enabling the RawDebugSession sequencer to correlate DAP responses by `request_seq`; `setStatusBarText` mutations from extension StatusBarItem `text()` setters, which previously froze status bar text after initial create; and `terminate_task`/`Task.Terminate` to the extension host task service, allowing `vscode.tasks.executeTask().terminate()` to stop running tasks with a graceful fallback.\n\nWebview panels now render correctly on first paint, status bar text updates dynamically, DAP debug sessions receive response correlation, extension task cancellation works end to end, and pre-migration extension directories are discovered on clean installs.",
+			"SHA": "285ddc3a49aaf06e7d41b02eba8b9cab74c580eb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T21:29:20Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
 				26,
 				1
 			],
-			"Message": "feat(Mountain): Read TierSchemeAssets from .env.Land env file fallback\n\nAdvance the Mountain submodule with a build.rs helper that reads the TierSchemeAssets variable from a .env.Land file when the process environment variable is unset.\n\nThe previous commit introduced $TierSchemeAssets gating, but a stale exported env var from a prior build tier could cause the build.rs tauri.conf.json mutation to disagree with the cfg-gated Rust code. ReadTierValueFromEnvFile walks up to 5 ancestor directories from CARGO_MANIFEST_DIR looking for .env.Land or .env.Land.Sample, applying the same file-reading logic as PropagateTierGating in the Rust tier system. Resolution priority is: process env var > env file key > hard-coded default \"Embedded\". A found env file with a missing key returns None immediately rather than falling through to a parent directory, preventing accidental cross-project key leakage.\n\nBuild-time consistency between build.rs and the cfg-gated tier system is maintained even when a shell carries a stale $TierSchemeAssets export.",
-			"SHA": "2a5399abce8caadf47b586362f6d568764d205ee"
+			"Message": "fix(Cocoon): Advance submodule to skip failure count when breaker is Open\n\nAdvance the Cocoon submodule to 8fa4cdb8, which adds an early return in CheckCircuitBreaker when the circuit breaker state is already Open. In-flight gRPC requests that complete with errors after the breaker has tripped were previously incrementing the failure counter unconditionally, piling up well beyond the intended threshold (observed at N≥19) and producing noisy \"transition from=OPEN to=Open failures=N\" dev-log lines.\n\nThe fix returns early when the state is Open, logging the post-trip completion at debug level but not counting it. Recovery remains driven by the existing timeout-based transition to HalfOpen. This eliminates dev-log chatter and keeps the failure counter accurate for the Closed and HalfOpen windows that actually drive breaker state transitions.",
+			"SHA": "e799e065cf32cb996e6c966458360d9502ba2b25"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:33:20Z",
+			"Date": "2026-05-25T20:54:24Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
 				26,
 				1
 			],
-			"Message": "feat(Mountain): Gate asset deployment strategy behind $TierSchemeAssets env var\n\nAdvance the Mountain submodule with a build-time gating mechanism that selects between two asset deployment modes: Embedded (default, assets Brotli-compressed into the binary) and FileSystem (full disk layout in Contents/Resources/ served via the localhost plugin static_root fallback).\n\nbuild.rs reads $TierSchemeAssets (defaults to \"Embedded\") and mutates tauri.conf.json at build time accordingly — Embedded sets frontendDist=\"../Sky/Target\" with minimal bundle.resources (bootstrap, extensions, nls, node_modules, product.json), while FileSystem sets frontendDist=null and maps the full Sky/Target tree. LocalhostPlugin.rs wraps the static_root disk-fallback code in #[cfg(feature = \"TierSchemeAssetsFileSystem\")] so it compiles only when FileSystem mode is active. The feature flag is added to IsDeclaredTierFeature rather than being a silent default.\n\nThis completes the foundation laid by the Static/Application/ prefix refactoring, making the deployment mode selectable at build time via a single environment variable rather than manual tauri.conf.json editing.",
-			"SHA": "0211d129196ffef2b812a8e3c1ab1d58211d703b"
+			"Message": "fix(Cocoon): Treat unknown method errors as benign for circuit breaker logic\n\nAdvance the Cocoon submodule to treat unrecognized gRPC method names as benign conditions rather than hard circuit breaker failures.\n\nCocoon's GRPCServerService method dispatcher previously counted unknown-method responses as failure events in the circuit breaker counter. When Mountain probes for method names across subsystems that route to Node rather than Cocoon's handler registry — or when the method set evolves independently on each side of the gRPC boundary — these probe responses could trip the circuit breaker open, disrupting legitimate requests.\n\nThe fix filters unknown-method errors from the circuit breaker's failure accounting, allowing only genuine transport or handler errors to trigger breaker state transitions. The unknown-method case still returns a proper error response to the caller, but no longer penalizes the breaker health score.",
+			"SHA": "119b4c70e55d325a403ffdbe19fa72efb9076d22"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:22:36Z",
+			"Date": "2026-05-25T20:46:25Z",
 			"File": [
-				"⣿⠀⠀⠀⠀",
+				"⡟⠀⠀⠀⠀",
 				26,
-				5
+				4
 			],
-			"Message": "refactor(Project): Advance 5 Element submodules with Mountain bundle consolidation and style normalisation across configs\n\nAdvance five Land/Element submodules in a coordinated update that restructures Mountain's Tauri bundle layout and normalises indentation conventions across the remaining four.\n\n**Mountain** consolidates bundle resources under a `Static/Application/` prefix, unifying the flat bundle layout (Contents/Resources/extensions) with the monorepo dev layout (Sky/Target/Static/Application/extensions) under a single source of truth. `tauri.conf.json` remaps all resource entries to `Static/Application/...`, sets `frontendDist` to null so the dev server delegates to the localhost plugin's disk fallback, and adds `static_root` resolution in LocalhostPlugin.rs that probes both production and dev paths. ScanPathConfigure.rs registers the new canonical extensions path before legacy flat paths, which are retained as fallback for existing development environments.\n\n**Cocoon, Output, Wind, and Worker** align their ESBuild configuration files and compiled artifacts to the project-wide tab-based indentation convention (reversing the 2-space style from a prior pass), with trailing commas, import-before-declaration ordering, and consolidated export blocks applied across all config modules. Output additionally hoists static imports above helper shim declarations for a consistent imports-first preamble order.\n\nZero functional changes across Cocoon, Output, Wind, and Worker — build outputs and runtime behaviour are identical. Mountain retains flat-path fallbacks so existing dev runs and CI pipelines continue unbroken during the migration.",
-			"SHA": "9ea797675c2545ab8721abb6954fb4e70661ab16"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:38:35Z",
-			"File": [
-				"⣿⠀⠀⠀⠀",
-				26,
-				5
-			],
-			"Message": "style(Project): Normalize indentation across 5 Element submodule configs\n\nAdvance five Land/Element submodules with formatting consistency passes across ESBuild configuration files, compiled output artifacts, and Tauri configuration.\n\n**Cocoon** converts all Configuration/ESBuild/*.js files from tab to 2-space indentation, reorders import/export declarations so re-exports appear before local imports, and deduplicates default import aliases in Target.js. RouteManifest timestamp updated and Target/ artifacts regenerated.\n\n**Mountain** reverts the verbose DevelopmentNodeEnvironment_MicrosoftVSCodeDependency naming scheme from a prior transitional debug phase, restoring the stable `\"fiddee.editor.binary\"` identifier and `\"Mountain\"` productName in tauri.conf.json, along with collapsing externalBin/targets arrays back to single-line format. Backup files created alongside the verbose identifiers are deleted.\n\n**Output** consolidates compiled JavaScript artifacts under Configuration/ to uniform 2-space indentation with hoisted helper shims, stripped trailing commas, and multi-line export blocks — semantically identical to their tab-indented predecessors.\n\n**Wind** reformats all ESBuild configuration modules under Configuration/ESBuild/ to 2-space indentation and reorders import/export to a declaration-before-export pattern.\n\n**Worker** applies 2-space indentation to Target.js and Worker.js ESBuild configs, collapses single-line arrow functions, and expands exports to multi-line named blocks.\n\nZero functional changes across all five submodules — build outputs and runtime behaviour are identical.",
-			"SHA": "cf4b0c66a6b82012bbe224c00afeb69bbfedc1ec"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:14:14Z",
-			"File": [
-				"⡏⠀⠀⠀⠀",
-				26,
-				3
-			],
-			"Message": "refactor(Project): Extract Cocoon namespace maps, Mountain dispatchers\n\nAdvance three Element submodules with structural extractions, runtime fixes, and formatting alignment.\n\n**Cocoon** lifts the inline RegisterCustomEditor function and six shared registry maps (CustomEditorProviders, CustomEditorProvidersByViewType, TreeDataProviders, TreeDataProvidersByViewId, WebviewViewProviders, WebviewViewBuilders, WebviewPanels) from Namespace.ts into dedicated RegisterCustomEditor.ts and Registry.ts modules. Namespace.ts shrinks by ~170 lines and re-exports the relocated maps through the existing path, preserving all provider registration and lifecycle behaviour unchanged.\n\n**Mountain** extracts the 1400-line `process_mountain_request` and 600-line `send_mountain_notification` match blocks from CocoonService/mod.rs into GenericRequest::Dispatcher and GenericNotification::Dispatcher modules, reducing mod.rs by ~1900 lines and clarifying the gRPC service boundary. Three fixes accompany the refactor: (1) scope the MutexGuard on WorkspaceFolders to a block so it is dropped before any await point, restoring Send-ness for tauri::async_runtime::spawn; (2) replace the OnceLock that caches a permanent None (routing all dev logs to /tmp after the first failed resolution) with a two-phase RESOLVED/RETRY system that retries after Tauri creates the app-data directory; (3) replace a bare `return Ok(...)` inside a WindServiceHandlers match arm (which exited the enclosing async block and broke Scheduler::Submit's `Output = ()` bound) with an if/else expression. A clippy-nit removing redundant `.as_str()` in AliasPath.rs is included. Two follow-up style commits normalize dispatcher indentation and update Cargo.toml/tauri.conf.json build identifiers for the dev profile.\n\n**Worker** normalises indentation across all three ESBuild configuration files to hard tabs via two style-only commits (spaces → tabs, then tabs → fully aligned tabs). Zero functional changes — build output is identical.\n\nAll Target/ compiled artifacts and RouteManifest files are regenerated for Cocoon.",
-			"SHA": "a74c89e53e1c6310ff031e05dafc682fd0b0c121"
+			"Message": "fix(Land): Advance Element submodules — storage RPC fix, clean identifiers, tier routing\n\nAdvance Cocoon, Mountain, Output, and Wind submodules to fix a storage cache priming regression, restore clean development identifiers, and implement per-subsystem IPC tier routing.\n\nCocoon corrects the RPC method name in the storage cache priming path from `storage:getItems` (kebab-case, object arg) to `Storage.GetItems` (PascalCase, empty array), matching Mountain's RPC dispatcher contract. Without this fix, extensions that read workspace/global state synchronously during `activate()` — Roo Code, Copilot, GitLens — received only defaults after every reload, causing UI state regressions.\n\nMountain restores \"Mountain\" as the crate binary, library, and package name, and the Tauri productName and bundle identifier, replacing the verbose development build descriptors from the prior commit. Gates the Cocoon sidecar launch on both the ExtensionHostCocoon feature flag and the absence of `no_node_host` cfg so the Node vs WebWorker tier is respected at boot. Includes the task type in the task provider Options payload for correct Cocoon task registration, derives Clone on ExtensionCollection for shared terminal env mutation, and adds the zsh shell integration script to the Tauri resource bundle.\n\nOutput introduces per-subsystem tier resolution in the TauriChannel IPC router so channels can route to Mountain (Tauri backend) or Node (Cocoon extension host) independently rather than being governed by the single global `_TierIPC` variable. Routes `tasks` and `auth` to Node by default while keeping most subsystems on Mountain.\n\nWind wires the runtime dispatch layer in TauriMainProcessService that reads per-subsystem tier overrides from env vars and `__LandTiers` globals, routing channels resolved to \"Node\" directly to Cocoon via the `cocoon:request` bridge instead of Mountain. This mirrors the dispatch in Mountain's WindServiceHandlers, completing TIER-SYSTEM Step 4b.\n\nExtension storage now persists correctly across reloads, the development build uses clean identifiers, and the IPC tier routing layer supports per-subsystem routing across the Mountain-Cocoon boundary.",
+			"SHA": "cdef6cceabdd3c790f0ac922156e6ad2a967ddbf"
 		}
 	],
-	"TimeStamp": 1779544353282
+	"TimeStamp": 1779882027082
 }

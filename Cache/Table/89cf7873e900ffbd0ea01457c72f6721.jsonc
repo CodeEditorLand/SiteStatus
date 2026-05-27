@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T17:34:26Z",
+			"Date": "2026-05-13T22:16:54Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1490,
 				1
 			],
-			"Message": "fix(UIQP2): deserialise items and options from Parameters in ShowQuickPick",
-			"SHA": "77191858d1cb1af57f174db23fd7ee2f72f1eae7"
+			"Message": "fix(Mountain): Consolidate panic recovery logic in scheme handlers\n\nMigrate the panic recovery implementation in `VscodeWebviewSchemeHandler` to match the established pattern in `VscodeFileSchemeHandler`. The previous implementation attempted to use `catch_unwind` but failed to handle the `AssertUnwindSafe` trait requirement and redundantly implemented the result matching logic inside the closure.\n\nUpdate `VscodeWebviewSchemeHandler` to use `catch_unwind` with `AssertUnwindSafe` for the closure wrapper and move the `match` result handling and `dev_log` error reporting to the function scope. This ensures that panics within the webview asset loading path (e.g., in MIME type resolution or file reading) are caught, logged with backtrace details, and converted to HTTP 500 responses without crashing the editor process.\n\nAlign the import structure in `Scheme.rs` to group `panic` imports correctly. This change unifies the error handling strategy for both file and webview scheme handlers, ensuring consistent graceful degradation across the native backend's asset serving layer.",
+			"SHA": "139de360adc2c0b17a5adbef32cee1d8d6e06c54"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T14:45:58Z",
+			"Date": "2026-05-13T22:10:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
-				1
+				1490,
+				2
 			],
-			"Message": "Merge pull request #52 from CodeEditorLand/fix/uiqp-reply-channel\n\nfix(UIQP): wire oneshot reply channel for all four dialog methods",
-			"SHA": "805107d5c9c75d693eb2a77eb57388867870b0c9"
+			"Message": "fix(Mountain): Migrate VS Code webview scheme handler to internal panic wrapper\n\nMove the VS Code webview scheme handler logic into a private `_VscodeWebviewSchemeHandler` function and wrap the public entry point with `std::panic::catch_unwind`. This mirrors the protective pattern recently implemented for the file scheme handler to prevent editor crashes caused by panics crossing the Objective-C FFI boundary.\n\nConcurrently, remove the `LSEnvironment` dictionary from `Info.plist`. These runtime configuration values (including network ports and feature tiers) were previously stored in the property list but are now generated and injected at build time via `build.rs` and `Scheme.rs`. Removing the dead XML nodes cleans up the configuration file and aligns the binary structure with the current build process.\n\nThis change ensures graceful error recovery for webview asset requests and resolves configuration drift by centralizing environment setup in the Rust build logic.",
+			"SHA": "230ca02557a152875ce896802af0b4c5ec9d5929"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T13:12:08Z",
+			"Date": "2026-05-13T22:05:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1490,
 				1
 			],
-			"Message": "fix(UIQP): wire reply channel for ShowQuickPick/ShowInputBox/ShowOpenDialog/ShowSaveDialog\n\nAll four dialog methods previously emitted the Sky event and returned\nOk(null) immediately (fire-and-forget), so the extension host never\nreceived the user's selection — every quick-pick and input-box resolved\nwith undefined on the Cocoon side.\n\nNow each handler:\n  1. Creates a tokio::sync::oneshot channel.\n  2. Registers the (nonce → tx) pair via ApplicationState.UI.AddPendingRequest.\n  3. Emits the Sky event with the nonce included in the payload.\n  4. Awaits rx, mapping the CommonError variant and the RecvError (sender\n     dropped / dialog cancelled) to String so the MappedEffect type is\n     satisfied.\n\nThe frontend calls the existing `ResolveUIRequest` Tauri command with the\nnonce and the selected value; that removes the sender from the map and\ncompletes the await here, returning the selection as Ok(Value) to the\nextension host.",
-			"SHA": "ad64c889c5c803a7f398123c93000e704240bd7d"
+			"Message": "fix(Mountain): Wrap scheme handlers in panic catch to prevent editor crash\n\nAdd `std::panic::catch_unwind` guards around `_VscodeFileSchemeHandler` and `_VscodeWebviewSchemeHandler` to prevent the entire editor process from aborting. These handlers run inside the `wkwebview` Objective-C FFI boundary, where panics crossing the `extern \"C\"` limit cause immediate process termination.\n\nThe implementation catches panics, logs the error message and current thread backtrace via the `lifecycle` dev_log, and returns a standard HTTP 500 Internal Server Error response instead. This ensures that bugs in memory mapping (mmap) or MIME type handling within the asset loading path result in a graceful failure rather than a full application crash.",
+			"SHA": "478ca92acb177ec84b73c6e5faf4f56c4d4b5ddf"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T13:10:09Z",
+			"Date": "2026-05-13T21:54:43Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
-				1
+				1490,
+				2
 			],
-			"Message": "Merge pull request #51 from CodeEditorLand/fix/sbar-identifier-sentinels\n\nfix(SBAR): replace hardcoded identifier sentinels with real parameter extraction",
-			"SHA": "4a7fb2d453bee86541ac3364fb795273d635a69a"
+			"Message": "chore(Mountain): Align documentation structure with recent refactoring and cleanup configuration\n\nUpdate README.md to reflect the current source directory structure following the recent migration from `Binary.rs` to the `Binary/` module folder and the addition of new components like `IPC/`, `RPC/`, `Telemetry/`, and `Cache/`. Correct the architectural diagram and module descriptions to match the actual file layout in `Source/`.\n\nAdditionally, clean up `Info.plist` by removing extraneous indentation and empty XML nodes around the `LSEnvironment` key to ensure a valid, consistent property list format. Remove trailing whitespace to maintain formatting standards.\n\nThis change synchronizes the project documentation with the current codebase state and resolves formatting inconsistencies in the build configuration.",
+			"SHA": "4ce8e735fd7551cdf8c3d5c41f2820eaef15eefc"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T13:06:03Z",
+			"Date": "2026-05-13T21:13:48Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				1
+				"⠁⠀⠀⠀⠀",
+				1490,
+				33
 			],
-			"Message": "fix(SBAR): replace hardcoded identifier sentinels with real parameter extraction\n\n$statusBar:set now reads EntryIdentifier / ItemIdentifier / ExtensionIdentifier\nfrom the Parameters object (matching the shape the extension host sends).\nFalls back to empty string for ExtensionIdentifier (same as the RPC layer).\n\n$statusBar:dispose, $disposeStatusBarMessage, and $setStatusBarMessage now\nreturn Err when the required identifier parameter is absent instead of\nsubstituting the literal strings \"id\" / \"msg_id\", which caused every\ndispose call with a missing argument to silently target the wrong entry.",
-			"SHA": "3725d3920169612be44daed8b510141dacffa2b4"
+			"Message": "refactor(Mountain): Consolidate imports and reformat Rust code across core modules\n\nStandardize multi-line import blocks to use brace-compressed syntax in CertificateManager.rs. Apply consistent line-wrapping and removal of unnecessary vertical whitespace across the Environment provider modules, Command handlers, and Track effect handlers.\n\nThis change focuses purely on formatting and code style alignment. No functional logic, business rules, or error handling flows are altered. The modifications ensure uniform indentation and line length compliance (typically wrapping comments and long method chains at 100 characters) across the Mountain native backend codebase.\n\nThis improves readability and prepares the codebase for automated linting enforcement.",
+			"SHA": "c8a486c1635ccee407de53db21f6127a3cce049b"
 		}
 	],
-	"TimeStamp": 1779544366844
+	"TimeStamp": 1779882060624
 }

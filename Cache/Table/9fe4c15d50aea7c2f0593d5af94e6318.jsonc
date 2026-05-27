@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-04-29T03:39:30Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				1
-			],
-			"Message": "",
-			"SHA": "c7eef6cacab62664fa2fd8f62cd83b84fcfc397a"
-		},
-		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:08:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				3
-			],
-			"Message": "fix(Output): Fix ExposeWorkbenchAccessor import markers and add service error isolation\n\nTwo fixes to the ExposeWorkbenchAccessor transform that were causing SkyBridge bridges to silently fail:\n\n1. Import marker quote style: The transform was using single-quote import markers that matched stock VS Code source, but esbuild/Land's Output bundler rewrites quotes to double quotes in the post-bundle file. The marker mismatch caused `Source.includes(ImportMarker)` to return false, silently no-opping the entire `__CEL_SERVICES__` patch. All SkyBridge hooks (search registration, SCM, status bar, tree views) were offline because `__CEL_SERVICES__` stayed undefined.\n\n2. Service error isolation: Each `invokeFunction` is now wrapped in its own try-IIFE. Previously, a single failed service lookup (interface decorator missing in this profile, service not yet registered) would throw out of the entire `__CEL_SERVICES__` object literal, leaving the whole facade undefined. Now each service degrades to `null` individually, preserving all other bridges.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNodeModulesPath + expose IMarkerService)",
-			"SHA": "f55a02821a2d7acad85060cf17796f62fda700d9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:03:39Z",
+			"Date": "2026-04-30T23:34:39Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				267,
-				8
+				368,
+				12
 			],
-			"Message": "feat(Output): Add RewritePerfBaselineWorker transform\n\nAdd a new build transform that fixes worker bootstrap crashes in the\nbundled editor's timer service. The transform replaces\n`timerService.js`'s `(function() { ... __name(fib, \"fib\"); ... }).toString()`\nperfBaseline worker source with a literal-string equivalent that omits\nthe cosmetic `__name(...)` decoration.\n\nSame OXC-mangling-truth fix as `RewriteNestedWorkerBootstrap`: when Vite\ninlines `timerService.js` into Sky's `_astro/partsSplash.*.js` chunk,\nthe chunk's `__name` helper gets mangled (e.g., `$4e`). The IIFE captured\nby `.toString()` carries the mangled `$4e` reference; the worker scope\nhas no `$4e` defined and crashes at module-eval with `ReferenceError:\nCan't find variable: $4e`. The literal-string replacement is\nmangler-immune.\n\nAlso update prepublishOnly.sh to gate debug profiles on `Debug=true`\ninstead of `NODE_ENV`. Tauri's `.env` file was silently overriding\nBuild.sh's `NODE_ENV=development` export, forcing `out-build` (mangled)\neven for debug builds that should pull from readable `out/`.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNestedWorkerBootstrap)",
-			"SHA": "14cc0d5941bd561c41c6d5ffd190256cc92eafb9"
+			"Message": "fix(Output): Disable EditContext and refine WKWebView input polyfills\n\nAdd ForceTextAreaInput transform that flips Monaco's `editor.editContext`\ndefault from `true` to `false`, routing keyboard input through the legacy\n`<textarea class=\"inputarea\">` rather than the EditContext API. WKWebView's\nEditContext support is flaky enough that focused divs silently swallow\nkeystrokes - users see the cursor blink but typing produces nothing.\n\nRefine WorkbenchInteractivityCSS polyfill (V2):\n- Remove blanket `visibility: visible` and `opacity: 1` on workbench parts.\n  These forced invisible click-capturing rectangles over the editor that\n  absorbed clicks before Monaco's mousedown handler fired, presenting as\n  \"I clicked the editor but typing doesn't work\".\n- Add explicit `pointer-events: auto` rules for Monaco's textarea input\n  chain (.overflow-guard, .lines-content, .inputarea) to survive stacking\n  context interactions with our `InjectPartZIndexCSS` `isolation:isolate`.\n\nRefine WorkbenchPaintPrime polyfill (V2):\n- Remove `keydown` and `focus` capture-phase listeners. Each keystroke\n  triggered a synchronous `FindPartAncestor` + forced reflow BEFORE the\n  event reached Monaco's textarea, and the oninput queue could drop the\n  keystroke. Keeping only `pointerdown` still primes paint on first click\n  without breaking the input path.\n\nAdd LandDisableAll gate: when `process.env.Disable` is `\"true\"`, skip all\ntransform plugins and run only Copy plugins. Produces \"vanilla VS Code on\nTauri\" useful for bisecting whether regressions are in our polyfills or\nin upstream/Tauri/WKWebView.",
+			"SHA": "44e160c6b8a8de6aaa693bc8e4b6e3fcd56d49c6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T23:06:23Z",
+			"Date": "2026-04-30T23:34:25Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				365,
+				7
+			],
+			"Message": "feat(Output): Add RewriteWebviewShellCSP transform and fix icon URL rewriting\n\nAdd a new transform plugin that loosens the webview shell's CSP script-src from a stale sha256 hash to `'unsafe-inline' 'self' blob:`. Stock VS Code pins the hash; WKWebView computes it differently from Chromium, and any transform that touches the inline script body silently invalidates it. This matches Land's single-user desktop threat model and lets every extension webview boot.\n\nAlso fix RewriteIconsStyleSheetURLs to handle a third URL scheme that leaks through under Tauri/WKWebView: plain `file:///` URLs. Stock VS Code's FileAccess.uriToBrowserUri only converts file→vscode-file when process.versions.node exists, but the shim isn't always installed before iconsStyleSheet.getCSS() runs. The @font-face rule then fetches a 0-byte mixed-scheme response and codicons render as missing-glyph boxes. Add a third replace: `file:///...` → `<origin>/Extension/...`.\n\nBump marker version to _V2 so prior builds get re-patched rather than skipped. Update regex patterns to handle trailing replace chains from previous transform versions.",
+			"SHA": "8a3e8d281a0c6815422cea9dd2278e24923ff677"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T20:27:12Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
-				264,
-				10
+				363,
+				19
 			],
-			"Message": "feat(Output): Add RewriteNodeModulesPath transform and expose IMarkerService\n\nAdd a new build transform and update an existing one:\n\n1. RewriteNodeModulesPath: Patch `vs/base/common/network.js`'s hardcoded paths (`vs/../../node_modules`, `vs/../../extensions`, etc.) to drop one `../` segment. Without this, the dev server resolves to `/Static/node_modules/` instead of `/Static/Application/node_modules/`, returns SPA `index.html` fallback, and all grammar/tokenization (textmate, oniguruma, language-detection) silently breaks across every extension.\n\n2. ExposeWorkbenchAccessor: Expose `IMarkerService` on `__CEL_SERVICES__.Markers` so SkyBridge can push extension diagnostics (rust-analyzer, TypeScript, ESLint) into the workbench. Mountain emits `sky://diagnostics/changed` events; the bridge now calls `Markers.changeOne(owner, uri, markers)` to paint red squiggles and populate the Problems panel.\n\nBoth transforms are idempotent and added to the BuildPipeline after RewriteNestedWorkerBootstrap.",
-			"SHA": "cf8dea549df816cc3b534beb9449f90bf678f69f"
+			"Message": "feat(Output): Add macOS titlebar offset and z-index CSS transforms\n\nAdd two new Output transforms that inject runtime CSS to fix WKWebView visual issues:\n\n- InjectMacTitlebarOffsetCSS: Reserve ~80px on the left of the workbench titlebar so the in-window menubar (`File / Edit / View / ...`) and command-center quick-pick stop overlapping with macOS traffic lights. Targets `.monoco-workbench.mac` only via the standard marker pattern.\n\n- InjectPartZIndexCSS: Establish explicit z-index hierarchy for every workbench part (`isolation: isolate` + numeric z-indexes) so a sibling that accidentally creates a stacking context (transform, opacity) can't hide the activity bar, sidebar, panel resize handle, status bar badges, or command-center dropdown.\n\nAlso expand StripWebviewIframeSandbox to patch BOTH the outer iframe creation site (`webviewElement.js`'s `element.sandbox.add(...)`) AND the pending-frame-swap site (`pre/index.html`'s `setAttribute('sandbox', ...)`). The earlier single-file patch wasn't sufficient - the outer iframe remained sandboxed and blocked all webview loads with the \"custom protocol from sandboxed iframe\" error.\n\nAdd RewriteWebviewShellCSP: loosen the webview shell's CSP script-src from a stale sha256 hash (WKWebView normalizes CR/LF differently) to `'unsafe-inline' 'self' blob:`. Matches Land's single-user desktop threat model; every extension webview now boots.",
+			"SHA": "0d47460778c1a546313b88539815d6ebde3bb03e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T21:54:01Z",
+			"Date": "2026-04-30T18:59:27Z",
 			"File": [
-				"⡿⠀⠀⠀⠀",
-				261,
-				45
+				"⣿⣿⡟⠀⠀",
+				350,
+				189
 			],
-			"Message": "feat(Output): Fix Monaco worker bootstrap crashes and add polyfill telemetry\n\nAdd two new build transforms that fix worker bootstrap crashes in the bundled editor:\n\n1. InjectWorkerBootstrapShim: Injects `__name`/`__defProp` shim into `webWorkerServiceImpl.js::getWorkerBootstrapUrl` blob factory so Monaco's language workers (TS/CSS/HTML/JSON services, semantic tokens) inherit the helpers in their module scope. Without this, workers crash with `ReferenceError: Can't find variable: $4e` when Vite/OXC mangling renames `__name` to `$4e`.\n\n2. RewriteNestedWorkerBootstrap: Replaces `polyfillNestedWorker.js`'s `(function... ).toString()` pattern with a literal JSON.stringified source that omits the cosmetic `__name(...)` decorations. The `.toString()` approach returns mangled source (`$4e`) which the blob worker can't evaluate since the identifier isn't defined in its scope.\n\n3. RewriteStaticBlockSelfRef: Replace hardcoded 2-file whitelist with auto-detection across all `vs/*.js` files - the whitelist silently failed because VS Code's out-build mangler emits different class names than expected.\n\n4. InstrumentVscodeGit: Add markers F (createModel done) and L (openRepository getRepositoryRoot done) for finer-grained Git extension activation diagnostics.\n\n5. Telemetry: Add global `__LAND_POLYFILL_TELEMETRY__` hook and wire it into ChildProcessPolyfill, IPCRendererShim, ProcessPolyfill, and SharedProcessProxy to route silently-caught failures to PostHog for monitoring.",
-			"SHA": "e0fda068f1befeb3a76f470689b34bd8378fe554"
+			"Message": "",
+			"SHA": "fc91741983660b9ae401dd22f9fbfa1fa3a1301f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T05:00:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				255,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
+			"SHA": "151dce184be08ba55c2f5dc406c5ff914a82ea70"
 		}
 	],
-	"TimeStamp": 1779544366916
+	"TimeStamp": 1779882086857
 }

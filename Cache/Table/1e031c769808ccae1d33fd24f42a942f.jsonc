@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:08:42Z",
+			"Date": "2026-05-01T00:15:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				2
-			],
-			"Message": "fix(Mountain): Accept absent paths in FileWatcher and varied URI shapes\n\nTwo changes that prevent false circuit breaker trips in Mountain's gRPC service:\n\n1. **FileWatcherProvider.rs**: Extensions frequently register watchers on optional paths (`~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't yet exist. Previously, `notify::Watcher::watch()` failure triggered a gRPC error that counted against Cocoon's circuit breaker — 5 probes at boot trips it open and cascades into 60s of rejected reads. Now Mountain catches benign \"path not found\" errors, records a \"deferred\" entry without a live OS watcher, and still allows Unregister to clean up the handle.\n\n2. **UriParsing.rs**: Cocoon sends URIs in three different shapes — plain strings (e.g., `Diagnostic.Set`), objects with `external` field (VS Code's `URI.toJSON()`), and legacy objects with just `scheme` + `path`. The original code only accepted the `external` field, causing `Diagnostic.Set` from `vscode.languages.createDiagnosticCollection().set` to trip the breaker after 5 publishes, silencing all linters across language extensions. Now all three formats are accepted.\n\nBoth fixes maintain backward compatibility while eliminating spurious error cascades.",
-			"SHA": "9c10fbe92d916db112eb377dcd9f1ab9130c8821"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:40:26Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				2
-			],
-			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nTwo changes in Mountain's gRPC service layer:\n\n1. **FileWatcher.rs**: Cocoon's `NextProviderHandle()` returns a number, but older callers pass a string. Handle both shapes in `RegisterWatcher` and `UnregisterWatcher` instead of silently converting numbers to empty string.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without a string-regex round-trip, while `-32000` remains the catch-all for genuine failures.",
-			"SHA": "160b5a4251133f31e4ce99898a02a8d63f8ca19b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:03:45Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				1
 			],
-			"Message": "docs(Mountain): Update build.rs comments to document PascalCase naming\n\nClarify the build script comments to document the PascalCase environment variable naming convention introduced in the 2026-04-29 migration. The comments now specify that `Profile`, `Pack`, `Bundle`, and `Compiler` (PascalCase) are the current env var names, replacing the legacy `LAND_*` names that were retired. This ensures clarity for developers debugging build configuration resolution at runtime.",
-			"SHA": "de696659a367b81cdc5404e3055fa6837bd94fa7"
+			"Message": "perf(Mountain): Gate sync/performance emits behind env vars and add subscriber fast-path\n\nTwo optimizations to reduce IPC channel contention:\n\n1. **Env var gating**: The `mountain_sync_status_update` and `mountain_performance_update` events were emitting on every tick even though Sky has no subscriber. Every emit now waits behind keystrokes on the shared Tauri IPC pipe. Gate both behind `LAND_SYNC_STATUS_EMIT=1` and `LAND_PERF_EMIT=1` respectively for debugging or future Sky consumers.\n\n2. **Subscriber fast-path**: The 100ms real-time updates tick was acquiring the lock and draining pending updates even with zero subscribers. Add an early check to skip the entire lock-and-drain path when `Subscribers.is_empty()`, making the tick a true no-op until a subscriber registers.\n\nTogether these keep the shared IPC channel free for keystrokes during extension boot when the renderer is most busy.",
+			"SHA": "75d2f1dbe4d77d92e1f679c84aa4885ce355a12d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T23:06:33Z",
+			"Date": "2026-04-30T23:34:46Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				2
 			],
-			"Message": "feat(Mountain): Add per-URI marker payloads to diagnostics events and cap keyring logging\n\nTwo changes in Mountain's diagnostic system:\n\n1. **DiagnosticProvider.rs**: Extend the `DiagnosticsChanged` event payload with a new `changedURIs` field containing per-URI marker data alongside the existing `Uris` string array. This enables SkyBridge's `cel:diagnostics:changed` listener to call `IMarkerService.changeOne(owner, uri, markers)` directly without an extra IPC round-trip per diagnostic change. Also adds lowercase `owner` field for consistency. Maintains backward compatibility with listeners expecting the original format.\n\n2. **LoggingPlugin.rs**: Cap the `keyring` crate to Warn level. This dependency (used by Mountain's secret-storage path for license data lookups) emits a 3-line DEBUG block per `get_password` call that fires indefinitely after the workbench paints, similar to the previous `ignore` and `globset` mutes.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "5b111b189f5566e92bce268a48be289d73ef6735"
+			"Message": "feat(Mountain): Add Disable env var and fix first-click focus issue\n\nTwo unrelated but complementary fixes:\n\n1. **accept_first_mouse(true)**: Fix the \"I clicked, I'm typing, nothing's happening\" bug where WKWebView swallows the first click on an unfocused window as a \"make me key\" no-op. The user had to click twice - first to focus the NSWindow, second to focus the Monaco textarea. This change flips the responder chain so the first click already reaches WKWebView's content.\n\n2. **Disable environment variable**: Add master \"disable Land customisations\" gate via `Disable=true` env var. When enabled, Mountain skips: WindowEvent::CloseRequested intercept (Cmd+W routes natively), Cocoon/Air sidecar spawn, and Wind/SkyBridge registration. This is useful for bisecting whether typing-input regressions originate in the extension host or upstream/Tauri/WKWebView. Also rename DevTools auto-open from LAND_OPEN_DEVTOOLS to `Inspect=1` to follow Land's PascalCase env var convention.",
+			"SHA": "14b86efb22e841a2d2fa91ea12ba33c37b6cec33"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T22:00:38Z",
+			"Date": "2026-04-30T20:27:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				4
+				868,
+				2
 			],
-			"Message": "refactor: simplify project naming in Cargo.toml and tauri.conf.json\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "7ecd2c78579c71c6c6dbbbb509d52c63b1e771ad"
+			"Message": "fix(Mountain): Add vscode-webview URI scheme handler for extension webviews\n\nImplement the missing vscode-webview:// URI scheme handler to enable VS Code extension webviews (Roo Code, Claude, GitLens, custom editors) to render in the Tauri WKWebView environment.\n\nVS Code's WebviewElement wraps every extension webview in an iframe with src=vscode-webview://<authority>/index.html?... Without this handler, the iframe stays blank and any extension using webviewView/WebviewPanel/CustomEditor is non-functional.\n\nThe handler serves the three-file pre/ directory (index.html, service-worker.js, fake.html) from the embedded asset resolver or filesystem fallback. Extension HTML itself arrives via the workbench's swMessage postMessage channel after index.html boots.\n\nThis completes the extension webview infrastructure alongside the extension_root allowlist added in commit 320e57a, enabling sideloaded extensions to render their UI properly.",
+			"SHA": "54650acd31bb34c764095c9160eedb19e9a18916"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T20:27:20Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				3
+			],
+			"Message": "fix(Mountain): Fix boot race and close handling for macOS\n\nTwo unrelated but impactful bugs fixed:\n\n1. **Boot race guard for Cocoon IPC**: The renderer dispatches tree:getChildren and cocoon:request (e.g. webview.resolveView) ~700 log lines before Cocoon's gRPC handshake completes. Without a wait, the first call returns ClientNotConnected, the workbench caches an empty result, and the user sees an empty Explorer until manual refresh. Add IsClientConnected() and WaitForClientConnection() to poll the connection pool before dispatching, with a 1500ms budget to keep UI responsive.\n\n2. **Cmd+W intercept for macOS**: Tauri 2.x maps Cmd+W to NSWindow.performClose: which wins the responder chain over the webview's keydown handler. The result: hitting Cmd+W to close a tab nukes the entire editor. Intercept CloseRequested, emit sky://window/close-requested to the webview, and use destroy() instead of close() in nativeHost:closeWindow to avoid re-entering the intercept.\n\n3. **DevTools focus theft**: DevTools auto-opening in debug builds steals macOS keyboard focus the moment it appears, preventing the main webview from becoming first responder. Make auto-open opt-in via LAND_OPEN_DEVTOOLS=1. Cmd+Alt+I and right-click Inspect still work.\n\nThese fixes resolve the \"I can't type or keybind\" issue and the empty Explorer on first launch.",
+			"SHA": "fb254aded503fa1e8ee2e0047bcfca44729e4c67"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T18:59:32Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				5
+			],
+			"Message": "build(Mountain): Revert to simple Mountain naming and add extension roots allowlist\n\nRevert the binary/library names and Tauri config back to simplified \"Mountain\" identifier, matching the pattern established in commit 20b9363. This removes the verbose production profile string from Cargo.toml (binary, lib, default-run) and tauri.conf.json (identifier, productName), and eliminates the duplicate externalBin entry.\n\nAdditionally, configure the localhost plugin with extension_root allowlist for both Land and VSCode extension directories. This enables the `/Extension/<abs-fs-path>` URL prefix to serve extension-contributed assets (icon fonts from iconsStyleSheet.js, webview resources, images) directly from ~/.land/extensions and ~/.vscode/extensions. Without this, sideloaded extensions like GitLens render icons as blank missing-glyph boxes because WKWebView cannot resolve vscode-file:// URLs.",
+			"SHA": "320e57a2ae6800e40bca9c97e7cb4d52cb49db85"
 		}
 	],
-	"TimeStamp": 1779544407593
+	"TimeStamp": 1779882118329
 }

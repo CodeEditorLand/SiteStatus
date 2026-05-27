@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:50:10Z",
+			"Date": "2026-04-29T04:21:45Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
-				1
+				859,
+				2
 			],
-			"Message": "perf(Mountain): Deduplicate dev log entries for unregistered commands\n\nReplace dev_log! macro with DebugOnce for unregistered view-action and workbench-internal commands. These commands fire repeatedly (view-action buttons clicked multiple times, getTelemetrySenderObject fires 30+ times per boot extension activation), causing N-line log trails that obscure other diagnostic output.\n\nThe new implementation uses a dedup key format (e.g., \"view-action-noop:{CommandId}\") so the first invocation still logs for debugging probe shape, while subsequent calls to the same command ID are silently suppressed.\n\nThis reduces dev log noise in hot IPC paths while preserving diagnostic value for identifying unregistered command patterns.",
-			"SHA": "2120ad5e42aec918ce1f2bb0a769dd02a7cf2e84"
+			"Message": "feat(Mountain): Buffer terminal output for late-listener replay\n\nAdd per-terminal output buffering to solve the same race condition that\nwas fixed for tree-views and SCM in 1599d766. The PTY reader task and\nSkyBridge's `listen(\"sky://terminal/*\")` installation race: in the\nbundled-electron profile, the shell's first prompt fires ~50ms after\n`spawn_command` while Sky's bundle still parses for ~1500ms. Without a\nbuffer, zsh MOTD, direnv exports, fish greetings are silently dropped\nand the user sees an empty pane until they type.\n\nThe implementation adds:\n- `AppendTerminalOutput()`: capture PTY bytes into a 64KB bounded buffer\n  (keeps most recent suffix to preserve the prompt)\n- `DrainTerminalOutputBuffer()`: retrieve all buffered terminal data\n- `RemoveTerminalOutputBuffer()`: clean up on terminal exit\n- Extended `sky:replay-events` to emit `sky://terminal/create` for each\n  active terminal AND replay any buffered `sky://terminal/data` bytes\n\nThis completes the replay system for all three major feature areas:\ntree-views, SCM providers, and terminals.",
+			"SHA": "2fee91e5d72c7b86eb194a55de12d4d33f8aac92"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:29:34Z",
+			"Date": "2026-04-29T04:01:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
+				859,
+				2
+			],
+			"Message": "refactor(Mountain): Use actual SCM provider identifier in replay, add command replay, reduce tree timeout\n\nThree improvements to Sky event replay:\n\n1. **SCM Provider Identifier**: The `ProviderState` DTO now carries the original `Identifier` field from `ProviderData.ID`. SCM replay uses this instead of hardcoded \"git\", enabling multi-SCM support (github, hg, etc.). Pre-existing DTOs default to \"git\" for backward compatibility.\n\n2. **Command Registration Replay**: Add replay for extension-registered commands (`vscode.commands.registerCommand`). Native Rust handlers are excluded since they're not exposed via the Vine notification channel. This ensures `ICommandService` knows about extension commands after bridge install.\n\n3. **Tree-View Timeout**: Reduce `$provideTreeChildren` timeout from 5000ms to 1500ms. User-interactive RPCs should show a spinner and fail gracefully — real workloads (gitlens, rust-analyzer) finish in <500ms. Slow producers fall through to empty-array and retry on scroll.\n\nExtends the sky:replay-events handler added in 1599d766.",
+			"SHA": "1f93b7ef93262b34e18e1109e24268a36e2caf07"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T03:40:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
+			],
+			"Message": "fix(Mountain): Replay Sky events on listener registration to fix empty sidebar\n\nSkyBridge calls this after installing every `sky://*` Tauri listener because Mountain → Sky `app.emit()` events are NOT buffered — any emit fired before the listener was installed is silently dropped.\n\nIn the bundled-electron profile, extension activation (which triggers `register_scm_provider` and `$tree:register` notifications through Cocoon) starts ~580 log lines before the Sky bundle finishes booting (~1995 lines). Without this replay, all tree-view + SCM register events are lost and the Activity Bar / sidebar comes up empty even though state-side everything registered correctly.\n\nThe new `sky:replay-events` handler iterates through active TreeViews and SCM providers in application state, re-emitting the `sky://tree-view/create` and `sky://scm/register` events that were previously dropped. This restores the sidebar contents on boot.",
+			"SHA": "1599d766f64f50d04aa4b0d73cb193243bbc43b2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T02:54:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
 				1
 			],
 			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "dfa3acda721ec79f2cbd6a3061850be811b84043"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-26T02:23:56Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				876,
-				1
-			],
-			"Message": "",
-			"SHA": "28ca7503d0ae648f07c56b113be6513fae61d15c"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-25T02:01:42Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				876,
-				1
-			],
-			"Message": "",
-			"SHA": "1424b031e841eef48943539cd9d268a78ea95647"
+			"SHA": "a934e37a6c3c3ad8a6fc4e118fb8d20ff7bdfe50"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:52:38Z",
+			"Date": "2026-04-29T02:54:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
-				5
+				859,
+				2
 			],
-			"Message": "refactor(Mountain): Simplify binary and Tauri config naming to \"Mountain\"\n\nRevert verbose development identifiers to simple \"Mountain\" for binary/lib names in Cargo.toml, Tauri identifier (now \"land.editor.binary\"), and productName in tauri.conf.json. Also removes duplicate externalBin entry and deletes obsolete .Backup files.\n\nThis restores clean naming conventions while preserving all build settings and feature flags.",
-			"SHA": "715198ac9eee6c7767e86745a028aae34ab4a9ec"
+			"Message": "fix(Mountain): Improve path security checks and logging for workspace access violations\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "a45bef60ff2021cbc1c5090a2d64b5d8c16efa46"
 		}
 	],
-	"TimeStamp": 1779544411394
+	"TimeStamp": 1779882121408
 }

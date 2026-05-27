@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:02:19Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				26,
-				4
-			],
-			"Message": "",
-			"SHA": "fa903600e15697c37927ddae2bfa35a3cbd7ab31"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:42:22Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				26,
-				4
-			],
-			"Message": "refactor(Project): Rename user-data directory root from .land to .fiddee\n\nAfter the product rebranding to FIDDEE, the hardcoded `$HOME/.land/...` path literals scattered across Cocoon, Output, and Wind were inconsistent with the new product identity. Normalise all references to `$HOME/.fiddee/...` so the user-data directory mirrors the product name.\n\nCocoon (+1 commit): Extract the FIDDEE user-data path into a shared `FiddeeRoot()` atom at Source/Platform/FiddeeRoot.ts, mirroring the Rust atom in Mountain. Replace hardcoded `$HOME/.land` prefixes in Extension Context.ts, Host Handler.ts (extensionStorage, globalStorage, logs), and add `/.fiddee/extensions/` to the extension-bug frame matcher in Notification Handler.ts. All ESBuild Target/ artifacts rebuilt.\n\nOutput (+1 commit): Update all documentation comments and inline `Why` strings in Pipeline.ts, Plugin Index.ts, Extension Gallery Service.ts, and Icon Stylesheet URL rewriter.ts to reference `~/.fiddee/extensions/` instead of `~/.land/extensions/`. Compiled bundles and source maps regenerated.\n\nWind (+1 commit): Update the inline comment in ResolveConfiguration referencing `~/.land/workspaces/RecentlyOpened.json` to `~/.fiddee/workspaces/RecentlyOpened.json`.\n\nMountain (+1 commit): Synchronised to matching HEAD — no functional delta for this change.\n\nTogether these changes ensure a single source of truth for the product data directory path across the TypeScript layers, with new code reading from `FiddeeRoot()` and all stale documentation strings corrected.",
-			"SHA": "b953180e3e03fd1e284ed751416d908d7c6b60a8"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:23:14Z",
-			"File": [
-				"⡏⠀⠀⠀⠀",
-				26,
-				3
-			],
-			"Message": "feat(Project): Wire workspace save methods and fix Tauri IPC fallback in Wind\n\nAdvance Cocoon, Mountain, and Wind submodules to collectively enable `vscode.workspace.save()` / `saveAll()` / `saveAs()` from extensions and fix two workbench boot crash categories in Wind.\n\n**Mountain (+1 commit, feat):** Add three new IPC handler arms to the Workspace dispatch table in `CreateEffectForRequest` — `Workspace.Save`, `Workspace.SaveAs`, and `Workspace.SaveAll` (including the legacy `saveAll` method name used by gRPC/Client.ts). All three degrade gracefully when Sky has no handler registered, logging a warning and returning the original URI (for Save/SaveAs) or null (for SaveAll) instead of crashing the extension host.\n\n**Cocoon (+1 commit, chore):** Rebuild all 39 `Target/` ESBuild bundles and regenerate the `RouteManifest` to track the four new Mountain RPC methods, raising `MountainMethods` count from 130 to 134 with a generation timestamp of `2026-05-19T22:15:03Z`.\n\n**Wind (+1 commit, fix):** Fix two boot-time crash sources in `ResolveConfiguration` — (1) add `(window as any).__TAURI_INTERNALS__?.invoke` to the fallback chain before the `__TAURI__` variants so the Tauri IPC bridge is found in Tauri v2 webview contexts; (2) replace all `|| undefined` path fallbacks (homeDir, tmpDir, userDataDir, logsPath) with concrete defaults like `/tmp/.fiddee` so `path.posix.join(undefined, 'User')` no longer throws \"The path argument must be of type string\" during workbench initialisation. Propagate the fallback to `extensionsPath` via `userDataDir` so extension scanning never receives undefined.\n\nTogether these changes complete the workspace document save IPC round-trip from Cocoon through Mountain to Sky, while hardening Wind against Tauri version mismatch and missing IPC responses at startup.",
-			"SHA": "bbd041b6c55c90b3e0432757dbf463009fc6e181"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:53:42Z",
+			"Date": "2026-05-23T15:42:48Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				26,
 				2
 			],
-			"Message": "feat(Project): Synchronize Cocoon and Mountain submodules\n\nAdvance Cocoon and Mountain to their latest commits, wiring active editor tracking and caching OS property queries.\n\n**Cocoon (+1 commit):** Wire `window.didChangeActiveTextEditor` from Handler.ts into a minimal TextEditor stub derived from URI/languageId, patching `__activeTextEditor` on Context so extensions reading `vscode.window.activeTextEditor` synchronously in `activate()` see the current value. Upgrade `showTextDocument` from a fire-and-forget notification to a `sendRequest` round-trip returning the TextEditor stub from Mountain, with a disposable fallback to prevent crashes when `await`ing and chaining `.selection` or `.revealRange`. Migrate ExtensionSecretStorage from `sendNotification` to `sendRequest` with namespaced methods (`secrets.get`, `secrets.store`, `secrets.delete`) and scoped `extensionId` isolation.\n\n**Mountain (+1 commit):** Cache OS property collection (type, release, arch, CPU topology) and Rosetta 2 detection behind `OnceLock` to eliminate ~10 ms subprocess overhead per IPC call. After document open, call `SetActiveDocumentURI` on application state and fire a fire-and-forget gRPC `window.didChangeActiveTextEditor` notification to keep Cocoon's shim in sync. Refactor `localPty:getTerminalLayoutInfo`/`setTerminalLayoutInfo` to use `GetStorageValue`/`UpdateStorageValue` on StorageProvider, removing manual JSON serialization.\n\nTogether these changes eliminate three extension-host crash categories (synchronous reads of undefined `activeTextEditor`, awaited `showTextDocument` returning undefined, and unhandled secret storage notification rejections) while reducing IPC latency for OS queries and keeping terminal layout persistence simpler.",
-			"SHA": "504dc46bc62f73b572c19cfe712435e193eba139"
+			"Message": "chore(Project): Sync Cocoon and Mountain submodules for build refresh and IPC standardization\n\nUpdate the Cocoon and Mountain element submodules to align with recent refactorings in the native backend IPC layer and extension host build pipeline.\n\n**Cocoon:** Regenerate all ESBuild output artifacts in `Target/` and update `Source/Generated/RouteManifest.ts` with the current compilation timestamp. This ensures the extension host bootstrap and RPC method handlers are synchronized with the latest source state following upstream service layer changes.\n\n**Mountain:** Refactor `WindowUI` and `Workspace` IPC handlers to utilize new centralized utility functions (`array_unwrap`, `uri_from_params`, `ensure_array`) from the `Utilities::Params` module. Replace inline conditional logic for unwrapping JSON arrays and normalizing URI parameters, eliminating duplicated type checks and ensuring consistent argument normalization across Tauri event handlers.\n\n**Impact:** These changes maintain binary artifact consistency for the extension host and further reduce boilerplate in the native backend dispatch layer, reinforcing the project's Effect-based architectural principles.",
+			"SHA": "b20c14839d0ecbd28de8cff661e8e3e99ec8e054"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:47:00Z",
+			"Date": "2026-05-23T15:34:46Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
+				"⠃⠀⠀⠀⠀",
 				26,
-				4
+				1
 			],
-			"Message": "chore(Project): Synchronize Cocoon, Mountain, Output, and Sky submodules\n\nAdvance four Element submodules to their latest states, incorporating dependency updates, terminal state persistence logic, and build script formatting fixes.\n\n**Cocoon (+2 commits):** Update `@types/node` to 25.9.1 and `protobufjs` to 8.4.0 via Dependabot to align type definitions and protocol buffer runtime with upstream releases.\n\n**Mountain (+1 commit):** Implement terminal layout persistence by wiring `localPty:getTerminalLayoutInfo` and `localPty:setTerminalLayoutInfo` to the `StorageProvider`. This enables the restoration of active terminal tabs and dimensions after window reloads. Additionally, cache the native color scheme detection result in a `OnceLock` to eliminate repeated OS syscalls during boot and focus events.\n\n**Output (+1 commit):** Normalize indentation in `Run.sh` and `prepublishOnly.sh` case statements, replacing mixed tabs/spaces with consistent 0-tab labels and 1-tab branch bodies to adhere to project whitespace standards.\n\n**Sky (+2 commits):** Bump `@astrojs/ts-plugin` to 1.10.9 and `astro` to 6.3.5 via Dependabot to ensure toolchain compatibility.\n\nThese updates restore terminal state across reloads, improve startup performance, and maintain dependency alignment.",
-			"SHA": "a433ff6521a0ce8adb66d86c7a42e518cf1efd4c"
+			"Message": "chore(Mountain): Update submodule to fix macro formatting\n\nUpdate the Mountain submodule from 56cd4ccb to 5366ce11 to remove a trailing blank line following the `forward_to_cocoon!` macro definition in `WindServiceHandlers/mod.rs`.\n\nThis minor style adjustment ensures consistent formatting within the IPC dispatch module following recent refactorings that localized dispatch macros.",
+			"SHA": "07cf20257ccdf05290dfe6b8e692f57cdc13da9b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T15:34:04Z",
+			"File": [
+				"⣿⠁⠀⠀⠀",
+				26,
+				6
+			],
+			"Message": "chore(Project): Sync all element submodules to latest functional and build revisions\n\nUpdate all primary Land element submodules to align with recent architectural refactors and build pipeline updates:\n\n**Mountain:** Localize the `call!` macro within the IPC dispatcher to enforce closure hygiene and strict scope. Enhance the `proxy_cocoon` utility for error mapping and implement immediate `$acceptModelSaved` notifications to the Cocoon extension host upon UI-initiated Sky saves, ensuring `onDidSaveTextDocument` triggers correctly.\n\n**Wind:** Refresh the codegen pipeline to synchronize TypeScript service contracts with upstream VS Code changes, adding `browser.chatActionsSubmenu` and updating the `CommandCatalog` to 551 entries. Enable project references in `tsconfig.json` for incremental builds.\n\n**Output:** Expand `browserViewGroup` IPC stubs to include `updateKeybindings`, `openDevTools`, and other UI channels, aligning the compiled artifact with Sky component requirements.\n\n**Cocoon & Rest:** Regenerate build artifacts and update the bundled Rust/OXC binary to incorporate recent linting changes and ensure strict PascalCase compliance.\n\n**Impact:** These synchronizations ensure the IPC contract, build artifacts, and extension host visibility are consistent across the native backend, UI services, and extension runtime layers.",
+			"SHA": "40a70b79c723df34e700eec756ae55c6aab86534"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T11:13:15Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				26,
+				1
+			],
+			"Message": "chore(Mountain): Sync submodule to centralize Cocoon IPC and URI sanitization\n\nUpdate the Mountain submodule to revision a430e1c4 to continue the standardization of the native backend IPC layer.\n\n**Key Changes:**\n- Introduce the `proxy_cocoon` helper in `Utilities::Proxy` to replace verbose inline `SendRequestToSideCar` logic in `CustomEditorProvider`, `StatusBarProvider`, `TestProvider`, `Authentication`, `Task`, and `FileSystem` handlers. This abstracts `ApplicationRunTime` retrieval and method string construction.\n- Consolidate URI sanitization by extracting `StripFileUriScheme` into `Utilities::Params` as `strip_file_uri`. Apply this to all `FileSystem` operations (ReadFile, WriteFile, Stat, etc.) to normalize `file://` URI variants consistently.\n\nThese changes reduce boilerplate in the extension host communication layer and ensure robust, unified path handling across the IPC surface.",
+			"SHA": "6b92b99db0ac3e58b59bba147bba049ec482773e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T11:02:04Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				26,
+				1
+			],
+			"Message": "chore(Mountain): Sync submodule to centralize URI sanitization and unify IPC dispatch\n\nUpdate the Mountain submodule to revision 4887af8a to continue the standardization of the native backend IPC layer.\n\n**Key Changes:**\n- Extend the `call!` macro in `WindServiceHandlers` with a new overload for handlers accepting no arguments, eliminating repetitive boilerplate across Extensions, Decorations, WorkingCopy, Keybinding, and Lifecycle dispatchers.\n- Centralize URI sanitization logic by extracting `StripFileUriScheme` from `FileReadAlias.rs` into `Utilities::Params` as `strip_file_uri`. This unifies the handling of `file://`, `file:///`, and `file://localhost` forms across the request tracking layer.\n\nThese changes reduce code duplication in the IPC dispatcher and ensure consistent path normalization for file system operations, aligning with the project's Effect-based architectural principles.",
+			"SHA": "31f4058cfeb7c7e0a90cd209e1777fdb0db2bc6d"
 		}
 	],
-	"TimeStamp": 1779544354517
+	"TimeStamp": 1779882031868
 }

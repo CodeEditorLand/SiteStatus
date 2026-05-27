@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T16:45:53Z",
+			"Date": "2026-04-27T20:53:06Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
+				859,
+				1
+			],
+			"Message": "feat(Mountain): Add cocoon:request IPC handler for extension host RPC bridge\n\nIntroduce a generic renderer→Cocoon RPC bridge in WindServiceHandlers to allow Sky-side bridges (e.g., webview.resolveView) to dispatch requests into the extension host.\n\nThe handler accepts params in the shape `[Method, Payload]`, forwards the request to Cocoon via `Vine::Client::SendRequest` with a 30s timeout, and returns the response verbatim. On failure, it returns a stringified error so the renderer can fall back to its alternative path (CustomEvent fan-out for legacy observers).\n\nThis enables extension callbacks like `resolveWebviewView` to flow through Mountain's IPC layer rather than requiring separate channel registrations for each bridge type.",
+			"SHA": "4044ae0a4523b3c5369965aa3b380fb030ce482a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-27T19:54:02Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				5
+			],
+			"Message": "feat(Mountain): Implement debug session tracking and DAP adapter spawning\n\nAdd DebugSessionEntry struct and DebugSessions map to DebugState for lifecycle management of active debug sessions. Implement StartDebugging to spawn executable adapters (node, chrome, etc.) with stdin/stdout/stderr pipes, parse DAP frames from adapter stdout, and emit messages on `sky://debug/dap-message`. Implement SendCommand to route DAP requests to the spawned adapter's stdin or fall back to reverse-RPC for inline-implementation adapters. Implement StopDebugging to send DAP disconnect and unregister the session.\n\nAlso implement OnSaveCustomDocument in CustomEditorProvider to reverse-RPC to the extension sidecar via `$onSaveCustomDocument`, replacing the stub.\n\nFix char-aware truncation in WindServiceHandlers and OutputChannelAppend to avoid panics when slicing multi-byte UTF-8 codepoints (e.g., `•` in SCM progress messages).",
+			"SHA": "0b6ac619c4e7e5af9b04d1cd45731dbdd4959176"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-27T15:54:09Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
 				4
 			],
-			"Message": "feat(Mountain): Expand trusted paths and add exec-bit magic-number detection\n\nThree complementary improvements for extension runtime reliability:\n\n1. **Extended trusted paths** (`PathSecurity.rs`):\n   - Add `/tmp`, `/private/tmp`, `/var/tmp` for language servers (ruby-lsp, pyright, etc.)\n   - Add third-party tool state: `~/.gitkraken`, `~/.gk`, `~/.copilot`, `~/.config/git`\n   - Add read-only POSIX OS files (`/etc/os-release`, `/proc/*`, etc.)\n\n2. **Magic-number executable detection** (`VsixInstaller.rs`):\n   - Enhance extraction to probe file headers for ELF, Mach-O fat/thin, and shebang\n   - Detect bin paths (`bin/`, `server/`, `tools/`, `omnisharp`, `adapter`, `native`)\n   - Promote 0o644 → 0o755 for detected executables, fixing EACCES on spawn\n   - Add `HealExecutableBits()` to retroactively fix pre-existing installs\n\n3. **Boot-time exec-bit heal** (`Scanner.rs`):\n   - Walk user extensions (`~/.land/extensions/`) at scan time\n   - Apply same heuristic to recover extensions installed before the fix\n\n4. **Benign ENOENT** (`DevLog.rs`):\n   - Add vim registers, globalStorage probing, chat editing sessions\n\nThese changes unblock extension binaries (rust-analyzer, GitLens, Copilot) that were failing with EACCES due to missing exec bits.",
-			"SHA": "713fc89729f6f995808d00db9ca625cdfc93f906"
+			"Message": "fix(Mountain): Fix workspace boot seeding from recently-opened list and SCM handle alignment\n\nTwo issues addressed in this commit:\n\n1. **Recently-opened workspace fallback (CliParse.rs)**\n   The webview's initial URL is built from `~/.land/workspaces/RecentlyOpened.json`'s top entry (see `Binary/Build/WindowBuild.rs::BuildInitialUrl`), but Mountain's boot-time seeder previously fell straight through to CWD walk-up. This caused a mismatch: webview title said \"Mountain\" while Cocoon's init payload shipped \"Land\", vscode.git scanned the wrong root, and the SCM panel reported zeros despite uncommitted changes in the actual folder.\n\n   Add a fallback that probes the same source of truth as `BuildInitialUrl`, slotting it between env/CLI (explicit user intent) and CWD walk-up (last resort).\n\n2. **SCM provider handle alignment (3 files)**\n   Mountain was allocating new handles via DJB hash while Cocoon uses sequential handles from `ScmNamespace.ts`. When `UpdateSourceControlGroup` arrived with Cocoon's sequential handle, the lookup in Mountain's marker map failed because it was keyed by the hash instead.\n\n   - Honor caller-supplied `Handle` in `CreateSourceControl` (SourceControlManagementProvider.rs)\n   - Pass the same `Handle` through to `CreateData` in RPC/CocoonService/SCM.rs\n   - Include `handle` on the wire in Vine notification (RegisterScmProvider.rs)\n\nThis ensures all three components key their marker maps under the same identifier, allowing group updates to reach the SCM viewlet correctly.",
+			"SHA": "c6897f8464e700b43fbece81e2be179d6e418623"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T15:07:27Z",
+			"Date": "2026-04-27T15:18:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
+				859,
 				2
 			],
-			"Message": "feat(Mountain): Add trusted system paths bypass and idempotent VSIX installs\n\nImplement two related extension-management improvements:\n\n1. **Trusted system paths** (`PathSecurity.rs`): Add `IsTrustedSystemPath` that defines directories Land owns (`.land/`, Application Support, bundled extension roots, TMPDIR) which bypass the workspace-folder sandbox check. Without this, the extension scanner's read of `~/.land/extensions` was rejected as \"outside workspace\" - user-installed VSIXes never reached the Extensions sidebar.\n\n2. **Idempotent VSIX reinstalls** (`VsixInstaller.rs`): Remove `AlreadyInstalled` error and instead treat re-installs as no-op when the target already exists with a readable manifest. Matches VS Code's semantics and prevents the renderer crash where `ExtensionsWorkbenchService` dereferences a null result. Corrupt/partial installs are wiped and re-extracted.\n\nBoth changes unblock the extension loading pipeline.",
-			"SHA": "e49563563641f0491ec4cb23c2ea1809d455feea"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "dcaa4d503dd7943dcba75ba06c867c9da7377a2d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T14:49:08Z",
+			"Date": "2026-04-27T14:48:29Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				2
+				"⠁⠀⠀⠀⠀",
+				859,
+				21
 			],
-			"Message": "chore(Mountain): Add payload preview to notif-drop logging and register benign ENOENT paths\n\nTwo logging improvements for Mountain's developer diagnostics:\n\n1. **Notif-drop payload preview**: When a notification falls through to the Cocoon event handler, include a truncated payload preview (160 bytes max) in the dev log. This helps diagnose which new upstream notifications are reaching the catch-all without needing a second debug run.\n\n2. **Benign ENOENT paths**: Register additional file paths that commonly return ENOENT but aren't errors:\n   - MCP config files (.vscode/mcp.json, .mcp.json)\n   - User snippets and keybindings (/User/snippets, /User/keybindings.json)\n   - AI-generated workspace storage (aiGeneratedWorkspaces.json)\n   - Git config for non-repo folders (/.git/config)\n\nThese paths reduce noise in dev logs while preserving signal for genuine file-access issues.",
-			"SHA": "f1de83d594ad1a3f7c893f0ecbf92581f8029abb"
-		},
-		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-04-24T07:53:45Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				1
-			],
-			"Message": "Merge pull request #42 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-2.2.1\n\nchore(deps): Bump pozil/auto-assign-issue from 2.2.0 to 2.2.1",
-			"SHA": "77025119a1c3843e843bcaa42b0a31fabcad5bb7"
-		},
-		{
-			"Author": "dependabot[bot]",
-			"Date": "2026-04-24T07:53:34Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				1
-			],
-			"Message": "chore(deps): Bump pozil/auto-assign-issue from 2.2.0 to 2.2.1\n\nBumps [pozil/auto-assign-issue](https://github.com/pozil/auto-assign-issue) from 2.2.0 to 2.2.1.\n- [Release notes](https://github.com/pozil/auto-assign-issue/releases)\n- [Commits](https://github.com/pozil/auto-assign-issue/compare/v2.2.0...v2.2.1)\n\n---\nupdated-dependencies:\n- dependency-name: pozil/auto-assign-issue\n  dependency-version: 2.2.1\n  dependency-type: direct:production\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
-			"SHA": "7ac71734f23f84b929347fa75ffc0bda336b807a"
+			"Message": "fix(Mountain): Align event payloads to Sky listener wire shapes and fix silent event drops\n\nThis commit addresses multiple issues where Mountain was emitting events that never reached Sky because of mismatched channel names or payload keys.\n\n**Event Channel Corrections (5 files)**\n- Terminal: `sky://terminal/opened` → `sky://terminal/create`, `sky://terminal/closed` → `sky://terminal/exit` (Sky listens on the new names at SkyBridge.ts:1736,1752)\n- Debug: `sky://debug/stop` → `sky://debug/sessionEnd` (SkyBridge.ts:2234)\n- StatusBar: `sky://statusbar/create` → `sky://statusbar/set-entry` (SkyBridge.ts:744 has no create listener)\n- Webview message: `sky://webview/message` → `sky://webview/post-message` (matches SkyBridge.ts:2344)\n- Progress: `sky://progress/report` → `sky://notification/progress-update` (aligns with notification namespace)\n\n**Payload Key Casing (8 files)**\n- OutputProvider: PascalCase keys (`Id`, `AppendedText`, `Name`, `LanguageId`) → camelCase (`channel`, `text`, `name`, `languageId`)\n- StatusBarProvider: Align all keys to camelCase\n- TreeViewProvider: `ViewIdentifier` → `viewId`, `ElementHandle` → `elementHandle`, `IsExpanded` → `expanded`\n- UserInterfaceProvider: `Severity`, `Message`, `Items` → `severity`, `message`, `items`\n- Window: `panelId` key alignment\n\n**Parameter Key Fallback (4 files)**\n- RegisterCommand/Provider: Probe camelCase first (`languageSelector`, `extensionId`) then snake_case for transitional compatibility\n- RegisterScmProvider/ResourceGroup: Probe camelCase (`scmHandle`, `rootUri`) then legacy snake_case\n\n**SCM RootUri Fix (RegisterScmProvider.rs)**\n- Previous extraction read only `path` component from UriComponents, producing relative URLs that failed to parse\n- Now reconstructs full `<scheme>://<authority><path>` triple from scheme/authority/path/query/fragment components\n- Falls back to `file://` prefix for bare paths, never emits relative URLs\n\n**Command Registry Sync (RegisterCommand.rs, UnregisterCommand.rs)**\n- Add emissions to `sky://command/register` and `sky://command/unregister` so Sky's workbench command palette sees extension-contributed commands\n\nWithout these fixes, terminal panes, tree views, status bar entries, and command palette entries were silently failing to render despite Mountain processing the underlying requests.",
+			"SHA": "ba479c6a5ea13640cdd3164452f55f429472915f"
 		}
 	],
-	"TimeStamp": 1779544414388
+	"TimeStamp": 1779882123585
 }

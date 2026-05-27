@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:06:12Z",
+			"Date": "2026-05-22T06:19:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1568,
+				1582,
+				4
+			],
+			"Message": "",
+			"SHA": "1a1ee9b546b80eef444b0dc0ae4da09b291f2ca9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T06:19:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1584,
+				7
+			],
+			"Message": "fix(Mountain): Normalize extension location URI from cache to plain string\n\nThe `LoadFromCache` path serialized `ExtensionLocation` as a JSON object\n`{\"value\": url}` — the Identifier wrapper shape — rather than a plain\n`Value::String` URI. The `Normalize.rs` URI parser then failed to match\nagainst the `scheme` key and fell through to `/extensions/unknown`,\nbreaking extension resolution for cached manifests.\n\n- Fix the source: emit `Value::String(LocationUri)` from\n  `LoadFromCache.rs`, matching the format `FromUrl::Fn` expects.\n- Fix the sink: add a backward-compatibility branch in `Normalize.rs`\n  that unwraps `{\"value\": url_string}` when encountered, so legacy\n  cache entries still resolve correctly.\n- Reorder Sky resource globs in `tauri.conf.json` alphabetically for\n  maintainability.\n\nAccompanying build metadata: the Cargo.toml package name, tauri\nidentifier, and productName are expanded to their full environment-keyed\nform (DevelopmentNodeEnvironment…) as part of the CI artifact\nlabelling scheme; backup files preserve the canonical values.",
+			"SHA": "af8fcdd2e74f49cd5943e056f6af38bddb0d7205"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T05:35:38Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1582,
+				2
+			],
+			"Message": "refactor(Mountain): Extract inline JSON blocks to avoid macro recursion limit\n\nThe `ConstructSandboxConfiguration` function builds the entire `ISandboxConfiguration` payload in a single deeply-nested `json!()` macro invocation. As the `profiles` and `productConfiguration` sections grew, the macro expansion exceeded Rust's recursion limit, causing compilation failures on certain toolchain versions.\n\nExtract the `nls`, `productConfiguration`, `os`, and `profiles` sub-objects into separate `json!()` calls bound to local variables (`NlsSection`, `ProductConfig`, `OsSection`, `ProfilesSection`), then reference them by name in the outer `json!()` invocation. This breaks the single deep expansion into multiple shallow ones, staying well within the recursion limit without changing any emitted values.\n\nNo behavioral change — all pre-built variables produce identical JSON to the previously inlined blocks.",
+			"SHA": "78820a9ee66e89a88169dab5bf7acb7b986c1eb3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T05:35:25Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1582,
+				19
+			],
+			"Message": "feat(Mountain): Complete Cocoon extension host bridge across providers, boot, and keyboard\n\nImplement the gRPC and provider-infrastructure layer for four extension-host features that Mountain forwards to Cocoon, three complementary improvements, and one build-config update.\n\n**Extension provider features:**\n\n- **Inline completion items** (GitHub Copilot, Roo Code, Continue): New `InlineCompletionItem` / `InlineCompletionContext` messages in Vine.proto, gRPC handler in `ProvideInlineCompletionItems.rs`, and `$provideInlineCompletionItems` dispatch from `FeatureMethods.rs` to Cocoon's registered provider. Registration flows through the generic notification dispatcher via `register_inline_completion_item_provider`.\n\n- **File decorations from extensions**: `DecorationsGet` in `Decoration.rs` falls back to `ProvideFileDecoration` via Cocoon gRPC when the in-memory store has no entry, populating git-status badges, error markers, and other extension-contributed decorations on demand.\n\n- **Terminal lifecycle sync**: `TerminalProvider.rs` emits `$acceptTerminalOpened` / `$acceptTerminalClosed` notifications to Cocoon so `vscode.window.terminals` stays current for terminals created from the UI (not just via the extension API).\n\n- **Webview message forwarding**: `Messaging.rs` implements the forward path for `acquireVsCodeApi().postMessage()` calls from extension iframes, sending them as `webview.message` notifications to Cocoon so the extension host's `onDidReceiveMessage` subscriber fires. `remove_webview_message_listener_impl` is now a logging stub rather than a no-op.\n\n**Boot performance and crash fixes:**\n\n- **Extension manifest cache (B7.P08)**: New `LoadFromCache.rs` reads a pre-baked `extensions.manifest.json` blob in a single `fs::read`, reducing extension-scan boot time from ~1200 ms to <50 ms. Falls back gracefully to the live `ScanAndPopulateExtensions` path on cache miss, staleness (>10 min), or corruption. The cache file is produced by `Maintain/Build/Manifest/PreBake.ts` during `beforeBundleCommand`.\n\n- **WKWebView NSUndoManager suppression**: `TauriBuild.rs` disables the macOS default menu (which pre-installs Edit > Undo/Redo). `WindowBuild.rs` injects a capture-phase keydown listener that `preventDefault()`s Cmd+Z/Cmd+Y before the webview's internal responder chain dispatches undo:/redo:, preventing WKWebView's NSUndoManager from competing with Monaco's undo stack.\n\n- **Profiles configuration**: `InitializationData.rs` adds the `INativeWindowConfiguration.profiles` section with all required URI fields (`languageModelsResource`, `agentPluginsHome`, `cacheHome`, etc.) to prevent the `TypeError: undefined is not an object (evaluating 'M.revive(o.languageModelsResource).with')` crash during workbench initialisation. Also adds `sqmId`, `devDeviceId`, and `isPortable` as defensive non-optional fields.\n\n**Build:** `tauri.conf.json` adds `node Maintain/Build/Manifest/PreBake.ts` to the `beforeBundleCommand` pipeline.\n\nCloses the Mountain side of the inline-completion provider circuit and addresses the workbench profile crash (VS Code desktop-mode init).",
+			"SHA": "8db51dd0dc8da12799836d25faaf61658c445a52"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-22T02:53:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1580,
 				1
 			],
-			"Message": "refactor(Mountain): Remove redundant menubar update handler logic\n\nThe inline `menubar:updateMenubar` handler, which implemented a per-100-call logging counter and returned `Null`, is removed. These high-frequency calls are now processed exclusively in the `IsHighFrequencyCommand` fast-path block established previously.\n\nThis cleanup eliminates the dead code fallback in `Source/IPC/WindServiceHandlers/mod.rs`, ensuring the IPC dispatch layer relies on the optimized path for menubar updates while maintaining a minimal fallback for command routing integrity.",
-			"SHA": "8fd7bc239ad2beac6260602e1d1a12261f11e188"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:05:01Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1568,
-				1
-			],
-			"Message": "refactor(Mountain): Remove stub acknowledgments for workspace folder events\n\nThe `workspaces:onDidChangeWorkspaceFolders` and `workspaces:onDidChangeWorkspaceName` commands previously returned a `Null` value as a stub acknowledgment to simulate a Tauri event listener handshake on the IPC binary rail.\n\nThese explicit handlers are removed as the actual workspace change notifications are now broadcast directly via Tauri events without requiring a corresponding `ack` response on the gRPC/Vine protocol rail. This cleanup eliminates dead code paths and streamlines the `mountain_ipc_invoke` dispatch logic in `Source/IPC/WindServiceHandlers/mod.rs`.\n\nThe workspace state change propagation remains intact through the existing event emission mechanism, ensuring the Wind UI layer still receives updates without unnecessary binary rail overhead.",
-			"SHA": "893b99ac4810581ca194db97cdbef1ff40bd3e08"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:48:43Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1568,
-				5
-			],
-			"Message": "feat(Mountain): Add glob pattern normalization and text edit utilities\n\nIntroduce two new utility modules under `Source/Environment/Utility` to support workspace scanning and document manipulation. `GlobPattern.rs` normalizes VS Code glob patterns from various serialized shapes (bare strings, `RelativePattern` objects, legacy `value` fields) into a unified string and extracts optional base directories for bounded file walks. `TextEdit.rs` provides pure side-effect-free helpers for computing UTF-16 line offsets and converting `(line, character)` positions to byte offsets, adhering to VS Code's `Range`/`Position` semantics. It also includes a self-contained percent-decoder for `file://` URIs.\n\nThese utilities are exported in `mod.rs` to be consumed by the `FindFiles` workspace provider and language service layers. Additionally, the build system is updated in `build.rs` to recognize `TierIPC` as a runtime-only configuration variable, and the logging utility `LandFixTier.rs` is enhanced to emit this runtime tier value alongside the build-baked tiers.",
-			"SHA": "00a3ccf53ec931b07171c9e1217f006a6cbd4a86"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:46:07Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1566,
-				3
-			],
-			"Message": "feat(Mountain): Implement extension manifest NLS resolution and default config collection\n\nIntroduce two new modules in `Source/ExtensionManagement` to prepare extension manifests for runtime consumption. `NLSResolver.rs` handles the resolution of `%key%` placeholders found in VS Code `package.json` manifests by loading and parsing `package.nls.json` bundles, supporting both string and `{message, comment}` object formats. `DefaultConfigurations.rs` scans all scanned extensions to recursively merge `contributes.configuration.properties` into a single flat JSON object, utilizing dot-notation for nested keys and guarding against circular references.\n\nThese changes ensure that localized UI strings and default user settings are correctly extracted from extension definitions before they are processed by the extension host or applied to the settings engine. Both modules are exported in `mod.rs` to enable integration with the extension scanner and IPC handlers.",
-			"SHA": "df0df3f19cd2aa052a86a6ac4745b35845d1164a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:44:49Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1564,
-				1
-			],
-			"Message": "refactor(Mountain): Modularize update service IPC handlers\n\nExtract inline update command logic from `mountain_ipc_invoke` into dedicated atomic handler functions (`UpdateGetInitialState`, `UpdateIsLatestVersion`, etc.) within the `WindServiceHandlers` module. This aligns the update service with the established modular architecture used for clipboard, trash, and dialog operations.\n\nThe new handlers return the initial idle state or no-ops as the update server implementation is not yet active. This reduces code duplication in the IPC dispatch layer and centralizes future update server integration points.\n\nThis completes the modularization of the update service path in preparation for Air daemon integration.",
-			"SHA": "349ea7ae99984d74c81645a0e10c6fe7eaf244a2"
+			"Message": "",
+			"SHA": "138352332e04a0046c07228f1b171bb588a3f421"
 		}
 	],
-	"TimeStamp": 1779544359014
+	"TimeStamp": 1779882039743
 }

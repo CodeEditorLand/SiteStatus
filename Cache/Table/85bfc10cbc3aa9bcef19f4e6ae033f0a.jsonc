@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:02:33Z",
+			"Date": "2026-05-25T22:08:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1741,
-				5
-			],
-			"Message": "refactor(Mountain): Standardize event naming and implement blocking notification logic\n\nCorrect the Tauri event suffix for webview messages across `GenericNotification` handlers, changing \"post-message\" to \"postMessage\" to align with the project-wide PascalCase naming convention. Update the fallback notification router in `MountainVinegRPCService` to sanitize event names by replacing dots with slashes, ensuring compatibility with Tauri's strict character set requirements for event identifiers.\n\nRefactor the `Window.ShowMessage` effect in `WindowUI` to support blocking behavior. Replace the fire-and-forget timestamp-based ID generation with a thread-safe atomic sequence counter for request identification. When action items are present, the handler now emits a `show-message-request` event to the `INotificationService`, registers a pending request in the application state, and awaits a one-shot channel response. This enables the UI to render action buttons and return the user's selection to the extension host, replacing the previous non-interactive implementation.\n\nThese changes ensure consistent event naming, prevent illegal event name crashes, and restore full interactivity for notification actions in the extension host IPC layer.",
-			"SHA": "cb905d7a9fcd21ff5161c4316b9757f4e2adeaa2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:39:56Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1741,
+				1746,
 				4
 			],
-			"Message": "feat(Mountain): Implement unregisterExternalUriOpener and unregisterRemoteAuthorityResolver notifications\n\nRegister two new gRPC notification handlers in `MountainVinegRPCService` to support the disposal of external URI opener and remote authority resolver handles defined in the Vine protocol.\n\nCreate dedicated notification modules `UnregisterExternalUriOpener` and `UnregisterRemoteAuthorityResolver` within `Source/Vine/Server/Notification/`. Both modules leverage the existing `UnregisterByHandle` helper to perform the cleanup logic, ensuring consistent registration state management across the extension host IPC layer.\n\nThese changes extend the Mountain backend to fully support the lifecycle management of remote authority and URI opener extensions via the gRPC interface.",
-			"SHA": "9c72840ca6348b0f64076aa13e4b742ec13dcbd5"
+			"Message": "fix(Mountain): Forward editor state change notifications to Cocoon extension host\n\nAdd five missing Vine notification relays so VS Code API subscribers inside the Node.js extension host observe changes Mountain already delivers to the renderer:\n\n- **ThemesSet.rs**: Fan `$acceptActiveColorTheme` on theme switch, computing the workbench theme kind (Light/Dark/HighContrast) from the theme id. Without this, `vscode.window.onDidChangeActiveColorTheme` never fires for Node-resident extensions (GitLens, Roo Code, rust-analyzer).\n\n- **WindServiceHandlers/mod.rs**: Relay four Sky-detected editor state changes as Cocoon notifications: `$acceptVisibleEditorsChanged` (`onDidChangeVisibleTextEditors`), `$acceptTabsChanged` (`onDidChangeTabs`/`onDidChangeTabGroups`), `$acceptVisibleRangesChanged` (`onDidChangeTextEditorVisibleRanges`), and `$acceptTextEditorOptionsChanged` (`onDidChangeTextEditorOptions`). Each forwards the Sky-provided payload directly.\n\n- **Diagnostics.rs**: After every `SetDiagnostics`/`ClearDiagnostics` call, fan `$acceptDiagnosticsChanged` back to Cocoon with the owner and affected URIs so `vscode.languages.onDidChangeDiagnostics` subscribers in peer extensions observe the change. For clears, emit an empty URI list — consumers should re-query `getDiagnostics(uri)`.\n\n- **DebugLifecycle.rs**: For `debug.addBreakpoints`/`debug.removeBreakpoints` only, fan `$onDidChangeBreakpoints` with added/removed/changed arrays so `vscode.debug.onDidChangeBreakpoints` fires in all extensions, not just the one that made the mutation.\n\nCompletes the Mountain-to-Cocoon notification pipeline for theme, editor, diagnostics, and debug breakpoint surfaces that were previously renderer-only.",
+			"SHA": "dd925de41e8f4558f960cb99f6d1a78674eba4e7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:35:58Z",
+			"Date": "2026-05-25T21:53:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1739,
+				1746,
 				2
 			],
-			"Message": "feat(Mountain): Add webview.setOptions support and align postMessage event naming\n\nRegister the new `webview.setOptions` handler within the `MountainVinegRPCService` routing logic to enable configuration updates for Tauri webviews. This expands the IPC surface to match the updated Vine protocol requirements.\n\nIn the `CreateEffectForRequest` tracker, correct the event suffix mapping for the `postMessage` command. Restore the PascalCase naming convention by changing the target event string from \"post-message\" to \"postMessage\". This ensures consistency with the project-wide PascalCase naming standard for all UI-to-Rust event identifiers.\n\nThese changes complete the `setOptions` integration and resolve an event naming inconsistency in the webview effect registry.",
-			"SHA": "948a6514d4e201dc15936998f5375a0064360d9b"
+			"Message": "fix(Mountain): Relay executed command notifications to Cocoon extension host\n\nDual-emit `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, so that `vscode.commands.onDidExecuteCommand` callbacks fire inside extensions running in the Node.js extension host. The existing Tauri-emit only reaches the renderer (Sky); Cocoon has no Tauri runtime to subscribe to those events.\n\nCocoon's `Services/Handler/Notification/Handler.ts` maps `$acceptCommandExecuted` to an internal emitter that the `Commands/Namespace.ts` `onDidExecuteCommand` subscriber listens to. The Vine notification is fire-and-forget — failure is non-fatal since the renderer-side observers have already been notified via the Tauri event.\n\nAlso add the `tauri::Emitter` trait import in `CreateEffectForRequest/Commands.rs` to satisfy the compiler for the Tauri event emit.",
+			"SHA": "eeb3d39b739ebe9019b39f18ad4415ad9ad0fcb2"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:19:51Z",
+			"Date": "2026-05-25T21:37:54Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1739,
-				3
+				1746,
+				4
 			],
-			"Message": "fix(Mountain): Restore ShowMessageBox text composition and multi-select return\n\nThe `ShowMessageBox` handler incorrectly relied on a non-existent `.body()` method, causing the detail text to overwrite the dialog title entirely. Update the implementation to concatenate the message and detail text with a newline separator before passing to the native dialog constructor, preserving the original title.\n\nIn `QuickInputShowQuickPick`, refactor the multi-select logic to extract the `CanPickMany` flag prior to consuming the options struct. This ensures the return value correctly returns the full array of selected labels for multi-select operations instead of silently discarding all but the first selection.\n\nAdditionally, remove the `showTextDocument` effect from `Workspace` IPC routing. This handler is obsolete as the functionality is now covered by the dedicated Sky UI service implementation, preventing redundant or conflicting event dispatching from the extension host.\n\nThese changes restore native dialog usability, fix multi-selection in quick pick inputs, and streamline the IPC effect registry.",
-			"SHA": "a499709153a4b0c357a78ab80630f38989bea10e"
+			"Message": "fix(Mountain): Forward previously unhandled IPC notifications\n\nAdd four notification handlers that were missing from the IPC dispatch tables, completing the Cocoon-to-Mountain-to-renderer pipeline:\n\n- **ScanPathConfigure**: Scan `~/.land/extensions` alongside the FIDDEE user directory so pre-migration installs (Roo Code, rust-analyzer, etc.) remain discoverable. The path is only pushed when the directory exists, making the addition harmless on clean installs.\n\n- **Debug.rs**: Forward `debug.dap-response` from Cocoon (inline-implementation adapters) to the workbench via `sky://debug/dap-message`, enabling the RawDebugSession sequencer to correlate DAP responses by `request_seq`.\n\n- **StatusBar.rs**: Handle `setStatusBarText` mutations from extension StatusBarItem `text()` setters. Without this arm, status bar text freezes after the initial create, never reflecting runtime updates.\n\n- **Task.rs**: Relay `terminate_task`/`Task.Terminate` to the extension host task service, allowing `vscode.tasks.executeTask(...).terminate()` to stop running tasks. Falls back gracefully with a dev_log warning when no task provider is available.",
+			"SHA": "23b235d68ce4fa03776183d9f8a9ac8bcb98b9f2"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T08:01:24Z",
+			"Date": "2026-05-25T20:45:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1739,
-				1
+				1746,
+				7
 			],
-			"Message": "feat(Mountain): Correct output channel payload structure for Sky integration\n\nThe `CreateOutputChannel` gRPC handler previously emitted an IPC event with a single `{ \"channel\": name }` property. Sky's `InstallEditorAndOutput.ts` component expects the payload to destructure `{ id, name }`. The mismatch caused both fields to resolve as undefined in the frontend map, keyed incorrectly by the string \"undefined\".\n\nUpdate the Tauri event emission to include both `id` and `name` fields set to `Request.name`. This aligns the Mountain backend output with the Sky component's destructuring logic, ensuring new output channels are correctly registered and displayed in the editor UI.",
-			"SHA": "930ce3222f11418b22c721b91133d0b33e55474a"
+			"Message": "build(Mountain): Restore simple crate and bundle identifiers\n\nRestore \"Mountain\" as the crate binary, library, and package name, and the\nTauri productName and bundle identifier, replacing the verbose development\nbuild descriptors from the prior commit. The Backup files are removed.\n\nGate the Cocoon sidecar launch on both the ExtensionHostCocoon feature flag\nand the absence of the no_node_host cfg flag, so the extension host tier\nrouting (Node vs WebWorker) is respected at boot time.\n\nInclude the task type in the task provider Options payload, fixing the\nregistration schema for Cocoon's task system.\n\nDerive Clone on ExtensionCollection to support shared access patterns in\nthe terminal environment variable mutation pipeline.\n\nAdd the zsh shell integration script to the Tauri resource bundle and\ntidy resource ordering.",
+			"SHA": "279ff30481d2276785d0a819d7314527ec775fb6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T19:31:18Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1748,
+				4
+			],
+			"Message": "build(Mountain): Differentiate development build identifiers from release\n\nRename the crate binary, library, package, Tauri productName, and bundle identifier to a verbose development build descriptor encoding the full toolchain configuration (Node 22, VS Code dependency, debug profile, esbuild compiler). This prevents the development build's binary name and macOS bundle ID from colliding with the release build, enabling side-by-side installation and testing.\n\nExpand the Tauri resource bundle to include all Sky deployment variant directories (Browser, BrowserProxy, Bundled, Electron, Favicon, Isolation, Manifest.json, Mountain) that were previously omitted, ensuring the development build can serve every editor UI target.",
+			"SHA": "960cc2f2c87bbd38613db3e6da10c856b2ae0dd3"
 		}
 	],
-	"TimeStamp": 1779544353020
+	"TimeStamp": 1779882026145
 }

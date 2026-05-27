@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T15:54:09Z",
+			"Date": "2026-04-30T01:24:15Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				4
+				"⡇⠀⠀⠀⠀",
+				867,
+				76
 			],
-			"Message": "fix(Mountain): Fix workspace boot seeding from recently-opened list and SCM handle alignment\n\nTwo issues addressed in this commit:\n\n1. **Recently-opened workspace fallback (CliParse.rs)**\n   The webview's initial URL is built from `~/.land/workspaces/RecentlyOpened.json`'s top entry (see `Binary/Build/WindowBuild.rs::BuildInitialUrl`), but Mountain's boot-time seeder previously fell straight through to CWD walk-up. This caused a mismatch: webview title said \"Mountain\" while Cocoon's init payload shipped \"Land\", vscode.git scanned the wrong root, and the SCM panel reported zeros despite uncommitted changes in the actual folder.\n\n   Add a fallback that probes the same source of truth as `BuildInitialUrl`, slotting it between env/CLI (explicit user intent) and CWD walk-up (last resort).\n\n2. **SCM provider handle alignment (3 files)**\n   Mountain was allocating new handles via DJB hash while Cocoon uses sequential handles from `ScmNamespace.ts`. When `UpdateSourceControlGroup` arrived with Cocoon's sequential handle, the lookup in Mountain's marker map failed because it was keyed by the hash instead.\n\n   - Honor caller-supplied `Handle` in `CreateSourceControl` (SourceControlManagementProvider.rs)\n   - Pass the same `Handle` through to `CreateData` in RPC/CocoonService/SCM.rs\n   - Include `handle` on the wire in Vine notification (RegisterScmProvider.rs)\n\nThis ensures all three components key their marker maps under the same identifier, allowing group updates to reach the SCM viewlet correctly.",
-			"SHA": "c6897f8464e700b43fbece81e2be179d6e418623"
+			"Message": "feat(Mountain): Implement mmap asset cache, path canon cache, and Vine streaming foundation\n\nThis patch (B7-S6 P2) lands three major infrastructure components:\n\n**Asset Memory Map Cache** (`Cache/AssetMemoryMap.rs`):\n- File-backed mmap cache for bundled workbench assets (~80 MB of JS/CSS/fonts)\n- Eliminates per-request `read(2)` + heap allocation duplication of OS page cache\n- Auto-discovers pre-brotli-compressed `<file>.br` siblings for `Accept-Encoding: br`\n- Uses `DashMap` for lock-free concurrent reads\n\n**Path Canonicalization Cache** (`Cache/PathCanon.rs`):\n- Process-wide canonical path cache keyed by lexical input path\n- Collapses repeated `dunce::canonicalize` calls from fs-scope security gate\n- 60s TTL bounds staleness; moka handles eviction\n- Saves ~150ms cumulative boot time across 113 extensions + 80 chunks\n\n**Vine Streaming Foundation** (`Vine/Multiplexer.rs`, proto changes):\n- Adds `Envelope` protobuf message for multiplexed frame format\n- Adds `OpenChannelFromCocoon`/`OpenChannelFromMountain` bidirectional streaming RPCs\n- Multiplexer owns the h2 stream; notifications fan out via broadcast channel\n- Stub returns Unimplemented until P14 lands streaming handler tree\n- Tuned tonic transport (4 MB stream window) for rust-analyzer diagnostic storms\n\n**Scheme Handler Fixes**:\n- MIME-honesty on 404: swap HTML body → empty text/plain for asset requests\n- Route asset reads through mmap cache\n- Serve Brotli precompressed siblings when client offers `Accept-Encoding: br`\n\n**Air Sidecar Integration** (`Service/AirStart.rs`):\n- Spawns Air daemon at boot alongside Cocoon\n- Connects via gRPC over `[::1]:50053`\n- Graceful degradation if Air unavailable\n\n**Misc Fixes**:\n- `nativeHost:getCursorScreenPoint` stub returns `{x:0, y:0}` to silence IPC spam\n- `FindFilesInWorkspace` diagnostic logging for zero-results debugging\n- HandlerRegistry.json regenerated (111 handlers)",
+			"SHA": "87bdf4c0cc831bcc4b105b190f66f0eb5eefc544"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T15:18:18Z",
+			"Date": "2026-04-29T22:36:34Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				3
+			],
+			"Message": "fix(Mountain): Extend extensions poll timeout and add gRPC shutdown guard\n\nIncrease the polling timeout in `extensions:getInstalled` from 3s to 5s because cold-cache runs over 113 extensions across 6 paths regularly hit ~2950ms, poisoning the workbench's `IExtensionService` cache with empty results.\n\nAdd a process-wide shutdown flag to the Vine gRPC client that gets marked before SIGKILL of Cocoon. Background tasks (PTY reader, file watchers, diagnostics emitter) that fire `SendNotification` after the sidecar is dead now short-circuit silently instead of logging false-positive `Connection refused` errors during shutdown. `SendRequest` returns an error immediately while `SendNotification` returns `Ok(())` to allow natural unwinding of background tasks.\n\nThis prevents the shutdown tail from being flooded with spurious gRPC errors while keeping the worst-case visible boot delay bounded at 5 seconds.",
+			"SHA": "06be111688dffce33846936c513b1b67504248a5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T22:18:02Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				859,
+				11
+			],
+			"Message": "refactor(Mountain): Centralize sky event emissions via LogSkyEmit and add defensive guards\n\nThis commit consolidates all Tauri event emissions through `LogSkyEmit` for histogram visibility in the `[DEV:SKY-EMIT]` tracking channel, and adds defensive error handling throughout the provider layer.\n\n**LogSkyEmit migration (7 files):**\n- LifecyclePhaseState, WorkspaceDelta, DiagnosticProvider, OpenDocument, TerminalProvider, RegisterCommand, RegisterScmProvider\n- Previously each file imported `tauri::Emitter` directly; now routes through LogSkyEmit so diagnostic/command/workspace event volume is visible in the histogram for debugging \"panel shows count but no items\" issues.\n\n**Defensive URI handling (DiagnosticProvider):**\n- Batch now tolerates malformed URIs per entry rather than failing the entire batch (mirrors VS Code's `MarkerService._toMarker` returning undefined instead of throwing)\n- Skips entries with empty URI strings with a warning log\n\n**Defensive path guards:**\n- PathSecurity.rs: Reject empty paths upfront to prevent empty-string path from bypassing workspace gating (`Path::starts_with(\"\")` returns true)\n- FileSystem.rs (CreateEffect): Add empty-path guards for ReadFile and StatFile, returning FileNotFound per VS Code's FileSystemProvider contract\n\n**Terminal resilience (WindServiceHandlers):**\n- localPty:createProcess now returns explicit error when id is 0/invalid instead of silently returning 0 (prevents keystrokes being swallowed)\n- localPty:resize clamps cols/rows to minimum of 1 (portable-pty crashes on 0×0 during pane drag-storms)\n- Resize on disposed terminal now logs warn and returns Null instead of error (common race during shutdown)\n- Tree-view data shape check: force `{items: []}` for non-conforming shapes to prevent TypeError in renderer\n\n**Documentation:**\n- MarkerDataDTO: Clarify coordinates are 1-based (matching workbench IMarkerData), noting Cocoon's LanguagesNamespace.ts adds the +1 offset from vscode.Position 0-based convention",
+			"SHA": "51f75f11010ab398a1f34525834f36b792dfbbfd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T18:51:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				859,
 				2
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "dcaa4d503dd7943dcba75ba06c867c9da7377a2d"
+			"Message": "fix(Mountain): Fix boot-time extensions race and add missing getLatency\n\nAdd polling to extensions:getInstalled to resolve boot-time race condition where workbench caches empty extension list before ExtensionPopulate completes its scan (~250-500ms). Poll the ScannedExtensions map for up to 3 seconds before returning empty, ensuring 113+ extension contributions appear in the activity bar.\n\nAlso add localPty:getLatency handler returning empty array per VS Code's IPtyHostLatencyMeasurement[] contract. Without this, every poll cycle logged \"Unknown IPC command: localPty:getLatency\" and a failed TauriInvoke.",
+			"SHA": "2b89f60a78bc0322f8e68c9ae88d722fd369416f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T14:48:29Z",
+			"Date": "2026-04-29T18:38:08Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⠀⠀⠀⠀⠀",
 				859,
-				21
+				2
 			],
-			"Message": "fix(Mountain): Align event payloads to Sky listener wire shapes and fix silent event drops\n\nThis commit addresses multiple issues where Mountain was emitting events that never reached Sky because of mismatched channel names or payload keys.\n\n**Event Channel Corrections (5 files)**\n- Terminal: `sky://terminal/opened` → `sky://terminal/create`, `sky://terminal/closed` → `sky://terminal/exit` (Sky listens on the new names at SkyBridge.ts:1736,1752)\n- Debug: `sky://debug/stop` → `sky://debug/sessionEnd` (SkyBridge.ts:2234)\n- StatusBar: `sky://statusbar/create` → `sky://statusbar/set-entry` (SkyBridge.ts:744 has no create listener)\n- Webview message: `sky://webview/message` → `sky://webview/post-message` (matches SkyBridge.ts:2344)\n- Progress: `sky://progress/report` → `sky://notification/progress-update` (aligns with notification namespace)\n\n**Payload Key Casing (8 files)**\n- OutputProvider: PascalCase keys (`Id`, `AppendedText`, `Name`, `LanguageId`) → camelCase (`channel`, `text`, `name`, `languageId`)\n- StatusBarProvider: Align all keys to camelCase\n- TreeViewProvider: `ViewIdentifier` → `viewId`, `ElementHandle` → `elementHandle`, `IsExpanded` → `expanded`\n- UserInterfaceProvider: `Severity`, `Message`, `Items` → `severity`, `message`, `items`\n- Window: `panelId` key alignment\n\n**Parameter Key Fallback (4 files)**\n- RegisterCommand/Provider: Probe camelCase first (`languageSelector`, `extensionId`) then snake_case for transitional compatibility\n- RegisterScmProvider/ResourceGroup: Probe camelCase (`scmHandle`, `rootUri`) then legacy snake_case\n\n**SCM RootUri Fix (RegisterScmProvider.rs)**\n- Previous extraction read only `path` component from UriComponents, producing relative URLs that failed to parse\n- Now reconstructs full `<scheme>://<authority><path>` triple from scheme/authority/path/query/fragment components\n- Falls back to `file://` prefix for bare paths, never emits relative URLs\n\n**Command Registry Sync (RegisterCommand.rs, UnregisterCommand.rs)**\n- Add emissions to `sky://command/register` and `sky://command/unregister` so Sky's workbench command palette sees extension-contributed commands\n\nWithout these fixes, terminal panes, tree views, status bar entries, and command palette entries were silently failing to render despite Mountain processing the underlying requests.",
-			"SHA": "ba479c6a5ea13640cdd3164452f55f429472915f"
-		},
-		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-04-27T08:29:12Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				874,
-				1
-			],
-			"Message": "Merge pull request #43 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-3.0.0\n\nchore(deps): Bump pozil/auto-assign-issue from 2.2.1 to 3.0.0",
-			"SHA": "324e09923027abb8313f0caea1c8ac037429a3d5"
-		},
-		{
-			"Author": "dependabot[bot]",
-			"Date": "2026-04-27T08:29:00Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				874,
-				1
-			],
-			"Message": "chore(deps): Bump pozil/auto-assign-issue from 2.2.1 to 3.0.0\n\nBumps [pozil/auto-assign-issue](https://github.com/pozil/auto-assign-issue) from 2.2.1 to 3.0.0.\n- [Release notes](https://github.com/pozil/auto-assign-issue/releases)\n- [Commits](https://github.com/pozil/auto-assign-issue/compare/v2.2.1...v3.0.0)\n\n---\nupdated-dependencies:\n- dependency-name: pozil/auto-assign-issue\n  dependency-version: 3.0.0\n  dependency-type: direct:production\n  update-type: version-update:semver-major\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
-			"SHA": "9fe3d8afd59f66617841ca32138e08aa1e67be22"
+			"Message": "fix(Mountain): Remove duplicate DevTools window in debug builds\n\nWindowBuild.rs was calling `MainWindow.open_devtools()` independently\nfrom AppLifecycle.rs, causing two DevTools windows to open on every\ndebug launch. Remove the redundant call and document that DevTools\nauto-open lives in AppLifecycle (line 174), gated on debug_assertions\nwith a matching log line.\n\ndocs(Mountain): Clarify diagnostic coordinates are 1-based\n\nUpdate DiagnosticProvider.rs docstring to specify that\nStartLineNumber/StartColumn and EndLineNumber/EndColumn use 1-based\nindexing, matching workbench IMarkerData. Add note explaining that\nCocoon's LanguagesNamespace.ts NormaliseDiagnostic adds the +1 offset\nfrom vscode.Position 0-based convention before sending to Mountain.",
+			"SHA": "c661d669a5f51174397956c2ab363d240e270059"
 		}
 	],
-	"TimeStamp": 1779544409940
+	"TimeStamp": 1779882120413
 }

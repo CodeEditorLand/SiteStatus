@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:16:30Z",
+			"Date": "2026-04-29T04:34:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "feat(Project): Add regex and multiline search to TextSearchQuery\n\nSync Mountain and Cocoon submodules with new search capabilities:\n- Mountain: Add `isRegExp` and `isMultiline` fields mirroring VS Code's ITextSearchQuery\n- Escape plain-text search patterns via regex::escape() to prevent crashes on metacharacters like `.`, `(`, `[`, `*`, `?`\n- Add .multi_line() support for multiline regex searches\n- Fixes Search view plain-text mode broken for queries containing `obj.method(` or `file[1].txt`\n- Cocoon: Update to d4763554\n\nImpact: Plain-text search now works correctly for queries containing regex metacharacters without crashing the regex compiler.",
-			"SHA": "955a8545bf99cedb0b1db11ad25ed773a5c4d2b3"
+			"Message": "chore(Project): Sync Cocoon and Sky submodules\n\nUpdate Cocoon to d3408e6f8ffafedcf209a780133a8176bf0d9972 and Sky to b8a380955bb3217237de5df8129e2cadee710b52, bringing in the latest downstream improvements. This synchronization pulls in recent changes from both component repositories.",
+			"SHA": "66fa9d3118502e31c35d8b267cd2c5b1b07d8b2d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:05:50Z",
+			"Date": "2026-04-29T04:22:12Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to properly-implemented trait methods on MountainEnvironment:\n- handle_search_find_in_files → SearchProvider::TextSearch (grep-searcher + ignore::WalkBuilder with parallel walking)\n- handle_search_find_files → WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive starts_with('.') hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus format!(\"file://{}\") URI constructor, and single-threaded walkers. The trait implementations were reachable only through Environment.Require<dyn SearchProvider>() calls and no IPC handler ever issued those.\n\nAlso change FileReaddirNative.rs log level from vfs-verbose to vfs since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.\n\nImpact: File search and find-files now use proper ignore rules, parallel walking, and regex support instead of naive single-threaded implementations.",
-			"SHA": "ab81979739d237da5c6179b32dcdf7437a7a83ae"
+			"Message": "feat(Project): Add terminal output buffering for late-listener replay\n\nMulti-component synchronization addressing the PTY reader vs SkyBridge listener race condition:\n\n1. Mountain: Add per-terminal output buffering - `AppendTerminalOutput()` captures PTY bytes into a 64KB bounded buffer (keeps most recent suffix to preserve the prompt), `DrainTerminalOutputBuffer()` retrieves buffered data, `RemoveTerminalOutputBuffer()` cleans up on exit. Extend `sky:replay-events` to emit `sky://terminal/create` for each active terminal AND replay any buffered `sky://terminal/data` bytes.\n\n2. Sky: Extend replay-events log with terminal visibility - Add `terminals?: number` and `terminalDataBytes?: number` to the type definition and include them in the log summary alongside tree-views, SCM providers, and commands. This provides visibility into terminal sessions active during early boot.\n\nThe race: In bundled-electron profile, the shell's first prompt fires ~50ms after `spawn_command` while Sky's bundle still parses for ~1500ms. Without buffering, zsh MOTD, direnv exports, fish greetings are silently dropped.\n\nImpact: Terminal output is now preserved and replayed for late listeners, completing the replay system for all three major feature areas: tree-views, SCM providers, and terminals.",
+			"SHA": "93269905429d9f3e84d6640f85d2bd7290acd572"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:56:21Z",
+			"Date": "2026-04-29T04:02:06Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "feat(Project): Add DisableUnusedServices transform and sync dependencies across submodules\n\nCross-cutting Element submodule sync with functional improvements and dependency updates:\n\n1. Output: Add DisableUnusedServices ESBuild transform - Replaces upstream VS Code contribution barrels for features Land doesn't back (auto-update, issue reporter, MS account/sync, process explorer) with inert stubs. Removes broken UI surfaces and silences \"service not registered\" warnings, shortening boot time.\n\n2. Output: Fix ExtensionScannerIPC path matching - Now matches BOTH electron-browser AND browser variants of extensionsScannerService.js. Previously only matched electron-browser, but desktop.main.js loads the browser variant.\n\n3. Sky: Sync dependency updates - @xterm/xterm: 6.1.0-beta.202 → 6.1.0-beta.203, @astrojs/compiler-rs: 0.1.9 → 0.1.10, pozil/auto-assign-issue: 2.2.0 → 3.0.0\n\nImpact: Extension scanning now works correctly for desktop profile. Unused VS Code services are stubbed out, reducing boot noise and improving startup time.",
-			"SHA": "4c908a36d5a2b16ff9ab9e0e5dbc8c6964566d17"
+			"Message": "refactor(Project): Sync submodules with SCM identifier, command replay, and retry logic\n\nMulti-component synchronization enabling multi-SCM support and improving boot reliability:\n1. Common: Add Identifier field to SourceControlManagementProviderDTO - enables provider identification (\"git\", \"github\", \"hg\") for multi-SCM support, maps to `scmId` in sky://scm/register events.\n2. Mountain: Use actual SCM provider identifier in replay instead of hardcoded \"git\", add command registration replay for extension-registered commands, reduce tree-view timeout from 5000ms to 1500ms for graceful failure.\n3. Output: Mirror retry logic on user extensions scan path (was missing), switch to exponential backoff (100-200-400-800-1500ms), short-circuit Promise protocol probes to eliminate spurious \"Unknown IPC command\" errors.\n4. Sky: Display commands count in replay-events log for visibility into early-boot command replay.\n\nImpact: Multi-SCM providers (github, hg) now replay correctly. User extensions load at boot even when Mountain scan is slow. Promise probes reduced from ~25ms to <1ms per wake cycle.",
+			"SHA": "0fa901f046903c1ea25af8c4f583adb3c90563fa"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:36:12Z",
+			"Date": "2026-04-29T03:41:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "refactor(Output): Replace runtime require() with static ES imports in workbench accessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of both web.main.js and desktop.main.js instead of using runtime require() calls. This eliminates AMD require() resolution that could fail in the WKWebView context.\n\nChanges include:\n- Anchor on stable import markers ('mark' from performance.js for web, 'localize' from nls.js for desktop)\n- Add IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports\n- Extract shared imports into SharedImportLines to avoid duplication\n- Add cel:services-ready DOM event dispatch on successful population\n- Add Mountain diagnostic logging for success/failure tracking\n- Add guard check for import marker to avoid matching unrelated files\n\nImpact: __CEL_SERVICES__ is now populated synchronously before the microtask queue drains, ensuring services are available for both web and Electron/Desktop profiles at runtime.",
-			"SHA": "96667ac6d621541665452df55118710d737719da"
+			"Message": "fix(Project): Fix empty Activity Bar and user extension loading\n\nMulti-component synchronization addressing Activity Bar emptiness and extension loading:\n1. Sky: Fix Rollup no-external dropping VS Code contribution imports - Activity Bar came up empty because Rollup was dropping side-effect imports (`extensions.contribution`, `scm.contribution`, `files.contribution`, `*.viewlet.js`...). Add normalized path matching for disk paths, package specs, and lowercase variants.\n2. Output: Add retry logic to user extension scan path - User extension paths lacked the retry logic that system paths had, causing silent 0-extension responses. Add exponential backoff (100-200-400-800-1500ms) for async disk scans.\n3. Mountain: Add Sky event replay on listener registration - Mountain emits events before Sky listeners install, causing dropped `sky://tree-view/create` and `sky://scm/register` events. New `sky:replay-events` handler iterates active TreeViews and SCM providers to re-emit. Also adds path security checks and SCM provider emit failure logging.\n4. Cocoon: Refactor code structure for improved readability and maintainability.\n\nImpact: Activity Bar now populates with extension-contributed views (GitLens, jsdebug, SCM providers). User extensions load properly at boot even when Mountain's async scan hasn't completed.",
+			"SHA": "35896d874cc7364cbcd12fb82ab6cd7370602071"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:48:07Z",
+			"Date": "2026-04-29T02:14:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "feat(Project): Bridge VS Code binary IPC to Mountain backend\n\nCross-cutting submodule sync enabling real file explorer, search, settings, and storage persistence:\n\n1. Mountain: Add VS Code IPC command aliases in WindServiceHandlers to bridge binary IPC protocol to native Effect-TS layer. Configuration: `configuration:getValue`/`updateValue` → `configuration:get`/`update`. File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`. Add stub handlers for `file:watch`/`file:unwatch` and `configuration:onDidChange` returning Null to prevent promise leaks.\n\n2. Output: Route VS Code binary IPC channels (25+ including localFilesystem, storage, configuration, search, terminal) to Mountain via MountainIPCInvoke instead of returning stub responses. Previously these channels returned FileNotFound, empty arrays, and empty objects.\n\n3. Cocoon: Enhance stderr filtering to suppress follow-up stack frames from extension errors.\n\nImpact: File explorer, search results, settings editor, and workspace storage now persist data to the real filesystem and backend instead of operating on in-memory stubs.",
-			"SHA": "846bf6296b9f994c5d60c3f5e1bced701332f8fb"
+			"Message": "fix(Project): Fix circuit breaker trips from URI parsing and service isolation\n\nSubmodule sync bringing two critical fixes:\n\n1. **Mountain**: Fix false circuit breaker trips from URI parsing edge cases. Extensions frequently register file watchers on optional paths (e.g., `~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't exist. Mountain now catches benign \"path not found\" errors and records deferred entries instead of tripping the breaker. Additionally, Cocoon sends URIs in three formats (plain strings, objects with `external` field, legacy `scheme`+`path` objects), but only the `external` field was accepted. This caused `Diagnostic.Set` to trip the circuit breaker after 5 publishes, silencing all linters.\n\n2. **Output**: Fix ExposeWorkbenchAccessor transform silently failing. The import marker used single quotes but esbuild rewrites to double quotes post-bundle, causing the entire `__CEL_SERVICES__` patch to no-op and disabling all SkyBridge hooks. Also wraps each `invokeFunction` in its own try-IIFE so a single missing service doesn't throw the entire facade undefined.\n\nImpact: File watchers no longer fail on fresh workspaces. Language extension diagnostics now publish without triggering circuit breaker. All SkyBridge services (search, SCM, status bar, tree views) now initialize correctly.",
+			"SHA": "0f4dbba95ab041db9b7cf1ec1c3c37151b1bfe74"
 		}
 	],
-	"TimeStamp": 1779544370766
+	"TimeStamp": 1779882063740
 }

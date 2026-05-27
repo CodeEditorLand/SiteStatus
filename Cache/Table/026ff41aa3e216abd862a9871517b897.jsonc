@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:44:24Z",
+			"Date": "2026-05-26T14:02:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1731,
+				1746,
+				4
+			],
+			"Message": "refactor(Mountain): Simplify binary, library, and product name to Mountain\n\nRevert the binary, library, package, and product name from the verbose encoded build configuration string back to the simple canonical name \"Mountain\". The previous encoding embedded the full DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler string into artifact names, causing developer friction during local tooling integration and debugging.\n\nAlso tidy up tauri.conf.json by normalizing array formatting, reordering resource entries for consistency, adding the missing shell-integration/zsh.zsh resource, and restoring the identifier to fiddee.editor.binary. Remove the stale .Backup files left behind when the encoding was introduced.",
+			"SHA": "3e26a02371e60ff23f0017843e4209fb76d47807"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T13:14:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1748,
+				4
+			],
+			"Message": "build(Mountain): Encode full build config in binary name and bundle additional Sky resources\n\nRename the Mountain binary, library, package, and product name to carry the complete build configuration string: DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler_Mountain. This embeds build provenance directly in the artifact name for unambiguous debugging and CI traceability.\n\nAdd the missing Sky Target resource entries (Browser, BrowserProxy, Bundled, Electron, Favicon, Isolation, Manifest.json, Mountain) to tauri.conf.json so Tauri bundles these directories at build time. Previously the bundle only included a subset of Static/Application assets and miscellaneous files; the full Sky build output was not guaranteed to be present in the app bundle, which could cause runtime failures when the editor UI tries to load these resources.\n\nAlso normalize array formatting in externalBin and targets for consistency with the file style.\n\nChange the app identifier from fiddee.editor.binary to the expanded canonical form matching the product name.",
+			"SHA": "e7685bfe4621e4f04e14861cd855a7c5f8faa8fb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T09:07:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
 				3
 			],
-			"Message": "refactor(Mountain): Adopt standardized argument helpers in FileSystem and Git handlers\n\nApply the newly introduced `JsonValueHelpers` utilities to the `FileSystem` (Managed and Native) and `Git` IPC handler modules. Replace verbose `Arguments.get(...).and_then(...).unwrap_or(...)` patterns with the type-safe `arg_string`, `arg_u64`, and `arg_bool_true` helper functions.\n\nSpecific updates include:\n- `FileMkdir.rs`: Standardize retrieval of the `recursive` flag.\n- `FileCloseFd.rs`: Standardize extraction of the file descriptor index.\n- `HandleExec.rs`: Standardize retrieval of the working directory path.\n\nAlign these handlers with the project-wide refactoring to reduce boilerplate, ensure consistent default value handling, and improve type safety across the Mountain backend's IPC surface.",
-			"SHA": "1896d3a7e0862b27b66d686e1e2e12c64a8b8b70"
+			"Message": "fix(Mountain): Supplement cache-hit extension scan with user paths\n\nWhen the extension scan cache hits, the pre-baked extension map is returned immediately—but it only covers bundled paths (Mountain/Resources/extensions, Sky/Static/Application/extensions, VS Code Dependency extensions). User-writable paths like `~/.fiddee/extensions` and `~/.land/extensions` are never baked, so every VSIX-installed extension was invisible after a cache hit: `extensions:scanUserExtensions` returned 0 and the `@installed` view stayed empty.\n\nAdd a supplementary live-scan phase on cache hits that re-uses `Registry.GetExtensionScanPaths()` filtered through `Scanner::IsUserExtensionScanPath` so the classifier and the scan set stay coherent. Found entries overwrite cache entries with the same identifier—matching stock VS Code semantics where an installed VSIX shadows a built-in of the same ID.\n\nAlso make `IsUserExtensionScanPath` `pub(crate)` and add the legacy `~/.land/extensions` path to its classifier so extensions found at the path `ScanPathConfigure` registers (T3) are tagged as user-scope rather than built-in, fixing the sidebar classification mismatch.\n\nFinally, add the missing `TierCommandEventBroadcast` entry to `Info.plist` that was introduced in the tier-variable build.rs change but not recorded in the plist.",
+			"SHA": "02553de5f8cb49b60be80a8931ae356564abd157"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:42:30Z",
+			"Date": "2026-05-26T08:11:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1731,
-				1
+				1746,
+				4
 			],
-			"Message": "",
-			"SHA": "f1adcf0b1b391589d014547ebaabfb05c5161808"
+			"Message": "feat(Mountain): Add tier-gated command broadcast and IPC notification relays\n\nAdd three missing IPC notification handlers in WindServiceHandlers and an opt-in dual-emit mechanism for command execution events from the extension host.\n\n`localPty:setInteracted` forwards terminal interaction state (OSC 633 B) as `$acceptTerminalStateChanged`, enabling `onDidChangeTerminalState` subscribers in Node-resident extensions. `sky:editor:diffInformationChanged` relays Monaco diff metadata as `$acceptTextEditorDiffInformationChanged`. `sky:editor:viewColumnChanged` forwards editor group movement as `$acceptTextEditorViewColumnChanged`, completing the notification surface for `onDidChangeTextEditorDiffInformation` and `onDidChangeTextEditorViewColumn`.\n\nIntroduce `TierCommandEventBroadcast` (default `Off`) in build.rs. When set to `On`, Mountain dual-emits `$acceptCommandExecuted` over Vine after gRPC `Command.Execute` from Cocoon, ensuring `vscode.commands.onDidExecuteCommand` fires even for commands not locally registered in the extension host. The tier variable is surfaced in LandFixTier runtime diagnostics.",
+			"SHA": "a51086049e21a27597657cfe97db6b996922f356"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:42:29Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1731,
-				53
-			],
-			"Message": "refactor(Mountain): Standardize Wind service argument extraction\n\nIntroduce a centralized utility module `JsonValueHelpers` within `WindServiceHandlers` to provide type-safe, default-aware argument extraction helpers (`arg_string`, `arg_u64`, `arg_bool`, etc.). Replace ad-hoc `Arguments.get(n).and_then(...).unwrap_or(...)` patterns scattered across 40+ IPC handler modules with calls to these standardized helpers.\n\nThis change affects the entire `WindServiceHandlers` tree, including Cocoon, Git, Terminal, UI, and NativeHost namespaces. The `mod.rs` file is updated to export the new helper functions, and the main IPC dispatcher `mountain_ipc_invoke` is refactored to utilize them for command routing. This reduces boilerplate, ensures consistent default value handling, and improves type safety across the Mountain backend's IPC surface.",
-			"SHA": "c6d28d00faef4a321909bfa8755f46f72ccce346"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:33:11Z",
+			"Date": "2026-05-25T22:15:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1731,
-				11
-			],
-			"Message": "refactor(Mountain): Consolidate Cocoon forwarding logic and remove redundant handler modules\n\nEliminate the `Source/IPC/WindServiceHandlers` directory structure (Git, UI, and shared modules) which previously contained repetitive boilerplate for forwarding IPC commands to the Cocoon extension host. Replace the scattered, copy-paste implementations of payload serialization and gRPC invocation with a centralized `forward_to_cocoon` macro and `cocoon_payload` helper in `mod.rs`.\n\nThis refactoring unifies the handling logic for SCM, Debug, Tasks, and Authentication namespaces within the main IPC dispatcher (`mountain_ipc_invoke`). The new macro handles argument normalization (Null, single value, or array) and manages the `WaitForClientConnection` and `SendRequest` lifecycle consistently, reducing code duplication and improving maintainability. The deletion of individual handler files streamlines the Mountain backend architecture while preserving the functional bridge to the VS Code runtime in Cocoon.",
-			"SHA": "f6139fff82bc66bce7ac77abc19964d6ca44898e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:13:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1741,
+				1746,
 				2
 			],
-			"Message": "fix(Mountain): Correct event naming and simplify language configuration payload\n\nRefactor `SetLanguageConfiguration` to emit the entire parameter object directly instead of reconstructing the payload with a single `language` field. This aligns the RPC handler with the generic notification pattern used by other Sky emit handlers.\n\nIn `WebviewLifecycle`, correct the event suffix mapping for the `postMessage` command. Change the target event string from the kebab-case `post-message` to the PascalCase `postMessage`. This resolves a naming inconsistency and aligns the Tauri event identifiers with the project-wide PascalCase naming convention established in previous refactorings.\n\nThese changes ensure consistent payload structures for language configuration and restore strict adherence to naming standards for webview IPC events.",
-			"SHA": "e5c08bc20068b79fa24a3c1d986c536cf8a9a1dc"
+			"Message": "fix(Mountain): Relay terminal shell execution events to Cocoon extension host\n\nAdd two new IPC notification handlers in WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, bridging terminal shell execution events from Sky to the Node.js extension host.\n\n`$acceptTerminalShellExecutionStart` fans to Cocoon so `vscode.window.onDidStartTerminalShellExecution` fires for extension subscribers. `$acceptTerminalShellExecutionEnd` fans two Vine notifications: `$acceptTerminalShellExecutionEnd` (for `onDidEndTerminalShellExecution`) and a derived `$acceptExecutedTerminalCommand` so `vscode.window.onDidExecuteTerminalCommand` subscribers observe the executed command without an additional Sky-side detection pass.\n\nAlso inline a multi-line closure chain in `CreateEffectForRequest/Diagnostics.rs` to a single-line filter_map for consistency with surrounding code style.",
+			"SHA": "275e31a312378afe6b7deb7a8e7f6f579e52b42c"
 		}
 	],
-	"TimeStamp": 1779544352311
+	"TimeStamp": 1779882024834
 }

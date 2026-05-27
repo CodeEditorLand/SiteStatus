@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:38:30Z",
+			"Date": "2026-05-23T11:00:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1585,
-				9
-			],
-			"Message": "refactor(Mountain): Clean up dead vars and normalize scan paths lexically\n\nReplace the filesystem-backed `Canonicalize` closure in ScanPathConfigure\nwith `Normalize`, which resolves `..` segments lexically for non-existent\npaths - keeping extension scan-path log output clean regardless of path\nviability - while still calling `std::fs::canonicalize` for existing paths\nto resolve symlinks.\n\nDrop the stale `HandleSlot` accumulator in OutputChannelCoalesce (it was\nset but never meaningfully used after the previous refactor) and the\nunused `std::path::PathBuf` import in TryShipped.\n\nAdd stub IPC handlers for `browserView:*` (updateKeybindings, updateTheme,\nupdateConfiguration, openDevTools, closeDevTools -> Null;\ngetBrowserViews -> []), which Wind sends for Electron BrowserView\nmanagement but are no-ops under Tauri's single-webview architecture.\nRoute `extensionHostStarter:waitForExit` to a new async handler that\nresolves immediately with a stub exit-info so callers don't hang.\n\nFormatting-only: line-break Cocoon environment allow list one-per-entry,\ncollapse LocalhostUrl accessors, reflow WebviewWindowBuilder chain.",
-			"SHA": "167dfea1480a374254428bcbbafa11c6113041c5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:36:57Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1585,
-				7
-			],
-			"Message": "fix(Mountain): Serve webview panels via localhost plugin URL\n\nSecondary webview panels (settings, webview extensions, etc.) used `WebviewUrl::App(\"WebviewHost.html\")` which routes through tauri::manager — but Mountain's tauri.conf.json has no `frontendDist`, so Tauri has no bundled assets to serve, leaving those webviews blank.\n\nFix by loading them from the localhost plugin instead (`http://localhost:PORT/Mountain/WebviewHost`). A new `LocalhostUrl` singleton (OnceLock in `IPC/WindServiceHandlers/Utilities/LocalhostUrl.rs`) is populated once during `AppLifecycleSetup` and consumed in `create_webview_panel_impl` to build the external URL. Falls back to port 15536 if the singleton is unset.\n\nAlso extracts the inline Cocoon subprocess environment-building and I/O forwarding into named functions (`BuildCocoonEnvironment`, `SpawnCocoonIoForwarders`) in CocoonManagement.rs — pure refactor with no behavioral change, reducing method complexity from ~200 inline lines to two clear helpers.",
-			"SHA": "88be9db9ea1de55af0b96158021b2b77c7f86f6c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T07:49:35Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1582,
-				8
-			],
-			"Message": "feat(Mountain): Enable .app bundle resource resolution for cache, Cocoon, and Node\n\nThe Mountain binary now resolves pre-baked resources from both the repo/dev\nlayout (binary-sibling files) and the .app bundle layout (Contents/Resources/)\nwhen running as a packaged application. Four systems are updated:\n\n**Extension manifest cache (LoadFromCache.rs):** Probes two locations in\norder — `BinaryDir/extensions.manifest.json` (dev) and\n`BinaryDir/../Resources/extensions.manifest.json` (bundle). Bundled caches\nskip the staleness check (10-minute threshold) since they are built\nalongside the .app and always consistent with its packed extensions. The\nper-manifest field extraction is also refactored with local `str()` and\n`arr()` helper closures to eliminate repeated\n`Manifest.get(k).and_then(Value::as_str)` chains.\n\n**CocoonManagement pre-flight check:** Cocoon's bundle probe now attempts\nTauri's resource resolver first (`Tauri::path::resolve` with\n`BaseDirectory::Resource`), falling back to the repo-layout relative-walk\nfrom `scripts/cocoon/` when the bundle path does not exist.\n\n**NodeResolver TryShipped:** Adds a sidecar resolution path matching\n`externalBin: [\"Binary/node\"]` in tauri.conf.json — the `node` binary sits\nalongside the Mountain executable, not in a `Node/bin/` subdirectory, in\nthe Tauri sidecar layout.\n\n**ScanPathConfigure and PathSecurity:** Extension scan paths now call\n`.canonicalize()` on resolved paths for cleaner log output (showing\n`Contents/Resources/...` instead of `Contents/MacOS/../Resources/...`).\n`IsTrustedSystemPath` adds `../Resources/Static/Application/extensions` to\nthe bundle-root allowlist so the new canonical static extension directory\nbypasses the workspace-folder gate.\n\n**Bootstrap fork (bootstrap-fork.js):** Cocoon entry path resolution\nhandles both bundle (2-level `../../`) and repo (3-level `../../../`)\nlayouts by iterating both URL bases for each candidate entry path.\n\n**tauri.conf.json:** Maps `bootstrap-fork.js`, `extensions.manifest.json`,\nand `Cocoon/Target/Bootstrap/Implementation/Cocoon` into\n`Contents/Resources/` so all three are reachable at runtime via the bundle\nresource resolver.",
-			"SHA": "0fe6cbfa5522594264233b21f4807ab5f184dab4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T06:19:23Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1582,
-				4
+				1734,
+				1
 			],
 			"Message": "",
-			"SHA": "1a1ee9b546b80eef444b0dc0ae4da09b291f2ca9"
+			"SHA": "aef9a3497996616e1874edd7a900624cb43f18b0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T06:19:23Z",
+			"Date": "2026-05-23T11:00:04Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1734,
+				32
+			],
+			"Message": "refactor(Mountain): Standardize IPC handlers with centralized effect macro and parameter helpers\n\nIntroduce the `effect!` macro in `MappedEffectType` to eliminate verbose boilerplate for wrapping async logic into `MappedEffect` closures. Concurrently add the `Utilities::Params` module providing type-safe, default-aware argument extractors (`string_at`, `val_at`, `u64_at`, etc.) for handling `serde_json::Value` payloads.\n\nApply these utilities across the entire `Track/Effect/CreateEffectForRequest` tree, including `Authentication`, `FileSystem`, `Terminal`, `WindowUI`, and `Workspace` handlers. Refactor `WindServiceHandlers/mod.rs` to introduce the `call!` macro, replacing repetitive `dev_log!` and closure invocation patterns with a unified dispatch mechanism for Tauri IPC commands.\n\nThis consolidation reduces code duplication, enforces consistent parameter extraction and logging behavior, and aligns the native backend with the project's Effect-TS driven architectural principles.",
+			"SHA": "b791a1cad20c4554117feae7059bbdbed43939fe"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T10:44:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1584,
-				7
+				1731,
+				3
 			],
-			"Message": "fix(Mountain): Normalize extension location URI from cache to plain string\n\nThe `LoadFromCache` path serialized `ExtensionLocation` as a JSON object\n`{\"value\": url}` — the Identifier wrapper shape — rather than a plain\n`Value::String` URI. The `Normalize.rs` URI parser then failed to match\nagainst the `scheme` key and fell through to `/extensions/unknown`,\nbreaking extension resolution for cached manifests.\n\n- Fix the source: emit `Value::String(LocationUri)` from\n  `LoadFromCache.rs`, matching the format `FromUrl::Fn` expects.\n- Fix the sink: add a backward-compatibility branch in `Normalize.rs`\n  that unwraps `{\"value\": url_string}` when encountered, so legacy\n  cache entries still resolve correctly.\n- Reorder Sky resource globs in `tauri.conf.json` alphabetically for\n  maintainability.\n\nAccompanying build metadata: the Cargo.toml package name, tauri\nidentifier, and productName are expanded to their full environment-keyed\nform (DevelopmentNodeEnvironment…) as part of the CI artifact\nlabelling scheme; backup files preserve the canonical values.",
-			"SHA": "af8fcdd2e74f49cd5943e056f6af38bddb0d7205"
+			"Message": "refactor(Mountain): Adopt standardized argument helpers in FileSystem and Git handlers\n\nApply the newly introduced `JsonValueHelpers` utilities to the `FileSystem` (Managed and Native) and `Git` IPC handler modules. Replace verbose `Arguments.get(...).and_then(...).unwrap_or(...)` patterns with the type-safe `arg_string`, `arg_u64`, and `arg_bool_true` helper functions.\n\nSpecific updates include:\n- `FileMkdir.rs`: Standardize retrieval of the `recursive` flag.\n- `FileCloseFd.rs`: Standardize extraction of the file descriptor index.\n- `HandleExec.rs`: Standardize retrieval of the working directory path.\n\nAlign these handlers with the project-wide refactoring to reduce boilerplate, ensure consistent default value handling, and improve type safety across the Mountain backend's IPC surface.",
+			"SHA": "1896d3a7e0862b27b66d686e1e2e12c64a8b8b70"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T10:42:30Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1731,
+				1
+			],
+			"Message": "",
+			"SHA": "f1adcf0b1b391589d014547ebaabfb05c5161808"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T10:42:29Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1731,
+				53
+			],
+			"Message": "refactor(Mountain): Standardize Wind service argument extraction\n\nIntroduce a centralized utility module `JsonValueHelpers` within `WindServiceHandlers` to provide type-safe, default-aware argument extraction helpers (`arg_string`, `arg_u64`, `arg_bool`, etc.). Replace ad-hoc `Arguments.get(n).and_then(...).unwrap_or(...)` patterns scattered across 40+ IPC handler modules with calls to these standardized helpers.\n\nThis change affects the entire `WindServiceHandlers` tree, including Cocoon, Git, Terminal, UI, and NativeHost namespaces. The `mod.rs` file is updated to export the new helper functions, and the main IPC dispatcher `mountain_ipc_invoke` is refactored to utilize them for command routing. This reduces boilerplate, ensures consistent default value handling, and improves type safety across the Mountain backend's IPC surface.",
+			"SHA": "c6d28d00faef4a321909bfa8755f46f72ccce346"
 		}
 	],
-	"TimeStamp": 1779544356222
+	"TimeStamp": 1779882036748
 }

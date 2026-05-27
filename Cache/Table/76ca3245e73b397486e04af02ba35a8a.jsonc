@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T00:32:43Z",
+			"Date": "2026-04-28T23:06:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
+				859,
+				2
+			],
+			"Message": "feat(Mountain): Add per-URI marker payloads to diagnostics events and cap keyring logging\n\nTwo changes in Mountain's diagnostic system:\n\n1. **DiagnosticProvider.rs**: Extend the `DiagnosticsChanged` event payload with a new `changedURIs` field containing per-URI marker data alongside the existing `Uris` string array. This enables SkyBridge's `cel:diagnostics:changed` listener to call `IMarkerService.changeOne(owner, uri, markers)` directly without an extra IPC round-trip per diagnostic change. Also adds lowercase `owner` field for consistency. Maintains backward compatibility with listeners expecting the original format.\n\n2. **LoggingPlugin.rs**: Cap the `keyring` crate to Warn level. This dependency (used by Mountain's secret-storage path for license data lookups) emits a 3-line DEBUG block per `get_password` call that fires indefinitely after the workbench paints, similar to the previous `ignore` and `globset` mutes.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "5b111b189f5566e92bce268a48be289d73ef6735"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T22:00:38Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				4
+			],
+			"Message": "refactor: simplify project naming in Cargo.toml and tauri.conf.json\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "7ecd2c78579c71c6c6dbbbb509d52c63b1e771ad"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T21:54:13Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				861,
 				6
 			],
-			"Message": "refactor(Mountain): Revert development naming and implement core file operations\n\nRevert the Mountain binary/lib/config naming from \"Mountain\" back to the verbose development identifier to maintain continuity with the existing build artifacts and CI configurations.\n\nImplement two missing trait implementations:\n\n1. **FileSystemProvider::Copy for directories** (WriteOperations.rs):\n   - Previously returned NotImplemented for directory copies\n   - New `copy_directory_recursive` uses an iterative stack (avoids async recursion stack overflow on deep trees)\n   - Symlinks are followed to match VS Code's IFileService.copy semantics\n   - Prevents copy-to-self which would truncate files or explode recursively\n   - Creates parent directories as needed; uses tokio::fs::copy for fast file copying\n\n2. **WorkspaceEditApplier::ApplyWorkspaceEdit** (WorkspaceProvider.rs):\n   - Two-tier approach: emit `sky://editor/applyEdits` for open documents (preserves undo/dirty state), then apply edits directly to disk for closed files\n   - Converts VS Code's line/character positions to byte offsets with UTF-16 code unit counting (matches VS Code Range semantics)\n   - Edits sorted by descending offset to maintain validity during splicing\n   - Atomic writes via tempfile+rename to prevent torn writes on crash\n   - Handles file:// URIs with percent-encoding decode\n\nBREAKING CHANGE: Binary and lib names changed from \"Mountain\" to \"DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain\"",
-			"SHA": "8c25573710b3a7ec50c4312a7c1f99bfdd2a2739"
+			"Message": "fix(Mountain): Resolve 404s for extension webview assets and reduce logging noise\n\nTwo bug fixes in Mountain's build modules:\n\n1. **Scheme.rs**: Extend vscode-file URI handling to support arbitrary authorities beyond \"vscode-app\". The original code only handled `vscode-file://vscode-app/<path>` but `WebviewImplementation::asWebviewUri` rewrites local resource URIs to use the extension's identifier as authority (e.g., `vscode-file://vscode.git/...`). This caused every extension-supplied webview asset (icons, scripts, stylesheets, fonts) to return 404. Added a generic fallback that extracts the path after any authority.\n\n2. **LoggingPlugin.rs**: Cap noisy extension-scanner log targets (\"ignore\", \"ignore::walk\", \"ignore::gitignore\", \"globset\") to Warn level. These crates emit DEBUG lines per `.gitignore` opened, per glob compiled, and per file whitelisted—tens of thousands during a single boot, drowning out extension activation signals.\n\nAlso updates binary/lib names and tauri productName to include build configuration identifiers for development builds.",
+			"SHA": "bbbdab26d47fbd3bca35342c224431194c519eb7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T00:25:31Z",
+			"Date": "2026-04-28T20:56:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				872,
-				6
-			],
-			"Message": "refactor(Mountain): Clean up development naming and complete stub implementations\n\nRename the binary, lib, and Tauri config from the verbose development name\n(`DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain`)\nto simply `Mountain` for cleaner builds and debugging.\n\nImplement two previously-stubbed trait methods:\n\n1. **OutputProvider::CloseChannel**: Properly sets `IsVisible = false` in\nApplicationState and emits a SkyEvent so the renderer collapses the panel.\nThe channel remains in state to preserve buffered content for later reveal.\n\n2. **WorkspaceProvider::OpenFile**: Converts the path to a file:// URI via\nUrl::from_file_path (with percent-encoding for unicode), emits the\n`sky://editor/openDocument` event that Sky's bridge listens on, and adds\nthe file to the recently-opened list (capped at 50 entries).\n\nAlso remove the now-obsolete `.Backup` files. These changes complete the\nIPC wiring for output channel management and editor document opening.",
-			"SHA": "2d330dbf776b664caa2426a9bee51c703619062a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T00:21:37Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				874,
+				859,
 				1
 			],
-			"Message": "feat(Mountain): Implement FindFilesInWorkspace with ignore-aware parallel walking\n\nReplace the stub implementation that returned empty results with a complete `WorkspaceProvider::FindFilesInWorkspace` using:\n- `ignore::WalkBuilder::build_parallel()` for OS-thread-parallel directory traversal respecting `.gitignore` / `.ignore` / `.git/info/exclude`\n- `globset::GlobBuilder` for include/exclude pattern matching\n- Support for VS Code's RelativePattern shape (`{ base, pattern }`) to restrict walks to subfolders\n- Thread-safe result collection via `Arc<Mutex<Vec<Url>>>` capped at MaxResults (default 10,000)\n- Proper hidden-directory handling and symlink follow control\n\nThis complements the recent wiring of search IPC handlers to trait implementations, completing the file search path from Wind → Mountain → WorkspaceProvider::FindFilesInWorkspace for quick file open, symbol search, and fuzzy file matching features.",
-			"SHA": "044fdb7c156598f3081093012d5e5ac21cf8395b"
+			"Message": "fix: correct wording in changelog for clarity and consistency\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "fc4f4ed5042663818a32ac3024397cff72f0a794"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:39:12Z",
+			"Date": "2026-04-28T04:53:01Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
-				8
+				859,
+				4
 			],
-			"Message": "refactor(Mountain): Wire Cocoon RPC handlers to trait implementations for state tracking\n\nReplace direct Sky event emissions with proper trait implementations across SCM, StatusBar, Webview, and Search handlers:\n\n1. **SCM**: RegisterScmProvider and UpdateScmGroup now use SourceControlManagementProvider trait to materialize state in ApplicationState::SourceControl. Previously the direct Sky emit bypassed state tracking, so SCM providers (gitlens, svn) never appeared in Sky's SCM view until UpdateScmGroup - and the header row never materialized.\n\n2. **StatusBar**: CreateStatusBarItem and SetStatusBarText now use StatusBarProvider::SetStatusBarEntry to store entries in ActiveStatusBarItems. Without registration, the workbench had no memory of entries and set_status_bar_text calls leaked state.\n\n3. **Webview**: CreateWebviewPanel and SetWebviewHtml now use WebviewProvider trait to register panels in ApplicationState::WebviewState. Previously the extension got a handle but Mountain never knew about the panel - DisposeWebviewPanel failed with \"unknown handle\" and webviews leaked DOM.\n\n4. **Search**: findFiles delegates to WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker); findTextInFiles delegates to SearchProvider::TextSearch. This replaces naive inline fs-walk implementations that lacked .gitignore support, regex engine, parallel walks, and proper Url construction.\n\nAll handlers retain fallback to direct Sky emit on trait failure to preserve existing behavior for callers that don't depend on state tracking.",
-			"SHA": "f8de3e0f52def4658f2be37feceb8ce43e035bca"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:15:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				872,
-				1
-			],
-			"Message": "feat(Mountain): Implement regex and multiline search options in TextSearchQuery\n\nAdd missing `isRegExp` and `isMultiline` fields to TextSearchQuery, mirroring VS Code's `ITextSearchQuery` interface. When `isRegExp` is false (the default), escape the search pattern via `regex::escape()` to prevent literal searches for strings containing regex metacharacters (`.`, `(`, `[`, `*`, `?`, etc.) from crashing the regex compiler or silently matching incorrectly. Add `.multi_line()` support for multiline regex searches.\n\nThis fixes the Search view's plain-text mode which was broken for queries containing characters like `obj.method(` or `file[1].txt`.",
-			"SHA": "d0117a0eb6379a9473082566dec2a8775df35577"
+			"Message": "feat: add support for multiple windows in app and window permissions\n\n- Updated default permissions for the app plugin to include `allow-supports-multiple-windows`.\n- Added new permissions for enabling and denying `supports_multiple_windows` command.\n- Enhanced window plugin permissions to include `allow-activity-name` and `allow-scene-identifier`.\n- Added corresponding deny permissions for `activity_name` and `scene_identifier` commands.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "c7c748bb0dce25923e80d5c6b1573c08e05b421e"
 		}
 	],
-	"TimeStamp": 1779544412894
+	"TimeStamp": 1779882122541
 }

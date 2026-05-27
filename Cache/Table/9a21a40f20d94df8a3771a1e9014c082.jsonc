@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:15:52Z",
+			"Date": "2026-05-03T08:19:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1283,
-				11
+				1482,
+				5
 			],
-			"Message": "feat(Mountain): Implement performance dashboard with distributed tracing and alerting\n\nIntroduce a new `PerformanceDashboard` module within the Mountain IPC layer to enable native-side observability. This implementation establishes a comprehensive monitoring system capable of collecting system metrics (CPU, memory, throughput), managing distributed trace spans with structured logging, and triggering severity-based alerts.\n\nThe module adheres to the project's PascalCase naming convention and \"one export per file\" pattern, utilizing a tightly-coupled cluster design where the `Dashboard::Struct` aggregator holds the logic for 25 methods interacting with sibling DTOs (`PerformanceMetric`, `TraceSpan`, `PerformanceAlert`, etc.).\n\nKey features include:\n- **Metric Collection:** Automatic ring-buffer collection of system metrics via background Tokio tasks.\n- **Distributed Tracing:** Creation and lifecycle management of `TraceSpan` objects with unique IDs, parent linking, and embedded `TraceLog` entries.\n- **Alert Engine:** Threshold-based monitoring that categorizes violations into `Low`, `Medium`, `High`, or `Critical` severities based on configurable `DashboardConfig`.\n- **Statistics Aggregation:** Real-time calculation of averages, peaks, error rates, and throughput scores.\n\nThis provides the native backend with the instrumentation required for future Wind/Sky performance UIs.",
-			"SHA": "6a201b5309947c8f0e680a4bd954dfb4395b8454"
+			"Message": "refactor(Mountain): Decompose Enhanced IPC modules and enforce PascalCase struct qualification\n\nRemove the monolithic type definitions previously embedded directly in `Source/IPC/Enhanced/ConnectionPool.rs`, `MessageCompressor.rs`, `PerformanceDashboard.rs`, and `SecureMessageChannel.rs`. This refactor prepares the `IPC::Enhanced` layer for a fine-grained modular structure where specific traits and DTOs (e.g., `PoolConfig`, `Compressor::Struct`) reside in dedicated sub-files, aligning with the project's strict PascalCase naming conventions.\n\nUpdate `Source/IPC/Enhanced/mod.rs` to reference these types using explicit qualification (e.g., `ConnectionPool::Pool::Struct` instead of `ConnectionPool::ConnectionPool`). This resolves symbol shadowing issues caused by module-name/type-name collisions and adheres to the architectural shift towards explicit namespace resolution seen in recent command handler refactorings.\n\nThis change cleans up the current implementation state, allowing the `EnhancedIPCManager` to correctly instantiate its internal components (`Compressor`, `Pool`, `Channel`, `Dashboard`) once the corresponding sub-modules are migrated to their own files.",
+			"SHA": "51dd389c370787f41e36f29c4e245375e6d4f620"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:15:43Z",
+			"Date": "2026-05-03T08:19:45Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1271,
-				10
+				1486,
+				5
 			],
-			"Message": "feat(Mountain): Implement navigation history and label IPC handlers\n\nAdd a comprehensive suite of Wind IPC service handlers in `Source/IPC/WindServiceHandlers/Navigation/` to bridge the Mountain backend with the editor's navigation state and labeling logic.\n\nThe implementation includes:\n- **History Management:** `HistoryPush`, `HistoryGoBack`, `HistoryGoForward`, `HistoryCanGoBack`, `HistoryCanGoForward`, `HistoryGetStack`, and `HistoryClear`. These handlers interact with `ApplicationRunTime.Environment.ApplicationState.Feature.NavigationHistory` to maintain the user's URI stack, enabling back/forward navigation and history views.\n- **Label Resolution:** `LabelGetBase`, `LabelGetURI`, and `LabelGetWorkspace`. These utility handlers compute display strings for tabs and breadcrumbs, supporting relative path resolution against the workspace root and extracting file basenames.\n\nAll handlers strictly adhere to the project's PascalCase naming convention, utilize the `ApplicationRunTime` environment for state access, and follow the modular 'one export per file' pattern. This completes the native backend support for the workbench's navigation UI.",
-			"SHA": "2fde83158b1debd14ea02d3891b561b397d93c8c"
+			"Message": "refactor(Mountain): Modularize DNS and TLS command modules into sub-files\n\nSplit the monolithic `DnsCommands.rs` and `TlsCommands.rs` files into a directory structure of individual sub-modules, adhering to the project's strict PascalCase naming conventions. Each command handler, DTO, and utility now resides in its own file (e.g., `DnsServerInfo`, `ZoneInfo`, `tls_check_cert_status`), reducing file size and improving maintainability.\n\nConcurrently, updated `LoggingPlugin.rs` to align helper method calls with the new `::Fn()` explicit qualification pattern and refined `PostHogPlugin.rs` documentation to include the new `CaptureHandler` and `HydrateRuntimeEnvironment` modules. Removed extensive inline documentation in favor of concise module-level comments, as the new file structure provides natural separation of concerns.\n\nThis refactoring prepares the codebase for easier registration in `Entry.rs` and aligns with the architectural shift towards fine-grained modularity within the `Binary/Build` layer.",
+			"SHA": "3ab7ccaa338e67a0aeb0e24a528cb57b4112782a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:15:39Z",
+			"Date": "2026-05-03T08:19:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1260,
-				4
+				1486,
+				2
 			],
-			"Message": "feat(Mountain): Implement extension management IPC handlers\n\nAdd four new Wind IPC service handlers to `Source/IPC/WindServiceHandlers/Extensions/` to support extension lifecycle management and querying. The implementation includes:\n\n- `ExtensionsGet`: Fetches a single extension manifest by `<publisher>.<name>` identifier, returning `null` for missing entries to allow safe defaulting.\n- `ExtensionsGetAll`: Returns the full raw scan registry for debugging and tooling, bypassing `ILocalExtension` reshaping.\n- `ExtensionsGetInstalled`: The primary entry point for the UI, reshaping raw manifests into VS Code's `ILocalExtension` structure. This handler includes a 5-second polling mechanism to handle the boot-time race condition where the extension scanner populates data slightly after the workbench requests it, preventing the activity bar from losing extension icons. It also enforces type filtering (System vs. User) and injects safe defaults for missing `publisher`/`name`/`version` fields to prevent renderer crashes on `manifest` access.\n- `ExtensionsIsActive`: A predicate check confirming if an extension ID exists in the current registry.\n\nAll handlers strictly follow the project's PascalCase naming convention and modular 'one export per file' pattern, utilizing the `ApplicationRunTime` environment to interface with the `ExtensionManagementService`. The implementation preserves the distinction between raw scanner data and the workbench-shaped data required by the frontend.",
-			"SHA": "4e5ce2c6d84be68562a02c4f999bd8090958f2a0"
+			"Message": "refactor(Mountain): Format hover command interface and import declarations\n\nAlign the formatting of the `Hover` command module with the project's Rust style standards. Reformat the multi-line `use` statement in `Source/Command/Hover/Fn.rs` to improve readability and consistency with the explicit namespace qualification pattern used throughout Mountain. Update the documentation comment block in `Source/Command/Hover/Interface.rs` to wrap long lines and maintain a uniform column width.\n\nNo functional logic is altered; these changes ensure adherence to the codebase's strict formatting conventions and improve maintainability of the hover interaction DTOs.",
+			"SHA": "e1ba0eceee3e6ff24d8bc8a4350482255b455ad1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:15:34Z",
+			"Date": "2026-05-03T08:19:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1255,
+				1486,
 				1
 			],
-			"Message": "refactor(Mountain): Align FileSystem IPC handler with PascalCase invocation\n\nUpdate `FileStatNative` in the Wind IPC handler layer to strictly follow the project's PascalCase naming convention for method calls. Change invocations of `IsBenignEnoent` and `DebugOnce` from C-style function calls (`Function(...)`) to explicit method syntax (`Function::Fn(...)`). This ensures consistency with the recently modularized `DevLog` crate and the 'one export per file' pattern where utility functions are exposed as static methods on their respective structs.\n\nThe functional behavior for VFS logging gates remains unchanged, preserving the distinction between benign ENOENT errors and critical file access failures.",
-			"SHA": "9002b742c990f181b8e56fc5c93940f52510df93"
+			"Message": "refactor(Mountain): Update encryption module naming convention in comments\n\nAlign the usage note in `Source/IPC/Encryption/mod.rs` with the project's strict PascalCase naming conventions. The comment previously suggested importing `MessageCompressor::MessageCompressor`, which conflicts with the module name. Update the guidance to explicitly reference the struct as `Compressor::Struct` within the `MessageCompressor` module.\n\nThis ensures developers correctly resolve the concrete type using the project's explicit qualification style, preventing symbol shadowing issues and maintaining consistency with recent refactorings across the IPC layer.",
+			"SHA": "ef6c5b57eb906ef6d11c188226287068307780b7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:15:28Z",
+			"Date": "2026-05-03T08:19:06Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1255,
-				3
+				1486,
+				2
 			],
-			"Message": "feat(Mountain): Implement RBAC engine for IPC permission validation\n\nIntroduce a new `ValidatePermission` module within the Mountain backend to enforce role-based access control on IPC operations. This replaces implicit trust with a strict default-deny policy governed by `SecurityContext` envelopes and a configurable `Validator` engine.\n\nThe implementation includes:\n- `SecurityContext::Struct`: Per-request metadata capturing user identity, assigned roles, direct permissions, origin IP, and timestamps.\n- `Validator::Struct`: The core engine managing role/permission registries and operation-to-permission mappings (e.g., `file:write` requires `file.write`).\n- Core validation logic supporting timeout enforcement, role aggregation, and default-deny semantics.\n- Initialization routines for default roles (`user`, `developer`, `admin`) and standard permission sets.\n\nThis refactors the IPC security layer to align with the distributed architecture's requirement for explicit, auditable access control between the UI (Wind/Sky) and native backend (Mountain). All units follow the project's strict PascalCase naming convention and modular 'one export per file' pattern.",
-			"SHA": "bfa9282db74c891c0aebc6d9afc3fbccdb1b2277"
+			"Message": "refactor(Mountain): Update registration imports to use explicit namespace qualification\n\nAlign the import statements in `Source/Binary/Register/AdvancedFeaturesRegister.rs` and `Source/Binary/Register/StatusReporterRegister.rs` with the project's strict Rust formatting conventions. The initialization functions for the IPC subsystems are now explicitly qualified within their respective module namespaces (`IPC::AdvancedFeatures::InitializeAdvancedFeatures` and `IPC::StatusReporter::InitializeStatusReporter`).\n\nThis change ensures consistency with recent modularization efforts where function names are scoped to their logical module containers, improving type clarity and preventing potential symbol collisions in the large Mountain codebase. No functional logic is altered; this is a pure refactoring to maintain codebase hygiene.",
+			"SHA": "6974d822f6977dc0d611a7618896b6d59032c355"
 		}
 	],
-	"TimeStamp": 1779544379699
+	"TimeStamp": 1779882097911
 }

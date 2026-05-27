@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-04-27T02:26:37Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T17:42:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
+				859,
 				1
 			],
-			"Message": "",
-			"SHA": "04334da80f061bf13ae0b41ae45315fc16139e24"
+			"Message": "fix(Mountain): Defer sky://terminal/create event to fix race condition\n\nThe terminal workbench's `LocalTerminalBackend.createProcess` flow has a timing vulnerability: when `sky://terminal/create` emits synchronously during step 1 (RPC in-flight), the Tauri event arrives before step 3 (`_ptys.set(id, pty)`) completes. This causes `_ptys.get(id)` to return `undefined`, skipping `handleReady` and preventing `processManager._onProcessReady` from firing. Since `ptyProcessReady` never resolves, every subsequent `processManager.write(data)` call hangs indefinitely—users see the terminal panel but all keystrokes are silently dropped.\n\nFix by emitting on a deferred tokio task with a 120ms delay, giving the RPC response roundtrip + `_ptys.set` sufficient headroom. Also switch to `LogSkyEmit` for visibility under `[DEV:SKY-EMIT]` histogram tracking.\n\nThis complements the existing `AppendTerminalOutput` replay buffer for data (added in c99ccbe), completing the terminal race-condition fix for both create and data events.",
+			"SHA": "c2d0beca968f600d76ac4d85a436931124cfdf07"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T22:45:26Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				859,
-				39
-			],
-			"Message": "refactor(Mountain): Align DTO serialization to camelCase and fix SCM provider field mapping\n\nThis commit standardizes JSON serialization across all DTO structs from PascalCase to camelCase to match the wire format expected by Wind/Sky. Additionally fixes the SCM provider registration which was silently failing due to field name mismatches.\n\n**DTO Serialization Migration (13 files)**\n- Change `#[serde(rename_all = \"PascalCase\")]` to `#[serde(rename_all = \"camelCase\")]` across CustomDocumentStateDTO, DocumentStateDTO, MarkerDataDTO, MergedConfigurationStateDTO, OutputChannelStateDTO, ProviderRegistrationDTO, RPCModelContentChangeDTO, RPCRangeDTO, WebviewStateDTO, WindowStateDTO, WorkspaceFolderStateDTO\n- Add explicit `#[serde(rename = \"uri\")]` for URL fields and `#[serde(rename = \"eol\")]` for EOL field\n\n**SCM Provider Fixes (2 files)**\n- RegisterScmProvider: Change PascalCase keys (\"ID\", \"Label\", \"RootUri\") to camelCase (\"id\", \"label\", \"rootUri\") to match SourceControlCreateDTO's wire shape\n- RegisterScmResourceGroup: Add missing \"providerHandle\" field and use camelCase keys (\"providerHandle\", \"groupId\", \"label\") matching SourceControlGroupUpdateDTO\n\n**Code Cleanup**\n- Add #[allow(dead_code)] to 15 structs/functions used only in specific build configs\n- Make 7 structs public (WatcherEntry, TestControllerState, TestRunStatus, TestResult, TestRun, ConnectionHealthChecker, EncryptionKey) for testing\n- Change result-discarding calls from `Self::Method(...)` to `let _ = Self::Method(...)` for clarity\n- Remove unused IPC handlers: file:readFile/writeFile/rename/watch/unwatch, workspaces:getWorkspaceIdentifier/enterWorkspace\n- Set MACOSX_DEPLOYMENT_TARGET=10.13 in Cargo config for broader compatibility",
-			"SHA": "11b3c822ee8a556e47c07a9821fdc8f028c8bad4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:29:53Z",
+			"Date": "2026-04-29T17:20:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
+				859,
+				1
+			],
+			"Message": "fix(Mountain): Return integer id from localPty:createProcess\n\nThe VS Code terminal workbench expects `IPtyService.createProcess` to return a `Promise<number>` (the integer terminal id). However, Mountain was returning the full `{id, name, pid}` object. The workbench then keys its internal `_ptys` map by that object, so every `_ptys.get(<integer>)` lookup from `onProcessData`/`onProcessReady` returns `undefined`. This causes xterm to receive zero bytes even though Mountain's PTY reader emits data continuously—resulting in blank terminal panels.\n\nSplit the terminal handler into three distinct paths:\n- `localPty:spawn`: Preserves full response for Cocoon's Sky bridge\n- `localPty:createProcess`: Returns only the integer id per VS Code contract\n- `localPty:start`: No-op for eager-spawn pattern (shell already started during createProcess)\n\nThis fixes the terminal rendering while maintaining backward compatibility with existing spawn callers.",
+			"SHA": "c99ccbe7715342838206eb2c54509fa3a97f513f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T16:59:58Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
 				2
 			],
-			"Message": "feat(Mountain): Implement workspace trust handlers for vscode.git\n\nAdd handlers for `Workspace.RequestResourceTrust` and `Workspace.IsResourceTrusted`\nthat route through Mountain instead of falling back to Cocoon's permissive heuristic.\nThe vscode.git `Model.openRepository` calls these before constructing the Repository,\nand while the Cocoon proxy already returns `true` (allowing git to proceed), this gives\nthe canonical handler a proper home and enables `GenerateRouteManifest.sh` to detect\nthese methods and automatically switch Cocoon from heuristic-default to gRPC-routed\non the next manifest regeneration.\n\nAlso mute `vscode-api-gap` dev logs in short mode. This tag fires from\n`WrapNamespaceWithHeuristics` whenever an extension uses a vscode API method we\nhaven't formally shimmed — useful for API gap audits but noisy in default dev runs.\nEnable via `LAND_DEV_LOG=all` or `LAND_DEV_LOG=vscode-api-gap` when needed.\n\nFuture rounds can replace the trust-by-default `true` with real per-OS trust queries\n(Gatekeeper/SmartScreen/xattrs).",
-			"SHA": "bd4aed14ea15f92d919ac15eef541579baad76fc"
+			"Message": "refactor(Mountain): Simplify binary and product names\n\nRename the Mountain binary, library, and default-run targets from the verbose development profile name to simply \"Mountain\". This follows the project's PascalCase naming convention and removes the debug build artifact naming.\n\nIn tauri.conf.json, simplify the identifier from the lengthy development-specific string to \"land.editor.binary\" and the productName from the long debug name to \"Mountain\". Also remove the duplicate \"Binary/node\" entry from externalBin.\n\nThese changes clean up the build configuration for proper release builds while maintaining the same functionality.",
+			"SHA": "db5f0f7bc58c4108ea4f51ec3ac0d30bb008def3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:05:31Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				874,
-				73
-			],
-			"Message": "feat(Mountain): Fix extension activation and SCM provider integration\n\nKey fixes for extension activation and SCM functionality:\n\n1. **Configuration re-merge after extension scan** (AppLifecycle.rs):\n   - First-pass config merge ran before extensions were scanned, so\n     `contributes.configuration.properties[*].default` values weren't\n     available. `getConfiguration('git').get('enabled')` returned\n     undefined, causing vscode.git to short-circuit in `_activate` and\n     the SCM viewlet to stay empty.\n   - Add second-pass merge after extension scan to collect and apply\n     extension default configurations (113 extensions declare defaults).\n\n2. **Debug session lifecycle events** (DebugProvider.rs):\n   - Add `$onDidStartDebugSession` notification to Cocoon for extension\n     listeners, plus `sky://debug/sessionStart` emit for Sky.\n   - Fix termination payload to include `id` field for proper session\n     tracking, add `sky://debug/sessionEnd` emit.\n\n3. **SCM provider handle alignment** (RegisterScmProvider.rs):\n   - Cocoon uses sequential handles from `ScmNamespace.ts`, but Mountain\n     was computing DJB hash of scmId. Resource group updates arrived with\n     the sequential handle while providers were registered under the hash,\n     starving the SCM viewlet.\n   - Now reads `handle` / `scm_handle` from the wire payload verbatim,\n     falls back to hash only when absent.\n\n4. **SCM group update parsing** (UpdateScmGroup.rs):\n   - Wire format sends `scm_handle` + `group_handle` (\"<handle>/<groupId>\"),\n     not the flat `provider_id`/`group_id` the previous decoder expected.\n   - Split `group_handle` to extract groupId for renderer payload.\n\n5. **Output channel log routing** (OutputChannelAppend.rs):\n   - vscode.git \"Git\" channel logs are critical for diagnosing F6\n     silent-bail (extension activates but never reaches\n     `createSourceControl`). Route to `grpc` level instead of\n     `output-verbose`.\n\nAlso: minor formatting cleanup across 70+ files, documentation improvements.",
-			"SHA": "190e8d070ed1277c1849075703fd20b34301a891"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T10:38:38Z",
+			"Date": "2026-04-29T16:55:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				874,
-				4
+				859,
+				3
 			],
-			"Message": "fix(Mountain): Fix extension config loading and enhance search provider\n\nThe configuration loading code was searching for a VS Code manifest shape (`[{key, value}]` array) that doesn't exist in any real extension. Every `workspace.getConfiguration('foo')` lookup fell through to undefined, causing extensions like vscode.git to activate but never reach `createSourceControl()`.\n\nThe fix walks both the array AND object shapes that `contributes.configuration` accepts, extracts `default` values from each property schema, and inserts them into nested maps using dotted keys (e.g. `git.enabled` → `{\"git\": {\"enabled\": true}}`).\n\nSearchProvider receives major improvements:\n- Add `ColumnRange` tracking so the Sky renderer underlines actual match positions instead of whole lines\n- Fix line numbers: previously returned 0 (treated as \"no line info\"), now returns 1-based\n- Add byte→char map with binary search for O(log n) UTF-8 column lookups (previously O(n) per match, causing quadratic slowdown on match-dense files)\n- Cap preview length at 512 chars to avoid massive row layouts on minified files\n- Add per-line match cap (100) to prevent hangs on pathological regexes like `.` against long lines\n\nAlso switch TreeView error logging to the DebugOnce pattern to avoid flooding dev logs with repeated failures from the same view.",
-			"SHA": "44bf29d434cdf1eac0409fe5e471383dd064a387"
+			"Message": "",
+			"SHA": "f2b5c349377b143b33dab188478a947d77522a46"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T05:16:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				859,
+				1
+			],
+			"Message": "docs(Mountain): Rework CHANGELOG to prose format, add v2.2 section\n\nRestructure the Mountain CHANGELOG from itemized bullet points to narrative prose paragraphs, improving readability while preserving all historical content. Add new v2.2 section documenting bundled-electron correctness pass including: JSON-RPC -32004 for benign 404s, deferred-no-op file watching, canonical-path comparison for Volumes mounts, Identifier field on SCM provider DTO, sky:replay-events handler, 64KB terminal ring buffer, and tree:getChildren timeout reduction.\n\nThe new format emphasizes user-facing impact over file references, making it more useful for release notes and external communication.",
+			"SHA": "9515b2f72adf9866c58023f42f52630759ffa3da"
 		}
 	],
-	"TimeStamp": 1779544410660
+	"TimeStamp": 1779882120964
 }

@@ -3,63 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T06:17:21Z",
+			"Date": "2026-05-26T18:19:19Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1735,
+				1746,
+				5
+			],
+			"Message": "fix(Mountain): Reconstruct full URI from vscode.Uri POJO fields\n\nCocoon may forward a raw URI string, a serialised `vscode.Uri` POJO\n(`{scheme, authority, path, query, fragment}`), or the legacy\n`{external, path}` shape from older rendering paths. The previous code\nonly extracted `external` or bare `path` from objects, which silently\ndropped the scheme on non-file URIs —\n`rust-analyzer-diagnostics-view:/diag/foo` became `/diag/foo` and Sky\nrendered either a 404 or `[object Object]` in the editor tab.\n\nReconstruct the full URI by fallback priority: `external` →\n`scheme+authority+path+query+fragment` → `fsPath` (prefixed with\n`file://` for absolute paths) → bare `path` → empty string. Every\nknown vscode.Uri shape now resolves to a valid wire string the Sky\nworkbench can open.\n\nAlso:\n\n- **TreeView timeouts**: Bump `$provideTreeChildren` from 5 s to 15 s\non both Wind and Cocoon IPC paths. Cold scans on multi-repo workspaces\n(`npm` walking every package.json, `gitlens` enumerating submodules)\ncan exceed 5 s on first expansion, causing the panel to render empty\nuntil manual refresh.\n\n- **PTY binary input**: Route `localPty:processBinary` through\n`TerminalSendText` instead of falling through to the `null` no-op.\nSystem clipboard paste and Cmd+Shift keyboard escape sequences were\nsilently swallowed.\n\n- **Output channel hide**: Forward Cocoon's `outputChannel.hide`\nnotification to Sky as `sky://output/show { visible: false, channel }`\ninstead of logging a no-op. Extensions calling `OutputChannel.hide()`\nnow see the panel dismiss the channel.",
+			"SHA": "e1d82f3455e42b168108fe76935d015713f083e4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T17:57:31Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				2
+			],
+			"Message": "fix(Mountain): Realign SCM DTO import path and enable native window capabilities\n\nFix the `SourceControlManagementResourceDTO` import in `UpdateScmGroup` to use the reorganized `DTO` submodule path under `CommonLibrary::SourceControlManagement`, correcting the module resolution after Common's struct rehoming.\n\nAdd window management capability permissions (`start-dragging`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`, `internal-toggle-maximize`) to `capabilities/default.json`, enabling the Sky UI to drive native window chrome operations — dragging the titlebar, maximizing/minimizing/closing — through Tauri's IPC permission layer.\n\nWithout these capabilities, the editor's custom titlebar was non-interactive and the workbench window could not be controlled programmatically from the frontend.",
+			"SHA": "4a6097c8945fea0e487dc49487de53a47983988f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T17:23:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				6
+			],
+			"Message": "fix(Mountain): Replay SCM resource groups and persist snapshots for late subscribers\n\nCocoon fires `register_scm_resource_group` before SkyBridge's listener is attached (Tauri events are not buffered), so the workbench booted with the SCM provider header visible but zero groups — and even when `update_scm_group` arrived, the resource tree stayed empty because the event was consumed without persisting the snapshot for boot-time replay.\n\n- **UpdateScmGroup**: Persist each incoming `ResourceStates` array into MarkerState as `SourceControlManagementResourceDTO` entries keyed by `(ProviderHandle, GroupId)`, so the replay loop can re-emit the latest snapshot.\n- **ReplayEvents**: Add two new replay legs — group registration (`sky://scm/registerGroup`) and resource update (`sky://scm/updateGroup`) — reconstructing the same `GroupHandle = \"{ProviderHandle}/{GroupId}\"` that the live wire path produces, resolved through the provider identifier map (defaulting to \"git\").\n- **LoggingPlugin**: Cap `tauri::manager` and `tauri::manager::asset` to Warn, `tauri::webview` and `wry` to Info, to suppress the flood of expected 404 fallback probes for sourcemap/module URLs that WebKit auto-fetches with the wrong base under `tauri://localhost`.\n- **LocalPTYGetProfiles**: Rename `Arguments` → `args` (lowercase) to match VS Code's `ITerminalProfile.args` — the uppercase key silently mis-parsed and the profile picker fell back to `$SHELL`.\n- **SCM Effect**: Accept `git.openChange` / `git.openFile` as diff-forwarding aliases alongside `vscode.diff` / `$scm:openDiff`; these are the actual command IDs the built-in vscode.git extension uses on resource state entries.\n- **build.rs**: Normalize array formatting in `PropagatePostHogSentinel`.\n\nThe SCM panel now populates with groups and working-tree state at boot, and terminal profiles render with their configured arguments.",
+			"SHA": "2db7957cc5af3113a94be7ee360e1f2cb34cb769"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T17:22:53Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				7
+			],
+			"Message": "refactor(Mountain): Rename OTLP env vars and tighten default trace categories\n\nRename the baked compile-time environment variables `OTLPEndpoint` to `Pipe` and `OTLPEnabled` to `Emit` across build.rs, PostHogPlugin constants, runtime hydration, Cocoon process environment propagation, and OTLP span emitter docs. The shorter names reduce line noise in the env map and align with the single-word naming convention of sibling keys (`Capture`, `Beam`, `Brand`, `Report`).\n\nNarrow the `Trace` sentinel value in Info.plist from the catch-all `\"all\"` to an explicit comma-delimited list of active trace categories, ensuring debug log output only covers relevant subsystems instead of flooding stderr with every DevLog call.\n\nAlso fix a stale doc comment reference in CaptureAllowed.rs that mentioned `OTLPEnabled` instead of the current `Emit` toggle name.",
+			"SHA": "b1ff14804289a99599bd3c0aab3c552e49564057"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T14:51:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
 				1
 			],
-			"Message": "refactor(Mountain): Simplify URI parsing in ProvideCodeLenses function\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "715bf7695b9046cd4221de046410f2c66a40bb91"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T15:49:06Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1735,
-				10
-			],
-			"Message": "refactor(Mountain): Expand parameter extraction utilities for IPC dispatch\n\nExtend the `Utilities::Params` module with typed helpers (`i64_at`, `u64_at_or`, `obj_str`, `obj_val`, etc.) to handle both positional arrays and JSON object payloads without inline boilerplate. Introduce `obj_*` variants specifically for named-key extraction used by UI service providers.\n\nApply these new utilities across the `CreateEffectForRequest` tree (Debug, LanguageFeatures, SCM, Secrets, StatusBar, Terminal, TreeView, UserInterface, Webview) to replace verbose `get().and_then().unwrap_or()` chains. This unifies parameter parsing logic, reduces code duplication, and ensures consistent default handling for handles, strings, numbers, and boolean flags across all IPC request handlers.",
-			"SHA": "d2d7207e90d0c620bbd6c0bc10c20754f3fbb529"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T15:42:35Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1735,
-				1
-			],
-			"Message": "",
-			"SHA": "8dd5df7519270fcbe000ac00312732a07e40875f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T15:42:35Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1735,
-				3
-			],
-			"Message": "refactor(Mountain): Unify request parameter parsing in WindowUI and Workspace\n\nReplace inline conditional logic for unwrapping JSON arrays and normalizing URI parameters with new utility functions in the `Utilities::Params` module. Introduce `array_unwrap`, `uri_from_params`, and `ensure_array` to handle inconsistent caller formats (`[payload]`, `{uri:…}`, or bare values) across the IPC dispatch layer.\n\nUpdate `WindowUI.rs` and `Workspace.rs` to utilize these centralized helpers for `ShowNotification` and `$updateWorkspaceFolders` handling. This eliminates duplicated `if/else` type checks, reduces boilerplate, and ensures consistent argument normalization for all Tauri event handlers invoking the UI and workspace effects.",
-			"SHA": "ec4b4bead018abce752275cebcadd98fe083e503"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T15:34:41Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1735,
-				1
-			],
-			"Message": "style(Mountain): Remove trailing blank line after macro definition\n\nEliminate a redundant empty line following the `forward_to_cocoon!` macro definition in `WindServiceHandlers/mod.rs` to maintain consistent formatting within the IPC dispatch module.\n\nThis cleanup aligns with the recent refactoring efforts to localize dispatch macros and prepares the file structure for future macro extensions.",
-			"SHA": "5366ce113f474bff45a6639c2a1f01c98af44b0d"
+			"Message": "Merge pull request #60 from CodeEditorLand/dependabot/github_actions/ad-m/github-push-action-1.3.0\n\nchore(deps): Bump ad-m/github-push-action from 1.1.0 to 1.3.0",
+			"SHA": "2add8ef9dc6ce3535b0359c1e99417c0de6a04c6"
 		}
 	],
-<<<<<<< HEAD
-	"TimeStamp": 1779607065810
-=======
-	"TimeStamp": 1779630618372
->>>>>>> 9268479148883021082fdbcc375ef638cdae1c2a
+	"TimeStamp": 1779882023304
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:39:56Z",
+			"Date": "2026-05-02T09:46:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1128,
+				1251,
 				1
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "3779c85288f1cc45dc58687f2cb814f15537028b"
+			"Message": "fix(Mountain): Disable app sandbox and enable hardened runtime exemptions\n\nConfigure Entitlements.plist to disable the macOS App Sandbox, which is incompatible with a code editor's requirement to access arbitrary file system locations selected by the user. With sandbox enabled, the editor cannot open folders outside its container, breaking standard workflows like 'Open Recent' and drag-and-drop.\n\nSimultaneously, enable specific Hardened Runtime exemptions required by the embedded Node.js sidecar (Cocoon) and Tauri dependencies:\n- `allow-jit` and `allow-unsigned-executable-memory`: Essential for V8 JIT compilation in the extension host.\n- `allow-dyld-environment-variables`: Required for extension hosts spawning helper binaries with custom linker paths.\n- `disable-library-validation`: Necessary to load unsigned native addons (e.g., sharp, esbuild) bundled via npm.\n- `apple-events`: Permits extensions to invoke external system commands via AppleScript (e.g., 'Reveal in Finder').\n\nThis ensures the binary can be signed and notarized while maintaining full functionality for the editor and its extension ecosystem.",
+			"SHA": "8d0dd90346bc8ae1bea2143c155fd332e5abb547"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:37:31Z",
+			"Date": "2026-05-02T09:40:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1128,
-				3
+				1251,
+				2
 			],
-			"Message": "refactor(Mountain): Eliminate IPC re-exports and migrate to legacy server\n\nRemove all `pub use` re-exports from `Source/IPC/mod.rs` to enforce explicit `Struct::Struct` import paths, aligning with the project's strict naming convention and recent entry-point refactoring. Callers must now reference the full nested path (e.g., `IPC::Connection::Manager::ConnectionManager`).\n\nSimultaneously, redirect IPC server instance references in `ConfigurationBridge.rs` and `StatusReporter.rs` from `TauriIPCServer` to `TauriIPCServer_Old`. This ensures compatibility with the current legacy server instance while the new implementation stabilizes. Add documentation to `AdvancedFeatures` noting the plan to atomize the 648-LOC single file into a directory.\n\nThis change reduces module resolution ambiguity and maintains IPC continuity during the ongoing architecture migration.",
-			"SHA": "c85b6b3f4fceb80e8171ca8abe9de66da6baf67b"
+			"Message": "refactor(Mountain): Modularize Environment providers into distributed units\n\nAlign the `Source/Environment` subsystem with CodeEditorLand's distributed architecture and PascalCase naming standards. Previously monolithic files (`TestProvider.rs`, `WebviewProvider.rs`) have been restructured into flat modules where each concept resides in its own unit file.\n\nFor `TestProvider`: Extract `TestControllerState::Struct`, `TestRunStatus::Enum`, `TestResult::Struct`, `TestRun::Struct`, and `TestProviderState::Struct` into dedicated files (`TestControllerState`, `TestRunStatus`, etc.). Refactor the `TestController` trait implementation to use these new types (e.g., `TestRunStatus::Enum::Passed`) and simplify the parent file to handle only logic dispatch.\n\nFor `WebviewProvider`: Extract `WebviewLifecycleState::Enum` and `WebviewMessage::Struct` into `WebviewLifecycleState` and `WebviewMessage` modules. Move implementation details for `Lifecycle`, `Configuration`, and `Messaging` into private submodules accessed via `#[path]` directives, exposing only the necessary DTOs and the main `impl` block in the root file.\n\nThis reorganization reduces file size, enforces the \"one export per file\" pattern, and prepares the environment layer for finer-grained IPC integration and type safety.\n\nRefs #Telemetry",
+			"SHA": "4cd523aea02e5f592326b6412600b2645691656c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:37:17Z",
+			"Date": "2026-05-02T09:40:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1128,
-				3
+				1251,
+				2
 			],
-			"Message": "refactor(Mountain): Extract Air DTOs into separate PascalCase modules\n\nRemove inline response and stream types from `AirClient.rs` and `AirServiceProvider.rs`, moving them into dedicated sibling modules (`AirMetrics`, `AirStatus`, `DownloadStream`, etc.) to enforce the project's strict `Struct::Struct` naming convention.\n\nUpdate all return types and struct instantiations to use the fully qualified paths (e.g., `UpdateInfo::Struct`, `FileInfo::Struct`). Additionally, migrate the `generate_request_id` helper function to a new `GenerateRequestID` module to align with the explicit `Fn` call path policy documented in recent refactoring commits.\n\nThis structural change eliminates the legacy stub file `AirServiceTypesStub.rs` by consolidating its contents into specific module files, reducing file density and ensuring consistency across the IPC layer.",
-			"SHA": "85e894f4798397c9295b63c5a037829e310b89e0"
+			"Message": "fix(Mountain): Enhance AppLifecycle resolution and inject shell environment on boot\n\nThe `AppLifecycle` module previously relied solely on Tauri's `resource_dir` for resolving the `Sky/Target` path. This caused raw release binary launches (outside the `.app` bundle) to fail resolving the frontend root, resulting in 404s for extension-contributed icons (e.g., GitLens, Roo) and empty view containers.\n\nRefactor `AppLifecycleSetup` to implement a multi-tier fallback strategy: first check the standard `.app` bundle layout (`Contents/Resources`), then the monorepo relative path (`../../../Sky/Target`), and finally an executable-relative fallback. This ensures the `STATIC_APPLICATION_ROOT` is correctly set regardless of the launch context.\n\nAdditionally, inject the user's interactive shell environment (loading `PATH`, `NVM_DIR`, `HOMEBREW_PREFIX`) in `Entry` before spawning child processes. This resolves issues where GUI-launched applications (Finder/Dock) lack necessary CLI tools (Homebrew, Git, Node/NVM), causing extension host failures. Update command handler registrations to strictly adhere to PascalCase naming conventions (e.g., `Initialize::Fn`, `MountainProvideHover::MountainProvideHover`).\n\nImpact: Fixes icon rendering in production builds, ensures extension host stability in GUI launches, and standardizes binary entry point naming.",
+			"SHA": "72f7a764914ca9ec250a6f3a3da8481723b892cd"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:37:14Z",
+			"Date": "2026-05-02T09:39:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1128,
-				1
+				1251,
+				4
 			],
-			"Message": "refactor(Mountain): Eliminate binary module re-exports for explicit paths\n\nRemove all `pub use` re-exports from `Source/Binary/mod.rs`, including those for `Main`, `Build`, `Register`, `Service`, and `Initialize`. Replace the legacy import shortcuts with a comment directing developers to use the full reverse-hierarchical path (`Binary::Main::Entry::Fn`, `Binary::Build::LocalhostPlugin::Fn`, etc.).\n\nThis aligns the entry point with the project's strict `Struct::Struct` naming convention and the `Nameless Exports` policy documented in `.claude/Naming-Convention.md`. The change enforces explicit call paths, reducing module resolution ambiguity and preventing reliance on convenience exports during the ongoing architecture migration.",
-			"SHA": "83278ec9e89b6661773208e5146d7bd03e109e4b"
+			"Message": "feat(Mountain): Expand extension root discovery and modularize telemetry/hover units\n\nExtend the LocalhostPlugin to resolve built-in extensions from multiple distribution paths (`Contents/Resources/extensions`, `Contents/Resources/app/extensions`) and the development monorepo layout. This ensures icon stylesheets for the 93 bundled extensions render correctly in packaged `.app` builds and prevents empty boxes in the extension view.\n\nApply the established distributed architecture pattern to the PostHog analytics and Hover command subsystems. Refactor `PostHogPlugin` and `Command/Hover` into distinct unit files (e.g., `Initialize::Fn`, `Position::Struct`, `HoverContent::Enum`), enforcing PascalCase naming and separating DTO definitions from logic. This aligns with recent telemetry refactors and prepares the codebase for stricter IPC type safety.\n\nImpact: Fixes extension icon rendering in production builds and standardizes the module structure for observability and LSP features.",
+			"SHA": "0bb57d42016d8ab3ea6bc79312fdbcb8681e2657"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:37:08Z",
+			"Date": "2026-05-02T09:30:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1128,
-				3
+				1251,
+				13
 			],
-			"Message": "refactor(Mountain): Align ApplicationState import paths to nested convention\n\nStandardize imports for `ApplicationState` and `MapLockError` in `Bootstrap.rs`, `SourceControlManagement.rs`, and `TreeView.rs` to use the explicit nested path `State::ApplicationState::ApplicationState`. This change enforces the project's strict `Struct::Struct` naming convention and resolves module resolution ambiguity observed in recent IPC refactoring.\n\nThe updates replace flattened import paths with the fully qualified `ApplicationState::State::ApplicationState` structure, ensuring consistency with the `Track` subsystem and other core modules. No functional logic is altered; this is a pure structural alignment to maintain codebase clarity during the ongoing architecture migration.",
-			"SHA": "030d6dca5b2fa25467d592a128b0d883f7dee2c9"
+			"Message": "refactor(Mountain): Modularize telemetry gate subsystem into distinct units\n\nRestructure the `Source/Telemetry/Gates` module to align with CodeEditorLand's PascalCase naming conventions and the established distributed architecture pattern.\n\nKey modifications include:\n- Extract compile-time predicates (`IsDebugBuild`, `IsDevelopmentBuild`, `IsTelemetryEnabled`, `IsMetricsEnabled`, `IsDistributedTracingEnabled`, `IsFeatureFlagsEnabled`) into dedicated `Fn` unit files using `cfg!` macros.\n- Isolate runtime gate management (`RuntimeGates`, `GetRuntimeGates`, `RuntimeGateEnabled`, `ListEnabledGates`, `ValidateRequiredGates`) into separate units sharing a private `GATES` singleton.\n- Convert `EnableRuntimeGate` into a no-op `Fn` shim with documentation noting the required migration from `OnceLock<HashSet>` to `RwLock` for mutable state.\n- Update `mod.rs` to export the new flat structure, removing the previous monolithic implementation.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the gate system for runtime configuration injection and IPC integration.\n\nRefs #Telemetry",
+			"SHA": "2a691e34b07b06fa7cc73d6c99d68b16635230a0"
 		}
 	],
-	"TimeStamp": 1779544386400
+	"TimeStamp": 1779882104380
 }
