@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T18:19:19Z",
+			"Date": "2026-05-28T15:14:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				5
-			],
-			"Message": "fix(Mountain): Reconstruct full URI from vscode.Uri POJO fields\n\nCocoon may forward a raw URI string, a serialised `vscode.Uri` POJO\n(`{scheme, authority, path, query, fragment}`), or the legacy\n`{external, path}` shape from older rendering paths. The previous code\nonly extracted `external` or bare `path` from objects, which silently\ndropped the scheme on non-file URIs —\n`rust-analyzer-diagnostics-view:/diag/foo` became `/diag/foo` and Sky\nrendered either a 404 or `[object Object]` in the editor tab.\n\nReconstruct the full URI by fallback priority: `external` →\n`scheme+authority+path+query+fragment` → `fsPath` (prefixed with\n`file://` for absolute paths) → bare `path` → empty string. Every\nknown vscode.Uri shape now resolves to a valid wire string the Sky\nworkbench can open.\n\nAlso:\n\n- **TreeView timeouts**: Bump `$provideTreeChildren` from 5 s to 15 s\non both Wind and Cocoon IPC paths. Cold scans on multi-repo workspaces\n(`npm` walking every package.json, `gitlens` enumerating submodules)\ncan exceed 5 s on first expansion, causing the panel to render empty\nuntil manual refresh.\n\n- **PTY binary input**: Route `localPty:processBinary` through\n`TerminalSendText` instead of falling through to the `null` no-op.\nSystem clipboard paste and Cmd+Shift keyboard escape sequences were\nsilently swallowed.\n\n- **Output channel hide**: Forward Cocoon's `outputChannel.hide`\nnotification to Sky as `sky://output/show { visible: false, channel }`\ninstead of logging a no-op. Extensions calling `OutputChannel.hide()`\nnow see the panel dismiss the channel.",
-			"SHA": "e1d82f3455e42b168108fe76935d015713f083e4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T17:57:31Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				2
-			],
-			"Message": "fix(Mountain): Realign SCM DTO import path and enable native window capabilities\n\nFix the `SourceControlManagementResourceDTO` import in `UpdateScmGroup` to use the reorganized `DTO` submodule path under `CommonLibrary::SourceControlManagement`, correcting the module resolution after Common's struct rehoming.\n\nAdd window management capability permissions (`start-dragging`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`, `internal-toggle-maximize`) to `capabilities/default.json`, enabling the Sky UI to drive native window chrome operations — dragging the titlebar, maximizing/minimizing/closing — through Tauri's IPC permission layer.\n\nWithout these capabilities, the editor's custom titlebar was non-interactive and the workbench window could not be controlled programmatically from the frontend.",
-			"SHA": "4a6097c8945fea0e487dc49487de53a47983988f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T17:23:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
+				1733,
 				6
 			],
-			"Message": "fix(Mountain): Replay SCM resource groups and persist snapshots for late subscribers\n\nCocoon fires `register_scm_resource_group` before SkyBridge's listener is attached (Tauri events are not buffered), so the workbench booted with the SCM provider header visible but zero groups — and even when `update_scm_group` arrived, the resource tree stayed empty because the event was consumed without persisting the snapshot for boot-time replay.\n\n- **UpdateScmGroup**: Persist each incoming `ResourceStates` array into MarkerState as `SourceControlManagementResourceDTO` entries keyed by `(ProviderHandle, GroupId)`, so the replay loop can re-emit the latest snapshot.\n- **ReplayEvents**: Add two new replay legs — group registration (`sky://scm/registerGroup`) and resource update (`sky://scm/updateGroup`) — reconstructing the same `GroupHandle = \"{ProviderHandle}/{GroupId}\"` that the live wire path produces, resolved through the provider identifier map (defaulting to \"git\").\n- **LoggingPlugin**: Cap `tauri::manager` and `tauri::manager::asset` to Warn, `tauri::webview` and `wry` to Info, to suppress the flood of expected 404 fallback probes for sourcemap/module URLs that WebKit auto-fetches with the wrong base under `tauri://localhost`.\n- **LocalPTYGetProfiles**: Rename `Arguments` → `args` (lowercase) to match VS Code's `ITerminalProfile.args` — the uppercase key silently mis-parsed and the profile picker fell back to `$SHELL`.\n- **SCM Effect**: Accept `git.openChange` / `git.openFile` as diff-forwarding aliases alongside `vscode.diff` / `$scm:openDiff`; these are the actual command IDs the built-in vscode.git extension uses on resource state entries.\n- **build.rs**: Normalize array formatting in `PropagatePostHogSentinel`.\n\nThe SCM panel now populates with groups and working-tree state at boot, and terminal profiles render with their configured arguments.",
-			"SHA": "2db7957cc5af3113a94be7ee360e1f2cb34cb769"
+			"Message": "refactor(Mountain): Remove dead Git::Shared::Generated wrapper and eliminate unused Library re-exports\n\nDelete the `Generated` module from `Source/IPC/WindServiceHandlers/Git/Shared/` which was a thin wrapper around `uuid::Uuid::new_v4()`. Replace all calls to `Generated()` with direct `uuid::Uuid::new_v4().to_string()` in HandleExec, HandleRevListCount, and HandleRevParse.\n\nRemove unused `Air` and `Cache` module re-exports from `Source/Library.rs` and the `Client` module re-export from `Source/Vine/mod.rs`, continuing the absolute-path migration to eliminate local indirection layers.\n\nThis cleanup removes dead code and aligns the Git service handlers with the project's direct-delegation pattern.",
+			"SHA": "4e294f6bc5e9e09de72c85d3447306313f1bead1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T17:22:53Z",
+			"Date": "2026-05-28T15:03:12Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				7
+				"⠁⠀⠀⠀⠀",
+				1733,
+				24
 			],
-			"Message": "refactor(Mountain): Rename OTLP env vars and tighten default trace categories\n\nRename the baked compile-time environment variables `OTLPEndpoint` to `Pipe` and `OTLPEnabled` to `Emit` across build.rs, PostHogPlugin constants, runtime hydration, Cocoon process environment propagation, and OTLP span emitter docs. The shorter names reduce line noise in the env map and align with the single-word naming convention of sibling keys (`Capture`, `Beam`, `Brand`, `Report`).\n\nNarrow the `Trace` sentinel value in Info.plist from the catch-all `\"all\"` to an explicit comma-delimited list of active trace categories, ensuring debug log output only covers relevant subsystems instead of flooding stderr with every DevLog call.\n\nAlso fix a stale doc comment reference in CaptureAllowed.rs that mentioned `OTLPEnabled` instead of the current `Emit` toggle name.",
-			"SHA": "b1ff14804289a99599bd3c0aab3c552e49564057"
+			"Message": "refactor(Mountain): Normalize Vine import separation in GenericRequest handlers\n\nSplit combined import statements in 24 CocoonService generic request handlers to separate local `crate::` bindings from absolute `::Vine::Generated` path imports. Apply consistent two-line import pattern across Commands, Secrets, and WindowDialogs service handlers, plus InitialHandshake and MountainVinegRPCService.\n\nThis continues the absolute-path migration ensuring all gRPC types delegate exclusively to the canonical Vine library crate without local indirection or malformed combined imports.",
+			"SHA": "32dbaa04b415ba7e1ad51be359f98f9a41c7b912"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T14:51:41Z",
+			"Date": "2026-05-28T15:00:48Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				1733,
+				162
+			],
+			"Message": "refactor(Mountain): Eliminate final local Vine module re-exports and normalize absolute imports\n\nRemove the deprecated `Generated` and `Client` module re-exports from `Source/Vine/mod.rs`, completing the migration to absolute-path delegation for the gRPC protocol layer. Update `Source/Vine/Server/Initialize.rs` and `MountainVinegRPCService.rs` to import `::Vine::Generated` types directly.\n\nRefactor 90+ `Source/RPC/CocoonService` handler files to replace `crate::Vine::Generated::{...}` with `::Vine::Generated::{...}`, applying the same pattern across Auth, Command, FileSystem, Provider, Window, Workspac, and Terminal service handlers. Consolidate `Source/RPC/CocoonService/mod.rs` import order for clarity.\n\nThis finalizes the multi-commit absolute-path migration, ensuring all Mountain IPC and service logic delegates exclusively to the canonical Vine library crate with zero local indirection.",
+			"SHA": "aad9d23407d82fee46e930670324c68ec6c57c64"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T15:00:22Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				1
+				1733,
+				8
 			],
-			"Message": "Merge pull request #60 from CodeEditorLand/dependabot/github_actions/ad-m/github-push-action-1.3.0\n\nchore(deps): Bump ad-m/github-push-action from 1.1.0 to 1.3.0",
-			"SHA": "2add8ef9dc6ce3535b0359c1e99417c0de6a04c6"
+			"Message": "refactor(Mountain): Remove final local re-exports from Air, Cache, and Vine modules\n\nDelete the remaining wrapper modules in Source/Air/mod.rs, Source/Cache/mod.rs, Source/Vine/Client.rs, Source/Vine/mod.rs, and Source/Vine/Server/Notification/Support/mod.rs that re-exported canonical implementations. Update Source/IPC/WindAirCommands/AirClientWrapper.rs and GetOrCreateAirClient.rs to import `::AirLibrary::Client::AirClient::AirClient` directly instead of via `crate::Air::AirClient`.\n\nAdjust Source/Vine/Server/Initialize.rs to use absolute paths for `::Vine::Error::VineError` and `::Vine::Generated` types. Remove the deprecated `Error` and `Multiplexer` module declarations from Source/Vine/mod.rs.\n\nThis completes the absolute-path migration, ensuring all Air, Cache, and Vine usage delegates to the canonical library crates with zero local re-export indirection.",
+			"SHA": "57f1f8373af07c53b739ba56480a7adbfe1b8a95"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T14:40:28Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1733,
+				3
+			],
+			"Message": "refactor(Mountain): Eliminate Air module wrappers and inline address constant\n\nRemove the remaining local re-export surface in Source/Air/ by deleting the dead AirServiceTypesStub module and consolidating AirClient.rs to only the MapAirError translation function and type alias. The DEFAULT_AIR_SERVER_ADDRESS constant is now referenced directly from ::AirLibrary::Client::AirClient in GetAirAddress.rs rather than via the local wrapper.\n\nThis completes the migration to absolute-path delegation for the Air integration layer, ensuring Mountain references the canonical Air library definitions without local indirection. The AirClient module now contains only the error translation boundary logic needed for CommonError propagation.",
+			"SHA": "068d7a507dae086e5725e6ebfd815d18f1a8d020"
 		}
 	],
-	"TimeStamp": 1779882023304
+	"TimeStamp": 1779985024003
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:33:11Z",
+			"Date": "2026-05-25T21:37:54Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1731,
-				11
-			],
-			"Message": "refactor(Mountain): Consolidate Cocoon forwarding logic and remove redundant handler modules\n\nEliminate the `Source/IPC/WindServiceHandlers` directory structure (Git, UI, and shared modules) which previously contained repetitive boilerplate for forwarding IPC commands to the Cocoon extension host. Replace the scattered, copy-paste implementations of payload serialization and gRPC invocation with a centralized `forward_to_cocoon` macro and `cocoon_payload` helper in `mod.rs`.\n\nThis refactoring unifies the handling logic for SCM, Debug, Tasks, and Authentication namespaces within the main IPC dispatcher (`mountain_ipc_invoke`). The new macro handles argument normalization (Null, single value, or array) and manages the `WaitForClientConnection` and `SendRequest` lifecycle consistently, reducing code duplication and improving maintainability. The deletion of individual handler files streamlines the Mountain backend architecture while preserving the functional bridge to the VS Code runtime in Cocoon.",
-			"SHA": "f6139fff82bc66bce7ac77abc19964d6ca44898e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:13:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1741,
-				2
-			],
-			"Message": "fix(Mountain): Correct event naming and simplify language configuration payload\n\nRefactor `SetLanguageConfiguration` to emit the entire parameter object directly instead of reconstructing the payload with a single `language` field. This aligns the RPC handler with the generic notification pattern used by other Sky emit handlers.\n\nIn `WebviewLifecycle`, correct the event suffix mapping for the `postMessage` command. Change the target event string from the kebab-case `post-message` to the PascalCase `postMessage`. This resolves a naming inconsistency and aligns the Tauri event identifiers with the project-wide PascalCase naming convention established in previous refactorings.\n\nThese changes ensure consistent payload structures for language configuration and restore strict adherence to naming standards for webview IPC events.",
-			"SHA": "e5c08bc20068b79fa24a3c1d986c536cf8a9a1dc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:02:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1741,
-				5
-			],
-			"Message": "refactor(Mountain): Standardize event naming and implement blocking notification logic\n\nCorrect the Tauri event suffix for webview messages across `GenericNotification` handlers, changing \"post-message\" to \"postMessage\" to align with the project-wide PascalCase naming convention. Update the fallback notification router in `MountainVinegRPCService` to sanitize event names by replacing dots with slashes, ensuring compatibility with Tauri's strict character set requirements for event identifiers.\n\nRefactor the `Window.ShowMessage` effect in `WindowUI` to support blocking behavior. Replace the fire-and-forget timestamp-based ID generation with a thread-safe atomic sequence counter for request identification. When action items are present, the handler now emits a `show-message-request` event to the `INotificationService`, registers a pending request in the application state, and awaits a one-shot channel response. This enables the UI to render action buttons and return the user's selection to the extension host, replacing the previous non-interactive implementation.\n\nThese changes ensure consistent event naming, prevent illegal event name crashes, and restore full interactivity for notification actions in the extension host IPC layer.",
-			"SHA": "cb905d7a9fcd21ff5161c4316b9757f4e2adeaa2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:39:56Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1741,
+				1746,
 				4
 			],
-			"Message": "feat(Mountain): Implement unregisterExternalUriOpener and unregisterRemoteAuthorityResolver notifications\n\nRegister two new gRPC notification handlers in `MountainVinegRPCService` to support the disposal of external URI opener and remote authority resolver handles defined in the Vine protocol.\n\nCreate dedicated notification modules `UnregisterExternalUriOpener` and `UnregisterRemoteAuthorityResolver` within `Source/Vine/Server/Notification/`. Both modules leverage the existing `UnregisterByHandle` helper to perform the cleanup logic, ensuring consistent registration state management across the extension host IPC layer.\n\nThese changes extend the Mountain backend to fully support the lifecycle management of remote authority and URI opener extensions via the gRPC interface.",
-			"SHA": "9c72840ca6348b0f64076aa13e4b742ec13dcbd5"
+			"Message": "fix(Mountain): Forward previously unhandled IPC notifications\n\nAdd four notification handlers that were missing from the IPC dispatch tables, completing the Cocoon-to-Mountain-to-renderer pipeline:\n\n- **ScanPathConfigure**: Scan `~/.land/extensions` alongside the FIDDEE user directory so pre-migration installs (Roo Code, rust-analyzer, etc.) remain discoverable. The path is only pushed when the directory exists, making the addition harmless on clean installs.\n\n- **Debug.rs**: Forward `debug.dap-response` from Cocoon (inline-implementation adapters) to the workbench via `sky://debug/dap-message`, enabling the RawDebugSession sequencer to correlate DAP responses by `request_seq`.\n\n- **StatusBar.rs**: Handle `setStatusBarText` mutations from extension StatusBarItem `text()` setters. Without this arm, status bar text freezes after the initial create, never reflecting runtime updates.\n\n- **Task.rs**: Relay `terminate_task`/`Task.Terminate` to the extension host task service, allowing `vscode.tasks.executeTask(...).terminate()` to stop running tasks. Falls back gracefully with a dev_log warning when no task provider is available.",
+			"SHA": "23b235d68ce4fa03776183d9f8a9ac8bcb98b9f2"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:35:58Z",
+			"Date": "2026-05-25T20:45:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1739,
-				2
+				1746,
+				7
 			],
-			"Message": "feat(Mountain): Add webview.setOptions support and align postMessage event naming\n\nRegister the new `webview.setOptions` handler within the `MountainVinegRPCService` routing logic to enable configuration updates for Tauri webviews. This expands the IPC surface to match the updated Vine protocol requirements.\n\nIn the `CreateEffectForRequest` tracker, correct the event suffix mapping for the `postMessage` command. Restore the PascalCase naming convention by changing the target event string from \"post-message\" to \"postMessage\". This ensures consistency with the project-wide PascalCase naming standard for all UI-to-Rust event identifiers.\n\nThese changes complete the `setOptions` integration and resolve an event naming inconsistency in the webview effect registry.",
-			"SHA": "948a6514d4e201dc15936998f5375a0064360d9b"
+			"Message": "build(Mountain): Restore simple crate and bundle identifiers\n\nRestore \"Mountain\" as the crate binary, library, and package name, and the\nTauri productName and bundle identifier, replacing the verbose development\nbuild descriptors from the prior commit. The Backup files are removed.\n\nGate the Cocoon sidecar launch on both the ExtensionHostCocoon feature flag\nand the absence of the no_node_host cfg flag, so the extension host tier\nrouting (Node vs WebWorker) is respected at boot time.\n\nInclude the task type in the task provider Options payload, fixing the\nregistration schema for Cocoon's task system.\n\nDerive Clone on ExtensionCollection to support shared access patterns in\nthe terminal environment variable mutation pipeline.\n\nAdd the zsh shell integration script to the Tauri resource bundle and\ntidy resource ordering.",
+			"SHA": "279ff30481d2276785d0a819d7314527ec775fb6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T19:31:18Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1748,
+				4
+			],
+			"Message": "build(Mountain): Differentiate development build identifiers from release\n\nRename the crate binary, library, package, Tauri productName, and bundle identifier to a verbose development build descriptor encoding the full toolchain configuration (Node 22, VS Code dependency, debug profile, esbuild compiler). This prevents the development build's binary name and macOS bundle ID from colliding with the release build, enabling side-by-side installation and testing.\n\nExpand the Tauri resource bundle to include all Sky deployment variant directories (Browser, BrowserProxy, Bundled, Electron, Favicon, Isolation, Manifest.json, Mountain) that were previously omitted, ensuring the development build can serve every editor UI target.",
+			"SHA": "960cc2f2c87bbd38613db3e6da10c856b2ae0dd3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T19:10:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				19
+			],
+			"Message": "feat(Mountain): Implement EnvironmentVariableCollection and tier defaults\n\nAdd TerminalEnvCollection — a global registry for per-extension environment variable mutations matching VS Code's `EnvironmentVariableCollection` API (Replace/Append/Prepend/Delete/Clear/SetPersistent/SetDescription). Seven `terminal.envCollection.*` Vine notification handlers in MountainVinegRPCService dispatch Cocoon's requests to the registry via TerminalEnvCollectionDispatch. At every PTY spawn, TerminalProvider collects the inherited process env, applies all registered mutators via ApplyToEnv, and layers shell-integration vars on top, ensuring extensions like language servers see the environment they requested.\n\nAdd `tree.refresh` and `outputChannel.replace` Vine notification relays: the former forwards TreeDataProvider.onDidChangeTreeData events to Sky as `sky://tree-view/refresh`; the latter provides atomic output channel buffer replacement that avoids the visual flash of separate clear+append.\n\nExpand the tier routing infrastructure by adding compile-time defaults and Info.plist entries for 14 additional subsystems (Auth, Debug, Encryption, ExtensionHost, LanguageFeatures, Model, NativeHost, OutputChannel, SCM, Search, Storage, Tasks, Terminal, TreeView, WebSocket) and extending LandFixTier::LogResolvedTiers to emit all 16 tier values at boot for full routing observability.\n\nTidy formatting across AppLifecycle, Entry, RunGit, Reload, mod.rs, CocoonManagement, Dispatcher, build.rs, and bash.sh with no semantic changes.",
+			"SHA": "abba8a235310b01bca76aa32de8fe2de37a9a9af"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T13:49:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1742,
+				8
+			],
+			"Message": "feat(Mountain): Add per-subsystem tier routing and reload-safe panels\n\nIntroduce the tier routing framework that allows each IPC subsystem to be dispatched to either Mountain-native or Cocoon Node.js at compile time (via build.rs EmitTierDefaults) or at runtime (via env var overrides). Routing constants for Terminal, SCM, Debug, LanguageFeatures, Search, OutputChannel, NativeHost, TreeView, Storage, Model, Tasks, Auth, Encryption, ExtensionHost, and WebSocket are baked at build time; the `tier_routes_to_node` helper in mod.rs evaluates the tier and forwards matching commands to Cocoon's gRPC surface. Storage and SCM commands gain tier-gated arms first.\n\nImplement webview panel state persistence across `nativeHost:reload`: before the renderer reload, ask Cocoon to serialize all registered webview panels via `ExtHostWebviewPanels$serializeAllWebviewPanels` and store the snapshot in global storage under `__webview_panel_state__`. After Cocoon restarts and extensions re-activate, deserialize each panel entry via `ExtHostWebviewPanels$deserializeWebviewPanel` and clear the cache to prevent double-restore on subsequent reloads.\n\nAdd optional Mist WebSocket transport in Entry.rs: when `TierWebSocket=Mist`, a localhost JSON-RPC WebSocket binds on port 5051 for high-frequency IPC (storage updates, decorations, model changes) that bypasses the Tauri-invoke + gRPC double hop. The secret and port are exposed via environment variables for Cocoon/Sky workbench configuration consumption.\n\nApply a 30-second wall-clock timeout to git subprocess execution (RunGit.rs) so a hung git process — stalled on a credential prompt, index lock, or unresponsive network mount — releases the Mountain effect slot via the registry-aware PID killer rather than blocking indefinitely.\n\nAdd crash-safe memento hydration at boot (AppLifecycle.rs): the `MementoLoader` reads global.json, quarantines corrupted files to `.corrupted.<ts>` siblings, and populates the in-memory map from an empty baseline so a partial write from a prior crash doesn't panic the boot path.\n\nFix a minor formatting issue in bash shell integration (`2> /dev/null` to `2>/dev/null`).",
+			"SHA": "db5e7784a51c6f267aa6a9c90624ad8346577df2"
 		}
 	],
-	"TimeStamp": 1779882037153
+	"TimeStamp": 1779985028694
 }

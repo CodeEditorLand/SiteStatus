@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T00:52:04Z",
+			"Date": "2026-05-19T02:20:46Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				1510,
+				3
 			],
-			"Message": "refactor(Mountain): Remove static runtime environment configuration from Info.plist\n\nStrip the `LSEnvironment` dictionary and associated `Disable` and `Trace` flags from `Info.plist`. These static configurations, which defined critical gRPC ports (`NetworkMountainPort`, `NetworkCocoonPort`) and execution tiers (e.g., `TierRemoteProcedureCall`, `TierExtensionActivation`), were re-introduced in the previous commit but are being removed to transition the runtime environment setup away from static plist injection.\n\nRetain the `CFBundleIconFile` entry to ensure the application icon is correctly resolved by macOS. This change prepares the native backend to source its runtime configuration exclusively from the `Mountain` environment variable system or dynamic initialization logic, reducing coupling with the application bundle's metadata and aligning with the flexible configuration strategy required for multi-platform deployment.",
-			"SHA": "d29b58488ebff9a89e854038127b6ca2c6dadcb6"
+			"Message": "",
+			"SHA": "af45c696979f36bc068823417654b96805b2d491"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T00:14:59Z",
+			"Date": "2026-05-19T02:20:44Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				15
+				1510,
+				7
 			],
-			"Message": "feat(Mountain): Restore experimental feature flags and runtime environment config\n\nReintroduce the `grove` and `cocoon` feature flags in `Cargo.toml` to enable conditional compilation for the future native extension host (Grove) and the current extension host sidecar (Cocoon). These flags are required by the build system's tier-gating logic.\n\nRestore the `LSEnvironment` dictionary in `Info.plist` containing critical runtime configuration values, including network ports for Mountain and Cocoon, product identifiers, and tier definitions (e.g., `TierRemoteProcedureCall`, `TierExtensionActivation`). This reverses the removal performed in previous commits, re-establishing the static environment injection required for the macOS application to bootstrap its sidecar connections.\n\nConcurrently, enhance documentation in the `Track/Effect/CreateEffectForRequest` module. Add comprehensive module-level comments and method tables to all RPC handler files (Documents, FileSystem, Git, LanguageFeatures, Languages, Search, StatusBar, TreeView, UserInterface, Webview, Workspace). These comments detail the specific RPC methods handled, the underlying `MountainEnvironment` trait providers used, and the execution model for each request type.",
-			"SHA": "511f9b624577e1447543ef14f5d12723316a452c"
+			"Message": "feat(Mountain): Implement native file descriptor API and refine Tauri window handlers\n\nComplete the implementation of the `nativeHost` IPC surface by adding `file:open` and `file:close` handlers. These functions establish a process-global file descriptor table (backed by `HashMap<u32, File>` and `AtomicU32`) to support VS Code's `DiskFileSystemProvider` for large binary I/O, replacing previous full-read/write fallbacks.\n\nRefine window management handlers: implement `setDocumentEdited` for the macOS dirty-dot indicator, `setMinimumSize` to prevent workbench collapse, and `positionWindow` for multi-window restoration. Update `setRepresentedFilename` to display the filename component in the title bar. Re-evaluate `is_alive` connection logic to remove artificial sleep delays.\n\nOptimize `tree-view/create` event emission in `EnqueueTreeViewEmit` by migrating from per-call `tokio::spawn` to a persistent mpsc channel with a 16ms frame-aligned batcher. This eliminates task overhead during boot. Additionally, reduce the terminal startup delay from 120ms to 20ms, matching M-series hardware capabilities, and improve `LifecyclePhaseState` formatting.",
+			"SHA": "8cde99c082f32ec6c8726e947e7a696d2c3ccf7e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T23:00:41Z",
+			"Date": "2026-05-19T02:12:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1508,
 				1
 			],
-			"Message": "build(Mountain): Enable experimental feature flags for terminals and debug protocol\n\nUpdate the default feature set in `Cargo.toml` to conditionally enable `terminals`, `debug-protocol`, `scm-support`, `child-processes`, and `Development` alongside existing `Cocoon`, `Mist`, and `Air` integrations. This consolidates the build configuration to activate support for terminal emulation, debugging capabilities, source control management, and child process handling by default.\n\nRemove the now-unused `grove` and `cocoon` feature placeholders from the list, aligning the feature registry with the current implementation status. This prepares the native backend for upcoming component integration while maintaining the explicit `Telemetry` and `Test` flags for optional toggling.",
-			"SHA": "a2869e478f35c9bc90a23edc28e7a95f066f88a9"
+			"Message": "",
+			"SHA": "6d6a91d70b16bd92b1e029b42f68b7a60810df75"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:38:10Z",
+			"Date": "2026-05-19T02:12:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				1508,
+				8
 			],
-			"Message": "feat(Mountain): Enable content protection for macOS overlay title bar\n\nAdd the `content_protected(true)` setting to the macOS `WindowBuilder` configuration in `WindowBuild.rs`. While the `TitleBarStyle::Overlay` is required for custom traffic light rendering, it allows webview content to extend underneath the system window controls by default.\n\nThis protection flag reserves a safe zone around the traffic-light cluster on macOS, preventing the `WKWebView` from rendering underneath the native buttons. This resolves potential click-through issues and visual overlap between the editor workbench and the system titlebar, ensuring the custom traffic lights remain interactive and visually distinct.",
-			"SHA": "2d569c4b2d69bcbff098a7bcaf449f7098f3db8b"
+			"Message": "feat(Mountain): Implement native AES-256-GCM encryption and async lifecycle synchronization\n\nIntroduce a complete encryption subsystem for the Wind service handlers to support VS Code's `IEncryptionService`. Implement `encryption:encrypt` and `encryption:decrypt` using AES-256-GCM via the `ring` crate. The 256-bit key is derived from the host machine's hardware UUID (macOS `IOPlatformUUID`, Linux `/etc/machine-id`, Windows `MachineGuid`), ensuring stored secrets survive process restarts but remain unreadable on other machines, matching native editor semantics.\n\nRefactor the application lifecycle state to eliminate 100ms polling loops. Replace `LifecycleWhenPhase` busy-wait logic with `tokio::sync::Notify` primitives in `LifecyclePhaseState`. Handlers now await specific phase transitions immediately, reducing boot latency and CPU usage during startup.\n\nUpdate `DecorationTypeLifecycle` notification handling to use a single batched emit operation per channel, reducing IPC overhead during high-frequency UI updates.",
+			"SHA": "eafc4a40a6dc02017466152643d736c8eccced92"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:23:17Z",
+			"Date": "2026-05-19T02:07:52Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1503,
 				1
 			],
-			"Message": "fix(Mountain): Wrap webview scheme handler closure in AssertUnwindSafe\n\nUpdate the `catch_unwind` invocation in `VscodeWebviewSchemeHandler` within `Scheme.rs` to explicitly wrap the closure in `AssertUnwindSafe`. The previous implementation omitted this trait requirement, causing compilation failures when attempting to catch panics inside the async closure passed to the panic handler.\n\nThis restores the ability to gracefully handle panics within the VS Code webview asset loading path, ensuring that errors in MIME resolution or file reading return HTTP 500 responses rather than crashing the editor process. The change aligns `VscodeWebviewSchemeHandler` with the established panic recovery pattern used in `VscodeFileSchemeHandler`.",
-			"SHA": "01422c257e48f4a9f8a8fb32093daf2a7d283073"
+			"Message": "",
+			"SHA": "b0efb2cbc7f5e481b38f8b4190c511a99c41388e"
 		}
 	],
-	"TimeStamp": 1779882060033
+	"TimeStamp": 1779985039175
 }

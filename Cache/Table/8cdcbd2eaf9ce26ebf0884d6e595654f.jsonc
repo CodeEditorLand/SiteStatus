@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:35:57Z",
+			"Date": "2026-05-23T10:44:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1589,
-				8
+				1731,
+				3
 			],
-			"Message": "refactor(Mountain): Normalize IPC handler exports to Fn convention\n\nRename the three Cocoon IPC handler entry points from descriptive names (CocoonExtensionHostMessage, CocoonNotify, CocoonRequest) to the uniform `Fn` ident, and add the matching `as` aliases in the mod.rs re-exports so downstream callers are unaffected.\n\nAdd four new ExtensionHost IPC handlers also exporting as `Fn`:\n\n- **DebugServiceClose:** Emits `sky://exthost/debug-close` via Tauri's Emitter trait so Sky can react to debug-session teardown.\n- **DebugServiceReload:** Emits `SkyEvent::ExtHostDebugReload` as a typed event, giving Wind a signal to purge caches before Cocoon restarts.\n- **StarterCreate:** Returns a stub extension-host ID (`\"1\"`) to satisfy VS Code's extensionHostStarter:createExtensionHost protocol.\n- **StarterStart:** Returns the real Cocoon PID (via GetCocoonPid) or Mountain's own PID as fallback, enabling external debuggers to attach to the correct Node.js process.\n\nAll handler modules now follow a single convention: each file exposes `pub async fn Fn(...)` and is aliased at the mod.rs boundary. This eliminates naming guesswork when adding new IPC routes and keeps the interface consistent across all WindServiceHandlers.",
-			"SHA": "67e95cb626157a0f6e1a5b4f9d23dc35bebbf124"
+			"Message": "refactor(Mountain): Adopt standardized argument helpers in FileSystem and Git handlers\n\nApply the newly introduced `JsonValueHelpers` utilities to the `FileSystem` (Managed and Native) and `Git` IPC handler modules. Replace verbose `Arguments.get(...).and_then(...).unwrap_or(...)` patterns with the type-safe `arg_string`, `arg_u64`, and `arg_bool_true` helper functions.\n\nSpecific updates include:\n- `FileMkdir.rs`: Standardize retrieval of the `recursive` flag.\n- `FileCloseFd.rs`: Standardize extraction of the file descriptor index.\n- `HandleExec.rs`: Standardize retrieval of the working directory path.\n\nAlign these handlers with the project-wide refactoring to reduce boilerplate, ensure consistent default value handling, and improve type safety across the Mountain backend's IPC surface.",
+			"SHA": "1896d3a7e0862b27b66d686e1e2e12c64a8b8b70"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:30:13Z",
+			"Date": "2026-05-23T10:42:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1585,
-				4
+				1731,
+				1
 			],
-			"Message": "perf(Mountain): Cache getInstalled extension responses per type filter\n\nBuilding the serialized ILocalExtension[] array on every `extensions:getInstalled` IPC call re-serialized ~1.8 MB of extension metadata, visible as a multi-hundred-millisecond stall in the UI on startup. Add a `OnceLock`-backed static cache keyed by the three TypeFilter variants (None, System, User). The first call per type populates the cache; subsequent calls return the cached `Value` clone in <1 ms. Empty responses are not cached so a first-call timeout does not permanently poison the slot.\n\nAlso fix two reliability concerns in the same area:\n- **FileCloneNative:** Create the target parent directory via `tokio::fs::create_dir_all` before `fs::copy`. VS Code's local-history feature creates per-file history directories that may not exist yet, producing an OS-level ENOENT on clone.\n- **CocoonManagement IO forwarders:** Switch from `tokio::spawn` to `tauri::async_runtime::spawn` so the forwarder tasks live on Tauri's runtime handle and continue to be polled while the spawning async task is waiting elsewhere. Restructure the read loops from `while let Ok(Some(…))` to an explicit `loop` + `match` that handles EOF and read errors instead of silently dropping the pipe. Log a warning when a pipe handle is `None` (indicating `Stdio::piped()` was not configured), aiding debug of silent IO loss.\n\n**tauri.conf.json:** Add `Proto/Vine.proto` to the resource bundle so the .proto file is available at runtime from `Contents/Resources/` alongside the other bundled assets.",
-			"SHA": "a83e88eefa539b9b5bc7582822125fb8f7114d58"
+			"Message": "",
+			"SHA": "f1adcf0b1b391589d014547ebaabfb05c5161808"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:38:30Z",
+			"Date": "2026-05-23T10:42:29Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1585,
-				9
+				"⠁⠀⠀⠀⠀",
+				1731,
+				53
 			],
-			"Message": "refactor(Mountain): Clean up dead vars and normalize scan paths lexically\n\nReplace the filesystem-backed `Canonicalize` closure in ScanPathConfigure\nwith `Normalize`, which resolves `..` segments lexically for non-existent\npaths - keeping extension scan-path log output clean regardless of path\nviability - while still calling `std::fs::canonicalize` for existing paths\nto resolve symlinks.\n\nDrop the stale `HandleSlot` accumulator in OutputChannelCoalesce (it was\nset but never meaningfully used after the previous refactor) and the\nunused `std::path::PathBuf` import in TryShipped.\n\nAdd stub IPC handlers for `browserView:*` (updateKeybindings, updateTheme,\nupdateConfiguration, openDevTools, closeDevTools -> Null;\ngetBrowserViews -> []), which Wind sends for Electron BrowserView\nmanagement but are no-ops under Tauri's single-webview architecture.\nRoute `extensionHostStarter:waitForExit` to a new async handler that\nresolves immediately with a stub exit-info so callers don't hang.\n\nFormatting-only: line-break Cocoon environment allow list one-per-entry,\ncollapse LocalhostUrl accessors, reflow WebviewWindowBuilder chain.",
-			"SHA": "167dfea1480a374254428bcbbafa11c6113041c5"
+			"Message": "refactor(Mountain): Standardize Wind service argument extraction\n\nIntroduce a centralized utility module `JsonValueHelpers` within `WindServiceHandlers` to provide type-safe, default-aware argument extraction helpers (`arg_string`, `arg_u64`, `arg_bool`, etc.). Replace ad-hoc `Arguments.get(n).and_then(...).unwrap_or(...)` patterns scattered across 40+ IPC handler modules with calls to these standardized helpers.\n\nThis change affects the entire `WindServiceHandlers` tree, including Cocoon, Git, Terminal, UI, and NativeHost namespaces. The `mod.rs` file is updated to export the new helper functions, and the main IPC dispatcher `mountain_ipc_invoke` is refactored to utilize them for command routing. This reduces boilerplate, ensures consistent default value handling, and improves type safety across the Mountain backend's IPC surface.",
+			"SHA": "c6d28d00faef4a321909bfa8755f46f72ccce346"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:36:57Z",
+			"Date": "2026-05-23T10:33:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1585,
-				7
+				1731,
+				11
 			],
-			"Message": "fix(Mountain): Serve webview panels via localhost plugin URL\n\nSecondary webview panels (settings, webview extensions, etc.) used `WebviewUrl::App(\"WebviewHost.html\")` which routes through tauri::manager — but Mountain's tauri.conf.json has no `frontendDist`, so Tauri has no bundled assets to serve, leaving those webviews blank.\n\nFix by loading them from the localhost plugin instead (`http://localhost:PORT/Mountain/WebviewHost`). A new `LocalhostUrl` singleton (OnceLock in `IPC/WindServiceHandlers/Utilities/LocalhostUrl.rs`) is populated once during `AppLifecycleSetup` and consumed in `create_webview_panel_impl` to build the external URL. Falls back to port 15536 if the singleton is unset.\n\nAlso extracts the inline Cocoon subprocess environment-building and I/O forwarding into named functions (`BuildCocoonEnvironment`, `SpawnCocoonIoForwarders`) in CocoonManagement.rs — pure refactor with no behavioral change, reducing method complexity from ~200 inline lines to two clear helpers.",
-			"SHA": "88be9db9ea1de55af0b96158021b2b77c7f86f6c"
+			"Message": "refactor(Mountain): Consolidate Cocoon forwarding logic and remove redundant handler modules\n\nEliminate the `Source/IPC/WindServiceHandlers` directory structure (Git, UI, and shared modules) which previously contained repetitive boilerplate for forwarding IPC commands to the Cocoon extension host. Replace the scattered, copy-paste implementations of payload serialization and gRPC invocation with a centralized `forward_to_cocoon` macro and `cocoon_payload` helper in `mod.rs`.\n\nThis refactoring unifies the handling logic for SCM, Debug, Tasks, and Authentication namespaces within the main IPC dispatcher (`mountain_ipc_invoke`). The new macro handles argument normalization (Null, single value, or array) and manages the `WaitForClientConnection` and `SendRequest` lifecycle consistently, reducing code duplication and improving maintainability. The deletion of individual handler files streamlines the Mountain backend architecture while preserving the functional bridge to the VS Code runtime in Cocoon.",
+			"SHA": "f6139fff82bc66bce7ac77abc19964d6ca44898e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T07:49:35Z",
+			"Date": "2026-05-23T10:13:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1582,
-				8
+				1741,
+				2
 			],
-			"Message": "feat(Mountain): Enable .app bundle resource resolution for cache, Cocoon, and Node\n\nThe Mountain binary now resolves pre-baked resources from both the repo/dev\nlayout (binary-sibling files) and the .app bundle layout (Contents/Resources/)\nwhen running as a packaged application. Four systems are updated:\n\n**Extension manifest cache (LoadFromCache.rs):** Probes two locations in\norder — `BinaryDir/extensions.manifest.json` (dev) and\n`BinaryDir/../Resources/extensions.manifest.json` (bundle). Bundled caches\nskip the staleness check (10-minute threshold) since they are built\nalongside the .app and always consistent with its packed extensions. The\nper-manifest field extraction is also refactored with local `str()` and\n`arr()` helper closures to eliminate repeated\n`Manifest.get(k).and_then(Value::as_str)` chains.\n\n**CocoonManagement pre-flight check:** Cocoon's bundle probe now attempts\nTauri's resource resolver first (`Tauri::path::resolve` with\n`BaseDirectory::Resource`), falling back to the repo-layout relative-walk\nfrom `scripts/cocoon/` when the bundle path does not exist.\n\n**NodeResolver TryShipped:** Adds a sidecar resolution path matching\n`externalBin: [\"Binary/node\"]` in tauri.conf.json — the `node` binary sits\nalongside the Mountain executable, not in a `Node/bin/` subdirectory, in\nthe Tauri sidecar layout.\n\n**ScanPathConfigure and PathSecurity:** Extension scan paths now call\n`.canonicalize()` on resolved paths for cleaner log output (showing\n`Contents/Resources/...` instead of `Contents/MacOS/../Resources/...`).\n`IsTrustedSystemPath` adds `../Resources/Static/Application/extensions` to\nthe bundle-root allowlist so the new canonical static extension directory\nbypasses the workspace-folder gate.\n\n**Bootstrap fork (bootstrap-fork.js):** Cocoon entry path resolution\nhandles both bundle (2-level `../../`) and repo (3-level `../../../`)\nlayouts by iterating both URL bases for each candidate entry path.\n\n**tauri.conf.json:** Maps `bootstrap-fork.js`, `extensions.manifest.json`,\nand `Cocoon/Target/Bootstrap/Implementation/Cocoon` into\n`Contents/Resources/` so all three are reachable at runtime via the bundle\nresource resolver.",
-			"SHA": "0fe6cbfa5522594264233b21f4807ab5f184dab4"
+			"Message": "fix(Mountain): Correct event naming and simplify language configuration payload\n\nRefactor `SetLanguageConfiguration` to emit the entire parameter object directly instead of reconstructing the payload with a single `language` field. This aligns the RPC handler with the generic notification pattern used by other Sky emit handlers.\n\nIn `WebviewLifecycle`, correct the event suffix mapping for the `postMessage` command. Change the target event string from the kebab-case `post-message` to the PascalCase `postMessage`. This resolves a naming inconsistency and aligns the Tauri event identifiers with the project-wide PascalCase naming convention established in previous refactorings.\n\nThese changes ensure consistent payload structures for language configuration and restore strict adherence to naming standards for webview IPC events.",
+			"SHA": "e5c08bc20068b79fa24a3c1d986c536cf8a9a1dc"
 		}
 	],
-	"TimeStamp": 1779882039315
+	"TimeStamp": 1779985030283
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T00:15:58Z",
+			"Date": "2026-05-02T04:36:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
-				1
-			],
-			"Message": "perf(Mountain): Gate sync/performance emits behind env vars and add subscriber fast-path\n\nTwo optimizations to reduce IPC channel contention:\n\n1. **Env var gating**: The `mountain_sync_status_update` and `mountain_performance_update` events were emitting on every tick even though Sky has no subscriber. Every emit now waits behind keystrokes on the shared Tauri IPC pipe. Gate both behind `LAND_SYNC_STATUS_EMIT=1` and `LAND_PERF_EMIT=1` respectively for debugging or future Sky consumers.\n\n2. **Subscriber fast-path**: The 100ms real-time updates tick was acquiring the lock and draining pending updates even with zero subscribers. Add an early check to skip the entire lock-and-drain path when `Subscribers.is_empty()`, making the tick a true no-op until a subscriber registers.\n\nTogether these keep the shared IPC channel free for keystrokes during extension boot when the renderer is most busy.",
-			"SHA": "75d2f1dbe4d77d92e1f679c84aa4885ce355a12d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:34:46Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
+				940,
 				2
 			],
-			"Message": "feat(Mountain): Add Disable env var and fix first-click focus issue\n\nTwo unrelated but complementary fixes:\n\n1. **accept_first_mouse(true)**: Fix the \"I clicked, I'm typing, nothing's happening\" bug where WKWebView swallows the first click on an unfocused window as a \"make me key\" no-op. The user had to click twice - first to focus the NSWindow, second to focus the Monaco textarea. This change flips the responder chain so the first click already reaches WKWebView's content.\n\n2. **Disable environment variable**: Add master \"disable Land customisations\" gate via `Disable=true` env var. When enabled, Mountain skips: WindowEvent::CloseRequested intercept (Cmd+W routes natively), Cocoon/Air sidecar spawn, and Wind/SkyBridge registration. This is useful for bisecting whether typing-input regressions originate in the extension host or upstream/Tauri/WKWebView. Also rename DevTools auto-open from LAND_OPEN_DEVTOOLS to `Inspect=1` to follow Land's PascalCase env var convention.",
-			"SHA": "14b86efb22e841a2d2fa91ea12ba33c37b6cec33"
+			"Message": "refactor(Mountain): Enforce PascalCase paths in SideCarRequest module\n\nUpdate the `Track::SideCarRequest` module to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `DispatchSideCarRequest.rs`, correct the `CreateEffectForRequest` import to use the full PascalCase path with explicit function aliasing (`...::Fn as CreateEffectForRequest`), replacing the previous shorthand segment. In `mod.rs`, remove legacy `pub use` re-exports and the `pub mod` exposure pattern that allowed flat imports. Replace them with an explicit `#![allow(non_snake_case)]` directive and documentation comments.\n\nThis enforces that callers must spell out the full double-segment paths (e.g., `Track::SideCarRequest::DispatchSideCarRequest::DispatchSideCarRequest`). This structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names, ensuring consistency across the Mountain crate and resolving potential symbol resolution issues in the IPC layer.",
+			"SHA": "c4ab28097b9afc457565397f135757d98325a6aa"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T20:27:26Z",
+			"Date": "2026-05-02T04:35:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
+				940,
 				2
 			],
-			"Message": "fix(Mountain): Add vscode-webview URI scheme handler for extension webviews\n\nImplement the missing vscode-webview:// URI scheme handler to enable VS Code extension webviews (Roo Code, Claude, GitLens, custom editors) to render in the Tauri WKWebView environment.\n\nVS Code's WebviewElement wraps every extension webview in an iframe with src=vscode-webview://<authority>/index.html?... Without this handler, the iframe stays blank and any extension using webviewView/WebviewPanel/CustomEditor is non-functional.\n\nThe handler serves the three-file pre/ directory (index.html, service-worker.js, fake.html) from the embedded asset resolver or filesystem fallback. Extension HTML itself arrives via the workbench's swMessage postMessage channel after index.html boots.\n\nThis completes the extension webview infrastructure alongside the extension_root allowlist added in commit 320e57a, enabling sideloaded extensions to render their UI properly.",
-			"SHA": "54650acd31bb34c764095c9160eedb19e9a18916"
+			"Message": "refactor(Mountain): Enforce PascalCase paths in Track UIRequest module\n\nUpdate the `Track::UIRequest` module tree to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `Source/Track/UIRequest/ResolveUIRequest.rs`, correct the `ApplicationState` import to use the full PascalCase path `ApplicationState::State::ApplicationState::ApplicationState`, replacing the previous shorthand segment.\n\nIn `Source/Track/UIRequest/mod.rs`, remove legacy `pub use` re-exports and the `pub mod` exposure pattern that allowed flat imports. Replace them with an explicit `#![allow(non_snake_case)]` directive and documentation comments. This enforces that callers must spell out the full double-segment paths (e.g., `Track::UIRequest::ResolveUIRequest::ResolveUIRequest`).\n\nThis structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names, ensuring consistency across the Mountain crate and resolving potential symbol resolution issues in the IPC layer.",
+			"SHA": "bb67ad30ba8ab521d6c11f7b64c3703cbeb70f71"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T20:27:20Z",
+			"Date": "2026-05-02T04:24:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
+				940,
 				3
 			],
-			"Message": "fix(Mountain): Fix boot race and close handling for macOS\n\nTwo unrelated but impactful bugs fixed:\n\n1. **Boot race guard for Cocoon IPC**: The renderer dispatches tree:getChildren and cocoon:request (e.g. webview.resolveView) ~700 log lines before Cocoon's gRPC handshake completes. Without a wait, the first call returns ClientNotConnected, the workbench caches an empty result, and the user sees an empty Explorer until manual refresh. Add IsClientConnected() and WaitForClientConnection() to poll the connection pool before dispatching, with a 1500ms budget to keep UI responsive.\n\n2. **Cmd+W intercept for macOS**: Tauri 2.x maps Cmd+W to NSWindow.performClose: which wins the responder chain over the webview's keydown handler. The result: hitting Cmd+W to close a tab nukes the entire editor. Intercept CloseRequested, emit sky://window/close-requested to the webview, and use destroy() instead of close() in nativeHost:closeWindow to avoid re-entering the intercept.\n\n3. **DevTools focus theft**: DevTools auto-opening in debug builds steals macOS keyboard focus the moment it appears, preventing the main webview from becoming first responder. Make auto-open opt-in via LAND_OPEN_DEVTOOLS=1. Cmd+Alt+I and right-click Inspect still work.\n\nThese fixes resolve the \"I can't type or keybind\" issue and the empty Explorer on first launch.",
-			"SHA": "fb254aded503fa1e8ee2e0047bcfca44729e4c67"
+			"Message": "refactor(Mountain): Enforce PascalCase paths in Track module imports\n\nUpdate the `Track` module tree to align with the project-wide PascalCase naming convention and strict path resolution required by Tauri's command macros.\n\nIn `Source/Track/Webview/MountainWebviewPostMessageFromGuest.rs`, correct the `ApplicationState` import to use the full PascalCase path `ApplicationState::State::ApplicationState::ApplicationState`, replacing the previous snake_case segment.\n\nIn `Source/Track/Webview/mod.rs` and `Source/Track/mod.rs`, remove legacy `pub use` re-exports and snake_case module declarations. Replace them with explicit `#![allow(non_snake_case)]` directives and comments documenting that callers must spell out the full double-segment paths (e.g., `Track::UIRequest::ResolveUIRequest::ResolveUIRequest`). This structure is mandatory for `tauri::generate_handler!` to correctly locate the `__cmd__` companion symbols while maintaining PascalCase file and module names.\n\nThis ensures consistency across the Mountain crate and resolves potential symbol resolution issues in the IPC layer.",
+			"SHA": "7ab9a9aca39ac99cdbabf14e11ead254326d7609"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T18:59:32Z",
+			"Date": "2026-05-02T04:17:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
-				5
+				940,
+				4
 			],
-			"Message": "build(Mountain): Revert to simple Mountain naming and add extension roots allowlist\n\nRevert the binary/library names and Tauri config back to simplified \"Mountain\" identifier, matching the pattern established in commit 20b9363. This removes the verbose production profile string from Cargo.toml (binary, lib, default-run) and tauri.conf.json (identifier, productName), and eliminates the duplicate externalBin entry.\n\nAdditionally, configure the localhost plugin with extension_root allowlist for both Land and VSCode extension directories. This enables the `/Extension/<abs-fs-path>` URL prefix to serve extension-contributed assets (icon fonts from iconsStyleSheet.js, webview resources, images) directly from ~/.land/extensions and ~/.vscode/extensions. Without this, sideloaded extensions like GitLens render icons as blank missing-glyph boxes because WKWebView cannot resolve vscode-file:// URLs.",
-			"SHA": "320e57a2ae6800e40bca9c97e7cb4d52cb49db85"
+			"Message": "refactor(Mountain): Format UpdateService and prune unused imports\n\nApply consistent line formatting to the `UpdateService` module in Mountain. Specifically, collapse multi-line `CommonError` constructors in `CheckForUpdates` and `CheckForUpdatesWithAir` to single lines where appropriate, and format the `format!` macro invocation for update messages. Remove unused `dev_log` imports from `CheckForUpdatesViaAir` and `CheckForUpdatesWithAir`.\n\nConsolidate long import statements in `CheckForUpdatesViaAir` and `IsAirAvailable` by removing line breaks for `AirLibrary` types. These changes align the update logic with the project-wide PascalCase formatting standards and reduce visual noise in the IPC integration layer.",
+			"SHA": "413434283053c9973bf233970f20ae6cd3e2e33e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T04:08:47Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				940,
+				16
+			],
+			"Message": "refactor(Mountain): Atomize Vine client logic into PascalCase submodules\n\nDecompose the remaining monolithic logic within the Vine gRPC client layer into a dedicated submodule tree under `Source/Vine/Client/`. This aligns with the project-wide PascalCase naming convention and the modularization pattern established in recent commits.\n\nExtract logical units into explicit files:\n- Connection lifecycle: `ConnectToSideCar`, `DisconnectFromSideCar`, `TryConnectSingle`.\n- Health & State: `CheckSideCarHealth`, `IsClientConnected`, `IsShuttingDown`, `MarkShutdown`, `WaitForClientConnection`.\n- Communication: `SendRequest`, `SendNotification`, `PublishNotification`, `PublishNotificationFromMux`.\n- Subscription model: `NotificationFrame`, `SubscribeNotifications`, `SubscriberCount`.\n- Shared state: `Shared` (connection pool, broadcast channel, shutdown flag, constants).\n\nRename all functions to the `PascalCase::Fn` pattern (e.g., `connect_to_sidecar` → `ConnectToSideCar::Fn`). Update internal callers to use full paths (e.g., `Multiplexer` invoking `PublishNotificationFromMux::Fn`). The `TryConnectSingle` implementation now includes tuned h2 transport windows for loopback traffic to Cocoon.\n\nThis structural refactor eliminates implicit imports, enforces strict naming standards across the Vine gRPC layer, and establishes a consistent namespace hierarchy for the streaming multiplexer integration.",
+			"SHA": "4877b35c5f14e5d9d86301b80574757cba931d6b"
 		}
 	],
-	"TimeStamp": 1779882118329
+	"TimeStamp": 1779985061171
 }

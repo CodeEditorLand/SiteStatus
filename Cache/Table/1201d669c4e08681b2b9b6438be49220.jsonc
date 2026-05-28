@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:39:56Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "chore(Output): Sync Output submodule to latest bundled artifacts\n\nUpdate the Output submodule (compiled JS bundles from Rest) from 1060f224 to de62ac1e.\n\nThe Output submodule contains bundled JavaScript artifacts consumed by Cocoon at runtime. This routine sync brings in the latest built artifacts from the Rest bundler.",
-			"SHA": "c181cb1fb55f7a4654938b157c335c09bf249c64"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:39:30Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "refactor(Project): Wire Cocoon RPC handlers to trait implementations for state tracking\n\nCross-cutting submodule sync with Mountain refactor and Output cleanup:\n\n1. Mountain: Replace direct Sky event emissions with proper trait implementations across SCM, StatusBar, Webview, and Search handlers:\n   - SCM: RegisterScmProvider and UpdateScmGroup now use SourceControlManagementProvider trait to materialize state in ApplicationState::SourceControl\n   - StatusBar: CreateStatusBarItem and SetStatusBarText now use StatusBarProvider::SetStatusBarEntry to store entries in ActiveStatusBarItems\n   - Webview: CreateWebviewPanel and SetWebviewHtml now use WebviewProvider trait to register panels in ApplicationState::WebviewState\n   - Search: findFiles delegates to WorkspaceProvider::FindFilesInWorkspace; findTextInFiles delegates to SearchProvider::TextSearch\n\n2. Output: Remove Configuration directory (ESBuild, Plugin, Polyfill, Service configs and tsconfig files)\n\n3. Cocoon: Submodule sync to cbaf44f1\n\nImpact: SCM providers, status bar items, and webview panels now properly persist in Mountain's ApplicationState. File and text search now use ignore-aware glob walking and proper trait implementations.",
-			"SHA": "5691989860608841ff65a2f7c25c102d27f039a1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:16:19Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "feat(Project): Sync Mountain and Cocoon submodules\n\nMountain: Add regex and multiline search options to TextSearchQuery\n- Add `isRegExp` and `isMultiline` fields mirroring VS Code's ITextSearchQuery\n- Escape plain-text search patterns via regex::escape() to prevent crashes on metacharacters like `.`, `(`, `[`, `*`, `?`\n- Add .multi_line() support for multiline regex searches\n- Fixes Search view plain-text mode broken for queries containing `obj.method(` or `file[1].txt`\n\nCocoon: Updated to d4763554\n\nImpact: Plain-text search now works correctly for queries containing regex metacharacters without crashing the regex compiler.",
-			"SHA": "ea16cc733978b6e27920c190adaa149e9f1c0475"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:05:38Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.\n\nImpact: File search and find-files now use proper ignore rules, parallel walking, and regex support instead of naive single-threaded implementations.",
-			"SHA": "2478d6ec0535cc41ce3e2a38eba71a7a941f0658"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:56:08Z",
+			"Date": "2026-04-26T09:50:32Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
 				28,
 				4
 			],
-			"Message": "feat(Project): Add DisableUnusedServices transform and sync dependencies across submodules\n\nCross-cutting submodule sync with functional and dependency updates:\n\n1. Output: Add DisableUnusedServices ESBuild transform\n   - Replaces upstream VS Code contribution barrels for features Land doesn't back (auto-update, issue reporter, MS account/sync, process explorer) with inert stubs\n   - Removes broken UI surfaces and silences \"service not registered\" warnings\n   - Shortens boot time by avoiding initialization of unused services\n\n2. Output: Fix ExtensionScannerIPC path matching\n   - Now matches BOTH electron-browser AND browser variants of extensionsScannerService.js\n   - Previously only matched electron-browser, but desktop.main.js loads the browser variant\n   - Both paths now correctly route to Mountain for extension scanning\n\n3. Sky: Sync dependency updates\n   - @xterm/xterm: 6.1.0-beta.202 → 6.1.0-beta.203\n   - @astrojs/compiler-rs: 0.1.9 → 0.1.10\n   - pozil/auto-assign-issue: 2.2.0 → 3.0.0\n\n4. SideCar: Update pozil/auto-assign-issue from 2.2.0 to 3.0.0\n\nImpact: Extension scanning now works correctly for desktop profile. Unused VS Code services are stubbed out, reducing boot noise and improving startup time.",
-			"SHA": "bccc66895e279c66baa1bb34d5d9703067f18193"
+			"Message": "fix(Project): Resolve URI object construction inconsistencies across editor services\n\nSubmodule synchronization completing the URI handling fix across multiple layers:\n\n1. Mountain (2120ad5e): Use DebugOnce instead of dev_log! for unregistered view-action and workbench-internal commands to reduce log noise from repeated invocations\n2. Output (3db8e24c): Add missing URI class import to ExposeWorkbenchAccessor transform, enabling SkyBridge to construct resource objects the workbench accepts directly\n3. Sky (18f9fb7f): Add BuildOpenArg helper that produces real URI instances when URI service is available, falling back to POJO only for code paths that call revive\n\nThis completes the fix from the previous commit for search results deduplication by ensuring open commands (vscode.open, OpenFile) also use proper URI construction rather than manual `{ $mid: 1, path, scheme }` objects that fail when consumers call uri.with() or uri.toString() directly.\n\nImpact: Consistent URI handling across search results and file open commands, eliminating \"uri.with is not a function\" errors and improving workbench result deduplication.",
+			"SHA": "f5bf511b04b9b847de673bae8f23e70d9e6317b4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T09:29:42Z",
+			"File": [
+				"⣿⡟⠀⠀⠀",
+				28,
+				10
+			],
+			"Message": "",
+			"SHA": "c7ea59e959a19c7c90a762253d39a7278da9784d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T09:29:42Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "fix(Sky): Fix URI object construction for workbench search result deduplication\n\nThe previous manual resource object construction (`{ $mid: 1, path, scheme }`) fails when the workbench attempts result deduplication via `uri.with({...})` because it's a POJO without methods, causing \"uri.with is not a function\" errors.\n\nThis commit adds `CelUriCtor` and `CelUri` interfaces to type VS Code's URI class, then creates `MakeFileUri` that uses the actual `Ctor.file()` method when `__CEL_SERVICES__.URI` is available. The lookup is re-resolved on each result construction to handle the event-rescue path where SkyBridge registers before the URI patch binds.\n\nUpdates both `MatchFromHit` (text search results) and file search result mapping to use `MakeFileUri` instead of manual object construction. Includes a last-resort POJO fallback for edge cases.\n\nAlso updates Output submodule to expose the URI class from vscode-uri to the workbench accessor exports, providing the full prototype chain (`.with()`, `.fsPath`, `.toString()`) needed by SkyBridge's search provider.\n\nImpact: Search results now properly deduplicate in the workbench, eliminating duplicate file entries in quick open and search views.",
+			"SHA": "c32ec836f94f03bf6fcaf88edd6a837e5c06fd9a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T09:00:53Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				28,
+				5
+			],
+			"Message": "chore(Project): Sync Cocoon, Output, Sky, Wind, and Worker submodules\n\nRoutine submodule synchronization bringing in latest changes across the application stack:\n\n1. Sky (70de1fdb):\n   - Extract worker script imports into dedicated WorkerBundleImports.astro component to fix Astro compiler hoisting issue in JSX conditionals\n   - Add comprehensive RenderDevLog diagnostics for search operations\n   - Replace single-shot workbench-ready retry with three parallel rescue paths for search provider registration\n   - Add SearchRegistered flag to prevent duplicate registration attempts\n\n2. Worker (e8bdbb87):\n   - Expand minified ESBuild config files with source maps\n   - Reverse minification (cc40eef) to aid debugging ESBuild pipeline issues while preserving configuration logic\n\n3. Cocoon (ca5878fa), Output (6b389ee0), Wind (56a0603f):\n   - Submodule sync to latest changes\n\nThe Sky refactor resolves bundle-mode build failures where Astro's script processing couldn't handle conditional rendering, while improving search functionality resilience.",
+			"SHA": "99a19decd5ce52a75b94ffb1186c8b8fe358d4b9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-25T02:04:14Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "chore(Project): Sync Cocoon, Output, and Sky submodules\n\nRoutine submodule synchronization bringing in latest changes across the application stack:\n\n1. Output (36ce8f4a):\n- Expand CopyVSRootFiles candidate resolution to check both `<root>/<file>` and `<root>/vs/<file>` paths since nls.* files and other VS Code outputs exist at different locations depending on TSC pass\n- Add NODE_ENV-aware ordering: production prioritizes `out-build/` (release TSC flat layout) before `out/` (debug TSC source layout), development does the reverse\n- Preserve tier 4 inline stub fallback for missing NLS files\n\n2. Sky (87d32133):\n- Restore Bundle mode distinction for worker script loading in Electron.astro\n- Bundle=true profiles use npm-package imports inside single <script> block for Vite bundling\n- Bundle=false profiles continue using separate <script> tags for static assets\n- Maintain CSS Load → Policy → Register ordering requirement\n\n3. Cocoon (8715468b):\n- Submodule sync to latest extension host changes\n\nImpact: Output now correctly copies NLS files from both root and vs/ directories. Sky restores compatibility with both bundled and non-bundled build profiles. Extension host updated to latest.",
+			"SHA": "f92044ca8c1bb62925624a012bba8d29f9757cd3"
 		}
 	],
-	"TimeStamp": 1779882068329
+	"TimeStamp": 1779985051227
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T11:00:05Z",
+			"Date": "2026-05-26T09:07:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1734,
-				1
-			],
-			"Message": "",
-			"SHA": "aef9a3497996616e1874edd7a900624cb43f18b0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T11:00:04Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1734,
-				32
-			],
-			"Message": "refactor(Mountain): Standardize IPC handlers with centralized effect macro and parameter helpers\n\nIntroduce the `effect!` macro in `MappedEffectType` to eliminate verbose boilerplate for wrapping async logic into `MappedEffect` closures. Concurrently add the `Utilities::Params` module providing type-safe, default-aware argument extractors (`string_at`, `val_at`, `u64_at`, etc.) for handling `serde_json::Value` payloads.\n\nApply these utilities across the entire `Track/Effect/CreateEffectForRequest` tree, including `Authentication`, `FileSystem`, `Terminal`, `WindowUI`, and `Workspace` handlers. Refactor `WindServiceHandlers/mod.rs` to introduce the `call!` macro, replacing repetitive `dev_log!` and closure invocation patterns with a unified dispatch mechanism for Tauri IPC commands.\n\nThis consolidation reduces code duplication, enforces consistent parameter extraction and logging behavior, and aligns the native backend with the project's Effect-TS driven architectural principles.",
-			"SHA": "b791a1cad20c4554117feae7059bbdbed43939fe"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:44:24Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1731,
+				1746,
 				3
 			],
-			"Message": "refactor(Mountain): Adopt standardized argument helpers in FileSystem and Git handlers\n\nApply the newly introduced `JsonValueHelpers` utilities to the `FileSystem` (Managed and Native) and `Git` IPC handler modules. Replace verbose `Arguments.get(...).and_then(...).unwrap_or(...)` patterns with the type-safe `arg_string`, `arg_u64`, and `arg_bool_true` helper functions.\n\nSpecific updates include:\n- `FileMkdir.rs`: Standardize retrieval of the `recursive` flag.\n- `FileCloseFd.rs`: Standardize extraction of the file descriptor index.\n- `HandleExec.rs`: Standardize retrieval of the working directory path.\n\nAlign these handlers with the project-wide refactoring to reduce boilerplate, ensure consistent default value handling, and improve type safety across the Mountain backend's IPC surface.",
-			"SHA": "1896d3a7e0862b27b66d686e1e2e12c64a8b8b70"
+			"Message": "fix(Mountain): Supplement cache-hit extension scan with user paths\n\nWhen the extension scan cache hits, the pre-baked extension map is returned immediately—but it only covers bundled paths (Mountain/Resources/extensions, Sky/Static/Application/extensions, VS Code Dependency extensions). User-writable paths like `~/.fiddee/extensions` and `~/.land/extensions` are never baked, so every VSIX-installed extension was invisible after a cache hit: `extensions:scanUserExtensions` returned 0 and the `@installed` view stayed empty.\n\nAdd a supplementary live-scan phase on cache hits that re-uses `Registry.GetExtensionScanPaths()` filtered through `Scanner::IsUserExtensionScanPath` so the classifier and the scan set stay coherent. Found entries overwrite cache entries with the same identifier—matching stock VS Code semantics where an installed VSIX shadows a built-in of the same ID.\n\nAlso make `IsUserExtensionScanPath` `pub(crate)` and add the legacy `~/.land/extensions` path to its classifier so extensions found at the path `ScanPathConfigure` registers (T3) are tagged as user-scope rather than built-in, fixing the sidebar classification mismatch.\n\nFinally, add the missing `TierCommandEventBroadcast` entry to `Info.plist` that was introduced in the tier-variable build.rs change but not recorded in the plist.",
+			"SHA": "02553de5f8cb49b60be80a8931ae356564abd157"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:42:30Z",
+			"Date": "2026-05-26T08:11:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1731,
-				1
+				1746,
+				4
 			],
-			"Message": "",
-			"SHA": "f1adcf0b1b391589d014547ebaabfb05c5161808"
+			"Message": "feat(Mountain): Add tier-gated command broadcast and IPC notification relays\n\nAdd three missing IPC notification handlers in WindServiceHandlers and an opt-in dual-emit mechanism for command execution events from the extension host.\n\n`localPty:setInteracted` forwards terminal interaction state (OSC 633 B) as `$acceptTerminalStateChanged`, enabling `onDidChangeTerminalState` subscribers in Node-resident extensions. `sky:editor:diffInformationChanged` relays Monaco diff metadata as `$acceptTextEditorDiffInformationChanged`. `sky:editor:viewColumnChanged` forwards editor group movement as `$acceptTextEditorViewColumnChanged`, completing the notification surface for `onDidChangeTextEditorDiffInformation` and `onDidChangeTextEditorViewColumn`.\n\nIntroduce `TierCommandEventBroadcast` (default `Off`) in build.rs. When set to `On`, Mountain dual-emits `$acceptCommandExecuted` over Vine after gRPC `Command.Execute` from Cocoon, ensuring `vscode.commands.onDidExecuteCommand` fires even for commands not locally registered in the extension host. The tier variable is surfaced in LandFixTier runtime diagnostics.",
+			"SHA": "a51086049e21a27597657cfe97db6b996922f356"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:42:29Z",
+			"Date": "2026-05-25T22:15:51Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1731,
-				53
+				"⠀⠀⠀⠀⠀",
+				1746,
+				2
 			],
-			"Message": "refactor(Mountain): Standardize Wind service argument extraction\n\nIntroduce a centralized utility module `JsonValueHelpers` within `WindServiceHandlers` to provide type-safe, default-aware argument extraction helpers (`arg_string`, `arg_u64`, `arg_bool`, etc.). Replace ad-hoc `Arguments.get(n).and_then(...).unwrap_or(...)` patterns scattered across 40+ IPC handler modules with calls to these standardized helpers.\n\nThis change affects the entire `WindServiceHandlers` tree, including Cocoon, Git, Terminal, UI, and NativeHost namespaces. The `mod.rs` file is updated to export the new helper functions, and the main IPC dispatcher `mountain_ipc_invoke` is refactored to utilize them for command routing. This reduces boilerplate, ensures consistent default value handling, and improves type safety across the Mountain backend's IPC surface.",
-			"SHA": "c6d28d00faef4a321909bfa8755f46f72ccce346"
+			"Message": "fix(Mountain): Relay terminal shell execution events to Cocoon extension host\n\nAdd two new IPC notification handlers in WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, bridging terminal shell execution events from Sky to the Node.js extension host.\n\n`$acceptTerminalShellExecutionStart` fans to Cocoon so `vscode.window.onDidStartTerminalShellExecution` fires for extension subscribers. `$acceptTerminalShellExecutionEnd` fans two Vine notifications: `$acceptTerminalShellExecutionEnd` (for `onDidEndTerminalShellExecution`) and a derived `$acceptExecutedTerminalCommand` so `vscode.window.onDidExecuteTerminalCommand` subscribers observe the executed command without an additional Sky-side detection pass.\n\nAlso inline a multi-line closure chain in `CreateEffectForRequest/Diagnostics.rs` to a single-line filter_map for consistency with surrounding code style.",
+			"SHA": "275e31a312378afe6b7deb7a8e7f6f579e52b42c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:08:42Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
+			],
+			"Message": "fix(Mountain): Forward editor state change notifications to Cocoon extension host\n\nAdd five missing Vine notification relays so VS Code API subscribers inside the Node.js extension host observe changes Mountain already delivers to the renderer:\n\n- **ThemesSet.rs**: Fan `$acceptActiveColorTheme` on theme switch, computing the workbench theme kind (Light/Dark/HighContrast) from the theme id. Without this, `vscode.window.onDidChangeActiveColorTheme` never fires for Node-resident extensions (GitLens, Roo Code, rust-analyzer).\n\n- **WindServiceHandlers/mod.rs**: Relay four Sky-detected editor state changes as Cocoon notifications: `$acceptVisibleEditorsChanged` (`onDidChangeVisibleTextEditors`), `$acceptTabsChanged` (`onDidChangeTabs`/`onDidChangeTabGroups`), `$acceptVisibleRangesChanged` (`onDidChangeTextEditorVisibleRanges`), and `$acceptTextEditorOptionsChanged` (`onDidChangeTextEditorOptions`). Each forwards the Sky-provided payload directly.\n\n- **Diagnostics.rs**: After every `SetDiagnostics`/`ClearDiagnostics` call, fan `$acceptDiagnosticsChanged` back to Cocoon with the owner and affected URIs so `vscode.languages.onDidChangeDiagnostics` subscribers in peer extensions observe the change. For clears, emit an empty URI list — consumers should re-query `getDiagnostics(uri)`.\n\n- **DebugLifecycle.rs**: For `debug.addBreakpoints`/`debug.removeBreakpoints` only, fan `$onDidChangeBreakpoints` with added/removed/changed arrays so `vscode.debug.onDidChangeBreakpoints` fires in all extensions, not just the one that made the mutation.\n\nCompletes the Mountain-to-Cocoon notification pipeline for theme, editor, diagnostics, and debug breakpoint surfaces that were previously renderer-only.",
+			"SHA": "dd925de41e8f4558f960cb99f6d1a78674eba4e7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T21:53:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				2
+			],
+			"Message": "fix(Mountain): Relay executed command notifications to Cocoon extension host\n\nDual-emit `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, so that `vscode.commands.onDidExecuteCommand` callbacks fire inside extensions running in the Node.js extension host. The existing Tauri-emit only reaches the renderer (Sky); Cocoon has no Tauri runtime to subscribe to those events.\n\nCocoon's `Services/Handler/Notification/Handler.ts` maps `$acceptCommandExecuted` to an internal emitter that the `Commands/Namespace.ts` `onDidExecuteCommand` subscriber listens to. The Vine notification is fire-and-forget — failure is non-fatal since the renderer-side observers have already been notified via the Tauri event.\n\nAlso add the `tauri::Emitter` trait import in `CreateEffectForRequest/Commands.rs` to satisfy the compiler for the Tauri event emit.",
+			"SHA": "eeb3d39b739ebe9019b39f18ad4415ad9ad0fcb2"
 		}
 	],
-	"TimeStamp": 1779882036748
+	"TimeStamp": 1779985028393
 }

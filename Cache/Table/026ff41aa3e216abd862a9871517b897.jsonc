@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T14:02:37Z",
+			"Date": "2026-05-28T14:26:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				4
+				1733,
+				7
 			],
-			"Message": "refactor(Mountain): Simplify binary, library, and product name to Mountain\n\nRevert the binary, library, package, and product name from the verbose encoded build configuration string back to the simple canonical name \"Mountain\". The previous encoding embedded the full DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler string into artifact names, causing developer friction during local tooling integration and debugging.\n\nAlso tidy up tauri.conf.json by normalizing array formatting, reordering resource entries for consistency, adding the missing shell-integration/zsh.zsh resource, and restoring the identifier to fiddee.editor.binary. Remove the stale .Backup files left behind when the encoding was introduced.",
-			"SHA": "3e26a02371e60ff23f0017843e4209fb76d47807"
+			"Message": "refactor(Mountain): Eliminate local `::Vine::Client` and `::Cache` re-exports\n\nReplace the final deviating local import patterns (`use ::Vine::Client as Client` and `use ::Cache::X as X`) with direct absolute-path imports (`use ::Vine::Client` and `use ::Cache::X::Fn as X`). Apply across WorkspaceDelta, VineSubscribeCommand, CommandProvider, IPCProvider, GetTreeChildren, and ParseWorkspaceFile.\n\nConsolidate the `SendNotification` call in CocoonManagement.rs to standard multi-line formatting. All IPC and cache usage now resolves exclusively to the canonical Vine library and Cache crate, removing the last traces of local wrapper indirection.\n\nThis completes the absolute-path migration, ensuring Mountain's entire dependency surface delegates to the shared protocol layer with zero local re-exports.",
+			"SHA": "3f7f567d44b9af943d4fcbb96a8295379e510f4b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T13:14:17Z",
+			"Date": "2026-05-28T14:23:18Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1748,
-				4
+				"⠁⠀⠀⠀⠀",
+				1733,
+				39
 			],
-			"Message": "build(Mountain): Encode full build config in binary name and bundle additional Sky resources\n\nRename the Mountain binary, library, package, and product name to carry the complete build configuration string: DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler_Mountain. This embeds build provenance directly in the artifact name for unambiguous debugging and CI traceability.\n\nAdd the missing Sky Target resource entries (Browser, BrowserProxy, Bundled, Electron, Favicon, Isolation, Manifest.json, Mountain) to tauri.conf.json so Tauri bundles these directories at build time. Previously the bundle only included a subset of Static/Application assets and miscellaneous files; the full Sky build output was not guaranteed to be present in the app bundle, which could cause runtime failures when the editor UI tries to load these resources.\n\nAlso normalize array formatting in externalBin and targets for consistency with the file style.\n\nChange the app identifier from fiddee.editor.binary to the expanded canonical form matching the product name.",
-			"SHA": "e7685bfe4621e4f04e14861cd855a7c5f8faa8fb"
+			"Message": "refactor(Mountain): Flatten Vine client and cache module indirection\n\nRemove the 12+ local wrapper modules in `Source/Vine/Client` and `Source/Cache` that re-exported canonical implementations. Replace all `crate::Vine::Client::X` and `crate::Cache::Y` calls with absolute paths `::Vine::Client::X` and `::Cache::Y`. This collapses Mountain's gRPC and caching surface to direct delegations, enforcing the Vine library crate as the single source of truth for IPC and cache contracts.\n\nDeleted wrapper modules: `AirServiceProvider`, `AssetMemoryMap::LoadOrInsert`, `PathCanon::Canonicalize`, and all `Vine::Client` atom modules (`MarkShutdown`, `SendRequest`, `SendNotification`, `ConnectToSideCar`, etc.). Kept only dead stubs in `Vine::Client` for compilation compatibility.\n\nThis finalizes the multi-commit migration to absolute-path delegation, reducing code duplication and ensuring all Cocoon↔Mountain IPC flows reference the canonical Vine definitions.",
+			"SHA": "6b68fc4cb62aaa2dafecbd25b37b40b72142f87a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T09:07:51Z",
+			"Date": "2026-05-28T14:13:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				3
+				1733,
+				1
 			],
-			"Message": "fix(Mountain): Supplement cache-hit extension scan with user paths\n\nWhen the extension scan cache hits, the pre-baked extension map is returned immediately—but it only covers bundled paths (Mountain/Resources/extensions, Sky/Static/Application/extensions, VS Code Dependency extensions). User-writable paths like `~/.fiddee/extensions` and `~/.land/extensions` are never baked, so every VSIX-installed extension was invisible after a cache hit: `extensions:scanUserExtensions` returned 0 and the `@installed` view stayed empty.\n\nAdd a supplementary live-scan phase on cache hits that re-uses `Registry.GetExtensionScanPaths()` filtered through `Scanner::IsUserExtensionScanPath` so the classifier and the scan set stay coherent. Found entries overwrite cache entries with the same identifier—matching stock VS Code semantics where an installed VSIX shadows a built-in of the same ID.\n\nAlso make `IsUserExtensionScanPath` `pub(crate)` and add the legacy `~/.land/extensions` path to its classifier so extensions found at the path `ScanPathConfigure` registers (T3) are tagged as user-scope rather than built-in, fixing the sidebar classification mismatch.\n\nFinally, add the missing `TierCommandEventBroadcast` entry to `Info.plist` that was introduced in the tier-variable build.rs change but not recorded in the plist.",
-			"SHA": "02553de5f8cb49b60be80a8931ae356564abd157"
+			"Message": "refactor(Mountain): Inline pure-relay notification atoms as RelayToSky one-liners\n\nReplace the remaining deviational notification handlers in MountainVinegRPCService.rs with direct delegations to `::Vine::Server::Notification::Support::RelayToSky::Fn`. The extension lifecycle (ExtensionHostMessage, ExtensionActivated/Deactivated), webview lifecycle (WebviewReady), language settings (setDocumentLanguage), workspace edits (applyEdit), window commands (showTextDocument), tree refresh, progress lifecycle (start/update/complete), output channel operations (create/append/clear/show/dispose/replace), and other Sky-bound notifications are now single-line relay arms with `sky://` routing addresses.\n\nAdd `dev_log!` instrumentation at the dispatch site for ExtensionDeactivated, WebviewReady, and tree.refresh to aid debugging. Remove the now-redundant batch 11–16 comments as the pattern is uniform across all relay atoms.\n\nThis collapses Mountain's notification surface to a pure routing table, enforcing Vine as the single source of truth for all Cocoon→Sky IPC paths while preserving specialized handlers (SetStatusBarText, DisposeStatusBarItem, WebviewPostMessage, etc.) that require coalescing, payload transformation, or Mountain-specific state.",
+			"SHA": "2fda74861782e2364f8ace286ff31e8fc8308c96"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T08:11:08Z",
+			"Date": "2026-05-28T14:08:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				4
+				1733,
+				1
 			],
-			"Message": "feat(Mountain): Add tier-gated command broadcast and IPC notification relays\n\nAdd three missing IPC notification handlers in WindServiceHandlers and an opt-in dual-emit mechanism for command execution events from the extension host.\n\n`localPty:setInteracted` forwards terminal interaction state (OSC 633 B) as `$acceptTerminalStateChanged`, enabling `onDidChangeTerminalState` subscribers in Node-resident extensions. `sky:editor:diffInformationChanged` relays Monaco diff metadata as `$acceptTextEditorDiffInformationChanged`. `sky:editor:viewColumnChanged` forwards editor group movement as `$acceptTextEditorViewColumnChanged`, completing the notification surface for `onDidChangeTextEditorDiffInformation` and `onDidChangeTextEditorViewColumn`.\n\nIntroduce `TierCommandEventBroadcast` (default `Off`) in build.rs. When set to `On`, Mountain dual-emits `$acceptCommandExecuted` over Vine after gRPC `Command.Execute` from Cocoon, ensuring `vscode.commands.onDidExecuteCommand` fires even for commands not locally registered in the extension host. The tier variable is surfaced in LandFixTier runtime diagnostics.",
-			"SHA": "a51086049e21a27597657cfe97db6b996922f356"
+			"Message": "refactor(Mountain): Route remaining provider unregistration atoms to canonical Vine handlers\n\nReplace the specialized `UnregisterFileSystemProvider` and `UnregisterUriHandler` notification handlers with delegations to `::Vine::Server::Notification::Support::UnregisterByHandle`, following the pattern established for task and other provider unregistrations. Add `dev_log!` instrumentation at the dispatch site to capture the scheme identifier for debugging purposes.\n\nThe `unregister_scm_provider` handler retains its dedicated Vine atom due to its additional logic (scmId handle computation and Sky relay). Reformat several decoration and status bar notification invocations for consistent multi-line formatting.\n\nThis completes the migration of provider unregistration logic into the shared Vine library, reducing Mountain's code surface and enforcing consistent IPC handling across all provider types.",
+			"SHA": "a8102299f1da98d3bd3cce625049ffe3ed145ac6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:15:51Z",
+			"Date": "2026-05-28T14:08:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
+				1733,
 				2
 			],
-			"Message": "fix(Mountain): Relay terminal shell execution events to Cocoon extension host\n\nAdd two new IPC notification handlers in WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, bridging terminal shell execution events from Sky to the Node.js extension host.\n\n`$acceptTerminalShellExecutionStart` fans to Cocoon so `vscode.window.onDidStartTerminalShellExecution` fires for extension subscribers. `$acceptTerminalShellExecutionEnd` fans two Vine notifications: `$acceptTerminalShellExecutionEnd` (for `onDidEndTerminalShellExecution`) and a derived `$acceptExecutedTerminalCommand` so `vscode.window.onDidExecuteTerminalCommand` subscribers observe the executed command without an additional Sky-side detection pass.\n\nAlso inline a multi-line closure chain in `CreateEffectForRequest/Diagnostics.rs` to a single-line filter_map for consistency with surrounding code style.",
-			"SHA": "275e31a312378afe6b7deb7a8e7f6f579e52b42c"
+			"Message": "refactor(Mountain): Route all notification atoms to canonical Vine crate\n\nReplace the local `super::Notification::*` dispatch in `MountainVinegRPCService.rs` with direct calls to `::Vine::Server::Notification::*`, collapsing the Mountain-local notification modules in `Source/Vine/Server/Notification/mod.rs` to only the three Mountain-specific utilities: `Support`, `OutputChannelCoalesce`, and `TerminalEnvCollection`.\n\nAll 46+ wired notification handlers — extension lifecycle, progress reporting, output channels, webview/terminal lifecycle, SCM registration, language providers, debug/status-bar/decoration APIs — are now thin pass-throughs that delegate to the canonical implementations in the Vine library crate. This finalizes the extraction of Cocoon→Mountain IPC logic from Mountain into the shared gRPC protocol layer.\n\nMountain's `send_cocoon_notification` dispatcher is reduced to a pure routing table with no inline logic, and the Notification module no longer re-exports the full atom suite, enforcing Vine as the single source of truth for IPC contracts.",
+			"SHA": "d3b63235b1e7a8560b093a2ca8e21096c02f14cd"
 		}
 	],
-	"TimeStamp": 1779882024834
+	"TimeStamp": 1779985024773
 }

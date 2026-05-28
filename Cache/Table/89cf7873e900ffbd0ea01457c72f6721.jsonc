@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:16:54Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				1
-			],
-			"Message": "fix(Mountain): Consolidate panic recovery logic in scheme handlers\n\nMigrate the panic recovery implementation in `VscodeWebviewSchemeHandler` to match the established pattern in `VscodeFileSchemeHandler`. The previous implementation attempted to use `catch_unwind` but failed to handle the `AssertUnwindSafe` trait requirement and redundantly implemented the result matching logic inside the closure.\n\nUpdate `VscodeWebviewSchemeHandler` to use `catch_unwind` with `AssertUnwindSafe` for the closure wrapper and move the `match` result handling and `dev_log` error reporting to the function scope. This ensures that panics within the webview asset loading path (e.g., in MIME type resolution or file reading) are caught, logged with backtrace details, and converted to HTTP 500 responses without crashing the editor process.\n\nAlign the import structure in `Scheme.rs` to group `panic` imports correctly. This change unifies the error handling strategy for both file and webview scheme handlers, ensuring consistent graceful degradation across the native backend's asset serving layer.",
-			"SHA": "139de360adc2c0b17a5adbef32cee1d8d6e06c54"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:10:11Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				2
-			],
-			"Message": "fix(Mountain): Migrate VS Code webview scheme handler to internal panic wrapper\n\nMove the VS Code webview scheme handler logic into a private `_VscodeWebviewSchemeHandler` function and wrap the public entry point with `std::panic::catch_unwind`. This mirrors the protective pattern recently implemented for the file scheme handler to prevent editor crashes caused by panics crossing the Objective-C FFI boundary.\n\nConcurrently, remove the `LSEnvironment` dictionary from `Info.plist`. These runtime configuration values (including network ports and feature tiers) were previously stored in the property list but are now generated and injected at build time via `build.rs` and `Scheme.rs`. Removing the dead XML nodes cleans up the configuration file and aligns the binary structure with the current build process.\n\nThis change ensures graceful error recovery for webview asset requests and resolves configuration drift by centralizing environment setup in the Rust build logic.",
-			"SHA": "230ca02557a152875ce896802af0b4c5ec9d5929"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:05:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				1
-			],
-			"Message": "fix(Mountain): Wrap scheme handlers in panic catch to prevent editor crash\n\nAdd `std::panic::catch_unwind` guards around `_VscodeFileSchemeHandler` and `_VscodeWebviewSchemeHandler` to prevent the entire editor process from aborting. These handlers run inside the `wkwebview` Objective-C FFI boundary, where panics crossing the `extern \"C\"` limit cause immediate process termination.\n\nThe implementation catches panics, logs the error message and current thread backtrace via the `lifecycle` dev_log, and returns a standard HTTP 500 Internal Server Error response instead. This ensures that bugs in memory mapping (mmap) or MIME type handling within the asset loading path result in a graceful failure rather than a full application crash.",
-			"SHA": "478ca92acb177ec84b73c6e5faf4f56c4d4b5ddf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T21:54:43Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				2
-			],
-			"Message": "chore(Mountain): Align documentation structure with recent refactoring and cleanup configuration\n\nUpdate README.md to reflect the current source directory structure following the recent migration from `Binary.rs` to the `Binary/` module folder and the addition of new components like `IPC/`, `RPC/`, `Telemetry/`, and `Cache/`. Correct the architectural diagram and module descriptions to match the actual file layout in `Source/`.\n\nAdditionally, clean up `Info.plist` by removing extraneous indentation and empty XML nodes around the `LSEnvironment` key to ensure a valid, consistent property list format. Remove trailing whitespace to maintain formatting standards.\n\nThis change synchronizes the project documentation with the current codebase state and resolves formatting inconsistencies in the build configuration.",
-			"SHA": "4ce8e735fd7551cdf8c3d5c41f2820eaef15eefc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T21:13:48Z",
+			"Date": "2026-05-19T02:07:52Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				1490,
-				33
+				1503,
+				26
 			],
-			"Message": "refactor(Mountain): Consolidate imports and reformat Rust code across core modules\n\nStandardize multi-line import blocks to use brace-compressed syntax in CertificateManager.rs. Apply consistent line-wrapping and removal of unnecessary vertical whitespace across the Environment provider modules, Command handlers, and Track effect handlers.\n\nThis change focuses purely on formatting and code style alignment. No functional logic, business rules, or error handling flows are altered. The modifications ensure uniform indentation and line length compliance (typically wrapping comments and long method chains at 100 characters) across the Mountain native backend codebase.\n\nThis improves readability and prepares the codebase for automated linting enforcement.",
-			"SHA": "c8a486c1635ccee407de53db21f6127a3cce049b"
+			"Message": "feat(Mountain): Replace polling loops with async notifies and wire native IPC handlers\n\nRefactor extension scanning and sidecar connection logic to replace busy-wait polling with `tokio::sync::Notify` synchronization primitives. Introduce `ExtensionState.ScanReady` and per-sidecar connection notifiers to unblock callers (e.g., `extensions:getInstalled`, `WaitForClientConnection`) immediately upon state transition, eliminating 50ms polling intervals and reducing boot latency.\n\nImplement full handlers for the `nativeHost` lifecycle surface (Exit, Quit, Relaunch, Reload, KillProcess, Install/UninstallShellCommand) and filesystem watching (`file:watch`, `file:unwatch`). These replace previous stub acknowledgments, enabling proper process management and native file system event routing to extensions.\n\nOptimize high-frequency gRPC notification paths (`RegisterCommand`, `ProgressReport`, `DecorationTypeLifecycle`) by migrating from per-call task spawning to a single long-lived mpsc-backed batch flusher. This reduces IPC saturation and task overhead during extension boot by coalescing thousands of rapid updates into single frame-aligned events.\n\nUpdate `Entitlements.plist` to use block-style XML formatting and clarify sandbox exemptions for the non-sandboxed editor environment.",
+			"SHA": "41b8029154da51b0556aa59039f99e6a7751c31c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T00:58:05Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1492,
+				4
+			],
+			"Message": "feat(Mountain): Implement dual-layer debug server and SCM diff handling\n\nUpgrade the `WebkitServer` debug utility into a configurable dual-layer diagnostics tool supporting independent activation for the Mountain (Rust) and Cocoon (Node.js) layers. Introduce a unified `DebugServer` environment variable to select mode (mountain, cocoon, both, or off) and distinct ports (default 9933/9934). Add new HTTP endpoints for layer discovery (`/health`, `/layers`), iframe inspection, workbench command invocation, and transparent HTTP proxying to the Cocoon extension host.\n\nImplement the `vscode.diff` and `$scm:openDiff` command handlers in `SCM.rs` to bridge the VS Code Git extension with the editor UI. When triggered, these commands now forward the request to the `sky://editor/diff` endpoint via the Effect system, ensuring the native backend correctly resolves the promise and opens the diff editor as expected.\n\nThese changes restore full debuggability across the full stack and enable native Git workflows by correctly handling the canonical diff command invoked by upstream VS Code extensions.",
+			"SHA": "6ae748d57faee496b259c4f513cf2c296f4dc585"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-18T02:52:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1492,
+				1
+			],
+			"Message": "",
+			"SHA": "7de344c980125a4acd67895fe0730d84681ea75c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-18T00:30:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1492,
+				12
+			],
+			"Message": "refactor(Mountain): Rename application identity to FIDDEE\n\nUpdate the native backend to rebrand the editor from 'Land' to 'FIDDEE'. This involves a comprehensive change of product identifiers, folder names, URI schemes, and application metadata across configuration files and source code.\n\nIn `Info.plist`, update `ProductNameShort`, `ProductNameLong`, `ProductDataFolderName`, and `ProductUrlProtocol` to use 'FIDDEE' and 'fiddee'. Modify `tauri.conf.json` to change the bundle identifier to `fiddee.editor.binary` and the development team to 'FIDDEE'.\n\nUpdate internal references in `Entry.rs`, `Scheme.rs`, `CliParse.rs`, `InitializationData.rs`, and `WindServiceHandlers/mod.rs` to ensure the URI scheme, window titles, and VS Code `productConfiguration` fields correctly reflect the new identity. Adjust `PostHogPlugin/CaptureEvent.rs` to tag telemetry under 'fiddee'. Remove the deprecated `WebkitServer.rs` debug utility.\n\nThis change aligns the binary artifacts and runtime data with the new project branding while maintaining the existing architectural structure.",
+			"SHA": "37e1304709590ce001a8ffbb2707cf477074204b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-17T15:45:01Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1499,
+				13
+			],
+			"Message": "refactor(Mountain): Migrate domain configuration to land.playform.cloud\n\nReplace all instances of the `editor.land` domain with `land.playform.cloud` across the Mountain native backend. This includes updating the `README.md` documentation, `tauri.conf.json` security policies (CSP), and internal service configurations.\n\nUpdate the `Scheme`, `ServiceRegistry`, and `CertificateManager` modules to reference `code.land.playform.cloud` and `api.land.playform.cloud` as the primary hostnames for local service routing and TLS certificate generation. Align DNS command logic (`DnsCommands`) to resolve the new zone `land.playform.cloud` and its subdomains to `127.0.0.1` for the diagnostic panel.\n\nRefactor unit and integration tests in `certificate_tests.rs` and `service_registry_tests.rs` to assert behavior against the new domain strings, ensuring consistency across the build artifacts and runtime environment.",
+			"SHA": "87ada867c668fef848ce561612d365d9baab197f"
 		}
 	],
-	"TimeStamp": 1779882060624
+	"TimeStamp": 1779985039546
 }

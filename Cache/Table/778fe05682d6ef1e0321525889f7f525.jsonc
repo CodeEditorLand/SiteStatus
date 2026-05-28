@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:43:08Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "chore(Element): Sync submodule updates completing terminal race fix\n\nSynchronize Element submodules to their latest downstream versions:\n- Mountain (c2d0beca): Complete the terminal race-condition fix by deferring the `sky://terminal/create` event with a 120ms delay. This addresses the timing vulnerability where the Tauri event arrived before `_ptys.set(id, pty)` completed during step 1 (RPC in-flight), causing `_ptys.get(id)` to return undefined and silently dropping keystrokes. Complements the earlier fix in c99ccbe that added the `AppendTerminalOutput` replay buffer for data events.\n- Output (8d7a19d): Add disabled `PatchTerminalGpuAcceleration` transform that defaults `terminal.integrated.gpuAcceleration` to `'off'` to work around xterm.js WebGL texture atlas font drift in WKWebView. Available on-disk for re-enabling if needed.\n- Cocoon (4336123): Submodule sync to latest.\n\nThis synchronization completes the terminal race-condition fix cycle that began with bf94e30, restoring proper terminal panel functionality.",
-			"SHA": "8e808838d772556db83ca0d4bd0d22c2dde6ada1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:20:37Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "fix(Mountain): Return integer id from localPty:createProcess\n\nSynchronize Mountain to c99ccbe7 which fixes the blank terminal panels issue. The VS Code terminal workbench expects `IPtyService.createProcess` to return a `Promise<number>` (the integer terminal id), but Mountain was returning the full `{id, name, pid}` object. This caused the workbench to key its internal `_ptys` map incorrectly, making `_ptys.get(<integer>)` lookups return `undefined` from `onProcessData`/`onProcessReady`, resulting in xterm receiving zero bytes despite Mountain's PTY reader emitting data continuously.\n\nThe fix splits the terminal handler into three distinct paths: spawn preserves full response for Cocoon's Sky bridge, createProcess returns only the integer id per VS Code contract, and start is a no-op for the eager-spawn pattern.\n\nAlso sync Cocoon submodule to 15690303.",
-			"SHA": "bf94e30b447208b59dc62d5ad0d591a239a6a530"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:00:18Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				28,
-				6
-			],
-			"Message": "chore(Element): Sync submodule updates across Element fleet\n\nSynchronize multiple Element submodules to their latest downstream versions:\n\n- Mountain (db5f0f7): Rename binary/library targets to \"Mountain\", simplify tauri.conf.json identifiers and remove duplicate externalBin entry.\n- Sky (d574527): Fix 0-based line indexing bug in search results RangeLocations causing 'undefined' errors, add Mountain.dev.log diagnostic bridging for service shape probing.\n- Maintain (0d1cee9): Rebuild CHANGELOG with quarter-based versioning, add v1.3 and v1.0 sections missing from release history.\n- Worker (0e2d546): Expand CHANGELOG from 61 to 134 lines documenting complete version history v2.1→v0.0 with commit refs.\n- Echo (1f3c848): Bump miniflare and wrangler dev dependencies.\n- Cocoon (01322bf): Submodule sync to latest.\n\nBrings cross-cutting synchronizations including search functionality fix and documentation improvements across the Element umbrella.",
-			"SHA": "220904a60b893a9bb5283c60706891711a20add7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T15:59:53Z",
-			"File": [
-				"⣿⠇⠀⠀⠀",
-				28,
-				8
-			],
-			"Message": "docs(Element): Rewrite umbrella CHANGELOG with Keep a Changelog format\n\nRestructure Land/Element/CHANGELOG.md from a placeholder entry to a comprehensive narrative tracking cross-cutting submodule synchronizations. The rewrite adds: an intro explaining Element as the fleet umbrella whose submodules are the actual elements; v2.2 documenting the bundled-electron correctness pass sync of Output and Sky; v2.1 documenting the Full Workbench Lift CHANGELOG rewrite cycle across Common, Air, Wind, Cocoon; and v0.0 for project inception.\n\nSubmodule updates: Echo (CHANGELOG rebuild with full history), Grove (Keep a Changelog format), Mist (commit references and dates), Rest (Keep-a-Changelog overhaul), SideCar (narrative release history), Vine (restructured for clarity).\n\nAligns the Element umbrella documentation with the prose-style CHANGELOG format established across other Land components.",
-			"SHA": "2d6e601af107838cc9fcac3b3fe20794cf42a41c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T05:27:49Z",
+			"Date": "2026-04-30T05:10:06Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "docs(Common): Revise CHANGELOG with narrative formatting\n\nSubmodule synchronization bringing Common to fd25cb49. The CHANGELOG has been restructured to use a more readable, narrative-driven format inspired by Keep a Changelog. Changes include: adding an introductory paragraph explaining Common's purpose as the abstract core with trait definitions and DTOs; rewriting version headers from [Common/vX.X] to [vX.X] for consistency; converting bullet-point changes to flowing prose descriptions; and aligning all version entries with consistent voice and structure.\n\nThis revision improves scannability and aligns Common's documentation with the prose-style CHANGELOG format established across other Land components, while preserving all historical change information.",
-			"SHA": "215fc0b17612e5e2a194e8c49463984fe48e28d0"
+			"Message": "feat(Wind): Add codegen emission layer for service schemas and catalog\n\nAdd the code emission layer to Wind's VS Code service codegen pipeline, completing Phase-2 of the system:\n- Codegen.ts: Runnable entry point invoked by prepublishOnly.sh\n- RunCodegen.ts: Orchestrator that walks source tree, extracts decorators, emits schemas\n- EmitServiceSchema.ts: Per-service schema emitter - writes `<Decorator>Upstream.ts` files with typed interface members and source-line back-links\n- EmitServiceCatalog.ts: Catalog emitter - writes ServiceCatalog.ts index of all discovered decorators with metadata\n- index.ts: Public exports for library consumers\n\nThe emission layer takes the ServiceDecoratorRecord extraction results from Phase-1 (added in previous commit) and produces typed TypeScript files under Effect/Generated/ that Wind bridge shapes can import type from. Schema files are idempotent (byte-identical on re-run) with diff-friendly formatting: members sorted by source line, JSDoc preserved verbatim.\n\nRefs: Land/.claude/tauri/Patches/14-StreamingGRPC.md",
+			"SHA": "89d68124f9ca9c3443180c16819d407bc3492d4f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T05:08:05Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "feat(Element): Sync submodule updates with codegen pipeline and production build config\n\nSynchronize multiple Element submodules to their latest downstream versions:\n\n- Mountain (16bcfef9): Update binary/lib names and Tauri config for production build profile. Rename the Mountain binary and library to include the full production environment profile string (ProductionNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Compile_ElectronProfile_EsbuildCompiler_Mountain) to distinguish this build variant from development builds. Update tauri.conf.json productName and identifier, and add Binary/node to externalBin for production node path.\n\n- Wind (c4fc5b33): Add VS Code service decorator codegen pipeline and global bridge accessor. Add a new regex-based codegen system that walks the VS Code source tree and extracts `createDecorator(...)` sites with interface members: ExtractDecoratorMatch, ExtractInterfaceMembers, IterateServiceDecorators, SourceTreeWalker. Also adds LandWorkbenchGlobal.ts - typed wrapper around globalThis.__CEL_WIND__ exposing CELWind().RunPromise(...) for Sky consumers.\n\n- Cocoon: Submodule pointer update.\n\nThis synchronization delivers the Wind codegen infrastructure for automated bridge shape generation from upstream VS Code source, while configuring Mountain for production build profile separation.",
+			"SHA": "ed7b93f4835433642564a6494d448807fb15e5ff"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T05:03:36Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				28,
+				1
+			],
+			"Message": "feat(Wind): Add LandWorkbench composition layer and WorkbenchWorkspace service\n\nSynchronize Wind submodule to deliver a new LandWorkbench composition layer merging all previously-added workbench-tier services (WorkbenchClipboard, Command, Dialog, Host, Keybinding, Lifecycle, Notification, Storage, Theme) plus the new WorkbenchWorkspace service into a single Layer for convenient consumption by Sky.\n\nThe WorkbenchWorkspaceService bridges VS Code's native IWorkspaceService, providing Snapshot (workspace id, folders, configuration), Folders (array of workspace folders), FolderForResource (lookup folder by URI), and OnFolderChange (stream of folder add/remove/change events). The Live implementation reads from globalThis.__CEL_SERVICES__.Workspace with proper error handling via WorkbenchWorkspaceProblem ADT.\n\nThe LandWorkbenchLayer uses Layer.mergeAll so a failure in one service doesn't poison others, and LandWorkbenchRuntime provides a lazy singleton ManagedRuntime for efficient per-webview instantiation.\n\nRefs: Land/.claude/tauri/Patches/14-StreamingGRPC.md",
+			"SHA": "f26349980f62934c7db60ff00a21b6f635213175"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T05:01:50Z",
+			"File": [
+				"⣿⠁⠀⠀⠀",
+				28,
+				6
+			],
+			"Message": "feat(Element): Sync submodule updates delivering Workbench service layers\n\nSynchronize multiple Element submodules to their latest downstream versions:\n- Wind (b91de584): Add WorkbenchClipboard, WorkbenchHost, and WorkbenchKeybinding services. Three new Effect-TS service layers bridging VS Code's native workbench services: WorkbenchClipboardService (read/write text and resources), WorkbenchHostService (reload, restart, close, focus operations), and WorkbenchKeybindingService (keybinding lookup and resolution). Each follows the established Wind pattern with Context.Tag, interface, Live implementation, and Problem ADT.\n- Output, Worker: Submodule pointer updates with internal improvements.\n- Rest, SideCar, Sky: Submodule pointer updates.\n\nThis synchronization delivers the final tier of Wind workbench services, completing the service layer coverage for VS Code integration.",
+			"SHA": "77871c6b08f9673b272bb742f3844946326a5b65"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T04:59:36Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				28,
+				1
+			],
+			"Message": "feat(Wind): Add Workbench* Effect-TS service layers\n\nAdd six new workbench-tier service layers bridging VS Code's native workbench services to Wind's Effect-TS architecture:\n- WorkbenchCommandService: Execute/list/filter commands, stream command execution events\n- WorkbenchDialogService: Confirm dialogs, pick choices, show info/warn/error\n- WorkbenchLifecycleService: Phase tracking (Starting/Ready/Restored/Eventually), shutdown streams\n- WorkbenchNotificationService: Dispatch notifications, stream dispatched events\n- WorkbenchStorageService: Scope-aware (Application/Profile/Workspace) storage with targets\n- WorkbenchThemeService: Get/set color themes, token color queries, theme change streams\n\nEach service provides a typed Effect-TS interface with Live implementation (runtime bridge via globalThis.__CEL_SERVICES__) and Problem ADT for error handling, following the established pattern in Wind of exposing Context.Tag, interface, and Layer for dependency injection.\n\nRefs: Land/.claude/tauri/Patches/14-StreamingGRPC.md",
+			"SHA": "5ca5ec8c8bb81e041398e9cece2a621d23b4aadb"
 		}
 	],
-	"TimeStamp": 1779882062519
+	"TimeStamp": 1779985043611
 }

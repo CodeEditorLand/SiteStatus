@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:29:21Z",
+			"Date": "2026-05-26T09:10:16Z",
+			"File": [
+				"⣿⠀⠀⠀⠀",
+				26,
+				5
+			],
+			"Message": "feat(Land): Advance submodules — comments shim and extension scan fix\n\nAdvance Cocoon, Mountain, Output, Rest, and Wind submodules to complete the registry-backed vscode.comments namespace shim in Cocoon and fix user extension discovery on extension cache hits in Mountain.\n\nCocoon replaces the stock no-op stub for `vscode.comments` with a dynamic import of a `CommentsNamespace` factory in Source/Services/Handler/VscodeAPI/Comments/Namespace.ts. Each CommentController now owns a Map-backed thread registry keyed on `UriStr:Line:Char` with mutable thread state. Registration is idempotent. The RouteManifest is regenerated with three newly exposed Mountain RPC methods (setStatusBarText, Task.Terminate, terminate_task), bringing the count from 137 to 140.\n\nMountain adds a supplementary live-scan phase on extension cache hits that re-uses `Registry.GetExtensionScanPaths()` filtered through `Scanner::IsUserExtensionScanPath`, ensuring VSIX-installed extensions at `~/.fiddee/extensions` and `~/.land/extensions` are discovered even when the bundled cache is fresh. The missing `TierCommandEventBroadcast` entry is also added to Info.plist.\n\nOutput, Rest, and Wind receive non-functional updates — regenerated VLQ mappings, rebuilt binary artifact, and daily catalog version date bump respectively.",
+			"SHA": "fe0afd794b553b3a6952d0123c2aa3911d3e1e65"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T08:24:42Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
 				26,
 				1
 			],
-			"Message": "fix(Maintain): Skip inlining when free vars in Init are moved before substitution site\n\nAdvance the Maintain submodule to include the fix for premature inlining of bindings whose Init expression references free variables that are later moved before the substitution site. This E0382 regression occurred when a binding like `let display = var.clone()` passed all safety checks (count=1, not in closure, not oversized) but was inlined after `var` was moved into a struct field, placing the clone after the move.\n\nThe new `IsFreeVarSafe` function in Safe.rs collects plain-identifier free variables from Init, then scans intervening statements for by-value uses (function arguments, struct field shorthands, assignments) of those variables. Candidates with moved free vars are skipped. The check is conservative — it only inspects Expr::Path single-segment identifiers — guaranteeing no false negatives that produce compile errors, at the cost of possible false positives that keep suboptimal bindings live.\n\nA regression test in Inline.rs covers the exact get_file_info / get_configuration pattern from Mountain's AirClient sidecar.",
-			"SHA": "05b68391922170f5b7b40b214d82456466f38f6b"
+			"Message": "feat(Cocoon): Implement registry-backed vscode.tests namespace shim\n\nReplace the stock inline no-op stub for `vscode.tests` in EnsureVscodeAPI.ts with a dynamically-imported, registry-backed `TestsNamespace` factory in Source/Services/Handler/VscodeAPI/Tests/Namespace.ts. The previous stub's empty `TestItemCollection` silently dropped every `controller.items.add(item)` call, causing extensions like vitest, mocha-explorer, and rust-analyzer to always get `undefined` back from `controller.items.get(id)` — breaking their internal state machines.\n\nEach TestController now owns a `Map`-backed `TestItemCollection` with working add/delete/get/replace/forEach, a profile registry for `createRunProfile`, and a `TestRun` state machine tracking the full queued/started/skipped/failed/errored/passed lifecycle. `TestRun.end()` emits `tests.didChangeTestResults` on the Emitter channel with per-item results and accumulated output.\n\nRegistration is idempotent — re-registering a controller with the same id returns the existing instance, softening VS Code's duplicate-id throw to handle dev-reload double-calls. Sky-side Testing panel rendering remains gated, but all extensions importing `vscode.tests` now maintain correct internal state without crashes or silent data loss.",
+			"SHA": "9b3109db2cf33aad3cff478e053cbdf444955dbd"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T07:31:20Z",
+			"Date": "2026-05-26T08:11:59Z",
 			"File": [
-				"⣿⣿⠃⠀⠀",
+				"⡏⠀⠀⠀⠀",
 				26,
-				12
+				3
 			],
-			"Message": "",
-			"SHA": "aae97430dbdae1246cc2860383cb84e958faa101"
+			"Message": "feat(Land): Advance Element submodules — diff information, view column, and terminal state event bridge\n\nAdvance Cocoon, Mountain, and Sky submodules to complete the Mountain-to-Cocoon notification relay for three extension API surfaces plus extension activation routing and auth session subscriptions.\n\nSky adds three snapshot-style bridge subscriptions in the workbench integration layer: diff editor `onDidUpdateDiff` line-changes relayed as `sky:editor:diffInformationChanged`, per-group `onDidMoveEditor` tab moves relayed as `sky:editor:viewColumnChanged`, and OSC 633 B (command-input-begins) terminal interaction detection relayed via `localPty:setInteracted`. All three are guarded with try/catch so render failures never disrupt the UI pipeline.\n\nMountain fans three new IPC notifications through WindServiceHandlers: `$acceptTextEditorDiffInformationChanged`, `$acceptTextEditorViewColumnChanged`, and `$acceptTerminalStateChanged`. Also introduces `TierCommandEventBroadcast` (default Off) — when enabled, Mountain dual-emits `$acceptCommandExecuted` over Vine after gRPC `Command.Execute` from Cocoon, ensuring `onDidExecuteCommand` fires for non-locally-registered extension host commands.\n\nCocoon registers four Notification/Handler.ts cases: `$activateByEvent` defers to `ExtensionHostHandler.HandleActivateByEvent` via `setImmediate` so extension activation actually runs instead of hitting the unknown-notification fallback; `$acceptTextEditorDiffInformationChanged` emits `didChangeTextEditorDiffInformation` with a minimal TextEditor stub keyed on `modifiedUri`; `$acceptTextEditorViewColumnChanged` fires `didChangeTextEditorViewColumn` with URI and viewColumn matching VS Code's event shape; `$acceptTerminalStateChanged` updates the cached terminal's `isInteractedWith` flag and emits `didChangeTerminalState`. Additionally, the Auth namespace subscribes to each `AuthenticationProvider.onDidChangeSessions` on registration, fanning `{ added, removed, changed }` to the `auth.didChangeSessions` Emitter channel with proper disposal on provider unregister to prevent listener leaks.\n\nExtensions consuming `onDidChangeTextEditorDiffInformation`, `onDidChangeTextEditorViewColumn`, `onDidChangeTerminalState`, `onDidChangeActiveEditor`, and authentication session change events via `MakeEventSubscriber` now receive live workbench signals through the complete Mountain→Cocoon bridge.",
+			"SHA": "0de337107b70105ea7304cd80362fdffcac734a8"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T06:51:32Z",
+			"Date": "2026-05-25T22:16:53Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
+				"⡏⠀⠀⠀⠀",
 				26,
-				1
+				3
 			],
-			"Message": "chore(Rest): Update dependabot action to v1.3.0\n\nBumps ad-m/github-push-action from 1.1.0 to 1.3.0 in Rest workflow.\n\nThis updates the GitHub Actions version used for dependency management automation.",
-			"SHA": "5c5967dfdb4df8554b4e255008bb3ccc7909779f"
+			"Message": "feat(Land): Advance Element submodules — terminal shell execution event relay\n\nComplete the end-to-end bridge for VS Code terminal shell execution lifecycle events by advancing Cocoon, Mountain, and Sky submodules.\n\nSky parses OSC 633 sequences beyond the existing cwd handler — adding OscEndPattern (;D[;<exitCode>]) and OscCmdLinePattern (;E;<commandLine>) regex parsers plus a per-terminal InflightExecution Map. On OSC 633 ; C (output begins), Sky fires `localPty:shellExecutionStart` via Mountain IPC; on ; D (command finished), it fires `localPty:shellExecutionEnd` with exitCode, clearing the cached commandLine for the next execution.\n\nMountain adds two WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, fanning the former as `$acceptTerminalShellExecutionStart` to Cocoon and the latter as two Vine notifications: `$acceptTerminalShellExecutionEnd` and a derived `$acceptExecutedTerminalCommand` so extension subscribers observe executed commands without an additional Sky-side detection pass.\n\nCocoon registers three Notification/Handler.ts cases — `$acceptTerminalShellExecutionStart`, `$acceptTerminalShellExecutionEnd`, and `$acceptExecutedTerminalCommand` — each resolving the matching terminal from the `__terminals` context cache and assembling the VS Code event shape with the required terminal, shellIntegration, and execution sub-objects including the `{ value, isTrusted }` commandLine contract.\n\nExtension subscribers hooked via `window.didStartTerminalShellExecution`, `window.didEndTerminalShellExecution`, and `window.didExecuteTerminalCommand` now receive live notifications from OSC 633 sequence parsing in the Sky terminal layer.",
+			"SHA": "d43cffe192cbca49b8b0e6aec62bc3923437449d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T16:57:09Z",
+			"Date": "2026-05-25T22:09:37Z",
 			"File": [
-				"⣿⣿⡟⠀⠀",
+				"⡏⠀⠀⠀⠀",
 				26,
-				14
+				3
 			],
-			"Message": "",
-			"SHA": "3123e708d02ca24f5ce0fca633b6e86dcd3c013f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T06:30:23Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				26,
-				6
-			],
-			"Message": "chore(Land): Sync Land/Element submodules to latest revisions\n\nAdvance all Land/Element submodule references to their current HEADs to maintain build consistency across the editor architecture. This update includes Common, Echo, Maintain, Output, Rest, and SideCar.\n\nThis synchronization incorporates recent PascalCase refactoring, parameter extraction improvements, and build artifact updates generated in the submodules. Ensures the main Land repository aligns with the latest state of its constituent components.",
-			"SHA": "b05f7f5389b9ade8bba2b7a73cf5f3e140bff589"
+			"Message": "fix(Land): Advance Element submodules — bridged editor state, diagnostics, theme, and breakpoint event pipeline\n\nAdvance Cocoon, Mountain, and Sky submodules to complete the Mountain-to-Cocoon notification relay for six extension API surfaces that were previously renderer-only.\n\nCocoon adds Notification/Handler.ts cases for `$acceptDiagnosticsChanged`, `$acceptVisibleEditorsChanged`, `$acceptTabsChanged`, `$acceptVisibleRangesChanged`, `$acceptTextEditorOptionsChanged`, and `$acceptActiveColorTheme` — each pumping the Mountain notification through the matching Emitter channel consumed by extension subscribers. The `$acceptTabsChanged` handler caches tab-group snapshots on `__tabGroups` so synchronous `window.tabGroups.all` getters reflect current state.\n\nMountain fans five notification types back to Cocoon: `$acceptActiveColorTheme` in ThemesSet.rs on theme switch, `$acceptVisibleEditorsChanged`/`$acceptTabsChanged`/`$acceptVisibleRangesChanged`/`$acceptTextEditorOptionsChanged` in WindServiceHandlers/mod.rs forwarding Sky payloads, `$acceptDiagnosticsChanged` in Diagnostics.rs after Set/Clear calls, and `$onDidChangeBreakpoints` in DebugLifecycle.rs for breakpoint mutations.\n\nSky bridges four Monaco/workbench event streams through the IPC layer: `onDidScrollChange` (debounced to ~16 fps) emits visible ranges, `onDidChangeConfiguration` emits options changes, `onDidVisibleEditorsChange` emits the URI list of visible editors, and `onDidChangeActiveGroup`/`onDidAddGroup`/`onDidRemoveGroup` emit tab-group snapshots. All IPC calls are wrapped in try/catch so render failures never interrupt the UI pipeline.\n\nVS Code API subscribers inside Cocoon — `languages.onDidChangeDiagnostics`, `window.onDidChangeVisibleTextEditors`, `window.tabGroups.onDidChangeTabs`, `window.onDidChangeTextEditorVisibleRanges`, `window.onDidChangeTextEditorOptions`, `window.onDidChangeActiveColorTheme`, and `debug.onDidChangeBreakpoints` — now fire correctly for all extensions.",
+			"SHA": "c378308300e06748e4f3c0b7662a01626242c877"
 		}
 	],
-	"TimeStamp": 1779882029667
+	"TimeStamp": 1779985026630
 }

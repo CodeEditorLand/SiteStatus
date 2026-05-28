@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:40:56Z",
+			"Date": "2026-05-20T06:13:28Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1519,
-				16
+				1578,
+				7
 			],
-			"Message": "",
-			"SHA": "14a5ec8100c65cd46fa4a7393f614ee5ae7daa3d"
+			"Message": "style(Mountain): Normalize dispatcher indentation; update Cargo/tauri build identifiers\n\nRe-indent the extracted GenericNotification/Dispatcher and GenericRequest/Dispatcher files to remove the spurious extra block indentation level that was carried over from their original inline positions in CocoonService/mod.rs. Reorder imports (std before third-party) and collapse import brace formatting. No logic changes in either dispatcher.\n\nUpdate Cargo.toml binary/lib/package names and tauri.conf.json identifier/productName to the verbose build configuration string for the development/debug Electron profile, distinguishing this build artifact from production Mountain releases. Preserve originals as .Backup copies.\n\nOutcome: dispatcher code now matches project style conventions, and the development build artifact is correctly labelled for toolchain identification.",
+			"SHA": "e78bf315d71ba4a49c4200d7f7002d24f6058255"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:22:38Z",
+			"Date": "2026-05-20T06:13:01Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1517,
-				1
+				1576,
+				9
 			],
-			"Message": "feat(Mountain): Wire workspace save/saveAs/saveAll through to Sky\n\nAdd three IPC handler arms to the Workspace dispatch table in CreateEffectForRequest so Cocoon's vscode.workspace.save() and related extension API calls reach the workbench textfile service running in Sky.\n\n- `Workspace.Save` — extracts the URI from parameter position 0 or the \"uri\" key, routes to `sky://workspace/save`, and returns the URI on success so the caller can confirm persistence.\n- `Workspace.SaveAs` — mirrors the Save path but dispatches to `sky://workspace/saveAs`; the Sky handler can later drive a standalone Save-As dialog.\n- `saveAll` / `Workspace.SaveAll` — accepts the legacy `saveAll` method name (used by gRPC/Client.ts) and routes to `sky://workspace/saveAll`, returning null on failure instead of crashing the workbench.\n\nAll three handlers degrade gracefully: if Sky does not respond, they log a warning and return the original URI (for Save/SaveAs) or null (for SaveAll), preventing extension host crashes on missing handlers.",
-			"SHA": "5afb710dc67ede34e2939e573ca97cf05f3e8590"
+			"Message": "refactor(Mountain): Extract CocoonService dispatchers; fix Send-ness in InitData; retry AppDataPrefix\n\nThe 1400+ line `process_mountain_request` and 600+ line `send_mountain_notification` handlers were inlined in `CocoonService/mod.rs`, making the file unwieldy and obscuring the gRPC service boundary. Extract both match blocks into dedicated `GenericRequest::Dispatcher` and `GenericNotification::Dispatcher` modules, reducing `mod.rs` by ~1900 lines.\n\nIn `InitializationData.rs`, the `MutexGuard` on `WorkspaceFolders` was held across an `.await` call, making the future non-`Send` and breaking `tauri::async_runtime::spawn`. Scope the guard to a block so it is dropped before any await point; extract logging scalars before moving `FoldersWire` into `WorkspaceDTO`.\n\nIn `AppDataPrefix.rs`, replace the `OnceLock<Option<String>>` that caches `None` forever (routing all dev logs to `/tmp` after the first failed resolution) with a two-phase system: `RESOLVED: OnceLock<String>` for the permanent prefix, and `RETRY: Mutex<bool>` that stays `true` on first failure so subsequent writes retry after Tauri has created the app-data directory.\n\nIn `WindServiceHandlers/mod.rs`, the previous boot-latency fix used a bare `return Ok(...)` inside a match arm, which exits the enclosing async block (not just the arm), changing the block's inferred return type from `()` to `Result<Value, _>` and breaking `Scheduler::Submit`'s `Output = ()` bound. Replace with an `if/else` expression that evaluates to `Ok(...)` in both branches.\n\nAlso fix a minor clippy-nit in `AliasPath.rs` by removing the redundant `.as_str()` call.",
+			"SHA": "47a603158ca0d368b2ae744ef8fd7edcf5ed7410"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:53:10Z",
+			"Date": "2026-05-20T05:37:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1517,
+				1574,
 				4
 			],
-			"Message": "perf(Mountain): Cache OS properties and Rosetta; track active document\n\nReduce redundant OS syscalls and system-info queries while keeping Cocoon's\nactiveTextEditor shim in sync when Wind opens a document.\n\n**Cached OS Properties (OSProperties.rs):**\nWrap sysinfo::System-based OS attribute collection (type, release, arch,\nCPU topology) behind a OnceLock, extracting the computation into a\ncompute_os_properties() helper. Spawning sw_vers/uname and refreshing CPU\ndata on every IPC call was wasting ~10 ms per invocation.\n\n**Cached Rosetta Detection (mod.rs):**\nMove the sysctl.proc_translated subprocess behind a OnceLock — a process\neither runs under Rosetta 2 or it does not for its entire lifetime.\n\n**Active Document Tracking (ModelOpen.rs):**\nAfter opening a document, call SetActiveDocumentURI on the application\nstate and fire a fire-and-forget gRPC notification\nwindow.didChangeActiveTextEditor to Cocoon so its\nvscode.window.activeTextEditor shim updates immediately.\n\n**Terminal Layout Persistence (mod.rs):**\nRefactor localPty:getTerminalLayoutInfo and\nlocalPty:setTerminalLayoutInfo to use\nGetStorageValue(true, ...)/UpdateStorageValue(true, ...) on\nStorageProvider, eliminating manual JSON serialization and improving\nerror resilience.\n\nImpact: Reduced IPC latency for OS queries, correct active editor state\nfor extensions, simpler terminal layout persistence code.",
-			"SHA": "2a0e335eb7bc17b03b24d928c97dfd124542cd12"
+			"Message": "style(Mountain): Reflow long lines and brace placement across four files\n\nNormalize formatting in `UpdateValue.rs`, `WindServiceHandlers/mod.rs`, `InitializationData.rs`, and `CocoonService/mod.rs` to align with Rust style conventions. Changes are limited to comment reflow, static declaration compaction, method body compression, and brace positioning — no logic is altered.\n\nCleans up artifacts from prior commits where formatter passes were missed, keeping the codebase consistent.",
+			"SHA": "65f1cf26cfa85fc1639f84d0458df61276bfa44a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:46:15Z",
+			"Date": "2026-05-20T05:37:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1517,
-				2
+				1574,
+				6
 			],
-			"Message": "feat(Mountain): Wire terminal layout persistence and cache color scheme detection\n\nComplete the terminal state restoration cycle and optimize startup performance by implementing missing IPC handlers and caching expensive OS queries.\n\n**Terminal Layout Persistence:**\nImplement `localPty:getTerminalLayoutInfo` and `localPty:setTerminalLayoutInfo` to bridge the workbench's terminal panel state. These handlers now delegate to the `StorageProvider` service to read/write the `terminal:layoutInfo` key, enabling the restoration of active tabs and dimensions after window reloads (replacing previous `Value::Null` no-ops).\n\n**Color Scheme Caching:**\nIntroduce a `OnceLock` cache for the `NativeGetColorScheme` result. The underlying `detect_dark_mode` function now executes only once per process lifetime, reducing the ~5–15 ms OS syscall overhead on subsequent calls during boot and window focus events. This aligns Mountain's behavior with stock VS Code's expectation that users restart the editor to apply system theme changes.\n\nImpact: Terminal layouts persist across reloads; cold-start performance improves for theme detection calls.",
-			"SHA": "123d5b073d0bdec64ccbae19fe9b245979ea5141"
+			"Message": "feat(Mountain): Add lang-scoped config override, stable session ID\n\n**Language-scoped configuration overrides** — `UpdateValue` now writes into\n`\"[<langId>]\": { key: value }` when the `ConfigurationOverridesDTO` carries a\nnon-empty `OverrideIdentifier`, matching the VS Code convention used by\nprettier-vscode, vscode-eslint, and other per-language formatters. The scope\nkey is cleaned up when its last entry is removed.\n\n**Stable session ID** — `ConstructSandboxConfiguration` and\n`ConstructExtensionHostInitializationData` now share a `OnceLock`-backed\nstatic `SESSION_ID` instead of generating a fresh `Uuid::new_v4()` per call.\nExtensions comparing `telemetryInfo.sessionId` across initialization calls now\nsee a consistent value for the process lifetime.\n\n**Call/Type hierarchy RPC handlers** — `CocoonService` now dispatches\n`$provideCallHierarchyItems`/`prepareCallHierarchy` and\n`$provideTypeHierarchyItems`/`prepareTypeHierarchy` generic requests to\n`Environment::PrepareCallHierarchy` and `PrepareTypeHierarchy` respectively,\nunblocking F12 / Go to References / Call Hierarchy in the editor.\n\n**Real IPC stubs** — `mountain_get_configuration` returns the live merged\nconfig object; `mountain_get_services_status` reports actual Cocoon connection\nstate; `mountain_get_state` surfaces real workspace folder count and active\ndocument URI. Eliminates hardcoded mock data.\n\n**SOCKS proxy support** — Proxy env-var parsing now emits the correct PAC\nkeyword (`SOCKS` for socks/socks4/socks5 URIs, `PROXY` for http/https),\nso extensions using the `proxy` setting work behind SOCKS proxies.\n\n**Dev-log lock contention** — `FlushDedup::Fn` switches from `lock()` to\n`try_lock()` so a contended dedup mutex never parks a Tokio worker thread.\nThe dedup line is cosmetic; missing one flush costs nothing.\n\n**Atomic always-on-top toggle** — Replaces the heuristic title-prefix proxy\nwith a `static AtomicBool` so `nativeHost:toggleWindowAlwaysOnTop` correctly\nflips and sets the opposite state on each invocation.\n\n**ViewColumn forwarding** — The `window.didChangeTextEditorSelection`\nVine notification now includes `viewColumn` from the incoming arguments,\nso extensions calling `activeTextEditor.viewColumn` see the correct pane\nnumber in split-editor layouts.",
+			"SHA": "5c627091d0aecbc4b96f536dde7bdf12242cc6f7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:44:44Z",
+			"Date": "2026-05-20T05:21:19Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1517,
-				21
+				"⠀⠀⠀⠀⠀",
+				1574,
+				1
 			],
-			"Message": "refactor(Mountain): Extract shared notification relay/unregister helpers\n\nSixteen Cocoon-to-Mountain notification handler files contained nearly\nduplicated inline code — every output, progress, channel, and\nprovider-unregistration atom repeated the same three-step pattern\n(emit a Tauri sky:// event + dev_log, or extract a u32 handle +\nunregister + dev_log).\n\nCollapse all of them into two shared helpers under a new\n`Support/` submodule:\n\n- `RelayToSky` — calls `ApplicationHandle.emit(SkyEvent, Parameter)`\n  and optionally writes a dev-log line. Used by OutputAppend,\n  OutputClear, OutputCreate, OutputDispose, OutputShow,\n  OutputChannelClear, OutputChannelCreate, OutputChannelDispose,\n  OutputChannelShow, ProgressComplete, and ProgressUpdate — each now\n  a single delegation call.\n- `UnregisterByHandle` — reads a `handle` u64 from the parameter,\n  guards against zero, calls\n  `ProviderRegistration::UnregisterProvider`, and logs the provider\n  kind. Used by UnregisterAuthenticationProvider,\n  UnregisterDebugAdapter, UnregisterDebugConfigurationProvider,\n  UnregisterFileSystemProvider, UnregisterTaskProvider, and\n  UnregisterUriHandler.\n\n`UnregisterFileSystemProvider` and `UnregisterUriHandler` additionally\nlog their scheme field before delegating, preserving the traceability\ninformation that was unique to those atoms.\n\n21 files changed, 67 insertions, 231 deletions.\n\nNo behavioural changes — every handler produces the same Tauri\nsky:// event and the same dev-log output as before.",
-			"SHA": "3427a0c39e6129a8df9ff50b6b1015a70c4dd2e2"
+			"Message": "",
+			"SHA": "07bd1cd0f25a8de5e7c19ec3eb0eab1bfabc8eca"
 		}
 	],
-	"TimeStamp": 1779882050395
+	"TimeStamp": 1779985035642
 }

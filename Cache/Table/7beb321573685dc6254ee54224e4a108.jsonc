@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T02:18:21Z",
+			"File": [
+				"⣿⣿⡏⠀⠀",
+				569,
+				300
+			],
+			"Message": "feat(Cocoon): Backfill extension API shims for real-world extension compatibility\n\nExtend the Cocoon extension host with critical VS Code API features that extensions depend on at runtime, bridging gaps exposed by real-world extension usage (Roo-Code, TypeScript, Error Lens, etc.).\n\nKey additions include:\n- **Extension exports backfill**: Capture the `activate()` return value and store it on the registry entry so `vscode.extensions.getExtension(id).exports` resolves to the real public API (e.g., Roo-Code exposing its agent) instead of an empty permissive stub.\n- **Call/Type hierarchy entry points**: Add `prepareCallHierarchy` and `prepareTypeHierarchy` dispatch cases in the language provider handler so hierarchy UI trees populate correctly when a registered provider exists.\n- **Live `workspace.textDocuments`**: Populate the global open-document list from `$acceptModelAdded` notifications and prune on `$acceptModelRemoved`, making `workspace.textDocuments` reflect the real open set rather than being always empty.\n- **`document.willSave` handling**: Subscribe to save notification, run registered `onWillSaveTextDocument` listeners, collect returned `TextEdits`, and forward them to Mountain via `window.applyTextEdits` so format-on-save and organize-imports-on-save work.\n- **Robust `activeTextEditor` stub**: Replace the minimal placeholder with real `setDecorations` (forwards to Mountain for Sky relay), `edit` (collects edits and applies via `window.applyTextEdits`), `insertSnippet` (converts to plain-text edit), `revealRange`, `show`, and a live `selection` that tracks Monaco selection changes via `window.didChangeTextEditorSelection`.\n- **Workspace event stubs**: Add `onWillSaveTextDocument` subscription wiring, plus no-op disposables for `onWillCreateFiles`, `onWillDeleteFiles`, `onWillRenameFiles`, and their `onDid*` counterparts to prevent TypeError on `.dispose()`.\n- **Module interceptor**: Fix import ordering (`CocoonDevLog` moved after the interface imports) and reformat all `CocoonDevLog` calls for consistent multi-line argument layout.\n- **Cleanup**: Remove stale `Source/Generated/RouteManifest` files and all previously compiled `Target/` artifacts (JS + sourcemaps).\n\nThese changes significantly improve extension host API compliance, enabling extensions that previously failed at runtime due to missing shims.",
+			"SHA": "f7889a70696500a1535f8f7d130ee985b6116789"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T01:37:09Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1151,
+				1
+			],
+			"Message": "feat(Cocoon): Define gRPC client service DTOs and interfaces\n\nAdd `Types.ts` to `Source/Services/Mountain/gRPC` to formalize the contract between the Cocoon extension host and the Mountain native backend. This file isolates the Impact-TS `Effect`-based interface definitions and request option shapes for Window, Workspace, Command, Secret Storage, and File System domains.\n\nKey additions include:\n- **Option DTOs**: Definitions for `ShowTextDocumentOptions`, `StatusBarItemOptions`, `WebviewPanelOptions`, and `TextEdit` to standardize payload structures for gRPC calls.\n- **Service Interface**: `IMountainGRPCClientService` exposing type-safe methods for native operations (e.g., `showTextDocument`, `createWebviewPanel`, `readFile`) with explicit `Effect.Effect` return types for error handling and composition.\n\nThis change allows consumers to import types without pulling in the full Effect layer or live implementation, improving modularity and enabling strong typing across the Mountain client service layer.",
+			"SHA": "bf9d9ffa2b7ce523e656c4e371993466eeb67deb"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-20T01:33:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Cocoon): Register IPC tier configuration in bootstrap\n\nExpose the `__LandTier_IPC__` compile-time constant and the `TierIPC` runtime environment variable to the `__LandTiers` configuration object in `Main.ts`.\n\nThis update extends the tier initialization logic to include the IPC routing strategy, defaulting to \"Mountain\" to ensure the native Tauri backend is used for gRPC communication. It aligns the bootstrap sequence with the `TierIPCValue` type introduced in the recent IPC routing refactoring, enabling the runtime to select between native (`Mountain`), deferred (`NodeDeferred`), or direct (`Node`) execution paths for extension host calls.",
 			"SHA": "f84f339d2e6c336b9468d0473bcc8d686e6f41e4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:47:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1146,
-				1
-			],
-			"Message": "feat(Cocoon): Add IPC routing tier configuration\n\nIntroduce the `TierIPCValue` type and corresponding runtime tier selector to control the extension host's gRPC strategy. The new `IPC` tier allows switching between `Mountain` (native Tauri backend), `NodeDeferred`, and `Node` execution paths.\n\nDefined in `Source/Utility/Tier.ts`, the default configuration is set to `\"Mountain\"`, ensuring the standard path through the Mountain gRPC client is used by default. This change prepares the codebase for hybrid execution modes where specific gRPC calls may be deferred or routed directly to the Node.js sidecar, aligning with the project's modular IPC architecture.",
-			"SHA": "3ad09894e513acb869a0c0cb1fe12d65d9b8d366"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:36:12Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1146,
-				22
-			],
-			"Message": "refactor(Dev/Log): Replace native console calls with CocoonDevLog across core services\n\nReplaced all native `console.log`, `console.warn`, and `console.error` invocations with the centralized `CocoonDevLog` utility across 20+ files in the Cocoon extension host. This change standardizes logging output, enabling consistent categorization via tags (e.g., `grpc`, `mountain-client`, `ext-host`, `service`, `configuration`) and aligning with the project's structured logging requirements.\n\nKey changes include:\n- **Bootstrap & Effect Layers**: Updated RPC server startup and module interceptor warnings in `Bootstrap.ts`, `RPCServer.ts`, and `Interceptor.ts`.\n- **Mountain Integration**: Replaced raw console output in `Mountain/Client.ts` and `Mountain/Client/Service.ts` with tagged logs for connection states, health checks, and request tracing.\n- **Service Layer**: Migrated `Configuration`, `Error/Handling`, `Security`, `Health`, `Terminal`, and `gRPC/Server` services to use `CocoonDevLog` for lifecycle events, error reporting, and circuit breaker state transitions.\n- **Handler & IPC**: Updated `Extension/Host/Handler`, `Request/Routing/Handler`, and `Channel.ts` to route logs through the new system, while explicitly preserving `process.stderr.write` for critical IPC errors that must bypass the logging abstraction.\n- **Module Interception**: Applied the change to `Module/Interceptor` classes to ensure security audit logs are properly tagged.\n\nThis refactoring paves the way for advanced log filtering, performance metrics extraction, and centralized log aggregation in the development workflow, removing the dependency on the global `console` object which may be replaced or suppressed in certain runtime contexts.",
-			"SHA": "d28d660e5db3e3f6bec9d8796f0607109659766c"
 		}
 	],
-	"TimeStamp": 1779882047018
+	"TimeStamp": 1779985033852
 }

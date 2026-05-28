@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:54:10Z",
+			"Date": "2026-04-30T20:27:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				1
-			],
-			"Message": "fix(Mountain): Enhance logging for SCM provider registration emit failures\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "660a067a4bfe2e220d4c61c742d31805c92f1e6d"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-29T02:33:55Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				1
-			],
-			"Message": "",
-			"SHA": "cce2516555660983de4287c47ab94daaa710b02a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:08:42Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				2
 			],
-			"Message": "fix(Mountain): Accept absent paths in FileWatcher and varied URI shapes\n\nTwo changes that prevent false circuit breaker trips in Mountain's gRPC service:\n\n1. **FileWatcherProvider.rs**: Extensions frequently register watchers on optional paths (`~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't yet exist. Previously, `notify::Watcher::watch()` failure triggered a gRPC error that counted against Cocoon's circuit breaker — 5 probes at boot trips it open and cascades into 60s of rejected reads. Now Mountain catches benign \"path not found\" errors, records a \"deferred\" entry without a live OS watcher, and still allows Unregister to clean up the handle.\n\n2. **UriParsing.rs**: Cocoon sends URIs in three different shapes — plain strings (e.g., `Diagnostic.Set`), objects with `external` field (VS Code's `URI.toJSON()`), and legacy objects with just `scheme` + `path`. The original code only accepted the `external` field, causing `Diagnostic.Set` from `vscode.languages.createDiagnosticCollection().set` to trip the breaker after 5 publishes, silencing all linters across language extensions. Now all three formats are accepted.\n\nBoth fixes maintain backward compatibility while eliminating spurious error cascades.",
-			"SHA": "9c10fbe92d916db112eb377dcd9f1ab9130c8821"
+			"Message": "fix(Mountain): Add vscode-webview URI scheme handler for extension webviews\n\nImplement the missing vscode-webview:// URI scheme handler to enable VS Code extension webviews (Roo Code, Claude, GitLens, custom editors) to render in the Tauri WKWebView environment.\n\nVS Code's WebviewElement wraps every extension webview in an iframe with src=vscode-webview://<authority>/index.html?... Without this handler, the iframe stays blank and any extension using webviewView/WebviewPanel/CustomEditor is non-functional.\n\nThe handler serves the three-file pre/ directory (index.html, service-worker.js, fake.html) from the embedded asset resolver or filesystem fallback. Extension HTML itself arrives via the workbench's swMessage postMessage channel after index.html boots.\n\nThis completes the extension webview infrastructure alongside the extension_root allowlist added in commit 320e57a, enabling sideloaded extensions to render their UI properly.",
+			"SHA": "54650acd31bb34c764095c9160eedb19e9a18916"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:40:26Z",
+			"Date": "2026-04-30T20:27:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				2
+				868,
+				3
 			],
-			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nTwo changes in Mountain's gRPC service layer:\n\n1. **FileWatcher.rs**: Cocoon's `NextProviderHandle()` returns a number, but older callers pass a string. Handle both shapes in `RegisterWatcher` and `UnregisterWatcher` instead of silently converting numbers to empty string.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without a string-regex round-trip, while `-32000` remains the catch-all for genuine failures.",
-			"SHA": "160b5a4251133f31e4ce99898a02a8d63f8ca19b"
+			"Message": "fix(Mountain): Fix boot race and close handling for macOS\n\nTwo unrelated but impactful bugs fixed:\n\n1. **Boot race guard for Cocoon IPC**: The renderer dispatches tree:getChildren and cocoon:request (e.g. webview.resolveView) ~700 log lines before Cocoon's gRPC handshake completes. Without a wait, the first call returns ClientNotConnected, the workbench caches an empty result, and the user sees an empty Explorer until manual refresh. Add IsClientConnected() and WaitForClientConnection() to poll the connection pool before dispatching, with a 1500ms budget to keep UI responsive.\n\n2. **Cmd+W intercept for macOS**: Tauri 2.x maps Cmd+W to NSWindow.performClose: which wins the responder chain over the webview's keydown handler. The result: hitting Cmd+W to close a tab nukes the entire editor. Intercept CloseRequested, emit sky://window/close-requested to the webview, and use destroy() instead of close() in nativeHost:closeWindow to avoid re-entering the intercept.\n\n3. **DevTools focus theft**: DevTools auto-opening in debug builds steals macOS keyboard focus the moment it appears, preventing the main webview from becoming first responder. Make auto-open opt-in via LAND_OPEN_DEVTOOLS=1. Cmd+Alt+I and right-click Inspect still work.\n\nThese fixes resolve the \"I can't type or keybind\" issue and the empty Explorer on first launch.",
+			"SHA": "fb254aded503fa1e8ee2e0047bcfca44729e4c67"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:03:45Z",
+			"Date": "2026-04-30T18:59:32Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				1
+				868,
+				5
 			],
-			"Message": "docs(Mountain): Update build.rs comments to document PascalCase naming\n\nClarify the build script comments to document the PascalCase environment variable naming convention introduced in the 2026-04-29 migration. The comments now specify that `Profile`, `Pack`, `Bundle`, and `Compiler` (PascalCase) are the current env var names, replacing the legacy `LAND_*` names that were retired. This ensures clarity for developers debugging build configuration resolution at runtime.",
-			"SHA": "de696659a367b81cdc5404e3055fa6837bd94fa7"
+			"Message": "build(Mountain): Revert to simple Mountain naming and add extension roots allowlist\n\nRevert the binary/library names and Tauri config back to simplified \"Mountain\" identifier, matching the pattern established in commit 20b9363. This removes the verbose production profile string from Cargo.toml (binary, lib, default-run) and tauri.conf.json (identifier, productName), and eliminates the duplicate externalBin entry.\n\nAdditionally, configure the localhost plugin with extension_root allowlist for both Land and VSCode extension directories. This enables the `/Extension/<abs-fs-path>` URL prefix to serve extension-contributed assets (icon fonts from iconsStyleSheet.js, webview resources, images) directly from ~/.land/extensions and ~/.vscode/extensions. Without this, sideloaded extensions like GitLens render icons as blank missing-glyph boxes because WKWebView cannot resolve vscode-file:// URLs.",
+			"SHA": "320e57a2ae6800e40bca9c97e7cb4d52cb49db85"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T05:22:22Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				870,
+				4
+			],
+			"Message": "build(Mountain): Rename binary and library to verbose production profile name\n\nUpdate Cargo.toml binary, library, and default-run targets to use the full production environment profile string (ProductionNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Compile_ElectronProfile_EsbuildCompiler_Mountain) to distinguish this build variant from development builds.\n\nAlso update tauri.conf.json productName and identifier to match the verbose naming scheme, and add duplicate \"Binary/node\" entry to externalBin for the production node path.\n\nThis configuration supports the multi-profile build pipeline for distinguishing between development and production environment builds.",
+			"SHA": "3f0b690818017b0b8daee59e7f1127a68ac4c329"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T05:15:58Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				4
+			],
+			"Message": "build(Mountain): Revert production profile names to simple Mountain identifier\n\nComplete the reversion of verbose production build profile names back to simplified \"Mountain\" naming. Update Cargo.toml binary, library, and default-run targets to use \"Mountain\" instead of the full production profile string. Update tauri.conf.json productName and identifier to match, and remove the duplicate \"Binary/node\" entry from externalBin. Also delete the now-redundant Cargo.toml.Backup and tauri.conf.json.Backup files.\n\nThis aligns with the simplified naming scheme for both development and production builds, reducing configuration complexity while maintaining the multi-profile build pipeline functionality.",
+			"SHA": "20b936312a943ce8be8f0a2837225f346b5715af"
 		}
 	],
-	"TimeStamp": 1779882122113
+	"TimeStamp": 1779985062999
 }

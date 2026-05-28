@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:52:52Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				859,
-				20
-			],
-			"Message": "Refactor environment variable names for consistency and clarity\n\n- Replaced occurrences of LAND_* environment variables with more descriptive PascalCase names such as `Skip`, `Ship`, `Lodge`, `Extend`, `Probe`, `Pick`, `Require`, `Spawn`, and `Trace`.\n- Updated related comments and documentation to reflect the new environment variable names.\n- Ensured that all references to the previous LAND_* variables are replaced throughout the codebase, including in logging and configuration functions.\n- Adjusted the logic in various modules to accommodate the new environment variable names while maintaining existing functionality.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "ce8f07da8643093964f0b944ac8d1009092af34b"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-28T02:33:40Z",
+			"Date": "2026-04-30T02:20:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				870,
+				4
+			],
+			"Message": "build(Mountain): Update binary/lib names and Tauri config for development build profile\n\nRename the Mountain binary and library to include the full development environment profile string (DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler_Mountain) to distinguish this build variant from production builds.\n\nUpdate tauri.conf.json productName and identifier to match, and add Binary/node to externalBin for the development node path.\n\nThis configuration supports the multi-profile build pipeline for debugging different environment configurations.",
+			"SHA": "0a0e22ba2ddbef0b3b89c87ac9618f621f993889"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T01:34:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
 				1
 			],
 			"Message": "",
-			"SHA": "45689ef731c4f9a4540fa723921e97620024dab2"
+			"SHA": "e72ff81c94321b324cc469810fac9029bee1428c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T00:04:00Z",
+			"Date": "2026-04-30T01:34:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				1
+				868,
+				4
 			],
-			"Message": "feat(Scheme): Add CSS-as-JS shim for vscode-file scheme handling\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "204f51e4b2ea706a8247605d05466c67d1af4f76"
+			"Message": "feat(Mountain): Add Vine notification subscription for Sky/Wind and streaming multiplexer fallback\n\nAdd `VineSubscribeCommand` Tauri command surface that exposes the process-wide Vine notification broadcast to Sky/Wind via a `Channel<NotificationFramePayload>`. This enables the frontend to subscribe to notifications from Cocoon with the same ordering and drop-oldest semantics as in-process Rust subscribers. Effect-TS layer wraps this into a `Stream<NotificationFrame>`.\n\nAlso add conditional streaming multiplexer support in `Vine::Client` for both `SendRequest` and `SendNotification` when `LAND_VINE_STREAMING=1` is set. The multiplexer path attempts h2-multiplexed streaming and falls back to the unary path on any failure, ensuring the editor remains functional while Cocoon's streaming handler tree lands (currently returns Unimplemented).\n\nThis completes the P14.x notification subscription surface, complementing the P14.3/P14.2 multiplexer integration in Client.rs.",
+			"SHA": "f31941aa4bbbc67256d113d8d2788add73d49c7c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T21:27:11Z",
+			"Date": "2026-04-30T01:24:15Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				2
+				"⡇⠀⠀⠀⠀",
+				867,
+				76
 			],
-			"Message": "feat(Mountain): Add cocoon:notify handler and webview notification channels\n\nAdd a new `cocoon:notify` IPC handler as a fire-and-forget companion to the existing `cocoon:request` bridge. This handles one-way wire methods (webview.message, webview.dispose, webview.viewState, etc.) where the extension host doesn't reply, avoiding the 30s request timeout penalty when the renderer just wants to push data into Cocoon.\n\nAlso extend the webview notification relay in MountainVinegRPCService to handle `webview.updateView` and `webview.reveal` in addition to the existing setTitle, setIconPath, and setHtml. These new channels route through the WebviewLifecycle notification handler for proper translation to Sky's kebab-case channel registry.\n\nThis completes the one-way communication path complementing the request/response RPC bridge added in the prior commit.",
-			"SHA": "c3883463d357d421647827bc32d7e8435cf36d48"
+			"Message": "feat(Mountain): Implement mmap asset cache, path canon cache, and Vine streaming foundation\n\nThis patch (B7-S6 P2) lands three major infrastructure components:\n\n**Asset Memory Map Cache** (`Cache/AssetMemoryMap.rs`):\n- File-backed mmap cache for bundled workbench assets (~80 MB of JS/CSS/fonts)\n- Eliminates per-request `read(2)` + heap allocation duplication of OS page cache\n- Auto-discovers pre-brotli-compressed `<file>.br` siblings for `Accept-Encoding: br`\n- Uses `DashMap` for lock-free concurrent reads\n\n**Path Canonicalization Cache** (`Cache/PathCanon.rs`):\n- Process-wide canonical path cache keyed by lexical input path\n- Collapses repeated `dunce::canonicalize` calls from fs-scope security gate\n- 60s TTL bounds staleness; moka handles eviction\n- Saves ~150ms cumulative boot time across 113 extensions + 80 chunks\n\n**Vine Streaming Foundation** (`Vine/Multiplexer.rs`, proto changes):\n- Adds `Envelope` protobuf message for multiplexed frame format\n- Adds `OpenChannelFromCocoon`/`OpenChannelFromMountain` bidirectional streaming RPCs\n- Multiplexer owns the h2 stream; notifications fan out via broadcast channel\n- Stub returns Unimplemented until P14 lands streaming handler tree\n- Tuned tonic transport (4 MB stream window) for rust-analyzer diagnostic storms\n\n**Scheme Handler Fixes**:\n- MIME-honesty on 404: swap HTML body → empty text/plain for asset requests\n- Route asset reads through mmap cache\n- Serve Brotli precompressed siblings when client offers `Accept-Encoding: br`\n\n**Air Sidecar Integration** (`Service/AirStart.rs`):\n- Spawns Air daemon at boot alongside Cocoon\n- Connects via gRPC over `[::1]:50053`\n- Graceful degradation if Air unavailable\n\n**Misc Fixes**:\n- `nativeHost:getCursorScreenPoint` stub returns `{x:0, y:0}` to silence IPC spam\n- `FindFilesInWorkspace` diagnostic logging for zero-results debugging\n- HandlerRegistry.json regenerated (111 handlers)",
+			"SHA": "87bdf4c0cc831bcc4b105b190f66f0eb5eefc544"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T21:02:53Z",
+			"Date": "2026-04-29T22:36:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				859,
-				1
+				3
 			],
-			"Message": "fix(Mountain): Translate webview.setHtml to kebab-case for Sky channel alignment\n\nAdd suffix mapping in WebviewLifecycle to convert VS Code's camelCase\nwire format (`setHtml`) to Sky's canonical kebab-case channel registry\n(`set-html`). The translation happens before emitting so events like\nHTML assignment correctly route to sky://webview/set-html where Sky's\nlistener expects them. Other methods pass through unchanged since\nSky uses camelCase for setTitle and setIconPath.\n\nThis follows the event channel corrections in the prior commit that\naligned Terminal, Debug, StatusBar, Progress, and Output channels.",
-			"SHA": "728ab19ea1e973ad206d97d450e44ab69ab15ee4"
+			"Message": "fix(Mountain): Extend extensions poll timeout and add gRPC shutdown guard\n\nIncrease the polling timeout in `extensions:getInstalled` from 3s to 5s because cold-cache runs over 113 extensions across 6 paths regularly hit ~2950ms, poisoning the workbench's `IExtensionService` cache with empty results.\n\nAdd a process-wide shutdown flag to the Vine gRPC client that gets marked before SIGKILL of Cocoon. Background tasks (PTY reader, file watchers, diagnostics emitter) that fire `SendNotification` after the sidecar is dead now short-circuit silently instead of logging false-positive `Connection refused` errors during shutdown. `SendRequest` returns an error immediately while `SendNotification` returns `Ok(())` to allow natural unwinding of background tasks.\n\nThis prevents the shutdown tail from being flooded with spurious gRPC errors while keeping the worst-case visible boot delay bounded at 5 seconds.",
+			"SHA": "06be111688dffce33846936c513b1b67504248a5"
 		}
 	],
-	"TimeStamp": 1779882123113
+	"TimeStamp": 1779985063551
 }
