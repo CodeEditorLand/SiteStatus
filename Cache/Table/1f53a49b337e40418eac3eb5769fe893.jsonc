@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:31:30Z",
+			"Date": "2026-05-23T10:42:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				138,
+				133,
 				1
 			],
-			"Message": "fix(Project): Advance Element with Cocoon bootstrap reorder and Mountain extension cache\n\nAdvance the Element submodule (a27b4a9f → 392f0aef) carrying a coordinated fix and performance improvement across Cocoon and Mountain.\n\n**Cocoon bootstrap stage reordering (fix):**\nStage 3 MountainConnection (gRPC probe) previously ran ahead of Stage 5 RPCServer in the bootstrap pipeline, causing Mountain's 20-second gRPC retry budget to exhaust on every startup since port 50052 was never bound within the connect window. Swap execution order in `makeBootstrap` so RPCServer binds first, then MountainConnection connects to a live listener. Reduce retry caps proportionally: TCP probe from 10 to 3 attempts, gRPC connect from 15 to 5 attempts.\n\n**Mountain extension metadata cache (perf):**\nBuilding the serialised `ILocalExtension[]` array on every `extensions:getInstalled` IPC call re-serialised ~1.8 MB of extension metadata, causing multi-hundred-millisecond UI stalls on startup. Add a `OnceLock`-backed static cache keyed by TypeFilter variant. First call per type populates the cache; subsequent calls return a cloned `Value` in <1 ms. Empty responses are not cached to avoid poisoning on first-call timeout.\n\n**Mountain reliability fixes:**\n- `FileCloneNative` creates the target parent directory via `tokio::fs::create_dir_all` before `fs::copy`, resolving ENOENT failures for VS Code per-file history directories.\n- CocoonManagement IO forwarders switch from `tokio::spawn` to `tauri::async_runtime::spawn` so forwarder tasks persist while the spawning async task awaits elsewhere.\n\n**Build (Mountain):**\nAdd `Proto/Vine.proto` to `tauri.conf.json` resource globs so the .proto file is available at runtime from `Contents/Resources/`.\n\nAll changes are bounded by existing gRPC retry and timeout contracts — no runtime behaviour regressions.",
-			"SHA": "37dafa2d5df993a36d4a3ef441f0ef8247d204a0"
+			"Message": "chore(Land): Sync Element submodule for standardized Wind service argument handling\n\nUpdate the Element git submodule from 8c65e3c to ec2fef2 to integrate the refactoring of IPC argument extraction in Mountain.\n\n**Mountain:** Introduce the `JsonValueHelpers` utility module to provide type-safe, default-aware extraction functions (`arg_string`, `arg_u64`, `arg_bool`, etc.). Replace fragmented `Arguments.get(n).and_then(...).unwrap_or(...)` patterns across 40+ IPC handler modules with calls to these centralized helpers.\n\nThis change affects the entire `WindServiceHandlers` tree, covering Cocoon, Git, Terminal, UI, and NativeHost namespaces. The `mod.rs` exports and the main `mountain_ipc_invoke` dispatcher are updated to utilize the new utilities, ensuring consistent default value handling, reducing boilerplate, and improving type safety across the Mountain backend's IPC surface.",
+			"SHA": "656f32c6ffe1632608db17eb92e42f0cce84ef2a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:40:03Z",
+			"Date": "2026-05-23T10:33:27Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				138,
-				2
+				"⠀⠀⠀⠀⠀",
+				133,
+				1
 			],
-			"Message": "refactor(Land): Migrate biome.json configuration to includes with negation\n\nReplace the deprecated `files.ignore` array with `files.includes` using the newer Biome configuration API. An explicit `includes: [\"**\"]` base pattern followed by negated globs (`!Element/*/Configuration/**`, `!Documentation/**`, etc.) reproduces the original exclusion set identically.\n\nAdvance the Element submodule (a27b4a9f) bringing:\n- Extension webview panel fix (Mountain/Sky): blank secondary panels now served via localhost URL with a dedicated WebviewHost.astro shell and window.opener.postMessage IPC bridge.\n- Bootstrap Cocoon bundle (Cocoon): self-contained npm-inlined bundle for .app deployment without a node_modules dependency tree.\n- Code quality: Cocoon subprocess env/I/O extraction into named functions, Air unused-import removal, stub IPC handlers for browserView and extensionHostStarter to prevent caller hangs.\n- Style normalisation (Output/Wind/Worker): tabs to 2-space conversion, import ordering, multi-line export collapse — zero behaviour change.\n\nNo runtime regressions.",
-			"SHA": "5312a7d002e1a313cff11ebc7402caf570a721c5"
+			"Message": "refactor(Mountain): Consolidate Cocoon forwarding logic via macro\n\nEliminate the fragmented `Source/IPC/WindServiceHandlers` directory structure containing repetitive boilerplate for forwarding IPC commands to the Cocoon extension host. Introduce a centralized `forward_to_cocoon` macro and `cocoon_payload` helper in `mod.rs` to unify payload serialization and gRPC invocation.\n\nThis refactoring consolidates the handling logic for SCM, Debug, Tasks, and Authentication namespaces within the main IPC dispatcher. The new macro standardizes argument normalization and manages the connection lifecycle, significantly reducing code duplication while preserving the functional bridge to the VS Code runtime.",
+			"SHA": "f62307d656582ee216c55a5bed8ebb0fb298ec14"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T07:50:54Z",
+			"Date": "2026-05-23T10:13:51Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				138,
-				3
+				"⠀⠀⠀⠀⠀",
+				133,
+				1
 			],
-			"Message": "feat(Maintain): Mirror pre-baked extension cache into bundle output path\n\nPreBake.ts historically wrote its extension manifest cache to a single location alongside the dev binary (Element/Mountain/Target/debug/extensions.manifest.json), making it unreachable inside production .app bundles where LoadFromCache.rs probes ../Resources/extensions.manifest.json relative to the MacOS binary.\n\nAdd BundleOutputPath writing a secondary copy to Element/Sky/Target/extensions.manifest.json — the location tauri.conf.json maps to Contents/Resources/extensions.manifest.json during bundling. The dev-path staleness check (skipping cache writes when all package.json files are older) gates both outputs together, so rebuild overhead remains unchanged.\n\nAlso refactor LoadNLS from an imperative loop with conditional branching to a declarative Object.fromEntries/flatMap pipeline, and tighten ResolveNLS's placeholder detection using .at(-1) with a compound guard — both produce semantically identical output under a terser expression style.\n\nAdvance the Element submodule (cf11775e) bringing LoadFromCache.rs bundle-path awareness, CocoonManagement BaseDirectory::Resource fallback, and formatting normalisation across 4 submodules. Extend .prettierignore patterns for auto-generated ESBuild config .js files and archived Cocoon code.\n\nOutcome: .app builds now ship a pre-baked extension cache, retaining the <50ms cold-boot scan eliminated in the earlier PreBake introduction.",
-			"SHA": "641008668d0aec7a422c0919c3897cdecdd65499"
+			"Message": "chore(Land): Sync Element submodule for IPC standardization and webview lifecycle\n\nUpdate the Element git submodule from 6e6a6c5 to 2a9e60e to synchronize revisions for Mountain, Output, and Sky.\n\n**Mountain:** Correct the `postMessage` Tauri event suffix to PascalCase (`postMessage`) to comply with project-wide naming standards. Refactor `SetLanguageConfiguration` to emit the full parameter object, aligning with generic notification patterns.\n\n**Output:** Expand `browserViewGroup` channel stubs in `TauriMainProcessService` to include `updateKeybindings`, `updateTheme`, `updateConfiguration`, `getBrowserViews`, and dev tools commands, pre-emptively aligning bundled artifacts with upcoming Wind and Sky requirements.\n\n**Sky:** Implement bridge listeners for `setTitle`, `setIconPath`, and `reveal` in the `InstallWebview` layer to manage DOM synchronization, native method invocation, and view focus logic. Restore `dispose` registration to ensure proper cleanup of webview panels.\n\nThese changes enforce strict PascalCase conventions, eliminate IPC naming inconsistencies, and complete the runtime control surface for the webview component layer.",
+			"SHA": "5623db3af452a2703f6eaa8e734f698f60168847"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T06:20:43Z",
+			"Date": "2026-05-23T10:03:07Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				138,
-				3
+				"⠀⠀⠀⠀⠀",
+				133,
+				1
 			],
-			"Message": "feat(Land): Resolve NLS placeholders in pre-baked extension manifest cache\n\nPreBake.ts scans extension directories and serialises their package.json manifests into a cache for Mountain boot-time consumption. Extension manifests commonly use %key% placeholders (e.g. %displayName%) resolved at runtime from package.nls.json — without NLS resolution the cached copy stores opaque keys rather than resolved strings.\n\nAdd LoadNLS and ResolveNLS utility functions that load package.nls.json alongside each manifest and recursively substitute %key% patterns across all string/array/object values before writing the cache entry. This ensures Mountain reads fully-resolved localised metadata from the pre-baked blob.\n\nAlso add three Plain-JS esbuild config files (Cocoon/ESBuild.js, Wind/ESBuild.js, Output/Source/ESBuild/Output.js) to .prettierignore — each has a canonical .ts sibling and must not be reformatted independently.\n\nAdvance the Element submodule to fcf45b24, pulling in the agent-plugins home and chat language models sandbox configuration, the extension cache URI normalisation fix, and multi-submodule style normalisation.\n\nImpact: NLS-localised extension metadata is now available in the pre-baked cache, reducing the remaining boot-time work previously done by live extension scanning.",
-			"SHA": "fe8f0baea57339439244054ead020212653361fb"
+			"Message": "chore(Land): Sync Element submodule for native dialog interactivity\n\nUpdate the Element git submodule from 70e79155 to 6e6a6c5 to synchronize the latest revisions for Cocoon and Mountain on the Current branch.\n\n**Cocoon:** Consolidate fragmented window message handling into a single `Window.ShowMessage` gRPC method, delegating action button rendering to Mountain. Enhance URI resolution to explicitly validate `scheme`, `authority`, and `path` properties to prevent broken icon paths.\n\n**Mountain:** Standardize Tauri event naming to PascalCase (e.g., `postMessage`) and refactor `Window.ShowMessage` to use atomic sequence counters. This enables blocking behavior that renders action buttons in the native UI and awaits user selection.\n\nThese changes ensure consistent event naming, prevent illegal event crashes, and restore full interactivity for notification actions across the extension host IPC layer.",
+			"SHA": "059ed59eab25c6f01cef5659514630c910180c20"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T05:37:50Z",
+			"Date": "2026-05-23T09:40:14Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				138,
-				2
+				"⠀⠀⠀⠀⠀",
+				133,
+				1
 			],
-			"Message": "feat(Project): Advance Element; drop redundant PreBake from Build.sh\n\nThe Element submodule now bakes the extension manifest cache during Mountain's own build process, making the temporary Maintain/Build/Manifest/PreBake.ts invocation from Build.sh redundant. Remove the outsourced PreBake call site.\n\nElement (7a67305f) wires the extension host bridge across Cocoon, Mountain, and Common (388 gRPC methods for secrets, storage, activation, language providers, VSCode API namespaces); implements workbench services in Sky (bulk edits, notifications, quick pick, SCM); regenerates Wind/Output/Worker codegen stubs; and normalises formatting across 7 submodules. Mountain's boot-time extension scan is now definitively reduced from ~1200 ms to <50 ms via the pre-baked cache read, baked at Mountain build time rather than at Land build time.",
-			"SHA": "59a4b0c11519c796206df431346aacc5617a4199"
+			"Message": "chore(Land): Sync Element submodule for URI lifecycle and browser view preparation\n\nUpdate the Element git submodule from 4b0d889a to 70e79155 to synchronize the latest revisions for Mountain and Wind on the Current branch.\n\n**Mountain:** Implement gRPC notification handlers for `UnregisterExternalUriOpener` and `UnregisterRemoteAuthorityResolver` within the Vine protocol. These handlers leverage existing `UnregisterByHandle` utilities to ensure consistent lifecycle management for remote authority and URI opener extensions.\n\n**Wind:** Expand the `StubChannels` registry in `TauriMainProcessService` to include definitions for the `browserViewGroup` service. Add stubs for `updateKeybindings`, `updateTheme`, `updateConfiguration`, `getBrowserViews`, and dev tools commands to establish the contract for upcoming native browser view operations.\n\nThese changes ensure full lifecycle support for extension URI handlers and lay the groundwork for advanced view management in the Workbench service layer.",
+			"SHA": "c4db0cd318e34bd96e288b5ebc3e0322026b03e7"
 		}
 	],
-	"TimeStamp": 1779882037521
+	"TimeStamp": 1780149350620
 }

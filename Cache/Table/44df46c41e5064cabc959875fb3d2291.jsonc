@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:37:05Z",
+			"Date": "2026-05-23T05:33:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1574,
-				6
-			],
-			"Message": "feat(Mountain): Add lang-scoped config override, stable session ID\n\n**Language-scoped configuration overrides** — `UpdateValue` now writes into\n`\"[<langId>]\": { key: value }` when the `ConfigurationOverridesDTO` carries a\nnon-empty `OverrideIdentifier`, matching the VS Code convention used by\nprettier-vscode, vscode-eslint, and other per-language formatters. The scope\nkey is cleaned up when its last entry is removed.\n\n**Stable session ID** — `ConstructSandboxConfiguration` and\n`ConstructExtensionHostInitializationData` now share a `OnceLock`-backed\nstatic `SESSION_ID` instead of generating a fresh `Uuid::new_v4()` per call.\nExtensions comparing `telemetryInfo.sessionId` across initialization calls now\nsee a consistent value for the process lifetime.\n\n**Call/Type hierarchy RPC handlers** — `CocoonService` now dispatches\n`$provideCallHierarchyItems`/`prepareCallHierarchy` and\n`$provideTypeHierarchyItems`/`prepareTypeHierarchy` generic requests to\n`Environment::PrepareCallHierarchy` and `PrepareTypeHierarchy` respectively,\nunblocking F12 / Go to References / Call Hierarchy in the editor.\n\n**Real IPC stubs** — `mountain_get_configuration` returns the live merged\nconfig object; `mountain_get_services_status` reports actual Cocoon connection\nstate; `mountain_get_state` surfaces real workspace folder count and active\ndocument URI. Eliminates hardcoded mock data.\n\n**SOCKS proxy support** — Proxy env-var parsing now emits the correct PAC\nkeyword (`SOCKS` for socks/socks4/socks5 URIs, `PROXY` for http/https),\nso extensions using the `proxy` setting work behind SOCKS proxies.\n\n**Dev-log lock contention** — `FlushDedup::Fn` switches from `lock()` to\n`try_lock()` so a contended dedup mutex never parks a Tokio worker thread.\nThe dedup line is cosmetic; missing one flush costs nothing.\n\n**Atomic always-on-top toggle** — Replaces the heuristic title-prefix proxy\nwith a `static AtomicBool` so `nativeHost:toggleWindowAlwaysOnTop` correctly\nflips and sets the opposite state on each invocation.\n\n**ViewColumn forwarding** — The `window.didChangeTextEditorSelection`\nVine notification now includes `viewColumn` from the incoming arguments,\nso extensions calling `activeTextEditor.viewColumn` see the correct pane\nnumber in split-editor layouts.",
-			"SHA": "5c627091d0aecbc4b96f536dde7bdf12242cc6f7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:21:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1574,
-				1
-			],
-			"Message": "",
-			"SHA": "07bd1cd0f25a8de5e7c19ec3eb0eab1bfabc8eca"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:21:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1574,
-				6
-			],
-			"Message": "fix(Mountain): Reduce lock contention; notify Cocoon on config change\n\n**Lock contention fixes** — In `ScanAndPopulateExtensions`, replace the N-insert\nloop under `ScannedExtensions` lock with a single pointer-swap (`*Guard = All.clone()`),\nreducing lock hold time from 100–500 ms to a clone duration. In `DiagnosticProvider`,\nsnapshot the `DiagnosticsMap` under the lock then aggregate outside it, so concurrent\n`SetDiagnostics`/`ClearDiagnostics` calls are not blocked during serialization.\n\n**Cocoon config notification** — After a successful configuration value write in\n`UpdateValue`, fire a `configuration.change` Vine notification to `cocoon-main` so\nextensions' `ConfigCache` invalidates the affected key and re-primes on next access.\nWithout this, `workspace.getConfiguration().get(key)` returns stale cached data until\nthe next full re-merge notification.\n\n**Cleanup** — Group `SkyEvent` import into existing block in `UpdateValue`; collapse\n`TextfileSave` import paths; fix `AppMenu` and `FileWriteNative` formatting.",
-			"SHA": "7018ff29e26f00125ebe80f2482765bbdb842202"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:20:43Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1574,
+				1739,
 				2
 			],
-			"Message": "fix(Mountain): Fix StorageProvider race and Cocoon-connect boot latency\n\n**StorageWriteDebouncer race** — Reorder the flush loop to take the pending\nitem before clearing `FlushScheduled`, so a concurrent `Queue()` call\ncannot observe the flag as `false` and the slot as empty, scheduling a\nno-op flush.\n\n**Scope-correct debouncer** — Select `GetWorkspaceDebouncer` for workspace\nscopes instead of always routing through the global debouncer, preventing\na workspace bulk-save and global bulk-save from sharing the same pending\nslot.\n\n**Dev-log noise suppression** — Add `file:open`, `file:close`, and\n`textFile:save` to the low-level noise skip list. These fire once per file\nduring project-open cascades and once/second per dirty file for auto-save\nintent, polluting IPC logs without diagnostic value.\n\n**Cocoon-connect boot latency** — Remove the 3-second blocking\n`WaitForClientConnection` from `languages:getAll` and\n`languages:getEncodedLanguageId` handlers. Tokenizer calls\n`getEncodedLanguageId` synchronously on first editor open. With the old\nwait, the worker stalls for up to 3 s before Cocoon is available. Return an\nempty fallback array immediately when Cocoon isn't connected; the workbench\nretries on next keystroke.",
-			"SHA": "920f9dc6bbda677a2de6d3018582afbb14de5b26"
+			"Message": "fix(Mountain): Prevent Tauri build failure on missing Sky manifest\n\nThe Tauri build process fails when running `cargo build` directly because it validates `extensions.manifest.json` referenced in `bundle.resources`, which is normally generated by the Sky frontend build. Update `build.rs` to create a stub file (`[]`) at the expected path if missing, ensuring the build succeeds without a prior Sky build while retaining the live scan fallback in `LoadFromCache.rs`.\n\nAdditionally, disable `beforeBundleCommand` in `tauri.conf.json` to prevent redundant or conflicting manifest generation steps during the Tauri build phase, relying instead on the explicit manifest creation in `build.rs` and the existing Sky build pipeline.",
+			"SHA": "3473a81e819f0b8a80fc02084589693a1fe0d85d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:13:04Z",
+			"Date": "2026-05-23T04:26:15Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1574,
-				3
+				1739,
+				1
 			],
-			"Message": "fix(IPC): Enhance file write and save handlers to update metadata and notify configuration changes\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "37d18e0da89ec21186531428f1ddec68815699df"
+			"Message": "chore(Mountain): Add lint allowances to build script for generated bindings\n\nPreserve build stability by re-allowing standard naming and usage lints (`non_snake_case`, `dead_code`, etc.) within `build.rs`. This compensates for the recent global removal of `#![allow(non_snake_case)]` across the source tree, which inadvertently flagged warnings in build scripts consuming auto-generated protocol bindings or external definitions.\n\nThe change ensures the build process remains clean while the main application source maintains strict PascalCase compliance and active linting. This aligns with the pattern in `Source/Vine/Generated/mod.rs` where specific allowances are retained for non-manual code.",
+			"SHA": "f520c6044f6940106f177b01327ed613e11f7846"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T04:21:08Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				1739,
+				245
+			],
+			"Message": "style(Mountain): Remove pervasive leading empty lines after module doc comments\n\nStrip the redundant single empty line immediately following `//! ...` module doc comments across over 400 files in the Mountain backend. This affects Air integration, Binary entry points, Command handlers, Environment providers, ExtensionManagement, and the full IPC layer (WindServiceHandlers, RPC/CocoonService, Track, Vine).\n\nThe change enforces a tighter file header style where documentation blocks are directly followed by the first code declaration or `use` statement, eliminating stylistic noise while preserving all logic and API contracts. `Source/Library.rs` retain necessary global allowances for generated code, while the rest of the source tree now adheres to a uniform header structure.\n\nRefs #CLAUDE.md",
+			"SHA": "2a4878c8f2eebf57350b1ee6725633c2d3199a53"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T04:21:00Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				1739,
+				300
+			],
+			"Message": "refactor(Mountain): Remove pervasive dead_code and unused_imports allowances\n\nStrip `#![allow(dead_code, unused_imports, unused_variables)]` and related lint suppressions from over 200 files across the Mountain backend. This cleanup spans the Air integration, ApplicationState, Binary entry points, ExtensionManagement, IPC layers (WindServiceHandlers, Vine, TauriIPC, SecureChannel), RPC services (Cocoon, Echo, Workspace), Telemetry, Track, and Update modules.\n\nRemove redundant `#[allow(dead_code)]` and `#[allow(unused_imports)]` attributes from structs, constants, traits, functions, and module-level declarations. Also normalize file headers by removing leading empty lines and unused import groups to align with the project-wide PascalCase and strict linting standards.\n\nEnsure `Source/Library.rs` retains only necessary global allowances for generated code and external bindings, while `Source/Binary/Main/Entry.rs` and build scripts are updated to reflect the new strict lint policy. This change eliminates style noise from reviews and ensures future code additions adhere to the required naming and usage conventions.\n\nRefs #CLAUDE.md",
+			"SHA": "350d161450f66626001a72885bfde33237ae9dfd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T03:05:28Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1739,
+				1
+			],
+			"Message": "refactor(Mountain): Remove Vine generated allow attributes for naming lints\n\nStrip `non_snake_case` and `non_camel_case_types` allowances from `Source/Vine/Generated/mod.rs`. This aligns the auto-generated gRPC protocol bindings with the project-wide PascalCase naming convention enforced across the codebase, removing the previous suppression of warnings for protocol-specific identifiers.\n\nThe `clippy::all`, `unused_imports`, and `unused_qualifications` allowances are retained as they remain necessary for generated code where manual optimization is not feasible. This change ensures that only relevant lints are suppressed, improving code quality checks for the generated IPC layer.",
+			"SHA": "b6c715ff7d8ce7db7909dc65ca482856a2bdd5b3"
 		}
 	],
-	"TimeStamp": 1779882043560
+	"TimeStamp": 1780149351861
 }

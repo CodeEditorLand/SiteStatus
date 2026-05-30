@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T23:06:33Z",
+			"Author": "Auto",
+			"Date": "2026-05-01T02:40:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				2
-			],
-			"Message": "feat(Mountain): Add per-URI marker payloads to diagnostics events and cap keyring logging\n\nTwo changes in Mountain's diagnostic system:\n\n1. **DiagnosticProvider.rs**: Extend the `DiagnosticsChanged` event payload with a new `changedURIs` field containing per-URI marker data alongside the existing `Uris` string array. This enables SkyBridge's `cel:diagnostics:changed` listener to call `IMarkerService.changeOne(owner, uri, markers)` directly without an extra IPC round-trip per diagnostic change. Also adds lowercase `owner` field for consistency. Maintains backward compatibility with listeners expecting the original format.\n\n2. **LoggingPlugin.rs**: Cap the `keyring` crate to Warn level. This dependency (used by Mountain's secret-storage path for license data lookups) emits a 3-line DEBUG block per `get_password` call that fires indefinitely after the workbench paints, similar to the previous `ignore` and `globset` mutes.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "5b111b189f5566e92bce268a48be289d73ef6735"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T22:00:38Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				4
-			],
-			"Message": "refactor: simplify project naming in Cargo.toml and tauri.conf.json\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "7ecd2c78579c71c6c6dbbbb509d52c63b1e771ad"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T21:54:13Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				861,
-				6
-			],
-			"Message": "fix(Mountain): Resolve 404s for extension webview assets and reduce logging noise\n\nTwo bug fixes in Mountain's build modules:\n\n1. **Scheme.rs**: Extend vscode-file URI handling to support arbitrary authorities beyond \"vscode-app\". The original code only handled `vscode-file://vscode-app/<path>` but `WebviewImplementation::asWebviewUri` rewrites local resource URIs to use the extension's identifier as authority (e.g., `vscode-file://vscode.git/...`). This caused every extension-supplied webview asset (icons, scripts, stylesheets, fonts) to return 404. Added a generic fallback that extracts the path after any authority.\n\n2. **LoggingPlugin.rs**: Cap noisy extension-scanner log targets (\"ignore\", \"ignore::walk\", \"ignore::gitignore\", \"globset\") to Warn level. These crates emit DEBUG lines per `.gitignore` opened, per glob compiled, and per file whitelisted—tens of thousands during a single boot, drowning out extension activation signals.\n\nAlso updates binary/lib names and tauri productName to include build configuration identifiers for development builds.",
-			"SHA": "bbbdab26d47fbd3bca35342c224431194c519eb7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:56:13Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				1
 			],
-			"Message": "fix: correct wording in changelog for clarity and consistency\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "fc4f4ed5042663818a32ac3024397cff72f0a794"
+			"Message": "",
+			"SHA": "51d4bddbf442268c76e36e70ef9e176c98fe2c3b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:53:01Z",
+			"Date": "2026-05-01T01:32:25Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				868,
+				55
+			],
+			"Message": "refactor(Mountain): Rename IPC handler functions to follow PascalCase convention\n\nRename all `handle_*` IPC handler functions in WindServiceHandlers, ConfigurationBridge, TauriIPCServer, and related modules to match the PascalCase naming convention specified in CLAUDE.md. Functions like `handle_commands_execute` → `CommandsExecute`, `handle_configuration_get` → `ConfigurationGet`, `handle_incoming_message` → `IncomingMessage`, etc. The new names align with the command/channel names they service (e.g., `commands:execute` → `CommandsExecute`), improving code clarity and consistency across the Mountain IPC layer.\n\nThis is a pure refactor with no functional changes.",
+			"SHA": "9134f4bf64e3333b62d9591a5c58b4764b8d5b47"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T01:17:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				4
+				868,
+				2
 			],
-			"Message": "feat: add support for multiple windows in app and window permissions\n\n- Updated default permissions for the app plugin to include `allow-supports-multiple-windows`.\n- Added new permissions for enabling and denying `supports_multiple_windows` command.\n- Enhanced window plugin permissions to include `allow-activity-name` and `allow-scene-identifier`.\n- Added corresponding deny permissions for `activity_name` and `scene_identifier` commands.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "c7c748bb0dce25923e80d5c6b1573c08e05b421e"
+			"Message": "perf(Mountain): Batch command registration emits to reduce IPC saturation\n\nDuring extension boot, 1000+ `registerCommand` notifications fire in a tight burst (113 extensions × ~10 commands each). Each notification was emitting a separate Tauri event, saturating the shared WKWebView IPC channel that also carries keystroke delivery. Users could type for a split second before the burst hit, then nothing.\n\nAdd a `CommandEmitBatch` struct that buffers commands and flushes after 16ms (one frame), reducing 1000+ individual emits to a single batched `{ commands: [...] }` emit. SkyBridge's listener already accepts both shapes (single `{ id, commandId, kind }` or batch `{ commands: [...] }`), so no Sky changes required.\n\nThis keeps the IPC channel free for keystrokes during extension boot when the renderer is most busy.",
+			"SHA": "f304bd408f391d1848c357b909b09e5f5906ae99"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T00:15:58Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				1
+			],
+			"Message": "perf(Mountain): Gate sync/performance emits behind env vars and add subscriber fast-path\n\nTwo optimizations to reduce IPC channel contention:\n\n1. **Env var gating**: The `mountain_sync_status_update` and `mountain_performance_update` events were emitting on every tick even though Sky has no subscriber. Every emit now waits behind keystrokes on the shared Tauri IPC pipe. Gate both behind `LAND_SYNC_STATUS_EMIT=1` and `LAND_PERF_EMIT=1` respectively for debugging or future Sky consumers.\n\n2. **Subscriber fast-path**: The 100ms real-time updates tick was acquiring the lock and draining pending updates even with zero subscribers. Add an early check to skip the entire lock-and-drain path when `Subscribers.is_empty()`, making the tick a true no-op until a subscriber registers.\n\nTogether these keep the shared IPC channel free for keystrokes during extension boot when the renderer is most busy.",
+			"SHA": "75d2f1dbe4d77d92e1f679c84aa4885ce355a12d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T23:34:46Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				2
+			],
+			"Message": "feat(Mountain): Add Disable env var and fix first-click focus issue\n\nTwo unrelated but complementary fixes:\n\n1. **accept_first_mouse(true)**: Fix the \"I clicked, I'm typing, nothing's happening\" bug where WKWebView swallows the first click on an unfocused window as a \"make me key\" no-op. The user had to click twice - first to focus the NSWindow, second to focus the Monaco textarea. This change flips the responder chain so the first click already reaches WKWebView's content.\n\n2. **Disable environment variable**: Add master \"disable Land customisations\" gate via `Disable=true` env var. When enabled, Mountain skips: WindowEvent::CloseRequested intercept (Cmd+W routes natively), Cocoon/Air sidecar spawn, and Wind/SkyBridge registration. This is useful for bisecting whether typing-input regressions originate in the extension host or upstream/Tauri/WKWebView. Also rename DevTools auto-open from LAND_OPEN_DEVTOOLS to `Inspect=1` to follow Land's PascalCase env var convention.",
+			"SHA": "14b86efb22e841a2d2fa91ea12ba33c37b6cec33"
 		}
 	],
-	"TimeStamp": 1779882122541
+	"TimeStamp": 1780149402579
 }

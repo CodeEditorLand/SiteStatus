@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:36:03Z",
+			"Date": "2026-04-27T21:03:03Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				28,
 				2
 			],
-			"Message": "refactor(Output): Replace runtime require() with static ES imports in workbench accessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of both web.main.js and desktop.main.js instead of using runtime require() calls. This eliminates AMD require() resolution that could fail in the WKWebView context.\n\nChanges:\n- Anchor on stable import markers ('mark' from performance.js for web, 'localize' from nls.js for desktop)\n- Add IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports\n- Extract shared imports into SharedImportLines to avoid duplication between profiles\n- Add cel:services-ready DOM event dispatch on successful population\n- Add Mountain diagnostic logging for success/failure tracking\n- Add guard check for import marker to avoid matching unrelated files\n\nImpact: __CEL_SERVICES__ is now populated synchronously before the microtask queue drains, ensuring services are available for both web and Electron/Desktop profiles at runtime.",
-			"SHA": "055c5c94f6b7f3de102f98906b05603d30148f0a"
+			"Message": "fix(Project): Align webview.setHtml channel between Mountain and Sky\n\nSynchronized submodule update fixing webview-view extension API communication:\n\n1. Mountain adds suffix mapping to translate VS Code's camelCase `webview.setHtml` to Sky's canonical kebab-case `set-html` channel. This ensures events route correctly to `sky://webview/set-html` where Sky's listener expects them.\n\n2. Sky adds two new handlers completing the webview-view lifecycle:\n   - `sky://webview/set-html` - applies HTML to parked workbench WebviewView from `__CEL_WEBVIEW_VIEWS__`\n   - `sky://webview/postMessage` - forwards extension messages to the parked view's webview\n\nThis is the final piece of the channel alignment series (following Terminal, Debug, StatusBar, Progress, Output), enabling extensions like GitLens to properly render their sidebar panels.",
+			"SHA": "271252d910f0d1a555fcf6b7ea42d4acaf909fc4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:47:54Z",
+			"Date": "2026-04-27T20:56:47Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				28,
+				5
+			],
+			"Message": "",
+			"SHA": "6f11cad3ebc983b55fbda1ade3cfba90c0e665ea"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-27T20:18:39Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
 				28,
 				3
 			],
-			"Message": "feat(Project): Bridge VS Code binary IPC to Mountain backend\n\nCross-cutting submodule sync enabling real file explorer, search, settings, and storage persistence:\n\n1. Mountain: Add VS Code IPC command aliases in WindServiceHandlers to bridge binary IPC protocol to native Effect-TS layer. Configuration: `configuration:getValue`/`updateValue` → `configuration:get`/`update`. File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`. Add stub handlers for `file:watch`/`file:unwatch` and `configuration:onDidChange` returning Null to prevent promise leaks.\n\n2. Output: Route VS Code binary IPC channels (25+ including localFilesystem, storage, configuration, search, terminal) to Mountain via MountainIPCInvoke instead of returning stub responses. Previously these channels returned FileNotFound, empty arrays, and empty objects.\n\n3. Cocoon: Enhance stderr filtering to suppress follow-up stack frames from extension errors.\n\nImpact: File explorer, search results, settings editor, and workspace storage now persist data to the real filesystem and backend instead of operating on in-memory stubs.",
-			"SHA": "edac4ec11f545cf3816d3a6cbb8db965aeff42eb"
+			"Message": "fix(Project): Add DI decorator metadata to ReplaceSearchService and sync submodules\n\nSubmodule synchronization across Common, Output, and Cocoon:\n\n1. Output (46eceea1): Add DI decorator metadata to ReplaceSearchService transform - The ReplaceSearchService transform was missing TypeScript-compiled decorator helpers (__decorate, __param) that VS Code's DI container requires to resolve constructor parameters by their @IService decorator types. Without these, IInstantiationService bound parameters positionally with no type knowledge, causing all dependencies to arrive as undefined and crashing on this.uriIdentityService.extUri. This commit adds the __decorate/__param runtime helpers mirrored from VS Code's compiled output, enabling proper service resolution for IModelService, IEditorService, ITelemetryService, ILogService, IExtensionService, IFileService, IInstantiationService, and IUriIdentityService. The search panel now properly delegates to Mountain's search:findFiles/search:findInFiles handlers via Tauri IPC.\n\n2. Common (056b8d26): Sync with Current branch, includes dependabot update to @cloudflare/workers-types from 4.20260424.1 to 4.20260426.1\n\n3. Cocoon (f78bc413): Forward sync to latest Current\n\nImpact: Search panel now functions correctly with .gitignore-aware file search via Mountain handlers.",
+			"SHA": "4f9670ef93d4a556b367a6799133adb6b4360976"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T21:25:45Z",
+			"Date": "2026-04-27T19:54:45Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
+				"⡿⠀⠀⠀⠀",
 				28,
-				2
+				5
 			],
-			"Message": "feat(Project): Implement workspaceContains activation and reduce stderr noise\n\nCross-cutting submodule sync across Mountain and Cocoon:\n\n1. Mountain: Fire workspaceContains and onStartupFinished extension activation\n   - Implement VS Code-style startup activation with three bursts: `*`, `workspaceContains:<pattern>`, and `onStartupFinished` (2s delay)\n   - Add FindMatchingWorkspaceContainsPatterns for glob matching against workspace folders (depth 3, 4096 entries max)\n   - Filter benign stderr noise (macOS codesign, Node.js deprecation warnings) to cocoon-stderr-verbose channel\n   - Upgrade Rust edition from 2021 to 2024\n\n2. Cocoon: Reduce stderr spam from extension handler errors\n   - Downgrade $provide*, $resolve*, $get* handler errors from console.error to console.warn\n   - Prevents extension code failures from flooding stderr with full stack traces\n\nImpact: Extensions gated on workspaceContains:package.json and onStartupFinished now activate correctly. Default stderr is cleaner while preserving actionable error visibility.",
-			"SHA": "1cfc2cc882f651b1876ff69fedeadc0a8a61b77d"
+			"Message": "feat(Project): Add debug session tracking, custom editor events, and search service transform\n\nSubmodule synchronization bringing three major features:\n\n1. Debug Session Tracking (Mountain + Common + Sky):\n- Mountain implements DebugSessionEntry and DebugSessions map for lifecycle management\n- StartDebugging spawns DAP adapters with stdin/stdout/stderr pipes and parses DAP frames\n- Messages emitted on `sky://debug/dap-message` and forwarded to DOM events\n- StopDebugging sends DAP disconnect and unregisters the session\n- Common adds DebugDapMessage IPC event to support this flow\n\n2. Custom Editor Save Events (Mountain + Common + Sky):\n- Common adds CustomEditorSaved IPC event for UI notifications\n- Mountain implements OnSaveCustomDocument to reverse-RPC to Cocoon extension sidecar\n- Sky adds handler for `sky://customEditor/saved` dispatching cel:customEditor:saved\n\n3. Search Service Replacement (Output):\n- Add ReplaceSearchService transform replacing web-worker RemoteSearchService\n- Delegates to Mountain's `search:findFiles` / `search:findInFiles` handlers\n- Makes search .gitignore-aware via Rust's ignore::WalkBuilder\n- Fixes search panel showing 0 matches and node_modules appearing in results\n\n4. Bug Fixes (Mountain):\n- Fix char-aware UTF-8 truncation in WindServiceHandlers and OutputChannelAppend\n- Avoids panics when slicing multi-byte codepoints (e.g., `•` in SCM progress)\n\nImpact: Debugging now works with real DAP adapters, custom editor save callbacks notify observers, and file search respects .gitignore rules.",
+			"SHA": "15e5ce0a3c99ee27478c2ac3496e8ce21d53cd11"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:52:42Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "refactor(Project): Reduce logging noise across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
-			"SHA": "786efde99dc3922147183375645841751ecd3fc2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:37:45Z",
+			"Date": "2026-04-27T15:55:13Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
 				28,
 				4
 			],
-			"Message": "feat(Project): Reduce Mountain log noise and wire extension tree views\n\nCross-cutting sync across four submodules:\n\n1. **Mountain (refactor):** Reduce high-frequency log noise in default mode by moving per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants muted in `short` mode. Expand IPC skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme. Reduces default log volume from ~14k+ lines per session to ~500 while preserving error visibility.\n\n2. **Output (feat):** Expose IViewsService and TreeViewByViewId in workbench accessor ESBuild transform. Enables Sky to resolve ITreeView instances from ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\n3. **Sky (feat):** Wire extension tree views into workbench rendering pipeline. Attach data providers to tree views that call `tree:getChildren` via MountainIPCInvoke, converting Cocoon wire shape into workbench ITreeItem. Add retry logic (5 attempts, 150ms spacing) for async workbench init. Implement `cel:tree-view:refresh` and `cel:tree-view:dispose` handlers.\n\n4. **Cocoon (sync):** Submodule update.\n\nImpact: Extension-registered tree views (from extensions like GitLens, Debugger) now render in the workbench pane. Default logs are actionable rather than noisy.",
-			"SHA": "ec447b98f146279aa5547aac15f54bc73d744fe0"
+			"Message": "fix(Project): Align SCM provider handles between Mountain and Cocoon\n\nSubmodule synchronization addressing two critical issues:\n\n1. SCM Provider Handle Alignment (Common + Mountain + Cocoon):\n   - Common adds optional Handle field to SourceControlCreateDTO enabling Cocoon to supply its sequential allocator handle\n   - Mountain now honors caller-supplied Handle in CreateSourceControl rather than allocating via DJB hash\n   - Previously, group updates from Cocoon used sequential handles while Mountain keyed marker maps with DJB hash, causing \"Received group update for unknown provider handle\" warnings and empty SCM viewlet\n\n2. Recently-Opened Workspace Fallback (Mountain):\n   - Fixes boot seeding to probe RecentlyOpened.json (same source as webview's BuildInitialUrl) between env/CLI and CWD walk-up\n   - Resolves webview title showing \"Mountain\" while Cocoon payload shipped \"Land\"\n   - Fixes vscode.git scanning wrong root and SCM panel showing zeros despite untracked changes\n\n3. Dependency Updates:\n   - Mountain, Worker: Bump pozil/auto-assign-issue from 2.2.x to 3.0.0\n\nRefs: 3cfc021e (DTO serialization), 4c472e3 (event payload fixes)",
+			"SHA": "072ef07cf9596928526c3330aedccd96136239b6"
 		}
 	],
-	"TimeStamp": 1779882069385
+	"TimeStamp": 1780149364537
 }

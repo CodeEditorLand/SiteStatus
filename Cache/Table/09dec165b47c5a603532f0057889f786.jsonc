@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T05:26:36Z",
+			"Date": "2026-05-01T01:32:38Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "refactor(Element): Sync submodules with PascalCase naming convention\n\nSynchronize four Element submodules with PascalCase refactoring:\n- Air: Rename CLI handlers (handle_status → Status, handle_restart → Restart, handle_config → Config, handle_metrics → Metrics, handle_logs → Logs, handle_debug → Debug) and plugin trait methods (handle_message → Message, handle_event → Event)\n- Grove: Rename handle_call → Call in APIBridgeImpl\n- Mountain: Rename IPC handler functions (handle_commands_execute → CommandsExecute, handle_configuration_get → ConfigurationGet, handle_incoming_message →IncomingMessage, etc.)\n\nThese changes align with the project's naming convention specified in CLAUDE.md, removing handle_ prefixes for shorter, consistent method names across the codebase.\n\nAdditionally, Sky adds an event-driven installation path for Wind's LandWorkbench bridge that listens for cel:services-ready, ensuring proper sequencing: services DI container populated → install Wind bridge → notify subscribers.",
+			"SHA": "e86cbf076d24ae8068136ca73697bf3d16e1ce3c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T01:17:53Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "perf(Element): Batch command registration to eliminate IPC saturation during extension boot\n\nSynchronize four Element submodules with coordinated performance fixes addressing keystroke lag during extension boot:\n\n- Mountain (f304bd40): Add CommandEmitBatch to buffer 1000+ registerCommand notifications and flush after 16ms, reducing individual emit storms to single batched IPC round-trip\n- Output (2afe4b46): Revert DisableLazyPaint opt-in gate (regressed editor mount) and remove PartZIndexCSS `isolation: isolate` rule that blocked input events under WKWebView while keeping CSS lazy-paint fix\n- Sky (06fd1942): Accept batched `{ commands: [...] }` format alongside legacy single-command shape via new RegisterOneCommand helper\n- Cocoon: Sync to latest (a877808c)\n\nThese changes prevent 1000+ Tauri events per extension boot from saturating the shared WKWebView IPC channel that also delivers keystrokes, restoring input responsiveness during the most resource-intensive phase.",
+			"SHA": "16654395ae34db87fbc5e301bdc94688e202a995"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T00:36:04Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "docs(Air): Sync CHANGELOG with improved formatting and structure\n\nSubmodule synchronization bringing Air to e79de101. The CHANGELOG.md receives improved markdown formatting: expanded header describing Air's background daemon sidecar role, reformatted v2.1 section with proper list syntax and subsystem tags, reorganized v2.0 module inventory into categorized bullet points, and consolidated dependency section with inline formatting.\n\nThis aligns Air's documentation with the prose-style CHANGELOG format established across other Land components, improving onboarding context for contributors.",
-			"SHA": "85fc0426659768e4489d71e45b8a770189f0ccd8"
+			"Message": "refactor(Output): Make DisableLazyPaint RAF/IO overrides opt-in\n\nWrap the requestAnimationFrame and IntersectionObserver overrides in a conditional guard. These overrides redirect Monaco's rAF callbacks to the macrotask queue and replace native IntersectionObserver with a fire-on-observe stub that calls getBoundingClientRect() synchronously.\n\nThe problem: both bypass WKWebView's compositor-frame coordination—which also delivers keyboard input. Once Monaco starts rendering (theme load, decorations, cursor blink, minimap, scrollbars), the macrotask queue floods and keystrokes starve, causing the input lag symptom this polyfill was meant to solve.\n\nSolution: make these overrides opt-in via `__LAND_AGGRESSIVE_LAZY_PAINT__ = true` set BEFORE workbench bootstrap. Keep the CSS lazy-paint kill (content-visibility: visible) always applied—it solves the original \"panels invisible until hover/scroll\" WKWebView bug without affecting input latency.\n\nThis complements the recent IPC logging fix (2588fe4) and EditContext polyfill (44e160c) in addressing WKWebView input starvation.",
+			"SHA": "7df7d851b9734f17560e6323145e1544c3962d05"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T05:25:30Z",
+			"Date": "2026-05-01T00:16:11Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
+				"⡿⠀⠀⠀⠀",
 				28,
-				2
+				5
 			],
-			"Message": "chore(Project): Sync Output and Sky submodules with CHANGELOG rewrites\n\nSynchronize Output (471479a2→214a9ffb) and Sky (7fa66748→f87442b0) to latest downstream, bringing restructured CHANGELOG documentation for both components.\n\n- Output: Rewrite CHANGELOG to document v2.x release chain, adding v2.2 (ExposeWorkbenchAccessor transform, service-IIFE wrapping, Mountain→Cocoon buffer decoding), v2.1 (polyfill hardening, IPC adapter), and v2.0 (source compilation migration) sections.\n- Sky: Rewrite CHANGELOG.md with improved formatting and v2.2 entries documenting the bundled-electron correctness pass including sky:replay-events, channel-event bridge for terminal PTY, and search-result format migration to VS Code ≥1.92 schema.\n\nAligns documentation across Land components with the prose-style CHANGELOG format.",
-			"SHA": "2ba444beaeaced3fc15a930e1a1b225de5e833f3"
+			"Message": "perf(Element): Reduce IPC channel saturation to fix keystroke lag during extension boot\n\nSynchronize five Element submodules with performance optimizations addressing input lag caused by IPC channel saturation:\n- Mountain: Gate mountain_sync_status_update and mountain_performance_update events behind LAND_SYNC_STATUS_EMIT and LAND_PERF_EMIT env vars. Add subscriber fast-path to skip lock-and-drain when Subscribers.is_empty().\n- Output: Remove success-case tauri-invoke logging in InvokeMountain and fire-and-forget channel stub logging. Only log drift disposition (uncovered commands).\n- Sky: Remove per-fire _CelDispatchLog traces (now requires __LAND_TRACE_CEL_DISPATCH__=true). Diagnostic bridges for markers-bridge and webview-bridge now only log on pushable=false or hasRegister=false.\n- Wind: Remove success-case tauri-invoke forward (failures still forwarded). Remove fire-and-forget stub logging entirely. Only forward drift disposition case.\n\nThese changes prevent 50-100 log/emits per second during extension boot from saturating Tauri's invoke channel and starving keystroke delivery on the shared WebKit message channel.",
+			"SHA": "2082615be7eab87db7b9a1b0931b9697d916fdb5"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T05:19:17Z",
+			"Date": "2026-04-30T23:35:03Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⡟⠀⠀⠀⠀",
 				28,
-				1
+				4
 			],
-			"Message": "docs(Wind): Update and restructure CHANGELOG.md format\n\nRestructure the Wind CHANGELOG.md with improved formatting: add a descriptive project intro explaining Wind's role as the Effect-TS-driven UI service layer; convert version sections to include date annotations in headers; reformat bullet points with bold emphasis for scannability; consolidate v1.3-v0.0 entries into more compact descriptions; maintain all historical content while improving visual hierarchy and consistency with Keep a Changelog conventions.\n\nThe changelog now reads more as narrative history in our voice rather than a raw activity log.",
-			"SHA": "2467dbfff3990c4fb5b4486824464c851d62c817"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T05:18:18Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "docs(Cocoon): Update CHANGELOG with v2.2 release and improved narrative\n\nSubmodule synchronization bringing Cocoon's CHANGELOG in line with Mountain's prose format. The v2.2 section documents the bundled-electron correctness pass: parent-PID watchdog for orphan detection, -32004 benign-404 classification for file-not-found errors, FileWatcher.Register benign classifier, and BuildOpenTextDocument UTF-8 decoding fix enabling positionAt for npm extension scripts.\n\nHistorical version entries (v2.1, v2.0, v1.3, v1.2, v1.1) have been restructured from bullet-point lists to narrative paragraphs explaining architectural motivation and impact of each release cycle.\n\nAligns with the prose-style CHANGELOG format established in Mountain, improving consistency across the Land project components.",
-			"SHA": "393741b596e74135f876781d0d2260e285e68a43"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T05:16:48Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "docs(Mountain): Sync CHANGELOG to prose format, add v2.2 section\n\nSubmodule synchronization updating Mountain to 9515b2f7. The CHANGELOG has been restructured from itemized bullet points to narrative prose paragraphs, improving readability while preserving all historical content. A new v2.2 section documents the bundled-electron correctness pass including JSON-RPC -32004 for benign 404s, deferred-no-op file watching, canonical-path comparison for Volume mounts, Identifier field on SCM provider DTO, sky:replay-events handler, 64KB terminal ring buffer, and tree:getChildren timeout reduction.\n\nThe new prose format emphasizes user-facing impact over file references, making it more useful for release notes and external communication.",
-			"SHA": "119c3acaa6851f09e4df23bca9835f43a9bf060b"
+			"Message": "chore(Element): Sync submodule updates with Disable env var for regression bisection\n\nSynchronize four Element submodules to their latest downstream versions adding a master Disable gate for bisecting typing/input regressions:\n\n- Mountain (14b86ef): Fix first-click focus by setting accept_first_mouse(true) so WKWebView doesn't swallow the initial click as a \"make me key\" no-op. Add Disable=true env var that skips Cmd+W intercept, Cocoon/Air sidecar spawn, and Wind/SkyBridge registration.\n\n- Output (44e160c6, 8a3e8d28): Add RewriteWebviewShellCSP to loosen script-src from stale sha256 to 'unsafe-inline' for extension webviews. Fix icon URL rewriting for file:/// scheme under Tauri. Add ForceTextAreaInput to disable EditContext API and route input through legacy textarea. Refine WorkbenchInteractivityCSS with pointer-events rules to survive z-index isolation. Add LandDisableAll gate for vanilla VS Code builds.\n\n- Sky (e525930): Add Disable=true build/runtime gate that short-circuits SkyBridge registration and skips Bootstrap. Add AutoDiagnoseInput diagnostic for the Disable mode. Remove eager focus restore that caused regressions with search boxes. Rename LAND_SMOKE_TEST to Smoke (PascalCase).\n\nThese changes enable developers to bisect whether typing/input regressions originate in our customizations or upstream/Tauri/WKWebView by running with Disable=true.",
+			"SHA": "b935ebb7fc955b9bd68dbe551ad834a9f2444519"
 		}
 	],
-	"TimeStamp": 1779882063027
+	"TimeStamp": 1780149361347
 }

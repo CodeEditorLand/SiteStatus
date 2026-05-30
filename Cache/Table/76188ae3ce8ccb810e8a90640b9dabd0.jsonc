@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:10:04Z",
+			"Date": "2026-05-28T14:26:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				19
+				1733,
+				7
 			],
-			"Message": "feat(Mountain): Implement EnvironmentVariableCollection and tier defaults\n\nAdd TerminalEnvCollection — a global registry for per-extension environment variable mutations matching VS Code's `EnvironmentVariableCollection` API (Replace/Append/Prepend/Delete/Clear/SetPersistent/SetDescription). Seven `terminal.envCollection.*` Vine notification handlers in MountainVinegRPCService dispatch Cocoon's requests to the registry via TerminalEnvCollectionDispatch. At every PTY spawn, TerminalProvider collects the inherited process env, applies all registered mutators via ApplyToEnv, and layers shell-integration vars on top, ensuring extensions like language servers see the environment they requested.\n\nAdd `tree.refresh` and `outputChannel.replace` Vine notification relays: the former forwards TreeDataProvider.onDidChangeTreeData events to Sky as `sky://tree-view/refresh`; the latter provides atomic output channel buffer replacement that avoids the visual flash of separate clear+append.\n\nExpand the tier routing infrastructure by adding compile-time defaults and Info.plist entries for 14 additional subsystems (Auth, Debug, Encryption, ExtensionHost, LanguageFeatures, Model, NativeHost, OutputChannel, SCM, Search, Storage, Tasks, Terminal, TreeView, WebSocket) and extending LandFixTier::LogResolvedTiers to emit all 16 tier values at boot for full routing observability.\n\nTidy formatting across AppLifecycle, Entry, RunGit, Reload, mod.rs, CocoonManagement, Dispatcher, build.rs, and bash.sh with no semantic changes.",
-			"SHA": "abba8a235310b01bca76aa32de8fe2de37a9a9af"
+			"Message": "refactor(Mountain): Eliminate local `::Vine::Client` and `::Cache` re-exports\n\nReplace the final deviating local import patterns (`use ::Vine::Client as Client` and `use ::Cache::X as X`) with direct absolute-path imports (`use ::Vine::Client` and `use ::Cache::X::Fn as X`). Apply across WorkspaceDelta, VineSubscribeCommand, CommandProvider, IPCProvider, GetTreeChildren, and ParseWorkspaceFile.\n\nConsolidate the `SendNotification` call in CocoonManagement.rs to standard multi-line formatting. All IPC and cache usage now resolves exclusively to the canonical Vine library and Cache crate, removing the last traces of local wrapper indirection.\n\nThis completes the absolute-path migration, ensuring Mountain's entire dependency surface delegates to the shared protocol layer with zero local re-exports.",
+			"SHA": "3f7f567d44b9af943d4fcbb96a8295379e510f4b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T13:49:33Z",
+			"Date": "2026-05-28T14:23:18Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1742,
-				8
+				"⠁⠀⠀⠀⠀",
+				1733,
+				39
 			],
-			"Message": "feat(Mountain): Add per-subsystem tier routing and reload-safe panels\n\nIntroduce the tier routing framework that allows each IPC subsystem to be dispatched to either Mountain-native or Cocoon Node.js at compile time (via build.rs EmitTierDefaults) or at runtime (via env var overrides). Routing constants for Terminal, SCM, Debug, LanguageFeatures, Search, OutputChannel, NativeHost, TreeView, Storage, Model, Tasks, Auth, Encryption, ExtensionHost, and WebSocket are baked at build time; the `tier_routes_to_node` helper in mod.rs evaluates the tier and forwards matching commands to Cocoon's gRPC surface. Storage and SCM commands gain tier-gated arms first.\n\nImplement webview panel state persistence across `nativeHost:reload`: before the renderer reload, ask Cocoon to serialize all registered webview panels via `ExtHostWebviewPanels$serializeAllWebviewPanels` and store the snapshot in global storage under `__webview_panel_state__`. After Cocoon restarts and extensions re-activate, deserialize each panel entry via `ExtHostWebviewPanels$deserializeWebviewPanel` and clear the cache to prevent double-restore on subsequent reloads.\n\nAdd optional Mist WebSocket transport in Entry.rs: when `TierWebSocket=Mist`, a localhost JSON-RPC WebSocket binds on port 5051 for high-frequency IPC (storage updates, decorations, model changes) that bypasses the Tauri-invoke + gRPC double hop. The secret and port are exposed via environment variables for Cocoon/Sky workbench configuration consumption.\n\nApply a 30-second wall-clock timeout to git subprocess execution (RunGit.rs) so a hung git process — stalled on a credential prompt, index lock, or unresponsive network mount — releases the Mountain effect slot via the registry-aware PID killer rather than blocking indefinitely.\n\nAdd crash-safe memento hydration at boot (AppLifecycle.rs): the `MementoLoader` reads global.json, quarantines corrupted files to `.corrupted.<ts>` siblings, and populates the in-memory map from an empty baseline so a partial write from a prior crash doesn't panic the boot path.\n\nFix a minor formatting issue in bash shell integration (`2> /dev/null` to `2>/dev/null`).",
-			"SHA": "db5e7784a51c6f267aa6a9c90624ad8346577df2"
+			"Message": "refactor(Mountain): Flatten Vine client and cache module indirection\n\nRemove the 12+ local wrapper modules in `Source/Vine/Client` and `Source/Cache` that re-exported canonical implementations. Replace all `crate::Vine::Client::X` and `crate::Cache::Y` calls with absolute paths `::Vine::Client::X` and `::Cache::Y`. This collapses Mountain's gRPC and caching surface to direct delegations, enforcing the Vine library crate as the single source of truth for IPC and cache contracts.\n\nDeleted wrapper modules: `AirServiceProvider`, `AssetMemoryMap::LoadOrInsert`, `PathCanon::Canonicalize`, and all `Vine::Client` atom modules (`MarkShutdown`, `SendRequest`, `SendNotification`, `ConnectToSideCar`, etc.). Kept only dead stubs in `Vine::Client` for compilation compatibility.\n\nThis finalizes the multi-commit migration to absolute-path delegation, reducing code duplication and ensuring all Cocoon↔Mountain IPC flows reference the canonical Vine definitions.",
+			"SHA": "6b68fc4cb62aaa2dafecbd25b37b40b72142f87a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T13:48:47Z",
+			"Date": "2026-05-28T14:13:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1742,
+				1733,
+				1
+			],
+			"Message": "refactor(Mountain): Inline pure-relay notification atoms as RelayToSky one-liners\n\nReplace the remaining deviational notification handlers in MountainVinegRPCService.rs with direct delegations to `::Vine::Server::Notification::Support::RelayToSky::Fn`. The extension lifecycle (ExtensionHostMessage, ExtensionActivated/Deactivated), webview lifecycle (WebviewReady), language settings (setDocumentLanguage), workspace edits (applyEdit), window commands (showTextDocument), tree refresh, progress lifecycle (start/update/complete), output channel operations (create/append/clear/show/dispose/replace), and other Sky-bound notifications are now single-line relay arms with `sky://` routing addresses.\n\nAdd `dev_log!` instrumentation at the dispatch site for ExtensionDeactivated, WebviewReady, and tree.refresh to aid debugging. Remove the now-redundant batch 11–16 comments as the pattern is uniform across all relay atoms.\n\nThis collapses Mountain's notification surface to a pure routing table, enforcing Vine as the single source of truth for all Cocoon→Sky IPC paths while preserving specialized handlers (SetStatusBarText, DisposeStatusBarItem, WebviewPostMessage, etc.) that require coalescing, payload transformation, or Mountain-specific state.",
+			"SHA": "2fda74861782e2364f8ace286ff31e8fc8308c96"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T14:08:34Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1733,
+				1
+			],
+			"Message": "refactor(Mountain): Route remaining provider unregistration atoms to canonical Vine handlers\n\nReplace the specialized `UnregisterFileSystemProvider` and `UnregisterUriHandler` notification handlers with delegations to `::Vine::Server::Notification::Support::UnregisterByHandle`, following the pattern established for task and other provider unregistrations. Add `dev_log!` instrumentation at the dispatch site to capture the scheme identifier for debugging purposes.\n\nThe `unregister_scm_provider` handler retains its dedicated Vine atom due to its additional logic (scmId handle computation and Sky relay). Reformat several decoration and status bar notification invocations for consistent multi-line formatting.\n\nThis completes the migration of provider unregistration logic into the shared Vine library, reducing Mountain's code surface and enforcing consistent IPC handling across all provider types.",
+			"SHA": "a8102299f1da98d3bd3cce625049ffe3ed145ac6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T14:08:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1733,
 				2
 			],
-			"Message": "fix(Mountain): Align configuration notification payload with Cocoon expectations\n\nFix two discrepancies between Mountain and its downstream consumers:\n\n- The configuration change Vine notification sent `\"key\": key` (single string), but Cocoon's Configuration.ts expects `\"keys\": [key]` (array) to correctly invalidate cached config entries. Align the payload so extensions like rust-analyzer and ESLint receive accurate change events.\n- The document retrieval call in launch-time model hydration used the outdated `GetAllDocuments()` method; update to `GetAll()` to match current Documents API.\n\nBoth issues were introduced during earlier refactoring phases and went undetected because they only manifest at specific integration points.",
-			"SHA": "b4ddf6a32ede0b762c1e4116dce6dd3b38313493"
-		},
-		{
-			"Author": "dependabot[bot]",
-			"Date": "2026-05-25T11:22:30Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1742,
-				1
-			],
-			"Message": "chore(deps): Bump ad-m/github-push-action from 1.1.0 to 1.3.0\n\nBumps [ad-m/github-push-action](https://github.com/ad-m/github-push-action) from 1.1.0 to 1.3.0.\n- [Release notes](https://github.com/ad-m/github-push-action/releases)\n- [Commits](https://github.com/ad-m/github-push-action/compare/v1.1.0...v1.3.0)\n\n---\nupdated-dependencies:\n- dependency-name: ad-m/github-push-action\n  dependency-version: 1.3.0\n  dependency-type: direct:production\n  update-type: version-update:semver-minor\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
-			"SHA": "a55cf572fe522d56cd43b151590b9a8c3f304c2e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:34:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1742,
-				1
-			],
-			"Message": "",
-			"SHA": "131d4fecaf3d3e2a92c55968a3caba7d6b998ce9"
+			"Message": "refactor(Mountain): Route all notification atoms to canonical Vine crate\n\nReplace the local `super::Notification::*` dispatch in `MountainVinegRPCService.rs` with direct calls to `::Vine::Server::Notification::*`, collapsing the Mountain-local notification modules in `Source/Vine/Server/Notification/mod.rs` to only the three Mountain-specific utilities: `Support`, `OutputChannelCoalesce`, and `TerminalEnvCollection`.\n\nAll 46+ wired notification handlers — extension lifecycle, progress reporting, output channels, webview/terminal lifecycle, SCM registration, language providers, debug/status-bar/decoration APIs — are now thin pass-throughs that delegate to the canonical implementations in the Vine library crate. This finalizes the extraction of Cocoon→Mountain IPC logic from Mountain into the shared gRPC protocol layer.\n\nMountain's `send_cocoon_notification` dispatcher is reduced to a pure routing table with no inline logic, and the Notification module no longer re-exports the full atom suite, enforcing Vine as the single source of truth for IPC contracts.",
+			"SHA": "d3b63235b1e7a8560b093a2ca8e21096c02f14cd"
 		}
 	],
-	"TimeStamp": 1779882032504
+	"TimeStamp": 1780149344545
 }

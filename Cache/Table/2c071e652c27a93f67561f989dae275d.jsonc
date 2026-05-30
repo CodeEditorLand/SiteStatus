@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:29:21Z",
+			"Date": "2026-05-28T14:03:20Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				26,
-				1
+				"⡇⠀⠀⠀⠀",
+				27,
+				3
 			],
-			"Message": "fix(Maintain): Skip inlining when free vars in Init are moved before substitution site\n\nAdvance the Maintain submodule to include the fix for premature inlining of bindings whose Init expression references free variables that are later moved before the substitution site. This E0382 regression occurred when a binding like `let display = var.clone()` passed all safety checks (count=1, not in closure, not oversized) but was inlined after `var` was moved into a struct field, placing the clone after the move.\n\nThe new `IsFreeVarSafe` function in Safe.rs collects plain-identifier free variables from Init, then scans intervening statements for by-value uses (function arguments, struct field shorthands, assignments) of those variables. Candidates with moved free vars are skipped. The check is conservative — it only inspects Expr::Path single-segment identifiers — guaranteeing no false negatives that produce compile errors, at the cost of possible false positives that keep suboptimal bindings live.\n\nA regression test in Inline.rs covers the exact get_file_info / get_configuration pattern from Mountain's AirClient sidecar.",
-			"SHA": "05b68391922170f5b7b40b214d82456466f38f6b"
+			"Message": "chore(Land): Advance Cache, Mountain, and Vine submodules — Notification delegation completion and provider lifecycle symmetry\n\n**Cache** (docs): Reformat documentation comments in Library.rs to improve readability in source viewers and documentation generators.\n\n**Mountain** (refactor): Complete the systematic decomposition of the gRPC notification surface by delegating all remaining handlers to the Vine crate. Convert `CocoonService` and `MountainService` trait imports to use canonical definitions from `::Vine::Generated`, eliminating local re-exports. The server-side notification modules (`UpdateScmGroup`, `WebviewLifecycle`, `RelayToSky`, provider unregistration) are now thin shims forwarding to `Vine::Server::Notification`. The client-side `Shared` module and stub implementations are reduced to empty pass-throughs, with active code paths using `::Vine::Client::*` directly.\n\n**Vine** (feat): Implement the symmetrical provider unregistration surface — `UnregisterRemoteAuthorityResolver`, `UnregisterScmProvider`, `UnregisterTaskProvider`, and `UnregisterUriHandler` — all integrating with the central `UnregisterByHandle` utility. Add `WebviewLifecycle` notification to canonicalize Cocoon's positional arrays into named-key objects before emitting to Sky renderer channels. Implement `UpdateScmGroup` notification with SCM marker persistence via `VineHost::UpdateScmGroupMarkers` for boot-time replay. Enhance `UnregisterFileSystemProvider` with scheme logging for diagnostic observability.\n\nImpact: Mountain is now a pure composition layer with all Cocoon→Mountain IPC delegated to the shared Vine crate. The provider lifecycle is fully symmetrical with clean disposal pathways, and SCM/webview state persists across page reloads.",
+			"SHA": "536326f228c847b9574e31f0f72513ba5cf4e984"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T07:31:20Z",
+			"Date": "2026-05-28T13:53:39Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				27,
+				2
+			],
+			"Message": "chore(Land): Advance Grove and Vine submodules — Transport reformat and Terminal/SCM/Provider registration\n\n**Grove** (style): Reformat the `connect`, `send`, and `close` method chains in `Source/Transport/Strategy.rs` across all transport variants (gRPC, IPC, WASM, WebSocket). Split `.await` and `.map_err` calls onto separate lines to align with organization formatting standards and improve error-handling clarity.\n\n**Vine** (feat): Expand the `VineHost` trait surface to support native terminal management, SCM provider registration, and normalized language provider dispatch. Implements `TerminalLifecycle` and `WindowCreateTerminal` handlers to bridge Cocoon PTY requests with the native provider and xterm renderer. Adds `RegisterScmProvider` and `RegisterScmResourceGroup` logic to reconstruct URLs from `UriComponents` and manage sequential handles. Introduces a centralized `RegisterLanguageProvider` dispatcher that normalizes 46+ wire method names to standard `TypeName` identifiers before delegating to the embedder registry.\n\nImpact: Extension-driven terminal sessions, SCM viewlet integration, and full VS Code language intelligence features are now supported via the gRPC notification surface.",
+			"SHA": "079fec72572b9f69076639dd5be36a63d4619761"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T13:23:19Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				27,
+				2
+			],
+			"Message": "chore(Land): Advance submodules — Air style and Grove WebSocket transport\n\nAdvance the Air and Grove Element submodules to implement a high-frequency WebSocket transport layer and normalize service-layer code style.\n\n**Grove** (`feat`): Implement the `MistTransport` strategy to support JSON-RPC over WebSockets via the Mist protocol. This adds the `websocket` feature gate, extends `TransportType` enums, and provides a low-latency alternative to gRPC for extension host ↔ Mountain communication.\n\n**Air** (`style`): Collapse multi-line function signatures and import declarations within the `AirServiceProvider`. This purely cosmetic refactor reduces vertical fragmentation without altering the gRPC client's functional logic.",
+			"SHA": "8f25290a957c0c906ed3eb858c1440fc14e42fc6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T13:14:30Z",
 			"File": [
 				"⣿⣿⠃⠀⠀",
-				26,
+				27,
 				12
 			],
-			"Message": "",
-			"SHA": "aae97430dbdae1246cc2860383cb84e958faa101"
+			"Message": "chore(Land): Advance submodules — Decouple Mountain via Air, Vine, and Cache delegation\n\nAdvance 11 Element submodules to modularize the Mountain backend and finalize the gRPC communication surface for the Air daemon and Cocoon extension host.\n\nMountain (refactor): Systematically delegate gRPC client logic, Cocoon notification handlers, and caching mechanisms to the dedicated Air, Vine, and Cache crates. Replace local implementations for AssetMemoryMap, PathCanon, and Vine connectivity with thin compatibility shims, significantly reducing Mountain's internal code surface.\n\nAir (feat): Implement 14 domain methods in the AirClient (ApplyUpdate, Authenticate, etc.) and introduce the AirServiceProvider façade. This provides a high-level, thread-safe gRPC orchestration layer with automated RequestID generation and ergonomic response normalization.\n\nVine (feat + refactor): Implement a comprehensive suite of Cocoon notification handlers featuring a \"channel-drain\" coalescing pattern. High-frequency events like ProgressReport and SetTextEditorDecorations are now batched within 16-50ms temporal windows to preserve Sky renderer performance under heavy extension load.\n\nCache (feat): Add the Cache element as a standalone submodule to centralize asset mapping and path canonicalization logic previously housed within Mountain.\n\nOutput (fix): Refactor window management commands to use the typed Tauri 2 window API, ensuring native drag and maximize operations work reliably in the Sky renderer.\n\nOther: Advance pointers for Cocoon (RouteManifest), SideCar (lint suppressions), and routine dependency bumps for Common, Echo, and Sky.",
+			"SHA": "711d768c81882601b714ba177b8030f0ab8f98a8"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T06:51:32Z",
+			"Date": "2026-05-28T09:57:43Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
 				26,
 				1
 			],
-			"Message": "chore(Rest): Update dependabot action to v1.3.0\n\nBumps ad-m/github-push-action from 1.1.0 to 1.3.0 in Rest workflow.\n\nThis updates the GitHub Actions version used for dependency management automation.",
-			"SHA": "5c5967dfdb4df8554b4e255008bb3ccc7909779f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T16:57:09Z",
-			"File": [
-				"⣿⣿⡟⠀⠀",
-				26,
-				14
-			],
-			"Message": "",
-			"SHA": "3123e708d02ca24f5ce0fca633b6e86dcd3c013f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T06:30:23Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				26,
-				6
-			],
-			"Message": "chore(Land): Sync Land/Element submodules to latest revisions\n\nAdvance all Land/Element submodule references to their current HEADs to maintain build consistency across the editor architecture. This update includes Common, Echo, Maintain, Output, Rest, and SideCar.\n\nThis synchronization incorporates recent PascalCase refactoring, parameter extraction improvements, and build artifact updates generated in the submodules. Ensures the main Land repository aligns with the latest state of its constituent components.",
-			"SHA": "b05f7f5389b9ade8bba2b7a73cf5f3e140bff589"
+			"Message": "chore(Land): Advance Air submodule — gRPC client foundation, DTO atoms, and client scaffold\n\nProgress Air-Client Phase 2 synthesis per Mountain-Crate-Split plan. Port `AirClient` struct, async connect, and thread-safe `Arc<Mutex<>>` wrapper from Mountain. Land nine atomized DTO types (`AirMetrics`, `AirStatus`, `DownloadStreamChunk`, `ExtendedFileInfo`, `FileInfo`, `FileResult`, `IndexInfo`, `ResourceUsage`, `UpdateInfo`) plus the `DownloadStream` async-iterator adapter. Wire `Source/Client/mod.rs` into `Source/Library.rs` and introduce `DEFAULT_AIR_SERVER_ADDRESS` constant.\n\nDomain method stubs (`authenticate`, `check_for_update`, `download_file`, etc.) still live in Mountain; this commit establishes the canonical crate surface for downstream consumption.",
+			"SHA": "9bbc56a70d1fc9518a184629f832742ab6b7831d"
 		}
 	],
-	"TimeStamp": 1779882029667
+	"TimeStamp": 1780149346039
 }

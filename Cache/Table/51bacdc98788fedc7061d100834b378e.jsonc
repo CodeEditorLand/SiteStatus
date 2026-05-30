@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:46:24Z",
+			"Date": "2026-05-03T08:18:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
+				1477,
 				1
 			],
-			"Message": "fix(Mountain): Disable app sandbox and enable hardened runtime exemptions\n\nConfigure Entitlements.plist to disable the macOS App Sandbox, which is incompatible with a code editor's requirement to access arbitrary file system locations selected by the user. With sandbox enabled, the editor cannot open folders outside its container, breaking standard workflows like 'Open Recent' and drag-and-drop.\n\nSimultaneously, enable specific Hardened Runtime exemptions required by the embedded Node.js sidecar (Cocoon) and Tauri dependencies:\n- `allow-jit` and `allow-unsigned-executable-memory`: Essential for V8 JIT compilation in the extension host.\n- `allow-dyld-environment-variables`: Required for extension hosts spawning helper binaries with custom linker paths.\n- `disable-library-validation`: Necessary to load unsigned native addons (e.g., sharp, esbuild) bundled via npm.\n- `apple-events`: Permits extensions to invoke external system commands via AppleScript (e.g., 'Reveal in Finder').\n\nThis ensures the binary can be signed and notarized while maintaining full functionality for the editor and its extension ecosystem.",
-			"SHA": "8d0dd90346bc8ae1bea2143c155fd332e5abb547"
+			"Message": "refactor(Mountain): Format workspace directory traversal condition\n\nReflow the multi-line condition in `ParseWorkspaceFolders` within `Source/Binary/Initialize/CliParse.rs` to a single line. This aligns the Rust syntax with the project's formatting standards and maintains consistency with recent stylistic adjustments across the backend.\n\nThe change affects only whitespace and line breaks; no logic or behavior is altered. The `WalkUpToProjectRoot` traversal logic remains intact.",
+			"SHA": "e2ffe1800caaad0ca09a6ad342b4be61415174a9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:40:48Z",
+			"Date": "2026-05-03T08:18:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
-				2
+				1477,
+				1
 			],
-			"Message": "refactor(Mountain): Modularize Environment providers into distributed units\n\nAlign the `Source/Environment` subsystem with CodeEditorLand's distributed architecture and PascalCase naming standards. Previously monolithic files (`TestProvider.rs`, `WebviewProvider.rs`) have been restructured into flat modules where each concept resides in its own unit file.\n\nFor `TestProvider`: Extract `TestControllerState::Struct`, `TestRunStatus::Enum`, `TestResult::Struct`, `TestRun::Struct`, and `TestProviderState::Struct` into dedicated files (`TestControllerState`, `TestRunStatus`, etc.). Refactor the `TestController` trait implementation to use these new types (e.g., `TestRunStatus::Enum::Passed`) and simplify the parent file to handle only logic dispatch.\n\nFor `WebviewProvider`: Extract `WebviewLifecycleState::Enum` and `WebviewMessage::Struct` into `WebviewLifecycleState` and `WebviewMessage` modules. Move implementation details for `Lifecycle`, `Configuration`, and `Messaging` into private submodules accessed via `#[path]` directives, exposing only the necessary DTOs and the main `impl` block in the root file.\n\nThis reorganization reduces file size, enforces the \"one export per file\" pattern, and prepares the environment layer for finer-grained IPC integration and type safety.\n\nRefs #Telemetry",
-			"SHA": "4cd523aea02e5f592326b6412600b2645691656c"
+			"Message": "refactor(Mountain): Import security types explicitly in Tauri IPC server\n\nUpdate the import statements in `Source/IPC/TauriIPCServer/Server.rs` to use explicit qualified imports for the `PermissionManager`, `SecurityContext`, `SecurityEvent`, and `SecurityEventType` types from the `Security` module.\n\nThis change aligns with the project's Rust formatting and naming conventions by resolving the types directly as `Manager::Struct`, `SecurityContext::Struct`, etc., replacing the previous generic `use` syntax. This improves type clarity and ensures strict adherence to the explicit qualification style used across the IPC layer.\n\nNo functional logic is altered; this is a pure refactoring to enhance code readability and maintain consistency with recent modularization efforts.",
+			"SHA": "940aac9ca96b60d5cb0deefbf84cd76bf380cd1c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:40:17Z",
+			"Date": "2026-05-03T08:18:45Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1251,
-				2
+				"⠁⠀⠀⠀⠀",
+				1477,
+				28
 			],
-			"Message": "fix(Mountain): Enhance AppLifecycle resolution and inject shell environment on boot\n\nThe `AppLifecycle` module previously relied solely on Tauri's `resource_dir` for resolving the `Sky/Target` path. This caused raw release binary launches (outside the `.app` bundle) to fail resolving the frontend root, resulting in 404s for extension-contributed icons (e.g., GitLens, Roo) and empty view containers.\n\nRefactor `AppLifecycleSetup` to implement a multi-tier fallback strategy: first check the standard `.app` bundle layout (`Contents/Resources`), then the monorepo relative path (`../../../Sky/Target`), and finally an executable-relative fallback. This ensures the `STATIC_APPLICATION_ROOT` is correctly set regardless of the launch context.\n\nAdditionally, inject the user's interactive shell environment (loading `PATH`, `NVM_DIR`, `HOMEBREW_PREFIX`) in `Entry` before spawning child processes. This resolves issues where GUI-launched applications (Finder/Dock) lack necessary CLI tools (Homebrew, Git, Node/NVM), causing extension host failures. Update command handler registrations to strictly adhere to PascalCase naming conventions (e.g., `Initialize::Fn`, `MountainProvideHover::MountainProvideHover`).\n\nImpact: Fixes icon rendering in production builds, ensures extension host stability in GUI launches, and standardizes binary entry point naming.",
-			"SHA": "72f7a764914ca9ec250a6f3a3da8481723b892cd"
+			"Message": "feat(Mountain): Implement comprehensive IPC status reporter and service discovery\n\nIntroduce a complete observability subsystem in `Source/IPC/StatusReporter` to bridge the gap between the native Mountain backend and the Sky frontend. This implementation replaces placeholder logic with a robust `Reporter::Struct` aggregator that tracks IPC health, performance metrics, and service lifecycles.\n\nKey additions include:\n- **DTOs:** Define strict serialization shapes for `ComprehensiveStatusReport`, `HealthMonitor`, `ServiceRegistry`, and granular metrics like `PerformanceMetrics` and `MessageStats`.\n- **Health Monitoring:** Implement logic to detect anomalies (latency spikes, queue overflows, connection loss) and calculate a dynamic health score, triggering automatic recovery attempts via `attempt_recovery`.\n- **Service Discovery:** Enable automatic registration and tracking of core services (Editor, ExtensionHost, File, Storage) with dependency mapping and metrics.\n- **Tauri Commands:** Expose the reporting layer via a suite of commands (e.g., `mountain_get_comprehensive_status`, `mountain_start_ipc_status_reporting`, `mountain_discover_services`) allowing the Wind/Sky layers to poll status or initiate background reporting loops.\n- **Event Emission:** Establish periodic Tauri event streams (`ipc-status-report`, `ipc-health-alert`) for real-time telemetry updates in the UI.\n\nThis layer provides the foundational telemetry required for the Feature Parity dashboard and enables self-healing capabilities for the IPC bridge.",
+			"SHA": "882dca7e299c9a1df66926622d6030c9a71b9880"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:39:33Z",
+			"Date": "2026-05-03T08:18:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
-				4
+				1450,
+				1
 			],
-			"Message": "feat(Mountain): Expand extension root discovery and modularize telemetry/hover units\n\nExtend the LocalhostPlugin to resolve built-in extensions from multiple distribution paths (`Contents/Resources/extensions`, `Contents/Resources/app/extensions`) and the development monorepo layout. This ensures icon stylesheets for the 93 bundled extensions render correctly in packaged `.app` builds and prevents empty boxes in the extension view.\n\nApply the established distributed architecture pattern to the PostHog analytics and Hover command subsystems. Refactor `PostHogPlugin` and `Command/Hover` into distinct unit files (e.g., `Initialize::Fn`, `Position::Struct`, `HoverContent::Enum`), enforcing PascalCase naming and separating DTO definitions from logic. This aligns with recent telemetry refactors and prepares the codebase for stricter IPC type safety.\n\nImpact: Fixes extension icon rendering in production builds and standardizes the module structure for observability and LSP features.",
-			"SHA": "0bb57d42016d8ab3ea6bc79312fdbcb8681e2657"
+			"Message": "refactor(Mountain): Format CheckKeybindingConflicts command signature\n\nReflow the function signature for `CheckKeybindingConflicts` in `Source/Command/Keybinding/CheckKeybindingConflicts.rs` to place all parameters on a single line.\n\nThis change aligns the code with the project's Rust formatting standards and ensures consistency with the recent modularization efforts in `WindServiceHandlers`. The logic and functionality remain unchanged; this is purely a stylistic adjustment to improve readability and maintain a uniform codebase structure.",
+			"SHA": "c71126c2c31b16ebd36602c62fe2f9438ccc81ad"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:30:57Z",
+			"Date": "2026-05-03T08:18:26Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1251,
-				13
+				"⠁⠀⠀⠀⠀",
+				1450,
+				22
 			],
-			"Message": "refactor(Mountain): Modularize telemetry gate subsystem into distinct units\n\nRestructure the `Source/Telemetry/Gates` module to align with CodeEditorLand's PascalCase naming conventions and the established distributed architecture pattern.\n\nKey modifications include:\n- Extract compile-time predicates (`IsDebugBuild`, `IsDevelopmentBuild`, `IsTelemetryEnabled`, `IsMetricsEnabled`, `IsDistributedTracingEnabled`, `IsFeatureFlagsEnabled`) into dedicated `Fn` unit files using `cfg!` macros.\n- Isolate runtime gate management (`RuntimeGates`, `GetRuntimeGates`, `RuntimeGateEnabled`, `ListEnabledGates`, `ValidateRequiredGates`) into separate units sharing a private `GATES` singleton.\n- Convert `EnableRuntimeGate` into a no-op `Fn` shim with documentation noting the required migration from `OnceLock<HashSet>` to `RwLock` for mutable state.\n- Update `mod.rs` to export the new flat structure, removing the previous monolithic implementation.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the gate system for runtime configuration injection and IPC integration.\n\nRefs #Telemetry",
-			"SHA": "2a691e34b07b06fa7cc73d6c99d68b16635230a0"
+			"Message": "feat(Mountain): Establish Wind-Air IPC delegation layer for updates and indexing\n\nIntroduce a comprehensive Tauri command suite under `Source/IPC/WindAirCommands/` to bridge the Wind frontend with the Air native daemon. This implementation exposes update management, authentication, file operations, and system metrics to the UI via gRPC.\n\nKey additions:\n- **Client Wrapper:** `AirClientWrapper` manages gRPC connections with reconnect logic and PascalCase logging.\n- **Command Handlers:** Implement `CheckForUpdates`, `DownloadUpdate`, `ApplyUpdate`, `AuthenticateUser`, `DownloadFile`, `IndexFiles`, `SearchFiles`, `GetAirStatus`, and `GetAirMetrics`.\n- **DTOs:** Define strict response types (`UpdateInfoDTO`, `DownloadResultDTO`, `SearchResultsDTO`, etc.) for serializing Air daemon responses.\n- **Registration:** `RegisterWindAirCommands` wires all 9 handlers into the Tauri builder, centralizing the IPC surface.\n\nThis layer enables the Wind frontend to offload background tasks (updates, auth, indexing) to the Air sidecar, maintaining the separation of concerns between UI logic and native background services.",
+			"SHA": "bb0e43765c29626f33885b136223a4aaff0b8fdc"
 		}
 	],
-	"TimeStamp": 1779882104380
+	"TimeStamp": 1780149376058
 }

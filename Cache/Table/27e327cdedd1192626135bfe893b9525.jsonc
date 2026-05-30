@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:42:50Z",
+			"Date": "2026-04-23T19:10:10Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				28,
+				2
+			],
+			"Message": "",
+			"SHA": "b9aba51b638679d3b95e7d7bb14f1aac0c703b2a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T18:52:37Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "refactor(Mountain): Replace hardcoded output event strings with typed SkyEvent constants\n\nReplace hardcoded \"sky://output/*\" string literals in ChannelContent.rs and ChannelLifecycle.rs with typed constants from CommonLibrary::IPC::SkyEvent:\n- sky://output/append → SkyEvent::OutputAppend\n- sky://output/replace → SkyEvent::OutputReplace\n- sky://output/clear → SkyEvent::OutputClear\n- sky://output/create → SkyEvent::OutputCreate\n- sky://output/dispose → SkyEvent::OutputDispose\n\nUsing the SkyEvent enum ensures consistency across the codebase and reduces the risk of typos in event names.",
-			"SHA": "21fbdf32a02153ea3fc22be35d5c2ea876f14daa"
+			"Message": "refactor(Mountain): Migrate notification handlers to Batch 15-16 atoms\n\nConsolidate inline notification handler bodies in MountainVinegRPCService into delegations to atom functions in Vine::Server::Notification::*. Batch 15 migrates 8 handlers (ExtensionHostMessage, ExtensionActivated/ExtensionDeactivated, WebviewReady, ProgressStart/ProgressReport/ProgressEnd, LanguagesSetDocumentLanguage, WorkspaceApplyEdit, WindowShowTextDocument). Batch 16 adds 10 new handlers (WebviewLifecycle, WindowCreateTerminal, TerminalLifecycle covering 4 wire methods, DecorationTypeLifecycle, DebugLifecycle, StatusBarLifecycle covering 2 methods, StatusBarMessage, WindowShowMessage, RegisterCommand, UnregisterCommand).\n\nThis removes dead handler bodies at the bottom of match arms that were unreachable after Rust selected the first matching arm, keeping MountainVinegRPCService thin with one-line delegations. TerminalLifecycle and StatusBarLifecycle are group atoms covering methods sharing sky:// relay and provider-side drive.\n\nImpact: Consistent atom-layer dispatch pattern across all 26+ notification types.",
+			"SHA": "f98c216d220c60e19149360cd179b8e67a4b4363"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:40:26Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "refactor(Project): Coordinate Element submodule updates across 3 components\n\nSynchronize Cocoon, Mountain, and Sky submodules with modularization and observability improvements:\n\n- **Cocoon:** Add Wave 7 instrumentation to $deltaExtensions handler — log added/removed counts, registry size, activation events, and wall-clock duration per delta. Emit extended deltaExtensions event with registrySize and durationMs fields. Also fix ISerializationResult/IDeserializationResult interfaces for TypeScript's exactOptionalPropertyTypes.\n\n- **Mountain:** Split monolithic 167KB WindServiceHandlers.rs into domain modules (Commands, Configuration, Extensions, FileSystem, Model, NativeHost, Navigation, Output, Search, Storage, Terminal, UI, Utilities). Similarly refactor CocoonService/mod.rs from 2800-line monolithic to domain modules (Auth, Command, Debug, Extension, FileSystem, Initialization, Output, Provider, Save, SCM, Secret, Task, Terminal, TreeView, Window, Workspace).\n\n- **Sky:** Add ExtensionChangeSubscriber that listens to Mountain's sky://extensions/installed and sky://extensions/uninstalled events, forwarding to VS Code's ExtensionEnablementService. Enables live sidebar updates after VSIX install/uninstall without workbench reload. Uses Effect.runFork for fire-and-forget semantics.\n\nThis completes the K2/K3 milestone for live extension state synchronization between Mountain and Wind/Sky frontend.",
-			"SHA": "2c6da4377c7715f2be9a57a0f5b6d0345cce4f79"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:24:00Z",
+			"Date": "2026-04-23T18:47:16Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
 				28,
 				4
 			],
-			"Message": "refactor(Project): Coordinate Element submodule updates across 4 components\n\nSynchronize Cocoon, Common, Mountain, and Wind submodules with the following changes:\n\n- **Cocoon:** Refactor Window service from monolithic file into 7 focused modules (TextDocument, QuickInput, FileDialogs, StatusBar, OutputChannel, WebviewPanel, Progress) with Window/Index.ts as composition point. Follows the same modularization pattern as previous Message and WorkspaceNamespace refactoring.\n\n- **Common:** Add `SkyEvent` enum registry for Mountain→Wind Tauri events (~100 events covering Configuration, Debug, Diagnostics, Dialog, Documents, Editor, Extensions, etc.). Uses `DefineSkyEvent!` macro producing wire strings via `AsStr()` and parsing via `FromStr()`. Also adds 3 legacy channels to Channel.rs that predate the `prefix:method` convention.\n\n- **Mountain:** Remove accidental zero-byte `.bak` backup file from Source/Track/Effect directory.\n\n- **Wind:** Add SkyEvent.ts as TypeScript mirror of Rust SkyEvent enum for compile-time validated Tauri event subscriptions. Extend Channel.ts with 3 legacy channels (MountainGetStatus, UserInterface.ShowOpenDialog, UserInterface.ShowSaveDialog). Add ExtensionChangeStream.ts merging install/uninstall event streams. Update all call sites to use typed registry constants.\n\nThis establishes a robust typed event-based IPC surface from Mountain to Wind, eliminating silent runtime failures from string typos in event URIs.",
-			"SHA": "d7655e692e65aa841d42a4722d3df589717a35bb"
+			"Message": "feat(Project): Add notification atom handlers and stub disposition tracking\n\nCoordinate submodule updates across Mountain, Output, and Wind to complete VS Code notification IPC and improve stub diagnostics:\n\n- **Mountain (27652fa6):** Add 25 new notification atom handlers in `Vine::Server::Notification` covering output channel lifecycle (create, append, appendLine, clear, dispose, replace, show), status bar text updates, progress lifecycle, webview reverse messaging, provider unregistration, and misc handlers (openExternal, security.incident, set_language_configuration). Also add `ExtractDevTag` module to parse Cocoon stdout `[DEV:<TAG>]` prefixes and re-emit under Mountain's matching tag for bootstrap-stage, ext-activate, config-prime, breaker filtering.\n\n- **Mountain (c8bfb37b):** Refactor consolidating singular `WindServiceHandler` into plural `WindServiceHandlers` atoms - delete 24 dead duplicate files, re-implement 3 live handlers as atoms (extensions:install, extensions:uninstall, nativeHost.showOpenDialog). Add 9 new notification atoms: ExtensionActivated, ExtensionDeactivated, ExtensionHostMessage, LanguagesSetDocumentLanguage, ProgressStart, ProgressReport, ProgressEnd, WebviewReady, WorkspaceApplyEdit.\n\n- **Output (b7dc4a72):** Add `__initialize` stub for PlaywrightChannelClient constructor protocol version negotiation. Replace binary present=true/false stub-hit logging with three-state disposition: `value` (real payload), `noop` (intentionally undefined), `drift` (stub key missing - sync issue). Add explicit `setExtensionGalleryManifest` stub.\n\n- **Wind (5e66b9dc):** Add IPC stub for `extensionGalleryManifest` channel and `__initialize` to playwright stub. Enhance stub-hit logging with three-state disposition tracking using `hasOwnProperty` for reliable checking.\n\nImpact: Extension output channels, status bar, progress, and webview messaging now flow through Mountain. Cocoon bootstrap logs are tag-filterable. Stub drift detection helps developers distinguish sync issues from intentional undefined returns.",
+			"SHA": "42e7481d6b25f3be78474382d883159376fede9c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:10:12Z",
+			"Date": "2026-04-23T17:59:35Z",
 			"File": [
-				"⡿⠀⠀⠀⠀",
+				"⠇⠀⠀⠀⠀",
 				28,
-				5
+				2
 			],
-			"Message": "refactor(Project): Coordinate Element submodule updates across 5 components\n\nSynchronize Cocoon, Common, Mountain, Sky, and Wind submodules with the following improvements:\n\n- Cocoon: Split monolithic Message.ts and WorkspaceNamespace.ts into modular directories with separate modules for Types, Constants, VSBuffer, Validation, Serialization, Batching, and domain-specific namespaces (Configuration, FileSystem, Providers, Window services)\n\n- Common: Add 9 new IPC channels to the Channel registry — QuickInput (showInputBox, showQuickPick), TextFile (read, write, save), and WorkingCopy (getAllDirty, getDirtyCount, isDirty, setDirty) — completing the IPC contract for text editor and quick input services\n\n- Mountain: Add WindServiceHandlers for IPC bridge and CreateEffectForRequest effect creators across 20+ domain modules (Authentication, Clipboard, Commands, Configuration, Diagnostics, Documents, FileSystem, Git, Keybinding, Languages, NativeHost, SCM, Search, Secrets, StatusBar, Storage, Task, Terminal, TreeView, UserInterface, Webview, WindowUI, Workspace)\n\n- Sky: Minor dependency bumps (pnpm/action-setup 6.0.1→6.0.3, @xterm/xterm 6.1.0-beta.197→6.1.0-beta.199)\n\n- Wind: Migrate all 19 service Live layers to use typed Channel registry imports instead of free-text string literals, ensuring compile-time validation. Also extend Channel.ts with new channels for TextFile, WorkingCopy, and QuickInput.\n\nThese changes establish a robust typed IPC surface between Wind frontend and Mountain backend, completing the migration to compile-time validated channel references across all service layers.",
-			"SHA": "a763530b40789b14eb250d9cd01ac4ba422e08c2"
+			"Message": "feat(Project): Expand provider type coverage to full VS Code surface\n\nCoordinate submodule updates across Common and Mountain to complete VS Code language server protocol provider alignment:\n\n- **Common**: Add 7 new ProviderType enum variants (InlineEdit, MappedEdits, MultiDocumentHighlight, NotebookContent, RemoteAuthorityResolver, ResourceLabelFormatter, ScmResourceGroup), bringing the total to 51 provider types.\n\n- **Mountain**: Add corresponding provider type handlers in MountainVinegRPCService to match Cocoon's complete VS Code API shim. New handlers cover authentication, SCM, resource labels, full notebook support, advanced editing features, debug infrastructure, and remote workspace features.\n\nThis expansion from ~25 to 50+ provider types enables extensions that register these previously-unhandled providers (e.g., GitLens, live share, remote tunnels) to activate successfully.\n\nRefs: b71ab93f22e526a1a9cc961706c66040fd2a9be6",
+			"SHA": "a37647319ace9635d470212de20ffe2bb2fa4271"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T23:43:06Z",
+			"Date": "2026-04-23T17:25:24Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
+				"⣿⠁⠀⠀⠀",
 				28,
-				4
+				6
 			],
-			"Message": "chore(Project): Coordinate Element submodule updates across 4 components\n\nSynchronize Common, Mountain, Sky, and Wind submodules with the following changes:\n\n**Features:**\n- Sky: Add LAND_ENABLE_WIND to conditionally skip Wind bootstrap (Atom N2) — introduces environment variable that enables \"Mountain + bare workbench\" integration tests when set to \"false\" at build time. Vite inlines the comparison for tree-shaking, producing the smallest shippable surface where gRPC/Tauri IPC isn't desired. Mirrored into Vite's define config with default \"true\".\n- Wind: Add InstallVsix and Uninstall to ExtensionsService (Atom K5) — implement the contract with methods that accept .vsix path/file:// URI for installation, returning the ILocalExtension envelope from Mountain. Uninstall resolves with true after Mountain removes the install directory and broadcasts the uninstalled event. Refactor all IPC invokes to use the Channel registry instead of free-text string literals for compile-time validation. Prior implementation was a no-op stub returning null.\n\n**Updates:**\n- Common: Minor update\n- Mountain: Minor update\n\nThese changes deliver conditional Wind bootstrapping for minimal builds and enable functional VSIX extension management in the editor.",
-			"SHA": "2ab3a64ceb14da69d1557cea9ce17c9c56416411"
+			"Message": "feat(Project): Complete Git IPC routing and tree-view data round-trip\n\nCoordinate submodule updates across Common, Mountain, Output, Sky, and Wind to enable the built-in Git extension and fix extension tree views:\n\n- **Git IPC (Common/Output/Wind):** Route `localGit` channel to Mountain's git subprocess handlers. This fixes the SourceControl panel hanging at load with `InvokeMountain(\"undefined:exec\")`. Common also adds Git IPC channel definitions (cancel, checkout, clone, exec, fetch, isAvailable, pull, revListCount, revParse).\n\n- **Tree-View Round-Trip (Mountain/Sky):** Add `tree:getChildren` invoke handler in Mountain to forward requests to Cocoon's `$provideTreeChildren` handler. Sky adds a `cel:tree-view:create` listener that retrieves children and re-dispatches as `cel:tree-view:items`, completing the F1.1 handoff contract and eliminating the orphan event pattern.\n\n- **Diagnostics (All):** Add diagnostic tags (`ext-scan`, `scheme-assets`) for extension scanner and asset routing visibility. Add `tauri-invoke` timing instrumentation to distinguish webview transport latency from Mountain handler slowness.\n\nImpact: Built-in Git extension now functions correctly with native git binaries. Extension tree views (GitLens, SCM, debug, tasks) render with data from providers. Developers can audit extension scanning and routing via tagged dev logs.",
+			"SHA": "6f49be59dba4dbe5c03b05a45e01ff11e8d15321"
 		}
 	],
-	"TimeStamp": 1779882077264
+	"TimeStamp": 1780149367525
 }

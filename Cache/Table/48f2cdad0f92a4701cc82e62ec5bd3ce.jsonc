@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T17:08:27Z",
+			"Date": "2026-04-27T14:48:57Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⣿⡟⠀⠀⠀",
 				28,
-				1
+				10
 			],
-			"Message": "chore(Cocoon): Sync submodule to cb1a38823f1ee6b4b9386aedc19677e262547920\n\nUpdate Cocoon submodule to the latest commit, bringing in upstream changes to the extension host runtime.",
-			"SHA": "e792634e04de30735905243f7c3ea3eff4a51284"
+			"Message": "fix(Project): Synchronize submodules with Mountain event fixes and Sky webview bridge\n\nSubmodule synchronization bringing critical fixes and a new feature:\n\n1. Mountain (ba479c6a) - Event Payload Alignment Fixes:\n   - Fix event channel names: terminal `opened`→`create`, `closed`→`exit`, debug `stop`→`sessionEnd`, statusbar `create`→`set-entry`, webview `message`→`post-message`, progress→`notification/progress-update`\n   - Correct payload keys to camelCase: OutputProvider, StatusBarProvider, TreeViewProvider, UserInterfaceProvider, Window\n   - Add parameter key fallback: probe camelCase first then snake_case for backward compatibility\n   - Fix SCM RootUri: reconstruct full URI from scheme/authority/path instead of emitting relative URLs\n   - Add command registry emissions for Sky's workbench command palette\n\n2. Sky (f0fabc61) - New Webview Post-Message Bridge:\n   - Add handler for `sky://webview/post-message` to dispatch `cel:webview:post-message` events to renderer\n   - Bridges extension `postMessage` path from Cocoon with `{handle, message}` shape distinct from workbench-RPC `{panelId, method, params}`\n\n3. Dependency Updates:\n   - Cocoon, Echo, Rest: pozil/auto-assign-issue 2.2.0→3.0.0\n   - Echo: @cloudflare/workers-types, miniflare, wrangler updates\n\n4. Common (c773b79d): Document deprecated aliases UIShowInputBoxRequest and UIShowQuickPickRequest\n\nImpact: Terminal panes, tree views, status bar entries, and command palette entries now render correctly. Extensions can communicate back to Sky UI via the new webview post-message bridge.",
+			"SHA": "4c472e3680de51383c1c86ce92ea34c31705db2c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T16:46:08Z",
+			"Date": "2026-04-26T22:46:51Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				28,
+				5
+			],
+			"Message": "refactor(Project): Standardize DTO serialization to camelCase and fix SCM provider registration\n\nSubmodule synchronization across multiple components:\n\n1. Mountain (11b3c822):\n   - Migrate DTO serialization from PascalCase to camelCase across 13 files (CustomDocumentStateDTO, DocumentStateDTO, MarkerDataDTO, etc.) to match the wire format expected by Wind/Sky\n   - Fix SCM provider registration: change PascalCase keys (\"ID\", \"Label\", \"RootUri\") to camelCase (\"id\", \"label\", \"rootUri\") in RegisterScmProvider and add missing \"providerHandle\" field in RegisterScmResourceGroup\n   - Add #[allow(dead_code)] to 15 structs used only in specific build configs\n   - Set MACOSX_DEPLOYMENT_TARGET=10.13 for broader compatibility\n\n2. Mist (94e88d14): Add #![allow(non_snake_case)] lint to permit PascalCase naming conventions consistent with the rest of CodeEditorLand\n\n3. Rest (cf44ea79): Switch binary entry point from Library.rs to Main.rs with proper async tokio runtime\n\nImpact: Wind/Sky now receive correctly formatted DTOs with camelCase keys, SCM source control providers properly register, and the Rest bundler has correct binary structure.",
+			"SHA": "3cfc021ed28fb28f64d06171469713f00c88bf0b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T20:30:20Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				28,
 				2
 			],
-			"Message": "feat(Mountain): Expand trusted paths and add executable magic-number detection\n\nSubmodule sync bringing three complementary improvements for extension runtime reliability:\n\n1. **Extended trusted paths** (`PathSecurity.rs`):\n   - Add `/tmp`, `/private/tmp`, `/var/tmp` for language servers (ruby-lsp, pyright, etc.)\n   - Add third-party tool state: `~/.gitkraken`, `~/.gk`, `~/.copilot`, `~/.config/git`\n   - Add read-only POSIX OS files (`/etc/os-release`, `/proc/*`, etc.)\n\n2. **Magic-number executable detection** (`VsixInstaller.rs`):\n   - Probe file headers for ELF, Mach-O fat/thin, and shebang\n   - Detect bin paths (`bin/`, `server/`, `tools/`, `omnisharp`, `adapter`, `native`)\n   - Promote 0o644 → 0o755 for detected executables, fixing EACCES on spawn\n   - Add `HealExecutableBits()` to retroactively fix pre-existing installs\n\n3. **Boot-time exec-bit heal** (`Scanner.rs`):\n   - Walk user extensions (`~/.land/extensions/`) at scan time\n   - Apply same heuristic to recover extensions installed before the fix\n\n4. **Benign ENOENT** (`DevLog.rs`): Add vim registers, globalStorage probing, chat editing sessions.\n\nImpact: Extension binaries (rust-analyzer, GitLens, Copilot) that were failing with EACCES due to missing exec bits now run correctly.",
-			"SHA": "991e3b34886434902061a9b60f74bf790222c473"
+			"Message": "feat(Project): Add workspace trust handlers for vscode.git and mute vscode-api-gap logs\n\nSubmodule synchronization bringing two Mountain changes:\n\n1. Workspace Trust Handlers (bd4aed14):\n   - Implement `Workspace.RequestResourceTrust` and `Workspace.IsResourceTrusted` handlers in Mountain\n   - These route through Mountain instead of falling back to Cocoon's permissive heuristic\n   - vscode.git's `Model.openRepository` calls these before constructing the Repository\n   - Enables `GenerateRouteManifest.sh` to auto-switch Cocoon from heuristic-default to gRPC-routed on next manifest regeneration\n   - Future rounds can replace trust-by-default `true` with real per-OS trust queries (Gatekeeper/SmartScreen/xattrs)\n\n2. Log Noise Reduction:\n   - Mute `vscode-api-gap` dev logs in short mode\n   - These log when extensions use unshimmed vscode API methods - useful for API gap audits but noisy in default dev runs\n   - Enable via `LAND_DEV_LOG=all` or `LAND_DEV_LOG=vscode-api-gap` when needed\n\nImpact: vscode.git extension now properly routes through Mountain's trust handlers with future extensibility for real OS-level trust queries.",
+			"SHA": "585327dad2c81eff668676e9412bf4f27fca3b8f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T15:37:49Z",
+			"Date": "2026-04-26T20:10:40Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "",
+			"SHA": "b62b2bbcf5a71e9b2f90b4b5656bda4f196ab1b5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T10:39:28Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
 				28,
 				3
 			],
-			"Message": "feat(Project): Add land-native search provider and expose ISearchService\n\nCross-cutting search integration across Sky, Output, and Mountain:\n\n- **Sky (b4358aa9):** Add search result provider routing VS Code's Search viewlet queries through Mountain's `search:findFiles` / `search:findInFiles` handlers. The stock web's `RemoteSearchService` relies on File System Access API which returns `undefined` for Mountain-based filesystem, causing silent zero-result returns. New provider registers for both `file` (0) and `text` (1) search types, translating Mountain hits into `IFileMatch` shape. Also add global exception cap to PostHogBridge to prevent CDN limit flooding (configurable via `LAND_POSTHOG_SKY_EXCEPTION_GLOBAL_LIMIT`, defaults to 7).\n\n- **Output (f651b48f):** Extend ExposeWorkbenchAccessor ESBuild transform to expose ISearchService alongside existing Statusbar, Commands, and CommandRegistry services. Adds require for `vs/workbench/services/search/common/search` and includes `Search` entry in `__CEL_SERVICES__` global, enabling Sky-side bridge code to access search service without re-entering AMD loader.\n\n- **Cocoon (5bc55a9f):** Submodule sync.\n\nImpact: Search functionality now works in the Land editor with Mountain-based filesystem. PostHog exception telemetry respects CDN rate limits.",
-			"SHA": "b0c61117bc38976c071b8690baa6017a75eec5c4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T15:08:08Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "feat(Mountain): Add trusted system paths bypass and idempotent VSIX installs\n\nUpdate Mountain submodule with two related extension-management improvements:\n1. **Trusted system paths** (`PathSecurity.rs`): Add `IsTrustedSystemPath` that defines directories Land owns (`.land/`, Application Support, bundled extension roots, TMPDIR) which bypass the workspace-folder sandbox check. Enables the extension scanner to read `~/.land/extensions` for user-installed VSIXes.\n2. **Idempotent VSIX reinstalls** (`VsixInstaller.rs`): Remove `AlreadyInstalled` error and treat re-installs as no-op when target already exists with a readable manifest. Matches VS Code semantics and prevents renderer crash from null result dereference. Corrupt/partial installs are wiped and re-extracted.\n\nBoth changes unblock the extension loading pipeline, allowing user-installed extensions to appear in the Extensions sidebar.",
-			"SHA": "dffce14837d3c5824a7fff68ae59a46f40915955"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T14:49:36Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				28,
-				6
-			],
-			"Message": "feat(Project): Wire status bar and command bridges, enhance dev diagnostics\n\nCross-cutting integration across Output, Sky, and Mountain submodules:\n\n- **Output (354c448c):** Enhance ExposeWorkbenchAccessor transform to pre-resolve concrete service instances (IStatusbarService, ICommandService, CommandRegistry) into globalThis.__CEL_SERVICES__ during workbench startup. Allows Sky-side bridge code to call methods directly without re-entering the AMD loader.\n\n- **Sky (ea2932ae):** Wire status bar and command bridges into workbench services. Extension-contributed status bar items (from `vscode.window.createStatusBarItem()`) now route through `IStatusbarService.addEntry()`. Add command bridge layer: `sky://command/execute` invokes `ICommandService.executeCommand`, `sky://command/register` registers into CommandsRegistry with fan-out back to Cocoon, `sky://command/unregister` disposes.\n\n- **Mountain (f1de83d5):** Add payload preview (160 bytes max) to notification-drop logging for diagnostic clarity. Register benign ENOENT paths: MCP config files, user snippets/keybindings, AI workspace storage, git config for non-repos.\n\n- **Common + Maintain:** Dependency bumps for pozil/auto-assign-issue (2.2.0→3.0.0) and @cloudflare/workers-types.\n\nImpact: Extension status bar items now render in native VS Code DOM. Extension commands execute against the workbench with proper bidirectional binding.",
-			"SHA": "c8d8c6d920b73f5f434c53c659ab2ebb01f4ed74"
+			"Message": "feat(Project): Enhance text search with column highlighting and fix extension config loading\n\nSubmodule synchronization bringing significant search UX improvements:\n\n1. Mountain (44bf29d4):\n   - Fix extension config loading: previously searched for non-existent VS Code manifest shape ([{key, value}]), causing extensions like vscode.git to activate but never reach createSourceControl(). Now walks both array AND object shapes, extracts default values using dotted keys (e.g. git.enabled).\n   - Add ColumnRange tracking so Sky can underline actual match positions instead of whole lines\n   - Fix line numbers: previously returned 0, now returns 1-based\n   - Add byte→char map with binary search for O(log n) UTF-8 column lookups (previously O(n) per match, causing quadratic slowdown on match-dense files)\n   - Cap preview at 512 chars to avoid massive layouts on minified files\n   - Add per-line match cap (100) to prevent hangs on pathological regexes\n\n2. Sky (61849605):\n   - Parse Mountain's columns array (0-based UTF-8 char offsets) and transform into VS Code's 1-based ISearchRange format\n   - Populate preview.matches with preview-local coordinates so renderer shows precise character-level highlighting\n   - Previously all matches displayed as full-line highlights with no sub-line underline\n\nImpact: Text search results now show precise character-level match highlighting, extension configuration properly loads defaults, and large file searches perform significantly better.",
+			"SHA": "adba2d4ab64268bb23038ff0a593a2c85d4d54fb"
 		}
 	],
-	"TimeStamp": 1779882069825
+	"TimeStamp": 1780149364835
 }

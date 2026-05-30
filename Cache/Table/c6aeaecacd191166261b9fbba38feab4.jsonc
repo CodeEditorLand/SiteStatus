@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:54:10Z",
+			"Date": "2026-05-02T00:08:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
-				1
-			],
-			"Message": "fix(Mountain): Enhance logging for SCM provider registration emit failures\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "660a067a4bfe2e220d4c61c742d31805c92f1e6d"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-29T02:33:55Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				1
-			],
-			"Message": "",
-			"SHA": "cce2516555660983de4287c47ab94daaa710b02a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:08:42Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
+				868,
 				2
 			],
-			"Message": "fix(Mountain): Accept absent paths in FileWatcher and varied URI shapes\n\nTwo changes that prevent false circuit breaker trips in Mountain's gRPC service:\n\n1. **FileWatcherProvider.rs**: Extensions frequently register watchers on optional paths (`~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't yet exist. Previously, `notify::Watcher::watch()` failure triggered a gRPC error that counted against Cocoon's circuit breaker — 5 probes at boot trips it open and cascades into 60s of rejected reads. Now Mountain catches benign \"path not found\" errors, records a \"deferred\" entry without a live OS watcher, and still allows Unregister to clean up the handle.\n\n2. **UriParsing.rs**: Cocoon sends URIs in three different shapes — plain strings (e.g., `Diagnostic.Set`), objects with `external` field (VS Code's `URI.toJSON()`), and legacy objects with just `scheme` + `path`. The original code only accepted the `external` field, causing `Diagnostic.Set` from `vscode.languages.createDiagnosticCollection().set` to trip the breaker after 5 publishes, silencing all linters across language extensions. Now all three formats are accepted.\n\nBoth fixes maintain backward compatibility while eliminating spurious error cascades.",
-			"SHA": "9c10fbe92d916db112eb377dcd9f1ab9130c8821"
+			"Message": "perf(Mountain): Coalesce tree-view emits and canonicalize webview payloads\n\nExtend the 16ms coalescing pattern to the `RegisterTreeViewProvider` RPC in `Source/RPC/CocoonService/TreeView.rs`. During extension boot, 30+ tree view registrations previously saturated the Tauri IPC channel. The new `TreeViewEmitBatch` singleton accumulates payloads and emits a single batch per frame, preserving the `sky://tree-view/create` channel while deferring to `sky-emit` logging for diagnostics.\n\nStandardize `webview` IPC payload shapes in `Source/Track/Effect/CreateEffectForRequest/Webview.rs`. Fix a critical bug where positional arguments (`[Handle, Value]`) from Cocoon were wrapped in `{ method, handle, args }`, causing SkyBridge's listeners (expecting `viewId` or `html` keys) to reject payloads, leaving iframes blank. The new logic detects wire formats, extracts named fields, and normalizes camelCase method names (e.g., `setHtml`) to kebab-case channel suffixes (`set-html`) to match the `Common` library definitions. Ensure both webview-panels and webview-views render correctly for extensions like Roo and claude-vscode.",
+			"SHA": "6d8f8d296641459e47b373e39f865cfbe6b2219c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:40:26Z",
+			"Date": "2026-05-02T00:07:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				859,
+				868,
+				3
+			],
+			"Message": "refactor(Mountain): Standardize IPC variable and identifier names to PascalCase\n\nComplete the project-wide naming convention migration by renaming all local variables and parameter identifiers in the IPC layer (`Connection/Manager.rs`, `TauriIPCServer.rs`, `TauriIPCServer/Server.rs`) from camelCase to PascalCase.\n\nRename `handle` → `Handle`, `message` → `Message`, `app_handle` → `app_handle` (struct field remains, local param updated to `AppHandle` where applicable), and generic error bindings like `e` → `Error` in documentation and code comments. Update all associated doc strings, example code blocks, and logging statements to reflect these changes. Also normalize terminology in comments (e.g., 'message' → 'Message', 'router' → 'Router') to align with the strict PascalCase convention specified in CLAUDE.md for all identifiers, including local variables within `impl` blocks and test modules.\n\nThis refactor ensures consistent code style across the Mountain backend IPC subsystem without altering any runtime logic or data flow.",
+			"SHA": "e2f06c0d52af54f8abe630eacded288a29f29433"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T00:07:11Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				4
+			],
+			"Message": "perf(Mountain): Deduplicate FS watchers and single-flight directory walks\n\nReduce kernel resource exhaustion and redundant I/O during extension boot by implementing deduplication strategies in the native environment layer.\n\nIn `FileWatcherProvider`, introduce a deduplication index keyed by `(root, recursive, pattern)` to prevent multiple extensions from spawning duplicate `notify::Watcher` instances for identical paths. Aliased handles now share the primary OS watcher, with events fanned out to all subscribers in the forwarder task.\n\nIn `WorkspaceProvider`, implement a single-flight registry for `findFiles` operations. Concurrent requests for the same search key now await a single filesystem walk leader rather than re-walking the tree, fixing the race condition where cache misses occurred before the leader populated the cache.\n\nIn `ConfigurationProvider`, add a 250ms in-memory cache for parsed `settings.json` files to eliminate redundant disk reads triggered by the `InspectConfigurationValue` handler. Invalidate the cache immediately upon configuration updates.\n\nThese changes significantly lower IPC saturation and CPU usage during the high-load extension activation phase.",
+			"SHA": "44851c1cd73bfdaa2a743295959359a05e11a082"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T23:48:12Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				868,
+				53
+			],
+			"Message": "refactor(Mountain): Rename IPC handler bindings to PascalCase\n\nComplete the PascalCase migration started in the previous commit by renaming all local identifiers in WindServiceHandlers to match the project convention: runtime → RunTime, args → Arguments, app_handle → ApplicationHandle, and error bindings such as e → Error. Update doc comments and JSON field names that referenced the old identifiers.\n\nAlso fix a boot-time URI normalization bug in BuildInitialUrl: RecentlyOpened.json stores workspace URIs with a trailing slash (file:///.../Mountain/). Strip it before URL-encoding the folder path so that workbench-side URI.revive produces a folder URI matching URI.from, which never carries a trailing slash on the parent directory. The mismatch caused IUriIdentityService.extUri.relativePath to return absolute paths, making breadcrumbs, quick-pick, and Problems-panel labels render full /Volumes/... paths instead of the workspace-relative short form.",
+			"SHA": "fd28a7bd6076ee9b112d8a1d8b5301c11b75bfc9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T23:02:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
 				2
 			],
-			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nTwo changes in Mountain's gRPC service layer:\n\n1. **FileWatcher.rs**: Cocoon's `NextProviderHandle()` returns a number, but older callers pass a string. Handle both shapes in `RegisterWatcher` and `UnregisterWatcher` instead of silently converting numbers to empty string.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without a string-regex round-trip, while `-32000` remains the catch-all for genuine failures.",
-			"SHA": "160b5a4251133f31e4ce99898a02a8d63f8ca19b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:03:45Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				1
-			],
-			"Message": "docs(Mountain): Update build.rs comments to document PascalCase naming\n\nClarify the build script comments to document the PascalCase environment variable naming convention introduced in the 2026-04-29 migration. The comments now specify that `Profile`, `Pack`, `Bundle`, and `Compiler` (PascalCase) are the current env var names, replacing the legacy `LAND_*` names that were retired. This ensures clarity for developers debugging build configuration resolution at runtime.",
-			"SHA": "de696659a367b81cdc5404e3055fa6837bd94fa7"
+			"Message": "perf(Mountain): Batch decoration and progress emits to reduce IPC load\n\nExtend the 16ms coalescing strategy to two additional high-frequency Vine notification handlers, following the `CommandEmitBatch` pattern established for command registration.\n\n`DecorationTypeLifecycle`: Extension activation generates ~650 create/dispose calls per session, mostly registering syntax-highlight decorations. Previously each call fired an individual Tauri event on `sky://decoration/<suffix>`. Add `DecorationEmitBatch`, grouping payloads by channel and emitting a single `{ batch: [...] }` per channel per 16ms frame. SkyBridge demultiplexes these back into individual `cel:decoration:*` CustomEvents.\n\n`ProgressReport`: The git extension alone fires 6000+ `progress.report` calls per session during repository scans. Add `ProgressEmitBatch`, accumulating per-handle `increment` deltas and keeping the latest non-empty `message` over a 16ms window. Each progress handle receives one coalesced update per frame preserving the same final cumulative state, instead of dozens of individual emits.\n\nBoth use `OnceLock`-initialised static singletons with atomic flush scheduling to prevent duplicate timer tasks. This keeps the shared WKWebView IPC channel clear for keystrokes during extension boot and repository scanning when the renderer is most busy.",
+			"SHA": "644b96ee46ecc92796e2b34d2dcce2dc1c9be91f"
 		}
 	],
-	"TimeStamp": 1779882122113
+	"TimeStamp": 1780149401855
 }
