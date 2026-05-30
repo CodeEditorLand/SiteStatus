@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T21:36:26Z",
+			"Date": "2026-05-19T23:53:21Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				119,
+				129,
 				1
 			],
-			"Message": "chore(Element): Synchronize Element submodule with new Output diagnostics\n\nUpdate the Element submodule from 436dcbfa to 29862a1a to integrate the `feat(Output)` addition of comprehensive runtime diagnostics.\n\nThe new commit injects a diagnostic script into the webview content pipeline that performs periodic DOM state checks (every 500ms), monitors React hook status, captures full DOM snapshots, and verifies `acquireVsCodeApi` availability. These telemetry features are scoped to the first 30 seconds of the session to aid debugging of rendering issues and API availability in custom environments via the `RuntimeDiagnosticsInner` transform plugin in Rest.\n\nAligning with the previous commit standardizing escaped quotes in webview logging, this update ensures the build pipeline provides deeper observability for the extension host and UI runtime.",
-			"SHA": "7732f3f163cb562924e06159917926e93558eba9"
+			"Message": "chore(Project): Synchronize Element submodule for IPC diagnostic hooks and bridge retry logic\n\nAdvance the Element submodule from fa903600e1 to bf55904456, introducing safeguards for the Tauri IPC bridge between Mountain and Sky to prevent initialization race conditions and aid debugging.\n\nKey modifications:\n- **Mountain**: Inject a diagnostic script at `document_start` in `WindowBuild.rs` to populate `window.__MOUNTAIN_TAURI_DIAG`. This captures early IPC bridge state (`window.__TAURI_INTERNALS__`, `window.__TAURI__`) and lifecycle timestamps before application scripts execute, enabling DevTools verification of capability scoping without full bundle loading.\n- **Sky**: Replace the synchronous check for `__TAURI__` globals in `Layout.astro` with a 5-second polling loop (`ResolveInvoke`, `WaitForInvoke`). This addresses race conditions where ES-module evaluation outpaces Wry's content-script injection, which previously caused silent drops of lifecycle phases (e.g., `lifecycle:advancePhase(3)`).\n\nTogether these changes eliminate startup race conditions causing \"Sky did not advance to Restored\" errors and provide a dedicated diagnostic surface for early IPC failure detection.",
+			"SHA": "8633e6dd793e8003057a2bfcfa2f0ba3192f3882"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T21:34:26Z",
+			"Date": "2026-05-19T23:04:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				119,
+				129,
 				1
 			],
-			"Message": "fix(Output): Standardize escaped quotes in webview logging diagnostics\n\nCorrect the escaping of quote characters within the injected `DEBUG_WV` logging call in `Source/Plugin/Transform/Inject/Webview/Debug/Logging.ts`.\n\nReplace double-escaped quotes (`\\\"`) with single-escaped quotes (`\"`) for the `id=\"root\"` and `type=\"module\"` string checks. This ensures the generated JavaScript string literals are syntactically correct, allowing the runtime diagnostics to properly identify the React root element and module scripts during webview content processing in the Rest bundler pipeline.",
-			"SHA": "5e7fe39ce66f8b985b397be4bfd625f99d80a37a"
+			"Message": "refactor(Project): Rename user-data directory root from .land to .fiddee\n\nFollowing the product rebranding to FIDDEE, update the hardcoded user-data directory path from `$HOME/.land` to `$HOME/.fiddee` to align with the new product identity across all TypeScript layers.\n\nKey modifications:\n- **Cocoon**: Extract the path logic into a shared `FiddeeRoot()` atom at `Source/Platform/FiddeeRoot.ts`. Update `Context.ts` and `HostHandler.ts` to use this atom for extension storage, global storage, and logs. Refresh the extension-bug frame matcher in `NotificationHandler.ts`.\n- **Output**: Correct inline documentation and `Why` strings in `Pipeline.ts`, `PluginIndex.ts`, `ExtensionGalleryService.ts`, and the Icon Stylesheet URL rewriter to reference `~/.fiddee/extensions/`.\n- **Wind**: Update the `ResolveConfiguration` comment referencing the recently opened workspaces file path.\n- **Mountain**: Synchronized to the matching HEAD; no functional delta for this specific commit.\n\nRebuild all ESBuild Target artifacts and generated bundles to reflect the new path constants.",
+			"SHA": "2482835a24e221d14be55ed2ccfb4cdfb3ec4237"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T21:32:50Z",
+			"Date": "2026-05-19T22:23:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				119,
+				129,
 				1
 			],
-			"Message": "chore(Element): Synchronize 3 submodules for gRPC stability and naming standardization\n\nUpdate the core extension host and backend submodules to address cold-start connectivity issues and enforce strict PascalCase configuration naming.\n\n**Cocoon**: Implement asynchronous polling in the `Service.ts` health check to wait for gRPC channel readiness (up to 3s) before validation. Replace the immediate synchronous state check to prevent false positives during channel transitions (IDLE/CONNECTING) and ensure robust handshake timing with Mountain.\n\n**Mountain**: Standardize WKWebView debug server configuration keys in `Info.plist` and Rust sources from `DEBUG_SERVER` to `DebugServer` and `DebugServerPort` per project naming conventions. Remove the deprecated `DisableUIFixes` key and clear the `Trace` value to reduce release profile noise.\n\n**Output**: Regenerate build artifacts and update the `DisableUIFixes` toggle logic and webview diagnostics logging to align with the latest upstream changes in the `Output` pipeline, ensuring consistent build artifact generation across the extension host.\n\nThese changes stabilize the gRPC bootstrap sequence for the extension host and ensure all native and build configuration keys adhere to the PascalCase standard.",
-			"SHA": "bc736a634c5899248ee91dd91addf38b39bbb8ea"
+			"Message": "feat(Project): Synchronize Element submodule for workspace save IPC and Wind boot hardening\n\nAdvance the Element submodule from 504dc46b to bbd041b6, wiring the full workspace save round-trip (Cocoon -> Mountain -> Sky) and fixing two Tauri IPC fallback crash sources in Wind at boot.\n\nKey modifications:\n- **Mountain**: Add three new IPC handler arms to the Workspace dispatch table — `Workspace.Save`, `Workspace.SaveAs`, and `Workspace.SaveAll` (including the legacy `saveAll` method name used by gRPC/Client.ts). All three degrade gracefully when Sky has no handler registered, logging a warning and returning the original URI or null instead of crashing the extension host.\n- **Cocoon**: Rebuild all 39 ESBuild Target bundles and regenerate the RouteManifest, raising the Mountain RPC method count from 130 to 134 with a generation timestamp of 2026-05-19T22:15:03Z.\n- **Wind**: Fix two boot-time crash sources in `ResolveConfiguration` — (1) add `__TAURI_INTERNALS__?.invoke` to the fallback chain before the `__TAURI__` variants so the Tauri IPC bridge resolves in Tauri v2 webview contexts; (2) replace all `|| undefined` path fallbacks (homeDir, tmpDir, userDataDir, logsPath) with concrete defaults so `path.posix.join(undefined, 'User')` no longer throws during workbench initialisation.\n\nTogether these changes complete the `vscode.workspace.save()`/`saveAll()`/`saveAs()` IPC round-trip for extensions while hardening Wind against Tauri version mismatches and missing IPC responses at startup.",
+			"SHA": "5757696ff078d272771b17a9f39d4359a9df2797"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T19:22:44Z",
+			"Date": "2026-05-19T21:54:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				119,
+				129,
 				1
 			],
-			"Message": "chore(Element): Synchronize 11 core submodules for dependency alignment\n\nUpdate 11 core submodules to align development dependencies and tooling versions across the Land editor ecosystem.\n\n**Cocoon**, **Output**, and **Wind**: Bump `@types/node` from 25.7.0 to 25.8.0 to ensure type definition consistency with the latest Node.js runtime updates.\n\n**Common** and **Echo**: Upgrade `@cloudflare/workers-types` to 4.20260515.1 and `wrangler`/`miniflare` to latest patch versions (4.91.0, 4.20260511.0) to maintain compatibility with Cloudflare Workers runtime features.\n\n**Sky**: Apply minor version updates to `vite` (8.0.12 to 8.0.13) and `astro` (6.3.2 to 6.3.3) for build tool stability.\n\n**Maintain**: Standardize emoji rendering in documentation by replacing raw characters with HTML entities to prevent font fallback issues, and correct Mermaid diagram syntax.\n\n**Mountain**, **Rest**, **SideCar**, and **Worker**: Synchronize repository states to the current branch.\n\nThese updates ensure consistent type safety across the extension host, UI, and build tooling while maintaining alignment with upstream dependency release cycles.",
-			"SHA": "c864659e08562dafd5a76e9a876e80cf6eb9b666"
+			"Message": "feat(Project): Synchronize Element submodule for active editor tracking and OS property caching\n\nAdvance the Element submodule from a433ff65 to 504dc46b, wiring synchronous active editor tracking in Cocoon and caching OS property queries in Mountain.\n\nKey modifications across components:\n- **Cocoon**: Wire `window.didChangeActiveTextEditor` from Handler.ts into a minimal TextEditor stub derived from URI and languageId. Patch `__activeTextEditor` on Context so extensions reading `vscode.window.activeTextEditor` synchronously in `activate()` see the current value. Upgrade `showTextDocument` from a fire-and-forget notification to a `sendRequest` round-trip returning the TextEditor stub from Mountain, with a disposable fallback to prevent crashes when chaining `.selection` or `.revealRange`. Migrate `ExtensionSecretStorage` from `sendNotification` to `sendRequest` with namespaced methods (`secrets.get`, `secrets.store`, `secrets.delete`) and scoped `extensionId` isolation.\n- **Mountain**: Cache OS property collection (type, release, arch, CPU topology) and Rosetta 2 detection behind `OnceLock`, eliminating ~10ms subprocess overhead per IPC call. After document open, call `SetActiveDocumentURI` on application state and fire a fire-and-forget gRPC `window.didChangeActiveTextEditor` notification to keep Cocoon's shim in sync. Refactor `localPty:getTerminalLayoutInfo`/`setTerminalLayoutInfo` to use `GetStorageValue`/`UpdateStorageValue` on StorageProvider, removing manual JSON serialization.\n\nTogether these changes eliminate three extension-host crash categories (synchronous reads of undefined `activeTextEditor`, awaited `showTextDocument` returning undefined, and unhandled secret storage notification rejections) while reducing IPC latency for OS queries and keeping terminal layout persistence simpler.",
+			"SHA": "411b4d6b8240fff16cd87885420d4904ecaf3270"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T19:21:03Z",
+			"Date": "2026-05-19T21:47:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				119,
+				129,
 				1
 			],
-			"Message": "",
-			"SHA": "e0b682596fa5f216674707db071a53a6c66a83ea"
+			"Message": "chore(Project): Synchronize Element submodules for terminal persistence and dependency updates\n\nAdvance the Element submodule from b0d4545a to a433ff65, integrating terminal layout state persistence, native color scheme caching, and dependency alignment across Cocoon, Mountain, Output, and Sky.\n\nKey modifications:\n- **Mountain**: Wire `localPty:getTerminalLayoutInfo` and `setTerminalLayoutInfo` to `StorageProvider` to restore active terminal tabs and dimensions after window reloads. Cache native color scheme detection in a `OnceLock` to eliminate repeated OS syscalls during boot.\n- **Cocoon**: Update `@types/node` to 25.9.1 and `protobufjs` to 8.4.0 via Dependabot.\n- **Output**: Normalize case-statement indentation in `Run.sh` and `prepublishOnly.sh` to consistent 0-tab/1-tab formatting.\n- **Sky**: Bump `@astrojs/ts-plugin` to 1.10.9 and `astro` to 6.3.5 via Dependabot.\n\nThese changes ensure terminal state survives workbench reloads, reduce startup latency, and align all dependencies with upstream releases.",
+			"SHA": "289329062931b417680b41819b25b7b5981f8086"
 		}
 	],
-	"TimeStamp": 1779985035037
+	"TimeStamp": 1780149357038
 }

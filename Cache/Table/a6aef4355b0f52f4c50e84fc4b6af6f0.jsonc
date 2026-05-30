@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:12:27Z",
+			"Date": "2026-05-02T09:40:17Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1212,
-				16
+				"⠀⠀⠀⠀⠀",
+				1251,
+				2
 			],
-			"Message": "feat(Mountain): Introduce service registry and feature flag subsystem\n\nImplement the foundational runtime control plane within Mountain, consisting of a service discovery registry and a feature flag management system.\n\nIn `Source/IPC/Common/ServiceInfo`, define the data models for service lifecycle management: `ServiceState::Enum` (Running, Degraded, etc.), `ServicePerformance::Struct` (request/error counters with rolling mean latency), `ServiceEndpoint::Struct` (network/UDS metadata), and `ServiceInfo::Struct` (aggregated health state). The `ServiceRegistry::Struct` provides a thread-safe map for registering services, tracking heartbeat intervals, and filtering by health status (operational state, <30s heartbeat, <10% error rate).\n\nIn `Source/Telemetry/FeatureFlags`, refactor the existing monolithic module into a modular architecture adhering to the project's PascalCase naming convention. Extract `FeatureFlag::Struct`, `FlagCategory::Enum`, and `FeatureFlagError::Enum` into their own files. The `FeatureFlagRegistry::Struct` maintains a process-wide thread-safe registry (backed by `parking_lot::RwLock`) seeded with defaults like `ipc-compression` and `experimental-webgl`. Expose functional accessors (`IsEnabled::Fn`, `Enable::Fn`, `Disable::Fn`) via `GlobalRegistry` to allow the rest of the backend to gate experimental features without recompiling.\n\nThese additions enable the backend to dynamically monitor service health across the IPC landscape and toggle performance or experimental features at runtime.",
-			"SHA": "1e9d527a0900769df28f60221d7282d7f3744a10"
+			"Message": "fix(Mountain): Enhance AppLifecycle resolution and inject shell environment on boot\n\nThe `AppLifecycle` module previously relied solely on Tauri's `resource_dir` for resolving the `Sky/Target` path. This caused raw release binary launches (outside the `.app` bundle) to fail resolving the frontend root, resulting in 404s for extension-contributed icons (e.g., GitLens, Roo) and empty view containers.\n\nRefactor `AppLifecycleSetup` to implement a multi-tier fallback strategy: first check the standard `.app` bundle layout (`Contents/Resources`), then the monorepo relative path (`../../../Sky/Target`), and finally an executable-relative fallback. This ensures the `STATIC_APPLICATION_ROOT` is correctly set regardless of the launch context.\n\nAdditionally, inject the user's interactive shell environment (loading `PATH`, `NVM_DIR`, `HOMEBREW_PREFIX`) in `Entry` before spawning child processes. This resolves issues where GUI-launched applications (Finder/Dock) lack necessary CLI tools (Homebrew, Git, Node/NVM), causing extension host failures. Update command handler registrations to strictly adhere to PascalCase naming conventions (e.g., `Initialize::Fn`, `MountainProvideHover::MountainProvideHover`).\n\nImpact: Fixes icon rendering in production builds, ensures extension host stability in GUI launches, and standardizes binary entry point naming.",
+			"SHA": "72f7a764914ca9ec250a6f3a3da8481723b892cd"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:07:10Z",
+			"Date": "2026-05-02T09:39:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1196,
+				1251,
 				4
 			],
-			"Message": "feat(Mountain): Define core IPC message types and priority system\n\nIntroduce the foundational data structures for the Inter-Process Communication layer within `Source/IPC/Common/MessageType`. This commit establishes the contract for request, response, and message handling across the Mountain backend and connected services.\n\nThe implementation adds:\n- `MessagePriority::Enum`: A four-tier priority ladder (Low, Normal, High, Critical) supporting comparison and ordering for scheduling logic.\n- `IPCCommand::Struct`: A builder-pattern command request allowing positional `Args`, named `Params`, and explicit priority assignment.\n- `IPCMessage::Struct`: A generic transport envelope including a UUID, timestamp, optional correlation ID for request tracking, and a priority field.\n- `IPCResponse::Struct`: A standardized response type with `Success`/`Error` constructors, preserving the correlation ID for async matching and capturing execution results or failure reasons.\n\nAll types derive `Serialize` and `Deserialize` to enable JSON transmission over the gRPC (Vine) protocol and Tauri IPC channels. These models unify the messaging interface, enabling the `Wind` service layer and `Cocoon` extension host to exchange structured data with explicit priority handling and traceability.",
-			"SHA": "b95a7333e3b00c5c13850fdaeb0ad7e5ef0efa37"
+			"Message": "feat(Mountain): Expand extension root discovery and modularize telemetry/hover units\n\nExtend the LocalhostPlugin to resolve built-in extensions from multiple distribution paths (`Contents/Resources/extensions`, `Contents/Resources/app/extensions`) and the development monorepo layout. This ensures icon stylesheets for the 93 bundled extensions render correctly in packaged `.app` builds and prevents empty boxes in the extension view.\n\nApply the established distributed architecture pattern to the PostHog analytics and Hover command subsystems. Refactor `PostHogPlugin` and `Command/Hover` into distinct unit files (e.g., `Initialize::Fn`, `Position::Struct`, `HoverContent::Enum`), enforcing PascalCase naming and separating DTO definitions from logic. This aligns with recent telemetry refactors and prepares the codebase for stricter IPC type safety.\n\nImpact: Fixes extension icon rendering in production builds and standardizes the module structure for observability and LSP features.",
+			"SHA": "0bb57d42016d8ab3ea6bc79312fdbcb8681e2657"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:07:00Z",
+			"Date": "2026-05-02T09:30:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1191,
-				1
+				1251,
+				13
 			],
-			"Message": "refactor(Mountain): Align ApplicationState import with PascalState DTO naming\n\nUpdate the import statement in `ApplicationState` to use the full type path `TestProviderState::Struct` instead of the raw module reference. This aligns with the project's strict PascalCase naming convention where state data structures are explicitly named `...::Struct` (as defined in recent commits for `TestProviderState`).\n\nEnsures the type signature correctly resolves the aggregated state manager for test execution contexts, maintaining consistency with other DTO definitions and preventing potential compiler ambiguity when `ApplicationState` is cloned or accessed across threads.",
-			"SHA": "d61a52c94a249624bbc77eefa14d3a2678ba43ce"
+			"Message": "refactor(Mountain): Modularize telemetry gate subsystem into distinct units\n\nRestructure the `Source/Telemetry/Gates` module to align with CodeEditorLand's PascalCase naming conventions and the established distributed architecture pattern.\n\nKey modifications include:\n- Extract compile-time predicates (`IsDebugBuild`, `IsDevelopmentBuild`, `IsTelemetryEnabled`, `IsMetricsEnabled`, `IsDistributedTracingEnabled`, `IsFeatureFlagsEnabled`) into dedicated `Fn` unit files using `cfg!` macros.\n- Isolate runtime gate management (`RuntimeGates`, `GetRuntimeGates`, `RuntimeGateEnabled`, `ListEnabledGates`, `ValidateRequiredGates`) into separate units sharing a private `GATES` singleton.\n- Convert `EnableRuntimeGate` into a no-op `Fn` shim with documentation noting the required migration from `OnceLock<HashSet>` to `RwLock` for mutable state.\n- Update `mod.rs` to export the new flat structure, removing the previous monolithic implementation.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the gate system for runtime configuration injection and IPC integration.\n\nRefs #Telemetry",
+			"SHA": "2a691e34b07b06fa7cc73d6c99d68b16635230a0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:55Z",
+			"Date": "2026-05-02T09:30:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1191,
-				1
+				1239,
+				6
 			],
-			"Message": "fix(Mountain): Correct import path for URI normalization utility\n\nResolve a broken import path in `Source/IPC/WindServiceHandlers/Extensions.rs` where the `Normalize` module was referenced incorrectly. Update the path from `IPC::UriComponents::Normalize` to `IPC::UriComponents::Normalize::Fn` to align with the actual module structure and expose the normalization function required for processing extension URIs.\n\nThis ensures the extension management handlers can correctly resolve URI components during the filtering of installed extensions, preventing potential runtime panics or logic errors when interacting with the `Wind` service layer.",
-			"SHA": "27f727498c52bb68469eda25b9df43e452c463e8"
+			"Message": "refactor(Mountain): Modularize tracing subsystem into distinct utility units\n\nRestructure the `Source/Telemetry/Tracing` module to align with CodeEditorLand's PascalCase naming conventions and modular design principles. Replace the previous monolithic implementation with a distributed architecture where each concept resides in its own file.\n\nKey modifications include:\n- Extract `CreateSpan::Fn`, `InitializeTracing::Fn`, `InstrumentRPC::Fn`, `InstrumentCommand::Fn`, and `MeasureTime` macro into dedicated unit files.\n- Enforce feature-gated compilation so the `Telemetry` flag completely toggles the system on/off with zero overhead in release builds.\n- Standardize function names to `Fn` and maintain strict separation between span creation, RPC wrapping, command instrumentation, and inline timing macros.\n- Update `mod.rs` to export the new structure and simplify the public API surface.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the observability layer for future integration into the IPC hot paths and binary entry point.\n\nRefs #Telemetry",
+			"SHA": "ceb085c32354e6cfeb53302f933fe3d527606057"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:51Z",
+			"Date": "2026-05-02T09:26:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1191,
-				3
+				1234,
+				10
 			],
-			"Message": "feat(Common): Introduce health monitoring data models and score logic\n\nDefine the core data structures for the editor's health monitoring subsystem within `Source/IPC/Common/HealthStatus`. This commit adds `SeverityLevel::Enum` to classify issue criticality, `HealthIssue::Enum` as a tagged union for specific failure modes (e.g., MemoryPressure, ConnectionLoss), and `HealthMonitor::Struct` to aggregate state.\n\nThe `HealthMonitor` calculates a dynamic `HealthScore` (0-100) based on a deterministic penalty system derived from issue severities (Low: -5, Medium: -15, High: -25, Critical: -40). It provides methods for adding/removing issues, filtering by severity, and determining overall system health status (`IsHealthy`, `IsCritical`). All types derive `Serialize`/`Deserialize` to enable transmission over the gRPC (Vine) and Tauri IPC channels for real-time status propagation to the Wind and Sky layers.\n\nThese models lay the foundation for the backend to expose service liveness metrics to the frontend without blocking the main thread.",
-			"SHA": "23d6eddefce6d663ef87fdd01e468309c773f80d"
+			"Message": "feat(Mountain): Refactor metrics subsystem into modular singleton architecture\n\nRestructure the `Source/Telemetry/Metrics` module to align with CodeEditorLand's PascalCase naming conventions and modular design principles. Replace the previous single-file implementation with a distributed architecture where each concept resides in its own file.\n\nKey modifications include:\n- Extract `Metric::Struct` and `MetricValue::Enum` into dedicated type definitions.\n- Isolate the `MetricsRegistry::Struct` (bounded ring buffer) and `GlobalRegistry::REGISTRY` singleton into separate units.\n- Introduce `Timer::Struct` for RAII-style histogram recording with label support.\n- Create convenience accessors `RecordCounter::Fn`, `RecordGauge::Fn`, and `GetAllMetrics::Fn` that operate against the global singleton.\n- Update `mod.rs` to export the new structure and add `Initialize::Fn` for feature-gated bootstrapping.\n\nThis reorganization ensures strict adherence to the project's naming standards (e.g., `Fn`, `Struct`, `REGISTRY`) and prepares the telemetry layer for future integration with the IPC fast paths and binary main entry point.",
+			"SHA": "adbf0e3f64efb9475766d21b6c343e9f24a608d2"
 		}
 	],
-	"TimeStamp": 1779985055286
+	"TimeStamp": 1780149382476
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:32:14Z",
+			"Date": "2026-05-22T05:35:38Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1582,
+				2
+			],
+			"Message": "refactor(Mountain): Extract inline JSON blocks to avoid macro recursion limit\n\nThe `ConstructSandboxConfiguration` function builds the entire `ISandboxConfiguration` payload in a single deeply-nested `json!()` macro invocation. As the `profiles` and `productConfiguration` sections grew, the macro expansion exceeded Rust's recursion limit, causing compilation failures on certain toolchain versions.\n\nExtract the `nls`, `productConfiguration`, `os`, and `profiles` sub-objects into separate `json!()` calls bound to local variables (`NlsSection`, `ProductConfig`, `OsSection`, `ProfilesSection`), then reference them by name in the outer `json!()` invocation. This breaks the single deep expansion into multiple shallow ones, staying well within the recursion limit without changing any emitted values.\n\nNo behavioral change — all pre-built variables produce identical JSON to the previously inlined blocks.",
+			"SHA": "78820a9ee66e89a88169dab5bf7acb7b986c1eb3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T05:35:25Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1582,
+				19
+			],
+			"Message": "feat(Mountain): Complete Cocoon extension host bridge across providers, boot, and keyboard\n\nImplement the gRPC and provider-infrastructure layer for four extension-host features that Mountain forwards to Cocoon, three complementary improvements, and one build-config update.\n\n**Extension provider features:**\n\n- **Inline completion items** (GitHub Copilot, Roo Code, Continue): New `InlineCompletionItem` / `InlineCompletionContext` messages in Vine.proto, gRPC handler in `ProvideInlineCompletionItems.rs`, and `$provideInlineCompletionItems` dispatch from `FeatureMethods.rs` to Cocoon's registered provider. Registration flows through the generic notification dispatcher via `register_inline_completion_item_provider`.\n\n- **File decorations from extensions**: `DecorationsGet` in `Decoration.rs` falls back to `ProvideFileDecoration` via Cocoon gRPC when the in-memory store has no entry, populating git-status badges, error markers, and other extension-contributed decorations on demand.\n\n- **Terminal lifecycle sync**: `TerminalProvider.rs` emits `$acceptTerminalOpened` / `$acceptTerminalClosed` notifications to Cocoon so `vscode.window.terminals` stays current for terminals created from the UI (not just via the extension API).\n\n- **Webview message forwarding**: `Messaging.rs` implements the forward path for `acquireVsCodeApi().postMessage()` calls from extension iframes, sending them as `webview.message` notifications to Cocoon so the extension host's `onDidReceiveMessage` subscriber fires. `remove_webview_message_listener_impl` is now a logging stub rather than a no-op.\n\n**Boot performance and crash fixes:**\n\n- **Extension manifest cache (B7.P08)**: New `LoadFromCache.rs` reads a pre-baked `extensions.manifest.json` blob in a single `fs::read`, reducing extension-scan boot time from ~1200 ms to <50 ms. Falls back gracefully to the live `ScanAndPopulateExtensions` path on cache miss, staleness (>10 min), or corruption. The cache file is produced by `Maintain/Build/Manifest/PreBake.ts` during `beforeBundleCommand`.\n\n- **WKWebView NSUndoManager suppression**: `TauriBuild.rs` disables the macOS default menu (which pre-installs Edit > Undo/Redo). `WindowBuild.rs` injects a capture-phase keydown listener that `preventDefault()`s Cmd+Z/Cmd+Y before the webview's internal responder chain dispatches undo:/redo:, preventing WKWebView's NSUndoManager from competing with Monaco's undo stack.\n\n- **Profiles configuration**: `InitializationData.rs` adds the `INativeWindowConfiguration.profiles` section with all required URI fields (`languageModelsResource`, `agentPluginsHome`, `cacheHome`, etc.) to prevent the `TypeError: undefined is not an object (evaluating 'M.revive(o.languageModelsResource).with')` crash during workbench initialisation. Also adds `sqmId`, `devDeviceId`, and `isPortable` as defensive non-optional fields.\n\n**Build:** `tauri.conf.json` adds `node Maintain/Build/Manifest/PreBake.ts` to the `beforeBundleCommand` pipeline.\n\nCloses the Mountain side of the inline-completion provider circuit and addresses the workbench profile crash (VS Code desktop-mode init).",
+			"SHA": "8db51dd0dc8da12799836d25faaf61658c445a52"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-22T02:53:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1580,
 				1
 			],
 			"Message": "",
-			"SHA": "52d240d6376d08d9e81c1bc50e34b336e36ead59"
+			"SHA": "138352332e04a0046c07228f1b171bb588a3f421"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:32:14Z",
+			"Date": "2026-05-22T00:51:32Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1580,
-				2
+				3
 			],
-			"Message": "feat(Mountain): Gate asset deployment strategy behind $TierSchemeAssets env var\n\nIntroduce a build-time gating mechanism that selects between two asset deployment modes: Embedded (default, assets Brotli-compressed into the binary) and FileSystem (full disk layout in Contents/Resources/ served via the localhost plugin static_root fallback).\n\nIn build.rs, read $TierSchemeAssets (defaults to \"Embedded\") and mutate tauri.conf.json at build time:\n- Embedded: frontendDist=\"../Sky/Target\", bundle.resources holds only Cocoon-needed files (bootstrap, extensions, nls, node_modules, product.json).\n- FileSystem: frontendDist=null, bundle.resources maps the full Sky/Target/ tree (Browser, BrowserProxy, Bundled, vs/, _astro/, index.html, etc.).\n\nIn LocalhostPlugin.rs, wrap the static_root resolution and Builder.static_root() call in #[cfg(feature = \"TierSchemeAssetsFileSystem\")] so the disk-fallback code is compiled only when FileSystem mode is active. Add \"TierSchemeAssetsFileSystem\" to IsDeclaredTierFeature and remove \"FileSystem\" from IsDefaultTierValue so it now emits a cfg feature rather than being a silent default.\n\nThis completes the foundation laid by the Static/Application/ prefix refactoring, making the deployment mode selectable at build time via a single environment variable rather than manual tauri.conf.json editing.",
-			"SHA": "a9e4b2d9bf9e3ed04251361f03325445f343e208"
+			"Message": "feat(Mountain): Add TierSchemeAssetsFileSystem cfg feature flag\n\nIntroduce the `TierSchemeAssetsFileSystem` feature flag alongside the existing `TierSchemeAssetsHybrid` gating in Cargo.toml. When enabled (via `TierSchemeAssets=FileSystem` in `.env.Land`), assets are served from disk via the `static_root` fallback path with `frontendDist: null`, rather than being embedded or served in hybrid mode.\n\nAlso removes the unused `fs` import in InitializationData.rs that was left over from prior refactoring.\n\nThe bundled `Target/debug/Mountain/index.html` changes are incidental rebuild artifacts — asset content-hash and timestamp updates from the build process, no semantic change.\n\nRefs the tier-configuration scheme introduced in 4ba376b9.",
+			"SHA": "1e601e16bea86ac97efd00dd27b98ff5499d55b0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:21:51Z",
+			"Date": "2026-05-21T21:56:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1580,
-				4
+				0
 			],
-			"Message": "refactor(Mountain): Consolidate bundle resources under Static/Application prefix\n\nTransition the Tauri bundle layout from flat resource paths to a structured \"Static/Application/\" prefix, unifying the bundle and development directory trees under a single source of truth. This eliminates the mismatch between the flat bundle layout (Contents/Resources/extensions) and the monorepo layout (Sky/Target/Static/Application/extensions).\n\nIn tauri.conf.json, remap all resource entries to target \"Static/Application/...\" and set frontendDist to null so the dev server delegates to the localhost plugin's static_root disk fallback. Add static_root resolution in LocalhostPlugin.rs that probes both the production bundle path (../Resources/) and the monorepo dev path (../../../Sky/Target/).\n\nIn ScanPathConfigure.rs, register the new canonical extensions path (Resources/Static/Application/extensions) before the legacy flat paths, which are retained as fallbacks for existing development environments.\n\nLegacy flat paths remain functional during the transition, so existing dev runs and CI pipelines continue to work until all resource mapping is migrated.",
-			"SHA": "58b34f8a23c47aec5c01e92c493060403c7159b4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:37:53Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1576,
-				4
-			],
-			"Message": "chore(Mountain): Strip verbose build identifiers, restore compact names\n\nRevert the DevelopmentNodeEnvironment_MicrosoftVSCodeDependency verbose naming scheme introduced in the previous commit for Cargo.toml bin/lib/package names and tauri.conf.json identifier/productName. Replace identifier with the stable \"fiddee.editor.binary\" key and set productName to \"Mountain\".\n\nAlso collapse externalBin and targets arrays back to single-line format (reverting the formatting change from the previous commit) and delete the .Backup files that were created alongside the verbose identifiers.\n\nThe verbose identifiers were only needed during a transitional Electron-profile debugging phase and are no longer required for the production Rust/Tauri pipeline.",
-			"SHA": "f3219cd8532d03baa1cef3f2a23e51c026653c44"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:37:25Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1578,
-				1
-			],
-			"Message": "style(Mountain): Format arrays in tauri.conf.json\n\nReformat `externalBin` and `targets` arrays in tauri.conf.json from single-line to multi-line for consistency with the rest of the configuration file. Also strip the trailing newline to match convention.\n\nNo functional changes — purely cosmetic formatting.",
-			"SHA": "4b54b6c25ffbf182ea9e813b5027759384979cf7"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "c29ead747a6543b2aa61957457ddf3f728b06893"
 		}
 	],
-	"TimeStamp": 1779985034817
+	"TimeStamp": 1780149355242
 }

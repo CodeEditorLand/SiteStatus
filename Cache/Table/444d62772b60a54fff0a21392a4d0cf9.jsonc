@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:58:27Z",
+			"Date": "2026-04-27T14:46:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				85,
 				1
 			],
-			"Message": "fix(Sky): Fix text search result mapping and fileSearch params\n\nUpdate MatchFromHit to read Mountain's actual response format: use `Hit.resource` instead of `Hit.uri`, and `Hit.matches[]` array (each with `preview` and `line_number`) instead of flat per-hit shape. Add backwards-compat support for the old flat `{uri, lineNumber, preview}` format for any future Mountain path that returns it.\n\nFix search:findFiles IPC call to include required null exclude parameter. Without it, MaxResults shifted into the exclude slot, causing the glob extractor to ignore max and default to 10000.\n\nThis resolves empty search results where previous code produced resource=MakeFileUri(\"\") with empty results array because Mountain's response never contained the expected flat hit fields.",
-			"SHA": "a3139802b461c5b1201b2f3b51f36196a97fbdfb"
+			"Message": "feat(Sky): Add webview post-message bridge for extension communication\n\nAdd a new handler for `sky://webview/post-message` that dispatches `cel:webview:post-message` custom events to the renderer. This bridges the raw extension `postMessage` path from Cocoon (gRPC `OnDidReceiveMessage` + `PostWebviewMessage`) which carries the `{ handle, message }` shape, distinct from the existing `sky://webview/message` handler that uses the workbench-RPC `{ panelId, method, params }` shape.\n\nThis enables extension-hosted code to communicate back to the Sky webview UI components through the established custom event system.",
+			"SHA": "f0fabc61973c57267f70deed92d8282649881958"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:49:48Z",
+			"Author": "Auto",
+			"Date": "2026-04-27T02:28:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				85,
 				1
 			],
-			"Message": "fix(Sky): Add BuildOpenArg helper for real URI instances in open commands\n\nThe previous manual POJO construction `{ $mid: 1, path, scheme }` for vscode.open and similar commands fails when in-process consumers (command palette, quick pick) call `uri.with()` or `uri.toString()` directly without going through `revive` - the same root cause as the search results dedup bug fixed in the previous commit.\n\nAdd `BuildOpenArg` function that accepts string, URI instance, UriComponents, or workspace-folder shape and produces a real URI when `GetServices()?.URI` is available. Falls back to POJO with `$mid: 1` for code paths that DO call `revive`.\n\nUpdates two call sites in SkyBridge: OpenFile and the other vscode.open invocation to use the helper instead of manual object construction.",
-			"SHA": "18f9fb7fee75a0fa00c4fe1d0823061309905ec1"
+			"Message": "",
+			"SHA": "6fdd245d6b501cd78deef79d6137f208759f8ecb"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:29:33Z",
+			"Date": "2026-04-26T20:02:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				85,
 				1
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "a2c0d3ce109bb45b7047f2933edb4c995d0c3e27"
+			"Message": "style(Sky): Reformat SCM and CustomEditor callback arguments\n\nReformat long ternary operators and function call arguments to span multiple lines for improved readability. Changes affect SCM provider registration and CustomEditor capability registration handlers in SkyBridge.\n\nNo functional changes - purely formatting improvements to match existing code style.",
+			"SHA": "daf304285b94b5832b83574c4edb8d36dc767814"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:28:59Z",
+			"Date": "2026-04-26T20:01:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				85,
 				1
 			],
-			"Message": "fix(Sky): Fix URI object construction in search results for workbench deduplication\n\nThe previous manual resource object construction (`{ $mid: 1, path, scheme }`) fails when the workbench attempts result deduplication via `uri.with({...})` because it's a POJO without methods. Add `CelUriCtor` and `CelUri` interfaces to type VS Code's URI class, then create `MakeFileUri` that uses the actual `Ctor.file()` method when `__CEL_SERVICES__.URI` is available.\n\nThe lookup is re-resolved on each result construction to handle the event-rescue path where SkyBridge registers before the URI patch binds. Includes a last-resort POJO fallback for edge cases, though the workbench will gracefully fail on dedup in that scenario.\n\nUpdates both `MatchFromHit` (text search results) and file search result mapping to use `MakeFileUri` instead of manual object construction.",
-			"SHA": "e9eff04e9a2e6a16986b6817863f204c2c1c3c3e"
+			"Message": "feat(Sky): Add SCM shim, debug session lifecycle, and custom editor registration\n\nThis change adds three new integration paths between SkyBridge and the VS Code workbench services:\n\n1. **SCM Provider Shim** - Implements TryRegisterScmProvider, TryUnregisterScmProvider, TryRegisterScmGroup, and TryUpdateScmGroup to bridge Cocoon's extension-hosted SCM to the workbench's ISCMService. Creates real ITextModel for the inputBox via IModelService to avoid the workbench throwing on registerSCMProvider. Builds ISCMResource from raw resourceStates with proper URI hydration. Includes ResourceTree lazy-building for hierarchical view mode support.\n\n2. **Debug Session Events** - Registers handlers for sessionStart, sessionEnd, addBreakpoints, removeBreakpoints, and consoleAppend events. Fans out as cel:debug:* CustomEvents so UI components can react without waiting on typed Debug service snapshots.\n\n3. **Custom Editor Capabilities** - Registers viewTypes with ICustomEditorService via registerCustomEditorCapabilities, making them discoverable in the \"Open With...\" menu. Includes unregister path to dispose capabilities on Cocoon shutdown.\n\nAlso adds a one-time services probe on cel:services-ready that logs __CEL_SERVICES__ shape to the renderer console (visible in DevTools) to help diagnose why SCM/Debug/CustomEditor bridges silently no-op when a service fails to resolve.",
+			"SHA": "3c76a377de511fdf76f97d4fc07054cdd3c76bde"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:00:04Z",
+			"Date": "2026-04-26T10:38:12Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⠀⠀⠀⠀⠀",
 				85,
-				3
+				1
 			],
-			"Message": "fix(Sky): Refactor worker script loading and improve search provider registration\n\n- Extract worker script imports into dedicated WorkerBundleImports.astro component to fix Astro compiler hoisting issue in JSX conditionals. The previous inline `<script>` inside the ternary was hoisted at parse time, defeating the runtime conditional.\n- Add comprehensive RenderDevLog diagnostics for search operations: textSearch invocation, fileSearch parameters, provider registration, and failure cases.\n- Replace single-shot workbench-ready retry with three parallel rescue paths: event listeners (cel:workbench-ready, cel:services-ready), exponential-ish polling schedule (~10s budget across 10 retries), and manual cel:request-search-register event for late-triggered registration.\n- Add SearchRegistered flag to prevent duplicate registration attempts and ensure proper event listener cleanup.\n\nThis resolves bundle-mode build failures where Astro's script processing couldn't handle conditional rendering, and improves debuggability for search functionality while making registration more resilient to async boot timing.",
-			"SHA": "70de1fdb8847585e9298b6999cb443d10b1f7381"
+			"Message": "feat(Sky): Add column-based match highlighting for text search results\n\nParse Mountain's `columns` array (0-based UTF-8 char offsets) and transform into VS Code's 1-based `ISearchRange` format for result ranges. Also populate `preview.matches` with preview-local coordinates so the renderer shows the actual matched-substring highlight inside each line.\n\nPreviously all matches displayed as full-line highlights with no sub-line underline. With columns, users now see precise character-level highlighting in the search results widget.",
+			"SHA": "6184960547bdde71192e36850d605b9e2353f4d0"
 		}
 	],
-	"TimeStamp": 1779985051530
+	"TimeStamp": 1780149363302
 }

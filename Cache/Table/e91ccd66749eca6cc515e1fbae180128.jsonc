@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T02:20:33Z",
+			"Date": "2026-04-30T20:27:26Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				2
+			],
+			"Message": "fix(Mountain): Add vscode-webview URI scheme handler for extension webviews\n\nImplement the missing vscode-webview:// URI scheme handler to enable VS Code extension webviews (Roo Code, Claude, GitLens, custom editors) to render in the Tauri WKWebView environment.\n\nVS Code's WebviewElement wraps every extension webview in an iframe with src=vscode-webview://<authority>/index.html?... Without this handler, the iframe stays blank and any extension using webviewView/WebviewPanel/CustomEditor is non-functional.\n\nThe handler serves the three-file pre/ directory (index.html, service-worker.js, fake.html) from the embedded asset resolver or filesystem fallback. Extension HTML itself arrives via the workbench's swMessage postMessage channel after index.html boots.\n\nThis completes the extension webview infrastructure alongside the extension_root allowlist added in commit 320e57a, enabling sideloaded extensions to render their UI properly.",
+			"SHA": "54650acd31bb34c764095c9160eedb19e9a18916"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T20:27:20Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				3
+			],
+			"Message": "fix(Mountain): Fix boot race and close handling for macOS\n\nTwo unrelated but impactful bugs fixed:\n\n1. **Boot race guard for Cocoon IPC**: The renderer dispatches tree:getChildren and cocoon:request (e.g. webview.resolveView) ~700 log lines before Cocoon's gRPC handshake completes. Without a wait, the first call returns ClientNotConnected, the workbench caches an empty result, and the user sees an empty Explorer until manual refresh. Add IsClientConnected() and WaitForClientConnection() to poll the connection pool before dispatching, with a 1500ms budget to keep UI responsive.\n\n2. **Cmd+W intercept for macOS**: Tauri 2.x maps Cmd+W to NSWindow.performClose: which wins the responder chain over the webview's keydown handler. The result: hitting Cmd+W to close a tab nukes the entire editor. Intercept CloseRequested, emit sky://window/close-requested to the webview, and use destroy() instead of close() in nativeHost:closeWindow to avoid re-entering the intercept.\n\n3. **DevTools focus theft**: DevTools auto-opening in debug builds steals macOS keyboard focus the moment it appears, preventing the main webview from becoming first responder. Make auto-open opt-in via LAND_OPEN_DEVTOOLS=1. Cmd+Alt+I and right-click Inspect still work.\n\nThese fixes resolve the \"I can't type or keybind\" issue and the empty Explorer on first launch.",
+			"SHA": "fb254aded503fa1e8ee2e0047bcfca44729e4c67"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T18:59:32Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				5
+			],
+			"Message": "build(Mountain): Revert to simple Mountain naming and add extension roots allowlist\n\nRevert the binary/library names and Tauri config back to simplified \"Mountain\" identifier, matching the pattern established in commit 20b9363. This removes the verbose production profile string from Cargo.toml (binary, lib, default-run) and tauri.conf.json (identifier, productName), and eliminates the duplicate externalBin entry.\n\nAdditionally, configure the localhost plugin with extension_root allowlist for both Land and VSCode extension directories. This enables the `/Extension/<abs-fs-path>` URL prefix to serve extension-contributed assets (icon fonts from iconsStyleSheet.js, webview resources, images) directly from ~/.land/extensions and ~/.vscode/extensions. Without this, sideloaded extensions like GitLens render icons as blank missing-glyph boxes because WKWebView cannot resolve vscode-file:// URLs.",
+			"SHA": "320e57a2ae6800e40bca9c97e7cb4d52cb49db85"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T05:22:22Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				870,
 				4
 			],
-			"Message": "build(Mountain): Update binary/lib names and Tauri config for development build profile\n\nRename the Mountain binary and library to include the full development environment profile string (DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler_Mountain) to distinguish this build variant from production builds.\n\nUpdate tauri.conf.json productName and identifier to match, and add Binary/node to externalBin for the development node path.\n\nThis configuration supports the multi-profile build pipeline for debugging different environment configurations.",
-			"SHA": "0a0e22ba2ddbef0b3b89c87ac9618f621f993889"
+			"Message": "build(Mountain): Rename binary and library to verbose production profile name\n\nUpdate Cargo.toml binary, library, and default-run targets to use the full production environment profile string (ProductionNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Compile_ElectronProfile_EsbuildCompiler_Mountain) to distinguish this build variant from development builds.\n\nAlso update tauri.conf.json productName and identifier to match the verbose naming scheme, and add duplicate \"Binary/node\" entry to externalBin for the production node path.\n\nThis configuration supports the multi-profile build pipeline for distinguishing between development and production environment builds.",
+			"SHA": "3f0b690818017b0b8daee59e7f1127a68ac4c329"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T01:34:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
-				1
-			],
-			"Message": "",
-			"SHA": "e72ff81c94321b324cc469810fac9029bee1428c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T01:34:26Z",
+			"Date": "2026-04-30T05:15:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				868,
 				4
 			],
-			"Message": "feat(Mountain): Add Vine notification subscription for Sky/Wind and streaming multiplexer fallback\n\nAdd `VineSubscribeCommand` Tauri command surface that exposes the process-wide Vine notification broadcast to Sky/Wind via a `Channel<NotificationFramePayload>`. This enables the frontend to subscribe to notifications from Cocoon with the same ordering and drop-oldest semantics as in-process Rust subscribers. Effect-TS layer wraps this into a `Stream<NotificationFrame>`.\n\nAlso add conditional streaming multiplexer support in `Vine::Client` for both `SendRequest` and `SendNotification` when `LAND_VINE_STREAMING=1` is set. The multiplexer path attempts h2-multiplexed streaming and falls back to the unary path on any failure, ensuring the editor remains functional while Cocoon's streaming handler tree lands (currently returns Unimplemented).\n\nThis completes the P14.x notification subscription surface, complementing the P14.3/P14.2 multiplexer integration in Client.rs.",
-			"SHA": "f31941aa4bbbc67256d113d8d2788add73d49c7c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T01:24:15Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				867,
-				76
-			],
-			"Message": "feat(Mountain): Implement mmap asset cache, path canon cache, and Vine streaming foundation\n\nThis patch (B7-S6 P2) lands three major infrastructure components:\n\n**Asset Memory Map Cache** (`Cache/AssetMemoryMap.rs`):\n- File-backed mmap cache for bundled workbench assets (~80 MB of JS/CSS/fonts)\n- Eliminates per-request `read(2)` + heap allocation duplication of OS page cache\n- Auto-discovers pre-brotli-compressed `<file>.br` siblings for `Accept-Encoding: br`\n- Uses `DashMap` for lock-free concurrent reads\n\n**Path Canonicalization Cache** (`Cache/PathCanon.rs`):\n- Process-wide canonical path cache keyed by lexical input path\n- Collapses repeated `dunce::canonicalize` calls from fs-scope security gate\n- 60s TTL bounds staleness; moka handles eviction\n- Saves ~150ms cumulative boot time across 113 extensions + 80 chunks\n\n**Vine Streaming Foundation** (`Vine/Multiplexer.rs`, proto changes):\n- Adds `Envelope` protobuf message for multiplexed frame format\n- Adds `OpenChannelFromCocoon`/`OpenChannelFromMountain` bidirectional streaming RPCs\n- Multiplexer owns the h2 stream; notifications fan out via broadcast channel\n- Stub returns Unimplemented until P14 lands streaming handler tree\n- Tuned tonic transport (4 MB stream window) for rust-analyzer diagnostic storms\n\n**Scheme Handler Fixes**:\n- MIME-honesty on 404: swap HTML body → empty text/plain for asset requests\n- Route asset reads through mmap cache\n- Serve Brotli precompressed siblings when client offers `Accept-Encoding: br`\n\n**Air Sidecar Integration** (`Service/AirStart.rs`):\n- Spawns Air daemon at boot alongside Cocoon\n- Connects via gRPC over `[::1]:50053`\n- Graceful degradation if Air unavailable\n\n**Misc Fixes**:\n- `nativeHost:getCursorScreenPoint` stub returns `{x:0, y:0}` to silence IPC spam\n- `FindFilesInWorkspace` diagnostic logging for zero-results debugging\n- HandlerRegistry.json regenerated (111 handlers)",
-			"SHA": "87bdf4c0cc831bcc4b105b190f66f0eb5eefc544"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T22:36:34Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				859,
-				3
-			],
-			"Message": "fix(Mountain): Extend extensions poll timeout and add gRPC shutdown guard\n\nIncrease the polling timeout in `extensions:getInstalled` from 3s to 5s because cold-cache runs over 113 extensions across 6 paths regularly hit ~2950ms, poisoning the workbench's `IExtensionService` cache with empty results.\n\nAdd a process-wide shutdown flag to the Vine gRPC client that gets marked before SIGKILL of Cocoon. Background tasks (PTY reader, file watchers, diagnostics emitter) that fire `SendNotification` after the sidecar is dead now short-circuit silently instead of logging false-positive `Connection refused` errors during shutdown. `SendRequest` returns an error immediately while `SendNotification` returns `Ok(())` to allow natural unwinding of background tasks.\n\nThis prevents the shutdown tail from being flooded with spurious gRPC errors while keeping the worst-case visible boot delay bounded at 5 seconds.",
-			"SHA": "06be111688dffce33846936c513b1b67504248a5"
+			"Message": "build(Mountain): Revert production profile names to simple Mountain identifier\n\nComplete the reversion of verbose production build profile names back to simplified \"Mountain\" naming. Update Cargo.toml binary, library, and default-run targets to use \"Mountain\" instead of the full production profile string. Update tauri.conf.json productName and identifier to match, and remove the duplicate \"Binary/node\" entry from externalBin. Also delete the now-redundant Cargo.toml.Backup and tauri.conf.json.Backup files.\n\nThis aligns with the simplified naming scheme for both development and production builds, reducing configuration complexity while maintaining the multi-profile build pipeline functionality.",
+			"SHA": "20b936312a943ce8be8f0a2837225f346b5715af"
 		}
 	],
-	"TimeStamp": 1779985063551
+	"TimeStamp": 1780149403365
 }

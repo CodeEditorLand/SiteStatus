@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T02:04:45Z",
+			"Date": "2026-04-29T04:22:12Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "chore(Project): Sync Element submodule with Output, Sky, and Cocoon changes\n\nRoutine submodule synchronization bringing in latest changes across the application stack:\n\n1. Output (36ce8f4a):\n   - Expand CopyVSRootFiles candidate resolution to check both `<root>/<file>` and `<root>/vs/<file>` paths for NLS and other VS Code outputs at different TSC pass locations\n   - Add NODE_ENV-aware directory ordering: production prioritizes `out-build/` (release TSC flat layout) before `out/` (debug TSC source layout), development does the reverse\n   - Preserve tier 4 inline stub fallback for missing NLS files\n\n2. Sky (87d32133):\n   - Restore Bundle mode distinction for worker script loading in Electron.astro\n   - Bundle=true profiles use npm-package imports inside single <script> block for Vite bundling\n   - Bundle=false profiles continue using separate <script> tags for static assets\n   - Maintain CSS Load → Policy → Register ordering requirement\n\n3. Cocoon (8715468b):\n   - Submodule sync to latest extension host changes\n\nImpact: Output now correctly copies NLS files from both root and vs/ directories with proper NODE_ENV ordering. Sky restores compatibility with both bundled and non-bundled build profiles. Extension host updated to latest.",
-			"SHA": "6da68a88b55730aced00b6be0b3271dd60b78214"
+			"Message": "feat(Project): Add terminal output buffering for late-listener replay\n\nMulti-component synchronization addressing the PTY reader vs SkyBridge listener race condition:\n\n1. Mountain: Add per-terminal output buffering - `AppendTerminalOutput()` captures PTY bytes into a 64KB bounded buffer (keeps most recent suffix to preserve the prompt), `DrainTerminalOutputBuffer()` retrieves buffered data, `RemoveTerminalOutputBuffer()` cleans up on exit. Extend `sky:replay-events` to emit `sky://terminal/create` for each active terminal AND replay any buffered `sky://terminal/data` bytes.\n\n2. Sky: Extend replay-events log with terminal visibility - Add `terminals?: number` and `terminalDataBytes?: number` to the type definition and include them in the log summary alongside tree-views, SCM providers, and commands. This provides visibility into terminal sessions active during early boot.\n\nThe race: In bundled-electron profile, the shell's first prompt fires ~50ms after `spawn_command` while Sky's bundle still parses for ~1500ms. Without buffering, zsh MOTD, direnv exports, fish greetings are silently dropped.\n\nImpact: Terminal output is now preserved and replayed for late listeners, completing the replay system for all three major feature areas: tree-views, SCM providers, and terminals.",
+			"SHA": "93269905429d9f3e84d6640f85d2bd7290acd572"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:56:32Z",
+			"Date": "2026-04-29T04:02:06Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "chore(Project): Sync Element submodule with Mountain, Output, Sky, Wind, Worker, Cocoon, Echo, and Maintain changes\n\nRoutine submodule synchronization bringing in latest changes across the application stack:\n\n1. Mountain: Simplify binary and Tauri config naming back to \"Mountain\" for binary/lib names, identifier, and productName. Remove duplicate externalBin entry and obsolete .Backup files.\n\n2. Output: Minify Configuration files (ESBuild, Plugin, Polyfill, Service configs) for production optimization. Add inline stub fallback for missing NLS files using tier 4 data:text/javascript mechanism to prevent webview 404s from falling through to SPA HTML.\n\n3. Sky: Fix NLS message loading by adding stub nls.messages.js and fixing vs/nls.js loading in NLS.astro. Fix Electron.astro worker script loading with separate inline module script tags.\n\n4. Wind/Worker: Regenerate minified ESBuild config and worker artifacts, reducing from verbose source to single-line minified output.\n\n5. Cocoon/Echo/Maintain: Submodule sync to latest extension host, task scheduler, and maintenance script changes.\n\nImpact: Build configuration simplified with clean \"Mountain\" naming. NLS loading fixed to prevent bootstrap failures. Worker scripts execute in correct order. All submodules updated to latest.",
-			"SHA": "53fa08fca7f1c94f338493bef6bd653050a738ae"
+			"Message": "refactor(Project): Sync submodules with SCM identifier, command replay, and retry logic\n\nMulti-component synchronization enabling multi-SCM support and improving boot reliability:\n1. Common: Add Identifier field to SourceControlManagementProviderDTO - enables provider identification (\"git\", \"github\", \"hg\") for multi-SCM support, maps to `scmId` in sky://scm/register events.\n2. Mountain: Use actual SCM provider identifier in replay instead of hardcoded \"git\", add command registration replay for extension-registered commands, reduce tree-view timeout from 5000ms to 1500ms for graceful failure.\n3. Output: Mirror retry logic on user extensions scan path (was missing), switch to exponential backoff (100-200-400-800-1500ms), short-circuit Promise protocol probes to eliminate spurious \"Unknown IPC command\" errors.\n4. Sky: Display commands count in replay-events log for visibility into early-boot command replay.\n\nImpact: Multi-SCM providers (github, hg) now replay correctly. User extensions load at boot even when Mountain scan is slow. Promise probes reduced from ~25ms to <1ms per wake cycle.",
+			"SHA": "0fa901f046903c1ea25af8c4f583adb3c90563fa"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:28:53Z",
+			"Date": "2026-04-29T03:41:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "chore(Project): Sync Element submodule with Mountain, Sky, and Cocoon changes\n\nRoutine submodule synchronization bringing in latest changes across the application stack:\n\n1. Mountain:\n   - Add LRU cache for FindFilesInWorkspace with 2.5s TTL and 128-entry capacity to reduce latency during fuzzy file matching (Cmd+P typing bursts)\n   - Gate dev_log! macro on cfg!(debug_assertions) to eliminate logging overhead in release builds via LLVM dead-code-elimination\n   - Revert verbose development naming back to simple \"Mountain\" for binary, lib, identifier, and productName\n   - Remove obsolete .Backup files\n\n2. Sky:\n   - Fix tree view data provider attachment for late-registering extensions (gitlens, clangd, dependencies)\n   - Replace fixed 5-retry × 150ms schedule with exponential backoff (~10s across 12 retries)\n   - Add PendingAttaches set to queue views that exhaust retry budget\n   - Add RetryPendingAttaches() to sweep pending views when successful attach indicates workbench bridge is wired\n\n3. Cocoon:\n   - Regenerate route manifest timestamp from 2026-04-25T01:20:57Z to 2026-04-25T01:28:02Z, no functional changes\n\nImpact: Mountain's file search is now optimized for rapid Cmd+P interactions with LRU caching. Release builds eliminate dev_log overhead. Sky now handles extensions that register views 3-5 seconds into boot. Extension host updated to latest.",
-			"SHA": "33d2c3b25c28613174d5c2e659d4fafbc0f6ba0d"
+			"Message": "fix(Project): Fix empty Activity Bar and user extension loading\n\nMulti-component synchronization addressing Activity Bar emptiness and extension loading:\n1. Sky: Fix Rollup no-external dropping VS Code contribution imports - Activity Bar came up empty because Rollup was dropping side-effect imports (`extensions.contribution`, `scm.contribution`, `files.contribution`, `*.viewlet.js`...). Add normalized path matching for disk paths, package specs, and lowercase variants.\n2. Output: Add retry logic to user extension scan path - User extension paths lacked the retry logic that system paths had, causing silent 0-extension responses. Add exponential backoff (100-200-400-800-1500ms) for async disk scans.\n3. Mountain: Add Sky event replay on listener registration - Mountain emits events before Sky listeners install, causing dropped `sky://tree-view/create` and `sky://scm/register` events. New `sky:replay-events` handler iterates active TreeViews and SCM providers to re-emit. Also adds path security checks and SCM provider emit failure logging.\n4. Cocoon: Refactor code structure for improved readability and maintainability.\n\nImpact: Activity Bar now populates with extension-contributed views (GitLens, jsdebug, SCM providers). User extensions load properly at boot even when Mountain's async scan hasn't completed.",
+			"SHA": "35896d874cc7364cbcd12fb82ab6cd7370602071"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:27:40Z",
+			"Date": "2026-04-29T02:14:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "chore(Project): Sync Element submodule with Mountain and Cocoon changes\n\nRoutine submodule synchronization bringing in latest changes across the application stack:\n\n1. Mountain:\n   - Revert binary/lib/tauri config naming from 'Mountain' back to verbose development identifier for build continuity\n   - Implement SCM provider registration handlers: RegisterScmProvider and RegisterScmResourceGroup notifications that wire through the SourceControlManagementProvider trait\n   - Add WalkUpToProjectRoot to CliParse that walks up from build dirs to find project markers\n   - Trust Sky/Target, Output/Target, and Dependency paths in PathSecurity for bundled extensions\n   - Add benign ENOENT substrings for gitlens, copilot, claude-code, roo-cline, vim registers, and bundled product.json probes\n\n2. Cocoon:\n   - Submodule sync to latest extension host changes\n\nImpact: Mountain now properly registers SCM providers for the source control viewlet. The verbose naming revert maintains continuity with existing build artifacts and CI configurations. Extension host updated to latest.",
-			"SHA": "702032f4189cd1a36a470278e7575b7dbff17353"
+			"Message": "fix(Project): Fix circuit breaker trips from URI parsing and service isolation\n\nSubmodule sync bringing two critical fixes:\n\n1. **Mountain**: Fix false circuit breaker trips from URI parsing edge cases. Extensions frequently register file watchers on optional paths (e.g., `~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't exist. Mountain now catches benign \"path not found\" errors and records deferred entries instead of tripping the breaker. Additionally, Cocoon sends URIs in three formats (plain strings, objects with `external` field, legacy `scheme`+`path` objects), but only the `external` field was accepted. This caused `Diagnostic.Set` to trip the circuit breaker after 5 publishes, silencing all linters.\n\n2. **Output**: Fix ExposeWorkbenchAccessor transform silently failing. The import marker used single quotes but esbuild rewrites to double quotes post-bundle, causing the entire `__CEL_SERVICES__` patch to no-op and disabling all SkyBridge hooks. Also wraps each `invokeFunction` in its own try-IIFE so a single missing service doesn't throw the entire facade undefined.\n\nImpact: File watchers no longer fail on fresh workspaces. Language extension diagnostics now publish without triggering circuit breaker. All SkyBridge services (search, SCM, status bar, tree views) now initialize correctly.",
+			"SHA": "0f4dbba95ab041db9b7cf1ec1c3c37151b1bfe74"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T00:43:05Z",
+			"Date": "2026-04-29T01:41:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "chore(Project): Sync Element submodule with Mountain configuration improvements\n\nRoutine submodule synchronization bringing in latest changes from Mountain and Cocoon:\n\n1. Mountain:\n   - Implement ConfigurationTarget handling for all VS Code config scopes (UserLocal → settings.json, WorkspaceFolder → .vscode/settings.json, Memory → in-memory only, Default/Policy → read-only)\n   - Revert binary/lib names from verbose development identifier back to \"Mountain\"\n   - Simplify Tauri identifier to \"land.editor.binary\"\n   - Remove duplicate externalBin entry and obsolete .Backup files\n\n2. Cocoon: Submodule sync to latest extension host changes.\n\nImpact: Mountain now fully implements ConfigurationProvider trait for all VS Code configuration targets. Build configuration simplified with consistent naming.",
-			"SHA": "1196e2e286d267a0f9fb7854a7ac3e5aac382c03"
+			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nSynchronize Mountain submodule with two bug fixes:\n\n1. **FileWatcher.rs**: Handle both numeric and string handle types in `RegisterWatcher` and `UnregisterWatcher`. The newer `NextProviderHandle()` returns a number while older callers pass strings. Previously, numeric handles were silently converted to empty strings causing failures.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without regex string parsing, while `-32000` remains the catch-all for genuine failures.\n\nImpact: File watcher registration now works correctly regardless of handle type. Directory listing 404s are properly distinguished from genuine errors, improving error handling accuracy in Cocoon.",
+			"SHA": "0d6755b26af812f8135b6a51610c3738e357e026"
 		}
 	],
-	"TimeStamp": 1779985055062
+	"TimeStamp": 1780149368183
 }

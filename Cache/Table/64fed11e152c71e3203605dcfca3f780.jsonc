@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T14:50:45Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				3
-			],
-			"Message": "doc(Environment): condense //! headers in KeybindingProvider, SearchProvider, SecretProvider\n\n- KeybindingProvider: replace 8 bare all-caps sections + 15 TODOs + orphan\n  dangling block with tight description + ## When clause evaluation +\n  ## VS Code reference; TODOs inline\n- SearchProvider: delete first //! block (8 all-caps sections) + entire\n  duplicate // non-doc block; keep second //! (Search Architecture /\n  Features / Result Format) as sole doc; TODOs inline\n- SecretProvider: same triple-block pattern; delete first //! + // duplicate;\n  keep second //! (Keyring Integration / Security / Air Strategy / Operations)\n  as sole doc; delete verbose Air migration // block (already present as\n  per-function TODOs)",
-			"SHA": "daf17cdf67ebadfc7e48855cb556d255a9f9be9d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T14:40:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				2
-			],
-			"Message": "doc(Environment): condense //! headers in FileSystemProvider and IPCProvider\n\n- FileSystemProvider: replace bare all-caps sections with tight description\n  + ## Security model + ## Implementation + ## VS Code reference;\n  12 TODOs moved to single inline comment\n- IPCProvider: replace bare all-caps sections with tight description\n  + ## Communication patterns + ## VS Code reference;\n  10 TODOs moved to single inline comment\n- FileWatcherProvider: no change (already clean)",
-			"SHA": "9b321f9414390ddef833a0621bf57bc70d50602f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T14:39:28Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				3
-			],
-			"Message": "Merge pull request #44 from CodeEditorLand/Land\n\nmerge(Land -> Current): Useless branch",
-			"SHA": "5ed8281666d28f5b70eb8f0cfe034e22d1264099"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T14:35:57Z",
+			"Date": "2026-05-10T20:57:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "doc(Environment): condense //! header in DiagnosticProvider, delete duplicate // block\n\n- Replace ~100-line //! with tight description + ## Data model + ## Notification flow + ## VS Code reference\n- Delete entire duplicate // non-doc comment block that repeated all the same content\n- Move 10 TODO items to a single inline comment near the impl block",
-			"SHA": "f9d8a9589a18a21f36ea884355498958731cd4cb"
+			"Message": "Merge pull request #46 from CodeEditorLand/fix/TVIEW-unreg-dispose-emit\n\nfix(TVIEW): wire tree.unregister + tree.dispose to provider; emit TreeViewDispose",
+			"SHA": "22734234c478e2281666ae644675fcab1aece7f7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T14:18:53Z",
+			"Date": "2026-05-10T20:54:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
+			],
+			"Message": "fix(TVIEW): wire tree.unregister + tree.dispose to provider + emit TreeViewDispose\n\n`tree.unregister` / `tree.dispose` were no-ops: the effect body\nlogged the handle but never called the provider and never emitted a\nSkyEvent. The consequence:\n\n  - Provider registry in `Sky/Source/TreeView/TreeViewService.ts`\n    kept the `_dataProvider` slot live after the extension called\n    `vscode.window.registerTreeDataProvider(...).dispose()`. A\n    subsequent re-registration from the same extension (reload,\n    update) produced a duplicate registration warning from Sky and\n    the new provider was ignored.\n\n  - `getChildren()` calls on a disposed tree continued to hit the\n    old provider pointer, producing stale results or panics if the\n    provider had been GC'd from the Cocoon side.\n\nFix: call `provider.UnregisterTreeDataProvider(view_id)`, emit\n`SkyEvent::TreeViewDispose` (parity with the register arm's\n`TreeViewCreate`), and log both outcomes under the same `tree-view`\nand `grpc` tags used by the register arm.",
+			"SHA": "90a62cdda4de6b6184a0e80498676c96d39f3f4d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-10T20:51:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
+			],
+			"Message": "fix(FSSRV): add empty-path guard + URI strip to Stat, ReadDirectory, ReadFile\n\nFileSystem.Stat and FileSystem.ReadDirectory had no empty-path guard,\nunlike FileSystem.ReadFile which already had one (added in the\n`LooksLike404` classifier batch). An extension passing an empty string\nto `vscode.workspace.fs.stat` or `readDirectory` (probe-on-activate\npattern) hit PathBuf::from(\"\") which:\n  - On Stat: reached the OS with an empty path and returned a\n    platform-dependent error string that did NOT match any of the eight\n    known \"not found\" patterns in MountainVinegRPCService, so the\n    LooksLike404 guard logged it at grpc/error and incremented the\n    circuit-breaker counter.\n  - On ReadDirectory: same failure path, plus PathSecurity could emit\n    \"path outside workspace\" which was previously only guarded on the\n    ReadFile arm.\n\nFix: mirror the ReadFile guard verbatim on both Stat and ReadDirectory.\nThe \"resource not found\" suffix in the error string is the canonical\nkey the LooksLike404 classifier matches on, so these errors now\ndowngrade to grpc-verbose and use code -32004 like ReadFile does.\n\nStripFileUriScheme is already called on the path_str in both arms;\nthis commit makes that call consistent - the strip was missing on\nReadDirectory before the empty-path branch was added, leaving\nfile:///absolute/path inputs reaching the OS with the scheme intact\nand 404-ing with a literal \"file:\" prefix in the error.",
+			"SHA": "701563143aa3d55befc5f0b1adc173057a1dc30c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-10T16:25:54Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				2
 			],
-			"Message": "doc(Environment): condense //! headers in CustomEditorProvider and DebugProvider\n\n- Replace bare all-caps labels with ## sections or inline comments\n- Move TODO items to inline code comments\n- Preserve Debug session flow as proper ## section\n- Remove MODULE CONTENTS redundancy",
-			"SHA": "3168bdf18894fcef5086d66bab5e3df7d2698831"
+			"Message": "docs: expand //! headers in FileSystemProvider sub-modules",
+			"SHA": "3bd8a8e5afc64a9c7e8be094baf35b6e5246ec03"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-10T16:21:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				4
+			],
+			"Message": "docs: expand //! headers in DocumentProvider sub-modules",
+			"SHA": "2c57464724ab09aab6a25bdf4aad43b1c7044099"
 		}
 	],
-	"TimeStamp": 1779985048733
+	"TimeStamp": 1780149366788
 }

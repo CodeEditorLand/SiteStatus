@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T13:05:08Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1191,
+				33
+			],
+			"Message": "chore(Cocoon): Rebuild compiled output after RouteManifest regeneration\n\nRegenerate RouteManifest timestamp and rebuild all Target/ artifacts (JS bundles and source maps) following the preceding handler additions. Mountain method count remains at 140 — no new RPC methods were added in this pass.\n\nThe rebuild ensures the bootstrap, service, handler, and gRPC bundles in Target/ are consistent with the regenerated RouteManifest.",
+			"SHA": "96be7363da11273657f24be775f4863d389658b2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T09:55:48Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1191,
+				34
+			],
+			"Message": "chore(Cocoon): Rebuild compiled output after RouteManifest regeneration\n\nRegenerate RouteManifest timestamp and rebuild all Target/ artifacts (JS bundles and source maps) following the preceding handler additions. Mountain method count remains at 140 — no new RPC methods were added in this pass.\n\nThe rebuild ensures the bootstrap, service, handler, and gRPC bundles in Target/ are consistent with the regenerated RouteManifest.",
+			"SHA": "c9dd1712e2c664fd1a599afe1a678ef4b7435552"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T09:08:21Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				1191,
+				66
+			],
+			"Message": "feat(Cocoon): Implement registry-backed vscode.comments namespace shim\n\nThe stock inline stub in EnsureVscodeAPI.ts for `vscode.comments` used empty no-op objects whose `createCommentController` returned a stateless shell where every `createCommentThread` call produced a fresh thread that silently dropped metadata. Extensions like GitHub Pull Requests and GitLens call `controller.createCommentThread(uri, range, comments)` on activation and later dereference the thread's `.comments`, `.state`, or `.label` — with the stub, those reads always returned undefined.\n\nReplace the stub with a dynamic import of a registry-backed `CommentsNamespace` factory in Source/Services/Handler/VscodeAPI/Comments/Namespace.ts. Each CommentController owns a `Map`-backed thread registry keyed on `UriStr:Line:Char`, with mutable thread state for comments, collapsibleState, canReply, contextValue, label, and state. Registration is idempotent — re-registration returns the existing instance, softening VS Code's duplicate-id throw.\n\nAlso regenerate RouteManifest to add three newly exposed Mountain RPC methods (`setStatusBarText`, `Task.Terminate`, `terminate_task`), bringing the count from 137 to 140.\n\nReal comment-pane UI rendering (gutter markers, inline balloons) requires Sky-side `ICommentService` exposure and remains deferred (Mountain-Crate-Split.md §#7b). The shim keeps the extension's internal thread list coherent so commenting workflows that emit notifications or track reaction handlers work end-to-end inside the extension host.",
+			"SHA": "e5b2a278b9ad980d7e49b9cfcd333bc0d00fa7e1"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-26T08:24:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "feat(Cocoon): Route four notification events and auth session changes through Emitter\n\nAdd three new notification cases in Notification/Handler.ts and an authentication session-change subscription in the Auth namespace:\n\n- `$activateByEvent` — Wind's `extensions:activate` IPC fires this notification to trigger extension activation. Defer to `ExtensionHostHandler.HandleActivateByEvent` via `setImmediate` so the activation actually runs instead of falling into the default unknown-notification arm.\n- `$acceptTextEditorDiffInformationChanged` — Sky forwards Monaco's `onDidUpdateDiff` hunk list. Emit `window.didChangeTextEditorDiffInformation` with a minimal TextEditor stub keyed on `modifiedUri` so subscriber dereferences on `.textEditor.document.uri` resolve cleanly.\n- `$acceptTextEditorViewColumnChanged` — Sky detects per-group `onDidMoveEditor`. Emit `window.didChangeTextEditorViewColumn` with the URI and viewColumn, matching the VS Code event shape.\n- `$acceptTerminalStateChanged` — Sky fires after OSC 633;B (command-input-begins). Update the cached terminal entry's `state.isInteractedWith` flag and emit `window.didChangeTerminalState`. Includes a stub fallback for the race between terminal creation and first OSC sequence.\n- `AuthenticationProvider.onDidChangeSessions` — Register a listener on every provider passed to `registerAuthenticationProvider`, fanning `{ added, removed, changed }` to the `auth.didChangeSessions` Emitter channel. Capture and dispose the subscription on provider unregister to prevent listener leaks.\n\nAll paths complete the Mountain→Cocoon event bridge for these extension API surfaces, letting subscribers hooked via `MakeEventSubscriber` receive live workbench signals.",
 			"SHA": "acac6138b71814f1ec9dc17cbd0afcfdd4cecbd1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:16:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1181,
-				1
-			],
-			"Message": "feat(Cocoon): Route three terminal shell execution events through Emitter channel\n\nAdd notification handlers in Notification/Handler.ts for three OSC 633-sequence terminal events that Mountain fires after Sky's localPty parser detects command boundaries:\n\n- `$acceptTerminalShellExecutionStart` → `window.didStartTerminalShellExecution`\n- `$acceptTerminalShellExecutionEnd` → `window.didEndTerminalShellExecution`\n- `$acceptExecutedTerminalCommand` → `window.didExecuteTerminalCommand`\n\nEach handler extracts the Mountain notification payload (id, commandLine, cwd, exitCode), resolves the matching terminal from the `__terminals` context cache, and assembles the VS Code event shape with the required `terminal`, `shellIntegration`, and `execution` sub-objects including the `{ value, isTrusted }` commandLine contract. The End handler maps exitCode per the event contract; the Executed handler preserves the proposed API surface for legacy extension compatibility.\n\nThese three cases complete the terminal shell execution event bridge, letting extension subscribers hooked via `window.didStartTerminalShellExecution` and related Emitter channels receive live notifications from OSC 633 sequence parsing in the Sky terminal layer.",
-			"SHA": "7cb3fb3543010f9e82ed6409aa4ccd393debe771"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:09:10Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1181,
-				1
-			],
-			"Message": "feat(Cocoon): Route six Mountain-originated events through Emitter channel\n\nAdd notification handlers in Notification/Handler.ts for six VS Code extension API events that Mountain now fires after relevant workbench state changes:\n\n- `$acceptDiagnosticsChanged` → `languages.onDidChangeDiagnostics`\n- `$acceptVisibleEditorsChanged` → `window.onDidChangeVisibleTextEditors`\n- `$acceptTabsChanged` → `window.tabGroups.onDidChangeTabs` + `onDidChangeTabGroups`\n- `$acceptVisibleRangesChanged` → `window.onDidChangeTextEditorVisibleRanges`\n- `$acceptTextEditorOptionsChanged` → `window.onDidChangeTextEditorOptions`\n- `$acceptActiveColorTheme` → `window.onDidChangeActiveColorTheme`\n\nEach handler extracts the Mountain notification payload, builds minimal stub objects where the VS Code event contract requires a TextEditor or tab model shape so listener callbacks that dereference `.document.uri` / `.viewColumn` don't crash, and emits on the matching Emitter channel consumed by extension subscribers.\n\nThe `$acceptTabsChanged` handler caches the latest tab-group snapshot on the Context anchor (`__tabGroups`) so synchronous `window.tabGroups.all` getters reflect current workbench state, and computes `opened`/`closed` diffs from the prior snapshot for `onDidChangeTabs` event shape compliance.\n\nAll six handlers complete the Mountain→Cocoon event bridge for these extension API surfaces, eliminating the silent-hookup gap where subscribers registered via `MakeEventSubscriber` never received events because no notification case pumped the Emitter.",
-			"SHA": "256e4bf94272554ae78abd0553452d97d0cefba4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:53:49Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1181,
-				4
-			],
-			"Message": "fix(Cocoon): Route onDidExecuteCommand through Emitter replacing dead Tauri listen\n\nThe prior `onDidExecuteCommand` implementation called `import(\"@tauri-apps/api/event\").listen(\"sky://commands/executed\", ...)` which never fires in Node.js (no `window.__TAURI__`), so every extension hooking this event silently missed all command executions. Replace with a subscription to the `commands.executed` Emitter channel, fed by two sources:\n\n- `$acceptCommandExecuted` case in Notification/Handler.ts catches Mountain's Vine dual-emit after every Mountain-routed `commands:execute` round-trip and forwards to the Emitter channel.\n- Local command routes in Commands/Namespace.ts emit on the same channel (symmetric with the Mountain branch) so extension-to-extension `executeCommand` calls are visible too.\n\nAlso extend the `viewId` dual-key resolution strategy (established in the prior commit for `setHtml`/`postMessage`) to five more webview mutators in CreateWebviewPanel.ts: `dispose`, `setTitle`, `setIconPath`, `setOptions`, and `reveal`. These operations can fire before the workbench finishes mounting the panel's IOverlayWebview; the `viewId` fallback in Sky's `InstallWebview.ts` ensures they still reach their target.\n\nMark Terminal/Service.ts as deprecated — its wire calls reference non-existent Mountain handler names and it is imported only by a dead bootstrap path. The active terminal management lives in `CreateTerminal.ts`. Retained pending vertical-split cleanup (Mountain-Crate-Split.md §#7a).",
-			"SHA": "fcb3f91e7c485985bab07b6e1da67c20b687531f"
 		}
 	],
-	"TimeStamp": 1779985024911
+	"TimeStamp": 1780149343514
 }

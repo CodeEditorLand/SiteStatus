@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T22:41:52Z",
+			"Date": "2026-04-24T22:56:08Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
 				28,
 				4
 			],
-			"Message": "feat(Project): Eliminate startup visual flash across Mountain, Sky, and Wind\n\nCoordinate startup sequence improvements across three submodules to eliminate the \"purple/dark flash\" and panel-pop flicker observed on cold boot:\n\n- **Mountain (993a69a7):** Implement hidden-until-ready window pattern using WebviewWindowBuilder.visible(false), reveal only when Sky reports phase 3 (Restored). Add 3s safety timer to force-reveal if Sky crashes before phase 3 (prevents invisible-window lockup).\n\n- **Sky (0cf2e4da):** Add missing SkyBridge initialization to Electron Layout to subscribe to cel:* Tauri events (tree-view, SCM, debug, extensions). Previously, panels painted empty on first frame then re-rendered with data, causing \"tree-views flash empty then pop\".\n\n- **Wind (bb3b6fc3):** Add PostHogDefines to TargetConfig.ts mapping LAND_POSTHOG_* environment variables to esbuild define directives. Completes the hardcoded-key removal work, enabling PostHog config driven entirely by environment variables.\n\nImpact: Eliminates four-repaint startup cascade (native chrome → #1e1e1e → VS Code theme → workbench DOM). All panels now render with data on first paint.",
-			"SHA": "3ff9bbf02757290f4128143f97cfbaecfd01c5ec"
+			"Message": "feat(Project): Add DisableUnusedServices transform and sync dependencies across submodules\n\nCross-cutting submodule sync with functional and dependency updates:\n\n1. Output: Add DisableUnusedServices ESBuild transform\n   - Replaces upstream VS Code contribution barrels for features Land doesn't back (auto-update, issue reporter, MS account/sync, process explorer) with inert stubs\n   - Removes broken UI surfaces and silences \"service not registered\" warnings\n   - Shortens boot time by avoiding initialization of unused services\n\n2. Output: Fix ExtensionScannerIPC path matching\n   - Now matches BOTH electron-browser AND browser variants of extensionsScannerService.js\n   - Previously only matched electron-browser, but desktop.main.js loads the browser variant\n   - Both paths now correctly route to Mountain for extension scanning\n\n3. Sky: Sync dependency updates\n   - @xterm/xterm: 6.1.0-beta.202 → 6.1.0-beta.203\n   - @astrojs/compiler-rs: 0.1.9 → 0.1.10\n   - pozil/auto-assign-issue: 2.2.0 → 3.0.0\n\n4. SideCar: Update pozil/auto-assign-issue from 2.2.0 to 3.0.0\n\nImpact: Extension scanning now works correctly for desktop profile. Unused VS Code services are stubbed out, reducing boot noise and improving startup time.",
+			"SHA": "bccc66895e279c66baa1bb34d5d9703067f18193"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T21:18:38Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				28,
-				5
-			],
-			"Message": "refactor(Project): Remove hardcoded PostHog keys and decompose Utilities\n\nCoordinate submodule updates across Mountain, Sky, and Wind to remove hardcoded credentials and improve module organization:\n\n- **Mountain (8cba79c0):** Decompose monolithic Utilities.rs into 7 domain-specific modules (ApplicationRoot, ChannelPriority, JsonValueHelpers, MetadataEncoding, PathExtraction, RecentlyOpened, UserdataDir). Update all call sites to use explicit reverse-hierarchical paths (e.g., `Utilities::PathExtraction::extract_path_from_arg`).\n\n- **Mountain (5140a389):** Simplify binary/library names from verbose development format back to 'Mountain' in Cargo.toml and tauri.conf.json. Remove PostHog API key from build.rs and bootstrap-fork.js. Clean up tauri.conf.json identifier to 'land.editor.binary'.\n\n- **Sky (9b67e2e6):** Remove hardcoded PostHog API key from PostHogBridge.ts and astro.config.ts, requiring LAND_POSTHOG_KEY environment variable.\n\n- **Wind (a0e09d67):** Remove hardcoded PostHog API key from Configuration.ts.\n\nImpact: Security hardening by eliminating hardcoded credentials across 3 submodules. Improved code organization with explicit module dependencies following CLAUDE.md requirements.",
-			"SHA": "b03e5a60d3d19957ab41a059dc5e5d8150bb2842"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T20:54:32Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "",
-			"SHA": "056425e324d08252ff9aae17882dfbf2be311659"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:12:07Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "refactor(Mountain): Complete explicit module path migration in state and IPC\n\nContinue the refactoring from commit 10feb14ec to eliminate implicit module namespace reliance by fully qualifying internal paths:\n- Add explicit `TextProcessing` segment in DocumentStateDTO import for `AnalyzeTextLinesAndEOL`\n- Prefix ConfigurationState, UIState, and WorkspaceState type paths with their module name (e.g., `UIState::UIState::State`)\n- Update WorkspaceDelta function signatures with full `WorkspaceState::WorkspaceState::State` paths\n- Migrate AppLifecycle call site from `WindServiceHandlers::set_static_application_root` to `WindServiceHandlers::Utilities::set_static_application_root`\n\nThis ensures all internal references use the reverse-hierarchical path pattern that makes dependency relationships explicit in every call site, consistent with the CLAUDE.md module path requirements.",
-			"SHA": "a7b5aff343560a506c0972c8bf1bd41d87144760"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:10:10Z",
+			"Date": "2026-04-24T22:36:03Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				28,
 				2
 			],
-			"Message": "",
-			"SHA": "b9aba51b638679d3b95e7d7bb14f1aac0c703b2a"
+			"Message": "refactor(Output): Replace runtime require() with static ES imports in workbench accessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of both web.main.js and desktop.main.js instead of using runtime require() calls. This eliminates AMD require() resolution that could fail in the WKWebView context.\n\nChanges:\n- Anchor on stable import markers ('mark' from performance.js for web, 'localize' from nls.js for desktop)\n- Add IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports\n- Extract shared imports into SharedImportLines to avoid duplication between profiles\n- Add cel:services-ready DOM event dispatch on successful population\n- Add Mountain diagnostic logging for success/failure tracking\n- Add guard check for import marker to avoid matching unrelated files\n\nImpact: __CEL_SERVICES__ is now populated synchronously before the microtask queue drains, ensuring services are available for both web and Electron/Desktop profiles at runtime.",
+			"SHA": "055c5c94f6b7f3de102f98906b05603d30148f0a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T21:47:54Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "feat(Project): Bridge VS Code binary IPC to Mountain backend\n\nCross-cutting submodule sync enabling real file explorer, search, settings, and storage persistence:\n\n1. Mountain: Add VS Code IPC command aliases in WindServiceHandlers to bridge binary IPC protocol to native Effect-TS layer. Configuration: `configuration:getValue`/`updateValue` → `configuration:get`/`update`. File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`. Add stub handlers for `file:watch`/`file:unwatch` and `configuration:onDidChange` returning Null to prevent promise leaks.\n\n2. Output: Route VS Code binary IPC channels (25+ including localFilesystem, storage, configuration, search, terminal) to Mountain via MountainIPCInvoke instead of returning stub responses. Previously these channels returned FileNotFound, empty arrays, and empty objects.\n\n3. Cocoon: Enhance stderr filtering to suppress follow-up stack frames from extension errors.\n\nImpact: File explorer, search results, settings editor, and workspace storage now persist data to the real filesystem and backend instead of operating on in-memory stubs.",
+			"SHA": "edac4ec11f545cf3816d3a6cbb8db965aeff42eb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T21:25:45Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				28,
+				2
+			],
+			"Message": "feat(Project): Implement workspaceContains activation and reduce stderr noise\n\nCross-cutting submodule sync across Mountain and Cocoon:\n\n1. Mountain: Fire workspaceContains and onStartupFinished extension activation\n   - Implement VS Code-style startup activation with three bursts: `*`, `workspaceContains:<pattern>`, and `onStartupFinished` (2s delay)\n   - Add FindMatchingWorkspaceContainsPatterns for glob matching against workspace folders (depth 3, 4096 entries max)\n   - Filter benign stderr noise (macOS codesign, Node.js deprecation warnings) to cocoon-stderr-verbose channel\n   - Upgrade Rust edition from 2021 to 2024\n\n2. Cocoon: Reduce stderr spam from extension handler errors\n   - Downgrade $provide*, $resolve*, $get* handler errors from console.error to console.warn\n   - Prevents extension code failures from flooding stderr with full stack traces\n\nImpact: Extensions gated on workspaceContains:package.json and onStartupFinished now activate correctly. Default stderr is cleaner while preserving actionable error visibility.",
+			"SHA": "1cfc2cc882f651b1876ff69fedeadc0a8a61b77d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T20:52:42Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "refactor(Project): Reduce logging noise across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
+			"SHA": "786efde99dc3922147183375645841751ecd3fc2"
 		}
 	],
-	"TimeStamp": 1779985056879
+	"TimeStamp": 1780149366371
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T12:48:03Z",
+			"Date": "2026-05-11T17:34:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "fix(CFGUP): add error logging parity to config.update side effects",
-			"SHA": "f6582f474950ae3fae0ff657dc47887ae9489045"
+			"Message": "fix(UIQP2): deserialise items and options from Parameters in ShowQuickPick",
+			"SHA": "77191858d1cb1af57f174db23fd7ee2f72f1eae7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T12:27:13Z",
+			"Date": "2026-05-11T14:45:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "Merge pull request #45 from CodeEditorLand/fix/FSSRV-uri-stat-readdir-empty-path\n\nfix(FSSRV): empty-path guards on WriteFile + ReadDirectory; URI strip on ReadDirectory",
-			"SHA": "135530358d390a87bc31554d454953b2c046b98b"
+			"Message": "Merge pull request #52 from CodeEditorLand/fix/uiqp-reply-channel\n\nfix(UIQP): wire oneshot reply channel for all four dialog methods",
+			"SHA": "805107d5c9c75d693eb2a77eb57388867870b0c9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T12:25:35Z",
+			"Date": "2026-05-11T13:12:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "Merge pull request #47 from CodeEditorLand/fix/WVIEW-resolv-editor-fallback-uri\n\nfix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with early error returns",
-			"SHA": "f3718d8a9e63c7bb170f17f09db2ef77ba3d3916"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-11T02:44:31Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				1
-			],
-			"Message": "",
-			"SHA": "48d8f0a267819c656ffb6700f5f6b256da744f18"
+			"Message": "fix(UIQP): wire reply channel for ShowQuickPick/ShowInputBox/ShowOpenDialog/ShowSaveDialog\n\nAll four dialog methods previously emitted the Sky event and returned\nOk(null) immediately (fire-and-forget), so the extension host never\nreceived the user's selection — every quick-pick and input-box resolved\nwith undefined on the Cocoon side.\n\nNow each handler:\n  1. Creates a tokio::sync::oneshot channel.\n  2. Registers the (nonce → tx) pair via ApplicationState.UI.AddPendingRequest.\n  3. Emits the Sky event with the nonce included in the payload.\n  4. Awaits rx, mapping the CommonError variant and the RecvError (sender\n     dropped / dialog cancelled) to String so the MappedEffect type is\n     satisfied.\n\nThe frontend calls the existing `ResolveUIRequest` Tauri command with the\nnonce and the selected value; that removes the sender from the map and\ncompletes the await here, returning the selection as Ok(Value) to the\nextension host.",
+			"SHA": "ad64c889c5c803a7f398123c93000e704240bd7d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:59:03Z",
+			"Date": "2026-05-11T13:10:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "fix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with an early error return\n\nThe `$resolveCustomEditor` arm contained:\n\n    let resource_uri = Url::parse(resource_uri_str)\n        .unwrap_or_else(|_| Url::parse(\"file:///tmp/test.txt\").unwrap());\n\nThe `unwrap_or_else` silently swallowed a malformed or missing URI and\nsubstituted the hardcoded test path `file:///tmp/test.txt`. Two\nconsequences:\n\n  1. A caller that passes an empty or invalid URI (e.g., an extension\n     registering a custom editor for a virtual scheme that Mountain\n     does not yet translate) receives a resolved result for\n     `/tmp/test.txt` instead of an error. The provider's\n     `ResolveCustomEditor` then opens or creates that file, which:\n     - Leaks a sentinel file to the OS tmp directory on every\n       such call.\n     - Returns success to Cocoon, which treats the editor as\n       resolved. The extension's `openCustomDocument` never fires\n       for the real resource, and the editor panel stays empty.\n\n  2. The fallback URI makes the log completely undiagnosable: every\n     failed resolve shows `resource=file:///tmp/test.txt` regardless\n     of what the caller sent, masking the real resource path.\n\nFix: return an `Err` immediately when the URI is empty or fails to\nparse. The error string is deliberately plain (no `resource not\nfound` suffix) because a malformed URI is a caller contract violation,\nnot a benign 404 probe - it should surface at error level in the\n`grpc` log and NOT be swallowed by `LooksLike404`.",
-			"SHA": "8b3f1a90730370b689d1269d924f04f906624966"
+			"Message": "Merge pull request #51 from CodeEditorLand/fix/sbar-identifier-sentinels\n\nfix(SBAR): replace hardcoded identifier sentinels with real parameter extraction",
+			"SHA": "4a7fb2d453bee86541ac3364fb795273d635a69a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-11T13:06:03Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
+			],
+			"Message": "fix(SBAR): replace hardcoded identifier sentinels with real parameter extraction\n\n$statusBar:set now reads EntryIdentifier / ItemIdentifier / ExtensionIdentifier\nfrom the Parameters object (matching the shape the extension host sends).\nFalls back to empty string for ExtensionIdentifier (same as the RPC layer).\n\n$statusBar:dispose, $disposeStatusBarMessage, and $setStatusBarMessage now\nreturn Err when the required identifier parameter is absent instead of\nsubstituting the literal strings \"id\" / \"msg_id\", which caused every\ndispose call with a missing argument to silently target the wrong entry.",
+			"SHA": "3725d3920169612be44daed8b510141dacffa2b4"
 		}
 	],
-	"TimeStamp": 1779985047967
+	"TimeStamp": 1780149365963
 }

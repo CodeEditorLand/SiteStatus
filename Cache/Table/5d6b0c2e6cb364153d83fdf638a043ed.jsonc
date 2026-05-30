@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T02:57:11Z",
+			"Date": "2026-05-23T07:59:29Z",
 			"File": [
-				"⡿⠀⠀⠀⠀",
+				"⠀⠀⠀⠀⠀",
 				1739,
-				300
+				13
 			],
-			"Message": "refactor(Mountain): Remove pervasive leading empty lines across Source\n\nStrip the redundant single empty line immediately following the module doc comment in over 400 Rust source files. This includes the Air integration client, ApplicationState persistence and recovery layers, Binary entry points (DNS, TLS, PostHog), Cache subsystems, Command handlers, IPC bridges (Vine, WindServiceAdapters, StatusReporter), RPC services (Cocoon, Echo, Workspace), and Runtime shutdown logic.\n\nThe change consolidates the pattern where `//! ...` comments are followed by a blank line before the first `use` or `struct` declaration, enforcing a tighter, more consistent file header style. No logic, types, or public APIs are modified; the diff is purely cosmetic whitespace normalization.\n\nThis unifies the formatting style across the Mountain codebase, removing stylistic noise from reviews and ensuring the file structure remains uniform regardless of the specific module or feature.\n\nRefs #CLAUDE.md",
-			"SHA": "58c1911fec75324953e6b953ff369ea99ef4bcf4"
+			"Message": "fix(Mountain): Propagate IPC errors and complete gRPC request handlers\n\nShifted all `WindServiceHandlers` to propagate I/O and path resolution errors instead of swallowing them. Updated `FileExistsNative`, `FileWriteNative`, `TextfileSave`, `ModelOpen`, `TextfileSave`, and `GetEnvironmentPaths` to return descriptive error messages. This prevents silent failures where VS Code interprets errors as 'not found' or flips documents into conflict states due to null metadata.\n\nCorrected `ShowMessageBox` to use `.body()` for detail text and fixed `QuickInputShowQuickPick` to return arrays for multi-select operations. Added missing gRPC handlers in `Storage`, `TreeView`, and `Workspace` for `Storage.GetItems`, `tree.reveal`, and `showTextDocument`, ensuring Cocoon can access extension state and UI features via the IPC layer.\n\nFixed a TOCTOU race in `ExtensionsGetInstalled` by subscribing to the `ScanReady` notification before executing the query. Added logic in `LoadFromCache` to treat empty extension lists as cache misses, forcing a live scan if the stub was generated prematurely. Updated `build.rs` to consistently write a valid `CacheBlob` struct for the manifest stub.\n\nThese changes ensure data integrity across the IPC layer, restore functionality for missing extension APIs, and prevent UI glitches caused by suppressed errors.",
+			"SHA": "416e8d7a0ddc284253f0b6080ad550338d89d9c2"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T02:56:58Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				1739,
-				300
-			],
-			"Message": "refactor(Mountain): Remove pervasive `non_snake_case` allowance across Source\n\nStrip the `#![allow(non_snake_case)]` crate-level attribute from over 300 modules spanning Air integration, ApplicationState, Binary entry points, caching layers, command surfaces, environment providers, IPC handlers, RPC services, telemetry, and runtime logic. This aligns the Rust codebase with the project-wide PascalCase naming convention enforced by CLAUDE.md.\n\nThe change eliminates suppression of warnings for module and struct names like `AirMetrics`, `DnsHealthStatus`, and `MountainProvideDefinition`, which already follow the required casing. Additionally, clean up `mod.rs` documentation paths to use `self::` syntax for clarity and remove redundant `unused_variables` and `dead_code` allowances where they were bundled with the removed attribute.\n\nThis unifies the codebase stylistically, ensuring that no lints are silently ignored and that future additions must adhere to the standard naming rules.\n\nRefs #CLAUDE.md",
-			"SHA": "8b59201f92f79f4090ab5637eb03ae61fed9ed53"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-23T02:38:00Z",
+			"Date": "2026-05-23T07:59:22Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1739,
 				1
 			],
-			"Message": "",
-			"SHA": "0e7ecc2af9c07216e54968966b91816a5d6fe805"
+			"Message": "fix(Mountain): Correct stub format for ExtensionsManifest in build script\n\nUpdate the `build.rs` script to write a valid `CacheBlob` JSON structure instead of a bare JSON array when generating the stub `extensions.manifest.json`. The `LoadFromCache` parser expects an object containing `version`, `count`, and `extensions` fields, whereas the previous implementation wrote `[]`, causing potential parsing mismatches or type errors during startup.\n\nThis ensures the Tauri build process generates a structurally correct manifest stub that aligns with the runtime data deserialization expectations, preventing crashes when the Sky-generated manifest is unavailable.",
+			"SHA": "8924f19f5908567bc989f640cbf8626ba937dacf"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T01:56:23Z",
+			"Date": "2026-05-23T06:28:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1739,
-				8
+				4
 			],
-			"Message": "refactor(Mountain): Normalize entry points to `Fn` and fix document sync IPC\n\nContinue the standardization of binary and service entry points by renaming descriptive function names (e.g., `ExtensionPopulate`, `CocoonStart`) to the universal `Fn` identifier across `AppLifecycle.rs` and `Entry.rs`. This aligns the main entry flow with the recent changes to `WindServiceHandlers`.\n\nCorrect the `Mountain` ↔ `Cocoon` IPC for `sky:model:contentChanged`. Ensure `Uri` existence is validated before accessing `Payload` fields to prevent null dereferences. Move the `cocoon-main` notification emission inside the valid block to guarantee extensions only receive updates for existing documents. Explicitly cast `Line` and `Character` to `u32` when constructing `PositionDTO` to satisfy strict Rust type requirements.\n\nUpdate `.gitignore` to correctly distinguish between the `Mountain` binary and the `Target/debug/Mountain/` artifact directory, preventing accidental commits of generated build files. Remove previously tracked `index.html` artifacts from the `Target` directory.",
-			"SHA": "2981699766b232f95ff57b662c457ef16797e679"
+			"Message": "refactor(Mountain): Standardize DTO naming and repair UTF-8 path handling\n\nAlign `ModelVersionIdentifier` to `ModelVersionId` in `MarkerDataDTO` and `DiagnosticProvider` to match existing PascalCase conventions and reduce verbosity.\n\nEnhance the `FileWriteNative` IPC handler to detect and decode base64-encoded buffers received from VS Code serialization paths, falling back to raw bytes if decoding fails. This resolves data corruption when saving files via certain extension workflows.\n\nRewrite `percent_decode` in `PathExtraction` to correctly reconstruct multi-byte UTF-8 sequences from percent-encoded URI components. The previous implementation cast decoded bytes directly to `char`, corrupting non-ASCII paths (e.g., CJK or accented characters) and causing silent ENOENT errors. The new approach accumulates raw bytes and performs a safe `from_utf8` conversion with a lossy fallback.\n\nThese changes ensure robust file operations with international paths and consistent data integrity across the IPC layer.",
+			"SHA": "1ee9d6c0f0082ba72857e78be4316b0abb8af829"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T01:21:12Z",
+			"Date": "2026-05-23T06:03:46Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				1745,
-				89
+				"⠀⠀⠀⠀⠀",
+				1739,
+				1
 			],
-			"Message": "",
-			"SHA": "17dc9a00fe6ffc1d0feaba2e6c5735aca98df40a"
+			"Message": "refactor(Mountain): Preserve binary integrity in HTTP response parsing\n\nThe `forward_http_request` helper in `Source/Binary/Build/Scheme.rs` was incorrectly converting HTTP response bodies to UTF-8 strings before parsing. This `String::from_utf8_lossy` operation corrupted binary content (images, WASM modules, etc.) by inserting replacement characters for non-UTF-8 sequences.\n\nUpdate `parse_http_response` to accept a raw byte slice (`&[u8]`) instead of a `&str`. Implement the header/body separation using `windows(4)` to locate the `\\r\\n\\r\\n` separator on raw bytes. Safely decode only the header section to UTF-8 (since HTTP headers are ASCII), while passing the body bytes directly to the result tuple.\n\nThis ensures binary assets proxied through the Mountain build tool remain intact and prevents data corruption during HTTP forwarding.",
+			"SHA": "977f678a3ae277ac8d8f21db1cbe3be48690a369"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T05:34:02Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1739,
+				4
+			],
+			"Message": "feat(Mountain): Extend extension cache lifetime and refine SCM updates\n\nIncrease the maximum cache age for extension descriptors from 10 minutes to 24 hours. The previous window was too tight for local development workflows where the binary and cache are co-located; since builds regenerate the cache, a longer duration prevents unnecessary rescans without staleness risks.\n\nEnhance the `FileWriteNative` handler to suppress false-positive warnings when the Cocoon process is not yet connected during `FileWrite` operations. This prevents noise in the `vfs` log when saving files before the extension host is fully ready.\n\nAlign `UpdateScmGroup` logic to emit `scmId` alongside `providerId` in the payload to `sky://scm/updateGroup`. This ensures the Sky frontend can correctly resolve the SCM shim. Remove the fallback logic that attempted to invoke `UpdateSourceControlGroup` traits, as direct event emission is the reliable path.\n\nAdditionally, add `DebugServer`, `DebugServerPortMountain`, and `DebugServerPortCocoon` to the environment variable whitelist in `CocoonManagement` to support future debugging configurations.",
+			"SHA": "fc1e6daf52356219f8c954cc53b698a688432d94"
 		}
 	],
-	"TimeStamp": 1779985031584
+	"TimeStamp": 1780149350983
 }
