@@ -2,6 +2,39 @@
 {
 	"Set": [
 		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T00:07:11Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				4
+			],
+			"Message": "perf(Mountain): Deduplicate FS watchers and single-flight directory walks\n\nReduce kernel resource exhaustion and redundant I/O during extension boot by implementing deduplication strategies in the native environment layer.\n\nIn `FileWatcherProvider`, introduce a deduplication index keyed by `(root, recursive, pattern)` to prevent multiple extensions from spawning duplicate `notify::Watcher` instances for identical paths. Aliased handles now share the primary OS watcher, with events fanned out to all subscribers in the forwarder task.\n\nIn `WorkspaceProvider`, implement a single-flight registry for `findFiles` operations. Concurrent requests for the same search key now await a single filesystem walk leader rather than re-walking the tree, fixing the race condition where cache misses occurred before the leader populated the cache.\n\nIn `ConfigurationProvider`, add a 250ms in-memory cache for parsed `settings.json` files to eliminate redundant disk reads triggered by the `InspectConfigurationValue` handler. Invalidate the cache immediately upon configuration updates.\n\nThese changes significantly lower IPC saturation and CPU usage during the high-load extension activation phase.",
+			"SHA": "44851c1cd73bfdaa2a743295959359a05e11a082"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T23:48:12Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				868,
+				53
+			],
+			"Message": "refactor(Mountain): Rename IPC handler bindings to PascalCase\n\nComplete the PascalCase migration started in the previous commit by renaming all local identifiers in WindServiceHandlers to match the project convention: runtime → RunTime, args → Arguments, app_handle → ApplicationHandle, and error bindings such as e → Error. Update doc comments and JSON field names that referenced the old identifiers.\n\nAlso fix a boot-time URI normalization bug in BuildInitialUrl: RecentlyOpened.json stores workspace URIs with a trailing slash (file:///.../Mountain/). Strip it before URL-encoding the folder path so that workbench-side URI.revive produces a folder URI matching URI.from, which never carries a trailing slash on the parent directory. The mismatch caused IUriIdentityService.extUri.relativePath to return absolute paths, making breadcrumbs, quick-pick, and Problems-panel labels render full /Volumes/... paths instead of the workspace-relative short form.",
+			"SHA": "fd28a7bd6076ee9b112d8a1d8b5301c11b75bfc9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T23:02:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				2
+			],
+			"Message": "perf(Mountain): Batch decoration and progress emits to reduce IPC load\n\nExtend the 16ms coalescing strategy to two additional high-frequency Vine notification handlers, following the `CommandEmitBatch` pattern established for command registration.\n\n`DecorationTypeLifecycle`: Extension activation generates ~650 create/dispose calls per session, mostly registering syntax-highlight decorations. Previously each call fired an individual Tauri event on `sky://decoration/<suffix>`. Add `DecorationEmitBatch`, grouping payloads by channel and emitting a single `{ batch: [...] }` per channel per 16ms frame. SkyBridge demultiplexes these back into individual `cel:decoration:*` CustomEvents.\n\n`ProgressReport`: The git extension alone fires 6000+ `progress.report` calls per session during repository scans. Add `ProgressEmitBatch`, accumulating per-handle `increment` deltas and keeping the latest non-empty `message` over a 16ms window. Each progress handle receives one coalesced update per frame preserving the same final cumulative state, instead of dozens of individual emits.\n\nBoth use `OnceLock`-initialised static singletons with atomic flush scheduling to prevent duplicate timer tasks. This keeps the shared WKWebView IPC channel clear for keystrokes during extension boot and repository scanning when the renderer is most busy.",
+			"SHA": "644b96ee46ecc92796e2b34d2dcce2dc1c9be91f"
+		},
+		{
 			"Author": "Auto",
 			"Date": "2026-05-01T02:40:30Z",
 			"File": [
@@ -22,40 +55,7 @@
 			],
 			"Message": "refactor(Mountain): Rename IPC handler functions to follow PascalCase convention\n\nRename all `handle_*` IPC handler functions in WindServiceHandlers, ConfigurationBridge, TauriIPCServer, and related modules to match the PascalCase naming convention specified in CLAUDE.md. Functions like `handle_commands_execute` → `CommandsExecute`, `handle_configuration_get` → `ConfigurationGet`, `handle_incoming_message` → `IncomingMessage`, etc. The new names align with the command/channel names they service (e.g., `commands:execute` → `CommandsExecute`), improving code clarity and consistency across the Mountain IPC layer.\n\nThis is a pure refactor with no functional changes.",
 			"SHA": "9134f4bf64e3333b62d9591a5c58b4764b8d5b47"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:17:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
-				2
-			],
-			"Message": "perf(Mountain): Batch command registration emits to reduce IPC saturation\n\nDuring extension boot, 1000+ `registerCommand` notifications fire in a tight burst (113 extensions × ~10 commands each). Each notification was emitting a separate Tauri event, saturating the shared WKWebView IPC channel that also carries keystroke delivery. Users could type for a split second before the burst hit, then nothing.\n\nAdd a `CommandEmitBatch` struct that buffers commands and flushes after 16ms (one frame), reducing 1000+ individual emits to a single batched `{ commands: [...] }` emit. SkyBridge's listener already accepts both shapes (single `{ id, commandId, kind }` or batch `{ commands: [...] }`), so no Sky changes required.\n\nThis keeps the IPC channel free for keystrokes during extension boot when the renderer is most busy.",
-			"SHA": "f304bd408f391d1848c357b909b09e5f5906ae99"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T00:15:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
-				1
-			],
-			"Message": "perf(Mountain): Gate sync/performance emits behind env vars and add subscriber fast-path\n\nTwo optimizations to reduce IPC channel contention:\n\n1. **Env var gating**: The `mountain_sync_status_update` and `mountain_performance_update` events were emitting on every tick even though Sky has no subscriber. Every emit now waits behind keystrokes on the shared Tauri IPC pipe. Gate both behind `LAND_SYNC_STATUS_EMIT=1` and `LAND_PERF_EMIT=1` respectively for debugging or future Sky consumers.\n\n2. **Subscriber fast-path**: The 100ms real-time updates tick was acquiring the lock and draining pending updates even with zero subscribers. Add an early check to skip the entire lock-and-drain path when `Subscribers.is_empty()`, making the tick a true no-op until a subscriber registers.\n\nTogether these keep the shared IPC channel free for keystrokes during extension boot when the renderer is most busy.",
-			"SHA": "75d2f1dbe4d77d92e1f679c84aa4885ce355a12d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:34:46Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
-				2
-			],
-			"Message": "feat(Mountain): Add Disable env var and fix first-click focus issue\n\nTwo unrelated but complementary fixes:\n\n1. **accept_first_mouse(true)**: Fix the \"I clicked, I'm typing, nothing's happening\" bug where WKWebView swallows the first click on an unfocused window as a \"make me key\" no-op. The user had to click twice - first to focus the NSWindow, second to focus the Monaco textarea. This change flips the responder chain so the first click already reaches WKWebView's content.\n\n2. **Disable environment variable**: Add master \"disable Land customisations\" gate via `Disable=true` env var. When enabled, Mountain skips: WindowEvent::CloseRequested intercept (Cmd+W routes natively), Cocoon/Air sidecar spawn, and Wind/SkyBridge registration. This is useful for bisecting whether typing-input regressions originate in the extension host or upstream/Tauri/WKWebView. Also rename DevTools auto-open from LAND_OPEN_DEVTOOLS to `Inspect=1` to follow Land's PascalCase env var convention.",
-			"SHA": "14b86efb22e841a2d2fa91ea12ba33c37b6cec33"
 		}
 	],
-	"TimeStamp": 1780149402579
+	"TimeStamp": 1780236112279
 }

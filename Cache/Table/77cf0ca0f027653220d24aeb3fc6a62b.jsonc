@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:36:18Z",
+			"Date": "2026-05-25T22:17:12Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				133,
+				136,
 				1
 			],
-			"Message": "fix(Element): Advance submodule — hierarchy prepare routing fix and config notification forwarding\n\nAdvance the Element container submodule to fix silent call/type hierarchy failures in Cocoon and add configuration change event forwarding from Mountain.\n\n**Cocoon (GRPCServerService routing):** The method router regex gate only matched $provide* and $resolve* language feature patterns, dropping $prepareCallHierarchyItems and $prepareTypeHierarchyItems requests before they reached InvokeLanguageProvider. Extend the router to also accept $prepare* patterns, restoring call and type hierarchy intelligence in the extension host.\n\n**Mountain (Vine config notifications):** Forward workspace configuration update events to Cocoon via a fire-and-forget Vine notification, carrying the changed key in the payload. This enables vscode.workspace.onDidChangeConfiguration to fire for extensions like rust-analyzer, ESLint, and Prettier. A Vine send failure must not propagate and fail the caller's awaiting IPC response.\n\nBoth hierarchy language features and config-change reactivity now function correctly across the Mountain ↔ Cocoon gRPC boundary.",
-			"SHA": "74cae26ac59233f3e5a7b49e471eac459bde1a1b"
+			"Message": "feat(Land): Advance Element submodule — terminal shell execution event relay\n\nAdvance the Element submodule pointer to d43cffe1, integrating the end-to-end bridge for VS Code terminal shell execution lifecycle events across Cocoon, Mountain, and Sky.\n\nSky parses OSC 633 sequences beyond the existing cwd handler — adding OscEndPattern (;D[;<exitCode>]) and OscCmdLinePattern (;E;<commandLine>) regex parsers plus a per-terminal InflightExecution Map. On OSC 633;C (output begins), Sky fires `localPty:shellExecutionStart` via Mountain IPC; on ;D (command finished), it fires `localPty:shellExecutionEnd` with exitCode, clearing the cached commandLine for the next execution.\n\nMountain adds two WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, fanning the former as `$acceptTerminalShellExecutionStart` to Cocoon and the latter as two Vine notifications: `$acceptTerminalShellExecutionEnd` and a derived `$acceptExecutedTerminalCommand` so extension subscribers observe executed commands without an additional Sky-side detection pass.\n\nCocoon registers three Notification/Handler.ts cases — `$acceptTerminalShellExecutionStart`, `$acceptTerminalShellExecutionEnd`, and `$acceptExecutedTerminalCommand` — each resolving the matching terminal from the `__terminals` context cache and assembling the VS Code event shape with the required terminal, shellIntegration, and execution sub-objects including the `{ value, isTrusted }` commandLine contract.\n\nExtension subscribers hooked via `window.didStartTerminalShellExecution`, `window.didEndTerminalShellExecution`, and `window.didExecuteTerminalCommand` now receive live notifications from OSC 633 sequence parsing in the Sky terminal layer.",
+			"SHA": "b1968f3dc1b03822af26982256b33f98cad3ac55"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:30:23Z",
+			"Date": "2026-05-25T22:10:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				133,
+				136,
 				1
 			],
-			"Message": "feat(Element): Advance submodules — terminal shell integration chain plus Maintain tooling fixes\n\nAdvance the Element container submodule to incorporate the latest fixes and features across Cocoon, Sky, Mountain, and Maintain.\n\n**Terminal Shell Integration:**\n- Cocoon implements `$acceptTerminalShellIntegrationActivated` and `$acceptTerminalCwdChange` via Sky Bridge, setting a minimal `shellIntegration` stub and parsing OSC 633 `P;cwd=` sequences into URI-like objects for extension access via `shellIntegration.cwd.fsPath`.\n- Mountain adds `setShellIntegrationActive` and `setCwd` gRPC notifications that persist the shell working directory in ApplicationState, plus process introspection IPC handlers (getPlatform, getArch, getPid, getExecPath, getMemoryInfo, getCpuInfo) for Wind's shared-process diagnostics.\n- Sky parses VS Code OSC 633 sequences from terminal output in its bridge layer, forwarding to Mountain via MountainIPCInvoke, completing the Cocoon → Mountain → Sky chain.\n\n**Maintain (eliminate tooling):**\n- Replace prettyplease full-reprint with span-based text patching that preserves inline comments, blank lines, and original indentation.\n- Add explicit `--reformat` CLI flag to opt into the old prettyplease behaviour.\n- Guard loop-body inlining to prevent initializer expressions from moving into for/while/loop bodies (semantic preservation).\n- Add free-variable-move-safety check (`IsFreeVarSafe`) that skips inlining when a binding's Init references variables moved before the substitution site, fixing an E0382 regression.\n\n**Additional Mountain fixes:**\n- Differentiate ENOENT as NotFound across FileRead, Readdir, and Stat IPC handlers.\n- Fix language configuration Tauri event emission to forward the full params object (language + rules) instead of only the language string.",
-			"SHA": "512540bb544df6fbab92df1f6b04c5691bf74636"
+			"Message": "fix(Land): Advance Element submodule — bridged editor state, diagnostics, theme, and breakpoint event pipeline\n\nAdvance the Element submodule pointer to c3783083, integrating Cocoon notification handlers and Mountain-to-Cocoon fan-out for six extension API surfaces that were previously renderer-only.\n\nCocoon adds Notification/Handler.ts cases for $acceptDiagnosticsChanged, $acceptVisibleEditorsChanged, $acceptTabsChanged, $acceptVisibleRangesChanged, $acceptTextEditorOptionsChanged, and $acceptActiveColorTheme — each pumping the Mountain notification through the matching Emitter channel. The $acceptTabsChanged handler caches tab-group snapshots on __tabGroups so synchronous window.tabGroups.all getters reflect current state.\n\nMountain fans five notification types back to Cocoon: $acceptActiveColorTheme in ThemesSet.rs on theme switch, $acceptVisibleEditorsChanged/$acceptTabsChanged/$acceptVisibleRangesChanged/$acceptTextEditorOptionsChanged in WindServiceHandlers/mod.rs forwarding Sky payloads, $acceptDiagnosticsChanged in Diagnostics.rs after Set/Clear calls, and $onDidChangeBreakpoints in DebugLifecycle.rs for breakpoint mutations.\n\nSky bridges four Monaco/workbench event streams through the IPC layer: onDidScrollChange (debounced to ~16 fps) emits visible ranges, onDidChangeConfiguration emits options changes, onDidVisibleEditorsChange emits the URI list of visible editors, and onDidChangeActiveGroup/onDidAddGroup/onDidRemoveGroup emit tab-group snapshots. All IPC calls are wrapped in try/catch so render failures never interrupt the UI pipeline.\n\nVS Code API subscribers inside Cocoon — languages.onDidChangeDiagnostics, window.onDidChangeVisibleTextEditors, window.tabGroups.onDidChangeTabs, window.onDidChangeTextEditorVisibleRanges, window.onDidChangeTextEditorOptions, window.onDidChangeActiveColorTheme, and debug.onDidChangeBreakpoints — now fire correctly for all extensions.",
+			"SHA": "4f239fbb7f63ad88216d43f491062f299efeba4d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T07:31:29Z",
+			"Date": "2026-05-25T21:54:53Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				133,
-				2
+				"⠀⠀⠀⠀⠀",
+				136,
+				1
 			],
-			"Message": "",
-			"SHA": "c1206b013c3253c86787b9eb8f7e4a11e62fb35a"
+			"Message": "fix(Land): Advance Element submodule — command execution notification relay\n\nAdvance the Element submodule pointer to 69826df9, integrating fixes that relay executed command notifications from Mountain to Cocoon so that `vscode.commands.onDidExecuteCommand` callbacks fire inside Node.js extensions.\n\nCocoon replaces the dead `@tauri-apps/api/event`.listen call (which never fires without `window.__TAURI__`) with a subscription to the `commands.executed` Emitter channel, fed by the `$acceptCommandExecuted` Vine notification from Mountain and local command routes in Commands/Namespace.ts for extension-to-extension `executeCommand` calls. The `viewId` dual-key resolution strategy (established for `setHtml`/`postMessage`) is extended to five more webview mutators — `dispose`, `setTitle`, `setIconPath`, `setOptions`, `reveal` — so panel mutations arriving before the workbench mounts the `IOverlayWebview` still reach their target.\n\nMountain dual-emits `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, alongside the existing Tauri event that reaches the renderer. The Vine notification is fire-and-forget — failure is non-fatal since renderer-side observers are already notified. The `tauri::Emitter` trait import is added in CreateEffectForRequest/Commands.rs to satisfy the compiler.\n\nExtension `onDidExecuteCommand` hooks now fire correctly, webview panel mutations during mount race conditions resolve via the viewId fallback, and Cocoon's Terminal/Service.ts is marked deprecated pending vertical-split cleanup.",
+			"SHA": "dd6c26982b5825f174d7c7b2e1f06477c198093b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T07:31:28Z",
+			"Date": "2026-05-25T21:39:30Z",
 			"File": [
-				"⣿⠀⠀⠀⠀",
-				133,
-				25
+				"⠀⠀⠀⠀⠀",
+				136,
+				1
 			],
-			"Message": "chore(Land): Normalize shell script indentation and I/O redirection syntax in build scripts\n\nRefactor Build.sh, Run.sh, and other build maintain scripts to normalize indentation and I/O redirection. This change adjusts the formatting of shell scripts to be consistent. This ensures that all scripts under the Maintain/ directory follow the same style and formatting conventions.",
-			"SHA": "e1a123dddbb43db86fff0e2d9b770e53d293a446"
+			"Message": "fix(Land): Advance Element submodule — webview first-paint race, unhandled IPC notifications\n\nAdvance the Element submodule pointer to 285ddc3a, integrating fixes for a webview panel first-paint race condition and four IPC notification handlers missing from the Mountain dispatch table.\n\nCocoon now sends `viewId: ViewType` alongside `handle` in `webview.setHtml` and `webview.postMessage` payloads. The `webview.create` acknowledgement could arrive before `IOverlayWebview` bound the handle to a WebviewInput, causing the initial `setHtml` to park in `ParkedHtml` and `postMessage` to miss its target. The viewType fallback key in Sky's `InstallWebview.ts` resolves the race.\n\nMountain forwards four previously unhandled IPC notifications: `ScanPathConfigure` to scan `~/.land/extensions` for pre-migration extension discovery; `debug.dap-response` from Cocoon inline-implementation adapters to the workbench via `sky://debug/dap-message`, enabling RawDebugSession DAP response correlation by `request_seq`; `setStatusBarText` mutations from extension `StatusBarItem.text()` setters, which previously froze the status bar text after initial create; and `terminate_task`/`Task.Terminate` to the extension host task service, enabling `vscode.tasks.executeTask().terminate()` to stop running tasks with a graceful fallback.\n\nWebview panels now render correctly on first paint, status bar text updates dynamically, DAP debug sessions receive response correlation, extension task cancellation works end to end, and pre-migration extension directories are discovered on clean installs.",
+			"SHA": "5400f2c7573668d80c766593a270221f3aacd6bd"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T16:57:10Z",
+			"Date": "2026-05-25T21:29:31Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
-				133,
-				9
+				"⠀⠀⠀⠀⠀",
+				136,
+				1
 			],
-			"Message": "",
-			"SHA": "c1f97a690ee1c1aa0903592da976425eaa1a8db1"
+			"Message": "fix(Land): Advance Element submodule — breaker skips failure count when Open\n\nAdvance the Element submodule pointer to e799e065, integrating a Cocoon circuit breaker fix that prevents in-flight gRPC completions from accumulating failure counts after the breaker has already tripped Open.\n\nCocoon's CheckCircuitBreaker was incrementing the failure counter unconditionally on every error completion, even when the breaker state was already Open. In-flight requests arriving after the trip could push the counter well beyond the intended threshold (observed at N≥19) and produce noisy \"transition from=OPEN to=Open failures=N\" debug-log lines on every additional error.\n\nThe fix returns early when the state is Open, logging the post-trip completion at debug level without counting it. Recovery remains driven by the existing timeout-based transition to HalfOpen, unchanged.\n\nThis eliminates dev-log chatter and keeps the failure counter accurate within the Closed and HalfOpen observation windows that actually drive breaker state transitions.",
+			"SHA": "3a783a02027449085b4eb76da4d7c269c7862b31"
 		}
 	],
-	"TimeStamp": 1780149348556
+	"TimeStamp": 1780236087141
 }

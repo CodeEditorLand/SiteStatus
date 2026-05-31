@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T20:46:25Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				26,
-				4
-			],
-			"Message": "fix(Land): Advance Element submodules — storage RPC fix, clean identifiers, tier routing\n\nAdvance Cocoon, Mountain, Output, and Wind submodules to fix a storage cache priming regression, restore clean development identifiers, and implement per-subsystem IPC tier routing.\n\nCocoon corrects the RPC method name in the storage cache priming path from `storage:getItems` (kebab-case, object arg) to `Storage.GetItems` (PascalCase, empty array), matching Mountain's RPC dispatcher contract. Without this fix, extensions that read workspace/global state synchronously during `activate()` — Roo Code, Copilot, GitLens — received only defaults after every reload, causing UI state regressions.\n\nMountain restores \"Mountain\" as the crate binary, library, and package name, and the Tauri productName and bundle identifier, replacing the verbose development build descriptors from the prior commit. Gates the Cocoon sidecar launch on both the ExtensionHostCocoon feature flag and the absence of `no_node_host` cfg so the Node vs WebWorker tier is respected at boot. Includes the task type in the task provider Options payload for correct Cocoon task registration, derives Clone on ExtensionCollection for shared terminal env mutation, and adds the zsh shell integration script to the Tauri resource bundle.\n\nOutput introduces per-subsystem tier resolution in the TauriChannel IPC router so channels can route to Mountain (Tauri backend) or Node (Cocoon extension host) independently rather than being governed by the single global `_TierIPC` variable. Routes `tasks` and `auth` to Node by default while keeping most subsystems on Mountain.\n\nWind wires the runtime dispatch layer in TauriMainProcessService that reads per-subsystem tier overrides from env vars and `__LandTiers` globals, routing channels resolved to \"Node\" directly to Cocoon via the `cocoon:request` bridge instead of Mountain. This mirrors the dispatch in Mountain's WindServiceHandlers, completing TIER-SYSTEM Step 4b.\n\nExtension storage now persists correctly across reloads, the development build uses clean identifiers, and the IPC tier routing layer supports per-subsystem routing across the Mountain-Cocoon boundary.",
-			"SHA": "cdef6cceabdd3c790f0ac922156e6ad2a967ddbf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:32:40Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				26,
-				6
-			],
-			"Message": "fix(Land): Advance Element submodules — dev build isolation, module resolution, and dependency fixes\n\nAdvance all six Element submodules to their latest revisions, addressing build artifact, dependency, and module resolution issues across the editor stack.\n\nMountain renames the crate binary, library, package, Tauri productName, and bundle identifier to a verbose development build descriptor (encoding Node 22, VS Code dependency, debug profile, esbuild compiler), preventing binary name and macOS bundle ID collisions with the release build. The Tauri resource bundle expands to include all Sky deployment variant directories that were previously omitted. This enables side-by-side installation and testing of development and release builds.\n\nSky replaces three bare `@codeeditorland/sky` package specifiers in workbench layout entry points (Bundled Electron, standalone Electron, Mountain Tauri) with explicit relative paths resolving to `Function/Sky/Bridge.js`. This ensures deterministic module resolution when the build pipeline does not alias the package name to the Sky source directory, preventing resolution failures or duplicate bridge module copies.\n\nOutput adds the missing `browserslist` dependency to its package manifest, resolving an unhandled peer dependency that could cause build failures in downstream consumers.\n\nCocoon regenerates all compiled JavaScript output to pick up the latest extension-host API fidelity source changes, folding several Target files into a single consolidated bootstrap pipeline routed through `Target/Effect/RPCServer.js`.\n\nMaintain relocates the `IsFreeVarSafe` check and `FindSubstSite` resolution from the main eliminator loop in Inline.rs into `TryBlockPreserve` in mod.rs, where the Preserve-pass text-patching logic actually consumes them. Flattens multi-line function signatures, replaces wildcard destructuring with rest patterns, and reflows doc comments. Behaviour across both Preserve and AST-rebuild paths remains identical.\n\nWind regenerates its TypeScript incremental build metadata file, reflecting updated program structure and declaration maps after module resolution changes in the project.\n\nDevelopment builds now install side-by-side with release builds without bundle identifier conflicts, all workbench entry points resolve the Sky bridge deterministically, and the missing browserslist dependency is restored.",
-			"SHA": "ad1d49c23687df1619a1eeb2394db0d376337a91"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:12:27Z",
-			"File": [
-				"⣿⠇⠀⠀⠀",
-				26,
-				7
-			],
-			"Message": "feat(Land): Advance Element submodules — extension env collections, decoration rendering, tier routing expansion\n\nAdvance all seven Element submodules to their latest revisions, closing systemic gaps across the extension-host API surface, decoration pipeline, and IPC routing infrastructure.\n\nCocoon replaces a dozen no-op stubs with real implementations: EnvironmentVariableCollection mutations forward to Mountain via terminal.envCollection.* notifications; workspaceState/globalState caches prime before activate(); extensionUri uses MakeUri() for asset resolution; registerTextEditorCommand drives edits atomically through TextEditorEdit; language provider metadata (documentSelector, triggerCharacters, codeActionKinds) flows to Mountain for correct Monaco invocation; executeTask returns a real task handle; LogOutputChannel provides ISO-8601 timestamped, level-filtered output; status bar items support the 1.74+ overloads with idempotent disposal; webview panels gain live viewColumn/active/visible tracking; tree data providers subscribe onDidChangeTreeData for refresh; webviewView providers forward retainContextWhenHidden; setStatusBarMessage supports all three upstream overloads; filesystem writes encode binary as Uint8Array; applyEdit returns Mountain's actual success boolean. Also adds __LandTier_* esbuild defines for 15 subsystems with registration in RouteManifest.\n\nMountain implements TerminalEnvCollection — a global registry dispatching Replace/Append/Prepend/Delete/Clear/SetPersistent/SetDescription from seven vine terminal.envCollection.* handlers, applying registered mutators at every PTY spawn via ApplyToEnv. Adds tree.refresh and outputChannel.replace Vine notification relays. Expands tier routing defaults to 14 additional subsystems matching Cocoon's tier definitions, and extends LandFixTier::LogResolvedTiers to emit all 16 values at boot.\n\nOutput exposes ICodeEditorService on the CELExposeAccessor services facade so extension decoration APIs (createTextEditorDecorationType, setDecorationsByType) paint visible squiggles, gutter icons, and inline hints instead of silently no-oping. Regenerates compiled Configuration tree.\n\nSky registers decoration types directly with ICodeEditorService in InstallTasksAndDecorations, switches setDecorations to setDecorationsByType, wires panel-mode webview lifecycle with postMessage/dispose/viewState forwarding back to Cocoon, adds sky://output/replace handler for atomic channel replacement, and relays sky://tree-view/refresh from Cocoon to ITreeView.refresh().\n\nWind adds 14 per-subsystem IPC routing tier definitions (Terminal, SCM, Debug, LanguageFeatures, Search, OutputChannel, NativeHost, TreeView, Storage, Model, Tasks, Auth, Encryption, ExtensionHost, WebSocket) with union types and defaults matching .env.Land profiles.\n\nWorker adds deepmerge-ts 7.1.5 for type-safe recursive configuration merging in the ESBuild pipeline.\n\nRest normalises shell redirection spacing and case indentation across Bench.sh, prepublishOnly.sh, and run_tests.sh.\n\nExtension environment variables now survive reload, decorations paint on first render, webview panels remain interactive, output channels update atomically, tree views respond to data changes, and the IPC tier routing layer covers all 16 subsystems across the Mountain ↔ Cocoon ↔ Wind ↔ Sky stack.",
-			"SHA": "c7f7c6da1c6a274cdbe39651bf5e8bc9fd16a6db"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T13:51:30Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				26,
-				6
-			],
-			"Message": "feat(Land): Advance submodules — DAP inline, panel persist, tier routing\n\nAdvance all six Element submodules to their latest revisions, bringing inline DAP debugging, webview panel persistence across reloads, and a compile-time tier routing framework to the Mountain-Cocoon gRPC boundary.\n\nCocoon implements `DebugAdapterInlineImplementation` by tracking `debug.didStartSession`/`didTerminateSession` lifecycle events from Mountain and instantiating per-session adapters in-process. Wire `onDidSendMessage` back to Mountain via `debug.dap-response` and dispatch incoming DAP frames from the `ExtHostDebug$sendDAPRequest` gRPC handler. Adapter factories are stashed in `ExtensionRegistry` by debug type for reverse-RPC lookup. Register webview panel serializers via `registerWebviewPanelSerializer` and handle `$serializeAllWebviewPanels`/`$deserializeWebviewPanel` so panels like Live Preview survive `nativeHost:reload`. Update `version` and `isDirty` on `$acceptDocumentChanged` and after document-save notifications in HandleSpecificNotification. Fix BuildGetConfiguration to return the caller's `DefaultValue` when Mountain signals \"no override\" (null).\n\nMountain introduces compile-time tier routing for 16 IPC subsystems (Terminal, SCM, Debug, LanguageFeatures, Search, etc.) via build.rs `EmitTierDefaults`, dispatching commands to Mountain-native handlers or forwarding to Cocoon's gRPC surface through `tier_routes_to_node`. Implement webview panel state persistence across `nativeHost:reload`: serialize all registered panels before the renderer reload and deserialize after Cocoon restarts. Add optional Mist WebSocket transport on port 5051 for high-frequency IPC bypassing the Tauri-invoke + gRPC double hop. Apply a 30-second wall-clock timeout to git subprocess execution so a hung git process releases the effect slot rather than blocking indefinitely. Add crash-safe memento hydration that quarantines corrupted `global.json` to `.corrupted.<ts>` siblings. Fix two discrepancies: align the config change Vine notification payload to send `\"keys\": [key]` (array) instead of `\"key\": key` (string), and update document retrieval from the outdated `GetAllDocuments()` to `GetAll()`.\n\nSky relays `treeView.reveal` from Cocoon extensions by firing a `cel:tree-view:reveal` DOM event and invoking `Views.openView(viewId)` on the workbench service layer.\n\nOutput unconditionally applies MacTitlebarOffset and PartZIndex CSS injections regardless of the `DisableUIFixes` flag, and clears stale Configuration artifacts.\n\nRest normalises shell redirection spacing (`2>/dev/null`) and case branch indentation across Bench.sh, prepublishOnly.sh, and run_tests.sh.\n\nWind removes stale generated TypeScript artifacts (ServiceCatalog, bridge shapes, ~500 IAsteriskUpstream interface definitions) superseded by regenerated daily builds.\n\nDebug adapters that register programmatically, extension webview panels, and configuration-change reactivity now work reliably across the Mountain <-> Cocoon gRPC boundary.",
-			"SHA": "bfd45298a48c7131233e59a856fb310ec0bf9137"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:35:21Z",
+			"Date": "2026-05-26T13:05:54Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				26,
 				2
 			],
-			"Message": "feat(Land): Advance Element submodules — hierarchy prepare routing and config notifications\n\nAdvance Cocoon and Mountain submodules to fix language provider method dispatch and extend IPC notification coverage for the extension host.\n\nCocoon extends its GRPCServerService method router to match `$prepareCallHierarchyItems`, `$prepareTypeHierarchyItems`, and similar `$prepare*` language feature invocations alongside the existing `$provide*` and `$resolve*` patterns. Previously, the regex gate would drop prepare-method requests before they reached InvokeLanguageProvider, causing call and type hierarchy features to silently fail in the extension host.\n\nMountain forwards configuration update events to Cocoon through a fire-and-forget Vine notification, enabling `vscode.workspace.onDidChangeConfiguration` to fire for extensions like rust-analyzer, ESLint, and Prettier that react to workspace config changes. The changed key is included in the payload so Cocoon can scope the change event; a Vine send failure must not propagate back and fail the caller's awaiting IPC response.\n\nBoth hierarchy intelligence and config-change reactivity now function correctly across the Mountain ↔ Cocoon gRPC boundary.",
-			"SHA": "4dd20438695e32f57af2b5d894c2c03a18bb085c"
+			"Message": "chore(Land): Advance Cocoon and Common submodules — rebuild and doc fix\n\nAdvance Cocoon to include a rebuild of Target/ JS bundles, source maps, and RouteManifest timestamp with no new RPC methods — Mountain method count remains at 140.\n\nAdvance Common to correct the inline completion provider doc comment, clarifying that `ProvideInlineCompletionItems` serves any extension via the provider registry pattern (not exclusively AI assistants), improving trait documentation accuracy for Mountain and Wind implementors.\n\nBoth are non-functional changes: rebuilt artifacts and documentation correction.",
+			"SHA": "4cdcf1ee739db779dfc1c0bf0c900c843284a87e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T09:56:35Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				26,
+				1
+			],
+			"Message": "chore(Land): Advance Cocoon submodule — rebuild compiled output\n\nAdvance Cocoon to include a rebuild of Target/ JS bundles, source maps, and RouteManifest timestamp following the handler additions from the previous submodule advance. Mountain method count remains at 140 — no new RPC methods.\n\nThis ensures the bootstrap, service, handler, and gRPC bundles are consistent with the regenerated RouteManifest.",
+			"SHA": "bf01baa4c64d5c0317a3024c078731120bcab36c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T09:10:16Z",
+			"File": [
+				"⣿⠀⠀⠀⠀",
+				26,
+				5
+			],
+			"Message": "feat(Land): Advance submodules — comments shim and extension scan fix\n\nAdvance Cocoon, Mountain, Output, Rest, and Wind submodules to complete the registry-backed vscode.comments namespace shim in Cocoon and fix user extension discovery on extension cache hits in Mountain.\n\nCocoon replaces the stock no-op stub for `vscode.comments` with a dynamic import of a `CommentsNamespace` factory in Source/Services/Handler/VscodeAPI/Comments/Namespace.ts. Each CommentController now owns a Map-backed thread registry keyed on `UriStr:Line:Char` with mutable thread state. Registration is idempotent. The RouteManifest is regenerated with three newly exposed Mountain RPC methods (setStatusBarText, Task.Terminate, terminate_task), bringing the count from 137 to 140.\n\nMountain adds a supplementary live-scan phase on extension cache hits that re-uses `Registry.GetExtensionScanPaths()` filtered through `Scanner::IsUserExtensionScanPath`, ensuring VSIX-installed extensions at `~/.fiddee/extensions` and `~/.land/extensions` are discovered even when the bundled cache is fresh. The missing `TierCommandEventBroadcast` entry is also added to Info.plist.\n\nOutput, Rest, and Wind receive non-functional updates — regenerated VLQ mappings, rebuilt binary artifact, and daily catalog version date bump respectively.",
+			"SHA": "fe0afd794b553b3a6952d0123c2aa3911d3e1e65"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T08:24:42Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				26,
+				1
+			],
+			"Message": "feat(Cocoon): Implement registry-backed vscode.tests namespace shim\n\nReplace the stock inline no-op stub for `vscode.tests` in EnsureVscodeAPI.ts with a dynamically-imported, registry-backed `TestsNamespace` factory in Source/Services/Handler/VscodeAPI/Tests/Namespace.ts. The previous stub's empty `TestItemCollection` silently dropped every `controller.items.add(item)` call, causing extensions like vitest, mocha-explorer, and rust-analyzer to always get `undefined` back from `controller.items.get(id)` — breaking their internal state machines.\n\nEach TestController now owns a `Map`-backed `TestItemCollection` with working add/delete/get/replace/forEach, a profile registry for `createRunProfile`, and a `TestRun` state machine tracking the full queued/started/skipped/failed/errored/passed lifecycle. `TestRun.end()` emits `tests.didChangeTestResults` on the Emitter channel with per-item results and accumulated output.\n\nRegistration is idempotent — re-registering a controller with the same id returns the existing instance, softening VS Code's duplicate-id throw to handle dev-reload double-calls. Sky-side Testing panel rendering remains gated, but all extensions importing `vscode.tests` now maintain correct internal state without crashes or silent data loss.",
+			"SHA": "9b3109db2cf33aad3cff478e053cbdf444955dbd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T08:11:59Z",
+			"File": [
+				"⡏⠀⠀⠀⠀",
+				26,
+				3
+			],
+			"Message": "feat(Land): Advance Element submodules — diff information, view column, and terminal state event bridge\n\nAdvance Cocoon, Mountain, and Sky submodules to complete the Mountain-to-Cocoon notification relay for three extension API surfaces plus extension activation routing and auth session subscriptions.\n\nSky adds three snapshot-style bridge subscriptions in the workbench integration layer: diff editor `onDidUpdateDiff` line-changes relayed as `sky:editor:diffInformationChanged`, per-group `onDidMoveEditor` tab moves relayed as `sky:editor:viewColumnChanged`, and OSC 633 B (command-input-begins) terminal interaction detection relayed via `localPty:setInteracted`. All three are guarded with try/catch so render failures never disrupt the UI pipeline.\n\nMountain fans three new IPC notifications through WindServiceHandlers: `$acceptTextEditorDiffInformationChanged`, `$acceptTextEditorViewColumnChanged`, and `$acceptTerminalStateChanged`. Also introduces `TierCommandEventBroadcast` (default Off) — when enabled, Mountain dual-emits `$acceptCommandExecuted` over Vine after gRPC `Command.Execute` from Cocoon, ensuring `onDidExecuteCommand` fires for non-locally-registered extension host commands.\n\nCocoon registers four Notification/Handler.ts cases: `$activateByEvent` defers to `ExtensionHostHandler.HandleActivateByEvent` via `setImmediate` so extension activation actually runs instead of hitting the unknown-notification fallback; `$acceptTextEditorDiffInformationChanged` emits `didChangeTextEditorDiffInformation` with a minimal TextEditor stub keyed on `modifiedUri`; `$acceptTextEditorViewColumnChanged` fires `didChangeTextEditorViewColumn` with URI and viewColumn matching VS Code's event shape; `$acceptTerminalStateChanged` updates the cached terminal's `isInteractedWith` flag and emits `didChangeTerminalState`. Additionally, the Auth namespace subscribes to each `AuthenticationProvider.onDidChangeSessions` on registration, fanning `{ added, removed, changed }` to the `auth.didChangeSessions` Emitter channel with proper disposal on provider unregister to prevent listener leaks.\n\nExtensions consuming `onDidChangeTextEditorDiffInformation`, `onDidChangeTextEditorViewColumn`, `onDidChangeTerminalState`, `onDidChangeActiveEditor`, and authentication session change events via `MakeEventSubscriber` now receive live workbench signals through the complete Mountain→Cocoon bridge.",
+			"SHA": "0de337107b70105ea7304cd80362fdffcac734a8"
 		}
 	],
-	"TimeStamp": 1780149347577
+	"TimeStamp": 1780236086480
 }

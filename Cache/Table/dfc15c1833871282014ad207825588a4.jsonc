@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T21:03:03Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "fix(Project): Align webview.setHtml channel between Mountain and Sky\n\nSynchronized submodule update fixing webview-view extension API communication:\n\n1. Mountain adds suffix mapping to translate VS Code's camelCase `webview.setHtml` to Sky's canonical kebab-case `set-html` channel. This ensures events route correctly to `sky://webview/set-html` where Sky's listener expects them.\n\n2. Sky adds two new handlers completing the webview-view lifecycle:\n   - `sky://webview/set-html` - applies HTML to parked workbench WebviewView from `__CEL_WEBVIEW_VIEWS__`\n   - `sky://webview/postMessage` - forwards extension messages to the parked view's webview\n\nThis is the final piece of the channel alignment series (following Terminal, Debug, StatusBar, Progress, Output), enabling extensions like GitLens to properly render their sidebar panels.",
-			"SHA": "271252d910f0d1a555fcf6b7ea42d4acaf909fc4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T20:56:47Z",
+			"Date": "2026-04-29T04:01:56Z",
 			"File": [
 				"⡿⠀⠀⠀⠀",
 				28,
 				5
 			],
-			"Message": "",
-			"SHA": "6f11cad3ebc983b55fbda1ade3cfba90c0e665ea"
+			"Message": "refactor(Project): Sync submodules with SCM identifier, command replay, and retry logic\n\nMulti-component synchronization enabling multi-SCM support and improving boot reliability:\n\n1. **Common**: Add Identifier field to SourceControlManagementProviderDTO - enables provider identification (\"git\", \"github\", \"hg\") for multi-SCM support, maps to `scmId` in sky://scm/register events.\n\n2. **Mountain**: Use actual SCM provider identifier in replay instead of hardcoded \"git\", add command registration replay for extension-registered commands, reduce tree-view timeout from 5000ms to 1500ms for graceful failure.\n\n3. **Output**: Mirror retry logic on user extensions scan path (was missing), switch to exponential backoff (100-200-400-800-1500ms), short-circuit Promise protocol probes to eliminate spurious \"Unknown IPC command\" errors.\n\n4. **Sky**: Display commands count in replay-events log for visibility into early-boot command replay.\n\nImpact: Multi-SCM providers (github, hg) now replay correctly. User extensions load at boot even when Mountain scan is slow. Promise probes reduced from ~25ms to <1ms per wake cycle.",
+			"SHA": "b15e1d818609f1ab74584410abb5c73f3628d9bf"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T20:18:39Z",
+			"Date": "2026-04-29T03:40:55Z",
 			"File": [
-				"⡇⠀⠀⠀⠀",
+				"⣿⠇⠀⠀⠀",
 				28,
-				3
+				8
 			],
-			"Message": "fix(Project): Add DI decorator metadata to ReplaceSearchService and sync submodules\n\nSubmodule synchronization across Common, Output, and Cocoon:\n\n1. Output (46eceea1): Add DI decorator metadata to ReplaceSearchService transform - The ReplaceSearchService transform was missing TypeScript-compiled decorator helpers (__decorate, __param) that VS Code's DI container requires to resolve constructor parameters by their @IService decorator types. Without these, IInstantiationService bound parameters positionally with no type knowledge, causing all dependencies to arrive as undefined and crashing on this.uriIdentityService.extUri. This commit adds the __decorate/__param runtime helpers mirrored from VS Code's compiled output, enabling proper service resolution for IModelService, IEditorService, ITelemetryService, ILogService, IExtensionService, IFileService, IInstantiationService, and IUriIdentityService. The search panel now properly delegates to Mountain's search:findFiles/search:findInFiles handlers via Tauri IPC.\n\n2. Common (056b8d26): Sync with Current branch, includes dependabot update to @cloudflare/workers-types from 4.20260424.1 to 4.20260426.1\n\n3. Cocoon (f78bc413): Forward sync to latest Current\n\nImpact: Search panel now functions correctly with .gitignore-aware file search via Mountain handlers.",
-			"SHA": "4f9670ef93d4a556b367a6799133adb6b4360976"
+			"Message": "fix(Project): Sync submodules with sidebar fix and extension scan improvements\n\nMulti-component synchronization addressing Activity Bar emptiness and extension loading:\n\n1. Mountain: Add Sky event replay on listener registration - Mountain emits events before Sky listeners install, causing dropped `sky://tree-view/create` and `sky://scm/register` events. New `sky:replay-events` handler iterates active TreeViews and SCM providers to re-emit. Also adds path security checks and SCM provider emit failure logging.\n\n2. Output: Add retry logic to user extension scan path - User extension paths lacked the retry logic that system paths had, causing silent 0-extension responses. Add exponential backoff (100-200-400-800-1500ms) for async disk scans.\n\n3. Sky: Fix Rollup no-external dropping VS Code contribution imports - Activity Bar came up empty because Rollup was dropping side-effect imports (`extensions.contribution`, `scm.contribution`, `files.contribution`, `*.viewlet.js`...). Add normalized path matching for disk paths, package specs, and lowercase variants.\n\n4. Cocoon: Refactor code structure for improved readability and maintainability.\n\nImpact: Activity Bar now populates with extension-contributed views (GitLens, jsdebug, SCM providers). User extensions load properly at boot even when Mountain's async scan hasn't completed.",
+			"SHA": "972a110b4e940290d87a1a0af952d93f16b42318"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T19:54:45Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				28,
-				5
-			],
-			"Message": "feat(Project): Add debug session tracking, custom editor events, and search service transform\n\nSubmodule synchronization bringing three major features:\n\n1. Debug Session Tracking (Mountain + Common + Sky):\n- Mountain implements DebugSessionEntry and DebugSessions map for lifecycle management\n- StartDebugging spawns DAP adapters with stdin/stdout/stderr pipes and parses DAP frames\n- Messages emitted on `sky://debug/dap-message` and forwarded to DOM events\n- StopDebugging sends DAP disconnect and unregisters the session\n- Common adds DebugDapMessage IPC event to support this flow\n\n2. Custom Editor Save Events (Mountain + Common + Sky):\n- Common adds CustomEditorSaved IPC event for UI notifications\n- Mountain implements OnSaveCustomDocument to reverse-RPC to Cocoon extension sidecar\n- Sky adds handler for `sky://customEditor/saved` dispatching cel:customEditor:saved\n\n3. Search Service Replacement (Output):\n- Add ReplaceSearchService transform replacing web-worker RemoteSearchService\n- Delegates to Mountain's `search:findFiles` / `search:findInFiles` handlers\n- Makes search .gitignore-aware via Rust's ignore::WalkBuilder\n- Fixes search panel showing 0 matches and node_modules appearing in results\n\n4. Bug Fixes (Mountain):\n- Fix char-aware UTF-8 truncation in WindServiceHandlers and OutputChannelAppend\n- Avoids panics when slicing multi-byte codepoints (e.g., `•` in SCM progress)\n\nImpact: Debugging now works with real DAP adapters, custom editor save callbacks notify observers, and file search respects .gitignore rules.",
-			"SHA": "15e5ce0a3c99ee27478c2ac3496e8ce21d53cd11"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T15:55:13Z",
+			"Date": "2026-04-29T02:13:47Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
 				28,
 				4
 			],
-			"Message": "fix(Project): Align SCM provider handles between Mountain and Cocoon\n\nSubmodule synchronization addressing two critical issues:\n\n1. SCM Provider Handle Alignment (Common + Mountain + Cocoon):\n   - Common adds optional Handle field to SourceControlCreateDTO enabling Cocoon to supply its sequential allocator handle\n   - Mountain now honors caller-supplied Handle in CreateSourceControl rather than allocating via DJB hash\n   - Previously, group updates from Cocoon used sequential handles while Mountain keyed marker maps with DJB hash, causing \"Received group update for unknown provider handle\" warnings and empty SCM viewlet\n\n2. Recently-Opened Workspace Fallback (Mountain):\n   - Fixes boot seeding to probe RecentlyOpened.json (same source as webview's BuildInitialUrl) between env/CLI and CWD walk-up\n   - Resolves webview title showing \"Mountain\" while Cocoon payload shipped \"Land\"\n   - Fixes vscode.git scanning wrong root and SCM panel showing zeros despite untracked changes\n\n3. Dependency Updates:\n   - Mountain, Worker: Bump pozil/auto-assign-issue from 2.2.x to 3.0.0\n\nRefs: 3cfc021e (DTO serialization), 4c472e3 (event payload fixes)",
-			"SHA": "072ef07cf9596928526c3330aedccd96136239b6"
+			"Message": "fix(Project): Fix circuit breaker trips from URI parsing and service isolation\n\nMulti-component synchronization preventing silent error cascades:\n\n1. **Mountain**: Fix false circuit breaker trips from URI parsing edge cases - Extensions frequently register watchers on optional paths (e.g., `~/.roo/skills-*`, `.vscode/settings.json` in fresh workspaces) that don't exist. Mountain now catches benign \"path not found\" errors and records a deferred entry. Additionally, Cocoon sends URIs in three formats (plain strings, objects with `external` field, legacy `scheme`+`path` objects), but only the `external` field was accepted, causing `Diagnostic.Set` to trip the breaker after 5 publishes, silencing all linters.\n\n2. **Output**: Fix ExposeWorkbenchAccessor transform silently failing - The import marker used single quotes but esbuild rewrites to double quotes post-bundle, causing the entire `__CEL_SERVICES__` patch to no-op (all SkyBridge hooks offline). Also wraps each `invokeFunction` in its own try-IIFE so a single missing service doesn't throw the entire facade undefined.\n\nImpact: File watchers no longer fail on fresh workspaces. Language extension diagnostics now publish without triggering circuit breaker. All SkyBridge services (search, SCM, status bar, tree views) now initialize correctly.",
+			"SHA": "7cc10566bad81808c5008aaa95a040fb6b3c133f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T01:40:43Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				28,
+				2
+			],
+			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nSynchronize Mountain submodule with two bug fixes:\n\n1. **FileWatcher.rs**: Handle both numeric and string handle types in `RegisterWatcher` and `UnregisterWatcher`. The newer `NextProviderHandle()` returns a number, while older callers pass strings. Previously, numeric handles were silently converted to empty strings causing failures.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without regex string parsing, while `-32000` remains the catch-all for genuine failures.\n\nImpact: File watcher registration now works correctly regardless of handle type. Directory listing 404s are properly distinguished from genuine errors, improving error handling accuracy in Cocoon.",
+			"SHA": "563a19a149ccdbc2242f4f49537cad5d6200c86f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T01:04:05Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "chore(Project): Sync submodules with worker bootstrap fix and dependency updates\n\nMulti-component synchronization bringing stability and dependency updates:\n\n1. **Output**: Add RewritePerfBaselineWorker transform to fix timer service worker bootstrap crashes. The transform removes `__name(...)` decoration from `(function() {...}).toString()` source that gets mangled by Vite when inlined into Astro chunks, causing `ReferenceError: Can't find variable: $4e` at runtime. Also fixes Tauri's `.env` overriding Build.sh's `NODE_ENV` by gating debug profiles on `Debug=true`.\n\n2. **Mountain**: Update build.rs comments to document PascalCase environment variable naming convention (`Profile`, `Pack`, `Bundle`, `Compiler`) introduced in the 2026-04-29 migration, replacing legacy `LAND_*` names.\n\n3. **Sky**: Bump Astro from 6.1.9 to 6.1.10 and remove unused empty `.env.example` template file.\n\n4. **Cocoon**: Sync to latest upstream extension host implementation.\n\nImpact: Timer service worker now boots correctly without mangled reference errors. Debug builds properly use readable output.",
+			"SHA": "beecb3ff68cc233a0bb6c55a389cdd830e204917"
 		}
 	],
-	"TimeStamp": 1780149364537
+	"TimeStamp": 1780236098609
 }

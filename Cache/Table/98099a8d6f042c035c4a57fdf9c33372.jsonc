@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:02:19Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				26,
-				4
-			],
-			"Message": "",
-			"SHA": "fa903600e15697c37927ddae2bfa35a3cbd7ab31"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:42:22Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				26,
-				4
-			],
-			"Message": "refactor(Project): Rename user-data directory root from .land to .fiddee\n\nAfter the product rebranding to FIDDEE, the hardcoded `$HOME/.land/...` path literals scattered across Cocoon, Output, and Wind were inconsistent with the new product identity. Normalise all references to `$HOME/.fiddee/...` so the user-data directory mirrors the product name.\n\nCocoon (+1 commit): Extract the FIDDEE user-data path into a shared `FiddeeRoot()` atom at Source/Platform/FiddeeRoot.ts, mirroring the Rust atom in Mountain. Replace hardcoded `$HOME/.land` prefixes in Extension Context.ts, Host Handler.ts (extensionStorage, globalStorage, logs), and add `/.fiddee/extensions/` to the extension-bug frame matcher in Notification Handler.ts. All ESBuild Target/ artifacts rebuilt.\n\nOutput (+1 commit): Update all documentation comments and inline `Why` strings in Pipeline.ts, Plugin Index.ts, Extension Gallery Service.ts, and Icon Stylesheet URL rewriter.ts to reference `~/.fiddee/extensions/` instead of `~/.land/extensions/`. Compiled bundles and source maps regenerated.\n\nWind (+1 commit): Update the inline comment in ResolveConfiguration referencing `~/.land/workspaces/RecentlyOpened.json` to `~/.fiddee/workspaces/RecentlyOpened.json`.\n\nMountain (+1 commit): Synchronised to matching HEAD — no functional delta for this change.\n\nTogether these changes ensure a single source of truth for the product data directory path across the TypeScript layers, with new code reading from `FiddeeRoot()` and all stale documentation strings corrected.",
-			"SHA": "b953180e3e03fd1e284ed751416d908d7c6b60a8"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:23:14Z",
+			"Date": "2026-05-20T02:44:51Z",
 			"File": [
 				"⡏⠀⠀⠀⠀",
 				26,
 				3
 			],
-			"Message": "feat(Project): Wire workspace save methods and fix Tauri IPC fallback in Wind\n\nAdvance Cocoon, Mountain, and Wind submodules to collectively enable `vscode.workspace.save()` / `saveAll()` / `saveAs()` from extensions and fix two workbench boot crash categories in Wind.\n\n**Mountain (+1 commit, feat):** Add three new IPC handler arms to the Workspace dispatch table in `CreateEffectForRequest` — `Workspace.Save`, `Workspace.SaveAs`, and `Workspace.SaveAll` (including the legacy `saveAll` method name used by gRPC/Client.ts). All three degrade gracefully when Sky has no handler registered, logging a warning and returning the original URI (for Save/SaveAs) or null (for SaveAll) instead of crashing the extension host.\n\n**Cocoon (+1 commit, chore):** Rebuild all 39 `Target/` ESBuild bundles and regenerate the `RouteManifest` to track the four new Mountain RPC methods, raising `MountainMethods` count from 130 to 134 with a generation timestamp of `2026-05-19T22:15:03Z`.\n\n**Wind (+1 commit, fix):** Fix two boot-time crash sources in `ResolveConfiguration` — (1) add `(window as any).__TAURI_INTERNALS__?.invoke` to the fallback chain before the `__TAURI__` variants so the Tauri IPC bridge is found in Tauri v2 webview contexts; (2) replace all `|| undefined` path fallbacks (homeDir, tmpDir, userDataDir, logsPath) with concrete defaults like `/tmp/.fiddee` so `path.posix.join(undefined, 'User')` no longer throws \"The path argument must be of type string\" during workbench initialisation. Propagate the fallback to `extensionsPath` via `userDataDir` so extension scanning never receives undefined.\n\nTogether these changes complete the workspace document save IPC round-trip from Cocoon through Mountain to Sky, while hardening Wind against Tauri version mismatch and missing IPC responses at startup.",
-			"SHA": "bbd041b6c55c90b3e0432757dbf463009fc6e181"
+			"Message": "",
+			"SHA": "8ea99578ce73a16349a42a824dfa8e34119b3880"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:53:42Z",
+			"Date": "2026-05-20T02:18:56Z",
+			"File": [
+				"⣿⡟⠀⠀⠀",
+				26,
+				9
+			],
+			"Message": "feat(Project): Wire full editor IPC pipeline for decorations, text edits, selections, and hierarchy\n\nAdvance 8 element submodules in a coordinated update that completes the editor IPC round-trip from extension host to native backend to editor UI, enabling real-world extensions to manipulate text editors, decorations, and call/type hierarchy panels.\n\n**Cocoon** backfills critical VS Code API shims discovered through integration testing: extension exports resolution (`getExtension(id).exports`), call/type hierarchy prepare entry points, live `workspace.textDocuments` tracking via `$acceptModelAdded`/`$acceptModelRemoved`, `document.willSave` listener dispatch with edit collection, and a robust `activeTextEditor` stub supporting `setDecorations`, `edit`, `insertSnippet`, `revealRange`, and live selection tracking.\n\n**Common** extends the IPC event surface in SkyEvent.rs with five new URIs (`DecorationSetRanges`, `EditorApplyTextEdits`, `EditorSelectionChanged`, `EditorActiveChanged`, `EditorRevealRange`) and adds `PrepareCallHierarchy`/`PrepareTypeHierarchy` to the LanguageFeatureProviderRegistry trait, completing the hierarchy provider lifecycle defined by the VS Code LanguageFeatureRequest contract.\n\n**Mountain** implements the full gRPC+LSP pipeline for hierarchy prepare in new `PerformCallHierarchy`/`PerformTypeHierarchy` provider modules, bridges `window.setTextEditorDecorations` via a channel-drain batching mechanism (16 ms frame-aligned aggregation), and wires `window.applyTextEdits`/`window.revealRange` through to Sky events. A new `document.willSave` fire event grants extension listeners a 1.5-second grace window before disk write. Two new `mountain_ipc_invoke` handlers (`sky:editor:selectionChanged`, `sky:editor:activeChanged`) forward editor state changes from Sky to Cocoon.\n\n**Sky** registers four IPC bridge handlers matching editors by URI or filename segment: decoration range application via `ICodeEditorService`, text edit execution with dual-range-format normalization, reveal range delegation with the five standard strategies, and active editor/selection change subscription pushing state up to Mountain.\n\n**Wind** adds the five new Sky IPC event constants to `Source/IPC/SkyEvent.ts` while purging over 400 zero-byte generated stub files (`I*Upstream.ts`, `CommandCatalog.ts`, `ServiceCatalog.ts`, `*BridgeShapeGenerated.ts`).\n\n**Air** applies consistent import ordering and single-expression formatting across 4 subsystems. **Output** removes 160+ stale zero-byte build artifacts. **Grove** syncs the Rust documentation submodule. **Echo** advances to a clean commit.\n\nThis completes the editor IPC round-trip for text editor manipulation and call/type hierarchy, enabling extensions that depend on `window.activeTextEditor`, `editor.edit()`, `setDecorations`, `revealRange`, hierarchy providers, and format-on-save listeners to function correctly.",
+			"SHA": "aa1796249422795c35dd98c3dce3199cc7aed124"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T01:37:19Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				26,
 				2
 			],
-			"Message": "feat(Project): Synchronize Cocoon and Mountain submodules\n\nAdvance Cocoon and Mountain to their latest commits, wiring active editor tracking and caching OS property queries.\n\n**Cocoon (+1 commit):** Wire `window.didChangeActiveTextEditor` from Handler.ts into a minimal TextEditor stub derived from URI/languageId, patching `__activeTextEditor` on Context so extensions reading `vscode.window.activeTextEditor` synchronously in `activate()` see the current value. Upgrade `showTextDocument` from a fire-and-forget notification to a `sendRequest` round-trip returning the TextEditor stub from Mountain, with a disposable fallback to prevent crashes when `await`ing and chaining `.selection` or `.revealRange`. Migrate ExtensionSecretStorage from `sendNotification` to `sendRequest` with namespaced methods (`secrets.get`, `secrets.store`, `secrets.delete`) and scoped `extensionId` isolation.\n\n**Mountain (+1 commit):** Cache OS property collection (type, release, arch, CPU topology) and Rosetta 2 detection behind `OnceLock` to eliminate ~10 ms subprocess overhead per IPC call. After document open, call `SetActiveDocumentURI` on application state and fire a fire-and-forget gRPC `window.didChangeActiveTextEditor` notification to keep Cocoon's shim in sync. Refactor `localPty:getTerminalLayoutInfo`/`setTerminalLayoutInfo` to use `GetStorageValue`/`UpdateStorageValue` on StorageProvider, removing manual JSON serialization.\n\nTogether these changes eliminate three extension-host crash categories (synchronous reads of undefined `activeTextEditor`, awaited `showTextDocument` returning undefined, and unhandled secret storage notification rejections) while reducing IPC latency for OS queries and keeping terminal layout persistence simpler.",
-			"SHA": "504dc46bc62f73b572c19cfe712435e193eba139"
+			"Message": "chore(Project): Update Cocoon and Wind submodules with IPC contracts\n\nAdvance `Cocoon` to bf9d9ffa to introduce `Types.ts` under `Source/Services/Mountain/gRPC`. This formalizes the contract between the extension host and native backend by defining Option DTOs (e.g., `ShowTextDocumentOptions`, `TextEdit`) and the `IMountainGRPCClientService` interface. These changes enable strong typing for native operations without importing the full Effect-TS runtime, improving modularity.\n\nAdvance `Wind` to a25a3c5b to add `MountainCommands.ts` and `Converters.ts`. These modules centralize file-system IPC method strings (e.g., `file:stat`, `file:readdir`) and implement pure conversion logic between VS Code URI shapes and Mountain's raw JSON responses. This isolates protocol mapping from core services, facilitating unit testing and ensuring synchronization with native handlers.\n\nThese updates align the UI service layer and extension host with the native backend's evolving IPC architecture, ensuring type safety and separation of concerns across the editor stack.",
+			"SHA": "77ab17dd24a00312f6547195315c304358afcf65"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:47:00Z",
+			"Date": "2026-05-20T01:33:33Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
+				"⠇⠀⠀⠀⠀",
 				26,
-				4
+				2
 			],
-			"Message": "chore(Project): Synchronize Cocoon, Mountain, Output, and Sky submodules\n\nAdvance four Element submodules to their latest states, incorporating dependency updates, terminal state persistence logic, and build script formatting fixes.\n\n**Cocoon (+2 commits):** Update `@types/node` to 25.9.1 and `protobufjs` to 8.4.0 via Dependabot to align type definitions and protocol buffer runtime with upstream releases.\n\n**Mountain (+1 commit):** Implement terminal layout persistence by wiring `localPty:getTerminalLayoutInfo` and `localPty:setTerminalLayoutInfo` to the `StorageProvider`. This enables the restoration of active terminal tabs and dimensions after window reloads. Additionally, cache the native color scheme detection result in a `OnceLock` to eliminate repeated OS syscalls during boot and focus events.\n\n**Output (+1 commit):** Normalize indentation in `Run.sh` and `prepublishOnly.sh` case statements, replacing mixed tabs/spaces with consistent 0-tab labels and 1-tab branch bodies to adhere to project whitespace standards.\n\n**Sky (+2 commits):** Bump `@astrojs/ts-plugin` to 1.10.9 and `astro` to 6.3.5 via Dependabot to ensure toolchain compatibility.\n\nThese updates restore terminal state across reloads, improve startup performance, and maintain dependency alignment.",
-			"SHA": "a433ff6521a0ce8adb66d86c7a42e518cf1efd4c"
+			"Message": "chore(Project): Update Cocoon and Mountain submodules\n\nAdvance `Cocoon` to 8c25ad5a to refine code style in the `UriKey` utility by formatting the `fsPath` conditional return statement for improved readability without altering logic.\n\nAdvance `Mountain` to e4c272b2 to introduce `DashboardHelpers` under the `PerformanceDashboard` IPC module. This adds stub utilities for process memory, CPU usage, and UUID generation, alongside a helper to map metric types to display strings, establishing the foundational layer for performance monitoring while maintaining pure function architecture.\n\nThese updates align the extension host and native backend with current coding standards and prepare the IPC layer for future performance metrics integration.",
+			"SHA": "e56eef10595c5b6ed53e39aacc7a77a6cfef7b23"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T01:31:07Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				26,
+				1
+			],
+			"Message": "feat(Cocoon): Implement Language and Window API handlers and registries\n\nAdvance the `Cocoon` extension host submodule to commit 5aaeeb70. This update introduces foundational logic for VS Code extension API compatibility, specifically bridging language providers and window events with the native Mountain backend.\n\nKey additions include:\n- **Language Provider Handler**: `RegisterProvider` creates auto-assigned handles, notifies Mountain via gRPC (`Context.SendToMountain`), and returns a disposable to unregister providers, handling null inputs gracefully.\n- **URI Normalization**: `UriKey` utility stabilizes map keys from various URI formats to prevent diagnostic collisions.\n- **Window Event Subscription**: `MakeEventSubscriber` wraps `Context.Emitter` to ensure correct `this` binding and standard listener signatures.\n- **Provider Registries**: Centralized `Map` instances for Tree Data, Webview View, and Custom Editor providers enable efficient O(1) lookups by handle, synchronizing state between Cocoon and Mountain.\n\nThese changes enable the extension host to manage VS Code-compliant providers and events, establishing a robust bridge between the extension runtime and the native backend.",
+			"SHA": "b1de8927565c8f2b7c32312aa04e34c30dad82a2"
 		}
 	],
-	"TimeStamp": 1780149353850
+	"TimeStamp": 1780236091068
 }

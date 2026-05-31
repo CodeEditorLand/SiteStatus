@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T00:09:52Z",
+			"Date": "2026-04-24T20:52:42Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "refactor(Project): Reduce logging noise across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
+			"SHA": "786efde99dc3922147183375645841751ecd3fc2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T20:37:45Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
 				28,
 				4
 			],
-			"Message": "refactor(Project): Improve Mountain gRPC reliability, cleanup Output config, fix Sky status bar\n\nMultiple cross-cutting improvements:\n\n- **Mountain (26891b30):** Implement exponential backoff for Cocoon gRPC handshake (50ms initial, 2s ceiling, 20s budget) replacing fixed 1s retry. Healthy spawns now connect in ~400ms vs previous ~20s. Add child-exit detection during connection loop to fail fast with actionable diagnostics when Node exits early (unhandled exception, invalid module). Handle activation-race TOCTOU for `_typescript.configurePlugin` commands with early null return. Add pre-flight bundle probe to fail fast on missing Cocoon bundle.\n\n- **Output (51de686e):** Remove Configuration source directory (ESBuild configs, TypeScript configs, build plugins, polyfills) from Output element. Output should contain only final bundled JS artifacts consumed by Cocoon at runtime. Configuration files should be regenerated from source definitions during build.\n\n- **Sky (2ed0e226):** Strip VS Code codicon syntax (`$(name)`, `$(name~spin)`) from status bar text before rendering to prevent garbled \"weird emojis\" in fallback bar. Change status bar items to ALWAYS use dedicated fallback bar - never inject into VS Code's native `.statusbar` DOM to avoid visual conflicts between two rendering systems.\n\n- **Sky deps:** Bump @xterm/xterm (6.1.0-beta.199→202), vite (8.0.9→10), @astrojs/compiler-rs (0.1.8→9).",
-			"SHA": "31cf2b5f1cfd8b55ab088cd252ed860aea02fed9"
+			"Message": "feat(Project): Reduce Mountain log noise and wire extension tree views\n\nCross-cutting sync across four submodules:\n\n1. **Mountain (refactor):** Reduce high-frequency log noise in default mode by moving per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants muted in `short` mode. Expand IPC skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme. Reduces default log volume from ~14k+ lines per session to ~500 while preserving error visibility.\n\n2. **Output (feat):** Expose IViewsService and TreeViewByViewId in workbench accessor ESBuild transform. Enables Sky to resolve ITreeView instances from ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\n3. **Sky (feat):** Wire extension tree views into workbench rendering pipeline. Attach data providers to tree views that call `tree:getChildren` via MountainIPCInvoke, converting Cocoon wire shape into workbench ITreeItem. Add retry logic (5 attempts, 150ms spacing) for async workbench init. Implement `cel:tree-view:refresh` and `cel:tree-view:dispose` handlers.\n\n4. **Cocoon (sync):** Submodule update.\n\nImpact: Extension-registered tree views (from extensions like GitLens, Debugger) now render in the workbench pane. Default logs are actionable rather than noisy.",
+			"SHA": "ec447b98f146279aa5547aac15f54bc73d744fe0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T22:41:52Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				28,
-				4
-			],
-			"Message": "feat(Project): Eliminate startup visual flash across Mountain, Sky, and Wind\n\nCoordinate startup sequence improvements across three submodules to eliminate the \"purple/dark flash\" and panel-pop flicker observed on cold boot:\n\n- **Mountain (993a69a7):** Implement hidden-until-ready window pattern using WebviewWindowBuilder.visible(false), reveal only when Sky reports phase 3 (Restored). Add 3s safety timer to force-reveal if Sky crashes before phase 3 (prevents invisible-window lockup).\n\n- **Sky (0cf2e4da):** Add missing SkyBridge initialization to Electron Layout to subscribe to cel:* Tauri events (tree-view, SCM, debug, extensions). Previously, panels painted empty on first frame then re-rendered with data, causing \"tree-views flash empty then pop\".\n\n- **Wind (bb3b6fc3):** Add PostHogDefines to TargetConfig.ts mapping LAND_POSTHOG_* environment variables to esbuild define directives. Completes the hardcoded-key removal work, enabling PostHog config driven entirely by environment variables.\n\nImpact: Eliminates four-repaint startup cascade (native chrome → #1e1e1e → VS Code theme → workbench DOM). All panels now render with data on first paint.",
-			"SHA": "3ff9bbf02757290f4128143f97cfbaecfd01c5ec"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T21:18:38Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				28,
-				5
-			],
-			"Message": "refactor(Project): Remove hardcoded PostHog keys and decompose Utilities\n\nCoordinate submodule updates across Mountain, Sky, and Wind to remove hardcoded credentials and improve module organization:\n\n- **Mountain (8cba79c0):** Decompose monolithic Utilities.rs into 7 domain-specific modules (ApplicationRoot, ChannelPriority, JsonValueHelpers, MetadataEncoding, PathExtraction, RecentlyOpened, UserdataDir). Update all call sites to use explicit reverse-hierarchical paths (e.g., `Utilities::PathExtraction::extract_path_from_arg`).\n\n- **Mountain (5140a389):** Simplify binary/library names from verbose development format back to 'Mountain' in Cargo.toml and tauri.conf.json. Remove PostHog API key from build.rs and bootstrap-fork.js. Clean up tauri.conf.json identifier to 'land.editor.binary'.\n\n- **Sky (9b67e2e6):** Remove hardcoded PostHog API key from PostHogBridge.ts and astro.config.ts, requiring LAND_POSTHOG_KEY environment variable.\n\n- **Wind (a0e09d67):** Remove hardcoded PostHog API key from Configuration.ts.\n\nImpact: Security hardening by eliminating hardcoded credentials across 3 submodules. Improved code organization with explicit module dependencies following CLAUDE.md requirements.",
-			"SHA": "b03e5a60d3d19957ab41a059dc5e5d8150bb2842"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T20:54:32Z",
+			"Date": "2026-04-24T17:08:27Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "",
-			"SHA": "056425e324d08252ff9aae17882dfbf2be311659"
+			"Message": "chore(Cocoon): Sync submodule to cb1a38823f1ee6b4b9386aedc19677e262547920\n\nUpdate Cocoon submodule to the latest commit, bringing in upstream changes to the extension host runtime.",
+			"SHA": "e792634e04de30735905243f7c3ea3eff4a51284"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T19:12:07Z",
+			"Date": "2026-04-24T16:46:08Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⠇⠀⠀⠀⠀",
 				28,
-				1
+				2
 			],
-			"Message": "refactor(Mountain): Complete explicit module path migration in state and IPC\n\nContinue the refactoring from commit 10feb14ec to eliminate implicit module namespace reliance by fully qualifying internal paths:\n- Add explicit `TextProcessing` segment in DocumentStateDTO import for `AnalyzeTextLinesAndEOL`\n- Prefix ConfigurationState, UIState, and WorkspaceState type paths with their module name (e.g., `UIState::UIState::State`)\n- Update WorkspaceDelta function signatures with full `WorkspaceState::WorkspaceState::State` paths\n- Migrate AppLifecycle call site from `WindServiceHandlers::set_static_application_root` to `WindServiceHandlers::Utilities::set_static_application_root`\n\nThis ensures all internal references use the reverse-hierarchical path pattern that makes dependency relationships explicit in every call site, consistent with the CLAUDE.md module path requirements.",
-			"SHA": "a7b5aff343560a506c0972c8bf1bd41d87144760"
+			"Message": "feat(Mountain): Expand trusted paths and add executable magic-number detection\n\nSubmodule sync bringing three complementary improvements for extension runtime reliability:\n\n1. **Extended trusted paths** (`PathSecurity.rs`):\n   - Add `/tmp`, `/private/tmp`, `/var/tmp` for language servers (ruby-lsp, pyright, etc.)\n   - Add third-party tool state: `~/.gitkraken`, `~/.gk`, `~/.copilot`, `~/.config/git`\n   - Add read-only POSIX OS files (`/etc/os-release`, `/proc/*`, etc.)\n\n2. **Magic-number executable detection** (`VsixInstaller.rs`):\n   - Probe file headers for ELF, Mach-O fat/thin, and shebang\n   - Detect bin paths (`bin/`, `server/`, `tools/`, `omnisharp`, `adapter`, `native`)\n   - Promote 0o644 → 0o755 for detected executables, fixing EACCES on spawn\n   - Add `HealExecutableBits()` to retroactively fix pre-existing installs\n\n3. **Boot-time exec-bit heal** (`Scanner.rs`):\n   - Walk user extensions (`~/.land/extensions/`) at scan time\n   - Apply same heuristic to recover extensions installed before the fix\n\n4. **Benign ENOENT** (`DevLog.rs`): Add vim registers, globalStorage probing, chat editing sessions.\n\nImpact: Extension binaries (rust-analyzer, GitLens, Copilot) that were failing with EACCES due to missing exec bits now run correctly.",
+			"SHA": "991e3b34886434902061a9b60f74bf790222c473"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T15:37:49Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "feat(Project): Add land-native search provider and expose ISearchService\n\nCross-cutting search integration across Sky, Output, and Mountain:\n\n- **Sky (b4358aa9):** Add search result provider routing VS Code's Search viewlet queries through Mountain's `search:findFiles` / `search:findInFiles` handlers. The stock web's `RemoteSearchService` relies on File System Access API which returns `undefined` for Mountain-based filesystem, causing silent zero-result returns. New provider registers for both `file` (0) and `text` (1) search types, translating Mountain hits into `IFileMatch` shape. Also add global exception cap to PostHogBridge to prevent CDN limit flooding (configurable via `LAND_POSTHOG_SKY_EXCEPTION_GLOBAL_LIMIT`, defaults to 7).\n\n- **Output (f651b48f):** Extend ExposeWorkbenchAccessor ESBuild transform to expose ISearchService alongside existing Statusbar, Commands, and CommandRegistry services. Adds require for `vs/workbench/services/search/common/search` and includes `Search` entry in `__CEL_SERVICES__` global, enabling Sky-side bridge code to access search service without re-entering AMD loader.\n\n- **Cocoon (5bc55a9f):** Submodule sync.\n\nImpact: Search functionality now works in the Land editor with Mountain-based filesystem. PostHog exception telemetry respects CDN rate limits.",
+			"SHA": "b0c61117bc38976c071b8690baa6017a75eec5c4"
 		}
 	],
-	"TimeStamp": 1780149367214
+	"TimeStamp": 1780236101274
 }

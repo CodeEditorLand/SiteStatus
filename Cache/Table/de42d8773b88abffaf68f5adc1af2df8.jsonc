@@ -2,6 +2,28 @@
 {
 	"Set": [
 		{
+			"Author": "Auto",
+			"Date": "2026-05-29T02:50:59Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				155,
+				1
+			],
+			"Message": "",
+			"SHA": "885f795ba6a66c3aad94a4ed97198e7ff71c5d55"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T18:38:53Z",
+			"File": [
+				"⣿⠁⠀⠀⠀",
+				155,
+				34
+			],
+			"Message": "build(Sky): Extract bridge handlers into modular installers and harden build pipeline\n\nRefactor the monolithic `Bridge.ts` into discrete installer modules (Commands, EditorOperations, Scm, Webview, etc.) while introducing idempotent install guards and standardized error-surrounding try/catch blocks. The extraction preserves the existing dependency-injection shape (`Register`, `GetServices`, `Invoke`) so downstream call sites require no changes.\n\nStrengthen the Astro build pipeline: `BakeExtensionManifest` now scans `~/.land/extensions`, `~/.fiddee/extensions`, and `~/.vscode/extensions` with NLS-resolution fallback, writing both debug and production manifest paths while skipping stale cache hits. `CompressBundle` applies brotli compression (quality 11) to `_astro` and `Static/Application` artifacts, skipping files smaller than 1 KB or with < 5 % savings.\n\nHardened `astro.config.ts` with Vite define backfills for missing profile/color-scheme/terminal fields, performance-mark checkpoints spanning workbench boot phases, and robust extension auto-install logging. Output channel handlers now prefer `IOutputService.showChannel()` for targeted reveals, and notification relays drive `INotificationService.notify()` directly for production toast visibility.",
+			"SHA": "e7bd6f220ab05562878801bac301061173aedf06"
+		},
+		{
 			"Author": "Nikola Hristov",
 			"Date": "2026-05-27T02:22:18Z",
 			"File": [
@@ -33,29 +55,7 @@
 			],
 			"Message": "fix(Sky): Route bridge handlers through live workbench services\n\n**Output channel payload normalisation** — Mountain's coalescer, the legacy per-append path, and Cocoon's forwarding each use different field names (`channel`/`name`/`handle`/`id`, `text`/`value`). `sky://output/create`, `append`, `clear`, `replace`, `show`, and `dispose` now read every field shape so the Output panel populates regardless of producer. `sky://output/show` prefers the live `IOutputService.showChannel()` for channel-targeted reveal before falling back to the generic workbench command.\n\n**Notification service integration** — `sky://notification/show` previously dispatched a CustomEvent only, reaching no visual surface in production. Drive `INotificationService.notify()` directly with proper severity string-to-number mapping so `showInformationMessage`/`showWarningMessage`/`showErrorMessage` actually surface toasts.\n\n**Monaco language switch** — `sky://languages/setDocumentLanguage` now calls `monaco.editor.setModelLanguage()` so highlighting and tokenisation switch in place without re-opening the file.\n\n**SCM shim robustness** — Derive per-repo display labels from `rootUri` basename for multi-repo workspaces (e.g. `Git (Mountain)` instead of duplicate `Git` headers). Replace static zero-value field shims with `IObservable`-shaped facades exposing live derived resource counts. Fire `provider.onDidChange` and `ResourceGroupsEmitter` after populating groups so the viewlet badge and title-bar count reflect real totals.\n\n**Progress service routing** — Route through `IProgressService.withProgress()` when available for native VS Code progress rendering, with a DOM-painted fallback during early boot. Cache pending messages for in-flight starts whose Report handle hasn't yet been captured.\n\n**Replay summary** — Include `scmGroups` and `scmResourceUpdates` fields in event-replay summary logging.",
 			"SHA": "daf83add5db20440ded7f50f2af39e5e3573eee1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T17:20:32Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				155,
-				6
-			],
-			"Message": "fix(Sky): Route output panel through real IOutputService and fix multi-repo SCM registry\n\n**Output panel routing** — the `sky://output/append`, `clear`, and `replace` handlers previously wrote to `__CEL_WORKBENCH__.logger.log()` (the workbench diagnostic console sink), which never painted the Output panel. Re-route through `__CEL_SERVICES__.Output.getChannel().append()` — the real `IOutputService` exposed in `Accessor.ts` — so output channel content actually appears in the panel. The in-memory `OutputChannels` map is retained as a snapshot fallback. A try/catch guard prevents any failing append from crashing the bridge.\n\n**Multi-repo SCM deduplication** — vscode.git's multi-repo workspace (e.g. Land/Dependency/Microsoft submodules) calls `createSourceControl` once per repository, all with `scmId=\"git\"` but unique numeric handles. Keying the `ScmShimRegistry` by bare `scmId` collapsed every repo into a single workbench provider, causing visible group duplication (\"Merge Changes / Untracked / Merge Changes\"). Key by `scmId#handle` so each repository gets its own provider, and update `TryUnregisterScmProvider` and `ResolveScmShim` to use handle-first lookup with a safe `scmId` fallback.\n\n**IPC deduplication** — the `visibleChanged` and `tabsChanged` bridge handlers fire multiple times per user action because the workbench dispatches overlapping internal events (active editor change, group focus, tab reorder). Add snapshot serialization and early-return guards that suppress duplicate payloads before reaching `MountainIPCInvoke`, eliminating redundant `$acceptVisibleEditorsChanged` callbacks and tab/diagnostic listener re-runs in Cocoon.\n\n**Telemetry env var rename** — shorten `OTLPEndpoint`/`OTLPEnabled` to `Pipe`/`Emit` in both `OTELBridge.ts` and `astro.config.ts` Vite defines for cleaner ergonomics.",
-			"SHA": "a90a4516cef82066f9962a908f0e5e199f92bd5c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T15:16:21Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				155,
-				1
-			],
-			"Message": "feat(Sky): Refresh Extensions view after install/uninstall\n\nAfter Mountain emits `extensions:install` (VsixInstaller success) or `extensions:uninstall`, the Extensions view sidebar stays stale because VS Code's `IExtensionGalleryService` install pipeline does not expose a public hook that fires from outside Cocoon's process boundary.\n\nAdd `Commands.executeCommand` to the `ServicesProbe` structural interface and wire `RefreshExtensionsView` — a guard that invokes `workbench.extensions.action.refreshExtension`, the same command the toolbar \"Refresh\" button triggers. Internally it calls `IExtensionsWorkbenchService.queryLocal()`, which re-reads `IExtensionManagementService.getInstalled()` and rebuilds the view model. Called after both `sky://extensions/installed` and `sky://extensions/uninstalled` handlers, with a try/catch wrapper so a failing command never disrupts the DOM CustomEvent dispatch reserved for Wind orchestration listeners.\n\nThe Extensions sidebar now reflects newly installed or removed extensions live without requiring a workbench reload.",
-			"SHA": "81da5ccf80f101a9b6801c4554d64888dadfa9ba"
 		}
 	],
-	"TimeStamp": 1780149343275
+	"TimeStamp": 1780236083370
 }

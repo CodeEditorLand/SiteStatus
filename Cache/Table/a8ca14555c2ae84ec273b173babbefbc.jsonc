@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:13:45Z",
+			"Date": "2026-04-22T23:44:51Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				28,
+				2
+			],
+			"Message": "build(Project): Coordinate Element submodule updates across 2 components\n\nSynchronize Mountain and Output submodules with the following changes:\n- **Mountain:** Expand v2.1 changelog with April 17–22 commits (documentation-only update).\n- **Output:** Add CatchOutputFolderRejection transform plugin — Step 15 in the build pipeline catches an unhandled promise rejection from VS Code's outputServices.createFolder(). In Land, the VFS-IPC stat call rejects with FileNotFound before fileService can swallow it, causing the rejection to propagate past the .then(() => undefined) handler and surface as telemetry noise in PostHog. The plugin uses regex match against outputServices.js to append .catch(() => undefined) to the createFolder chain, silencing the harmless rejection since the output folder is created lazily on first channel write.\n\nThis coordinated update delivers documentation refresh and telemetry noise reduction while maintaining identical runtime behavior.",
+			"SHA": "0ecb3ed18924a00c4ab770e021efb0da418d50b7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T23:44:18Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
 				28,
 				3
 			],
-			"Message": "build(Project): Coordinate Element submodule updates across 3 components\n\nSynchronize Cocoon, Mountain, and Wind submodules with the following changes:\n- **Mountain:** Streamline extension path and NodeResolver module docs — simplify ScanPathConfigure comments for extension skip flags and builtin path override. Condense NodeResolver module docstring to compact ladder list showing resolution order: LAND_NODE_BINARY → shipped runtime → fnm/volta/asdf/nvm → homebrew → PATH. Behavior unchanged.\n- **Wind:** Split monolithic PostHogBridge.ts into modular components under Source/Telemetry/PostHog/ — Browser.ts (window.posthog lookup), Configuration.ts (import.meta.env config), Fallback.ts (fetch POST fallback), Identifier.ts (distinct_id resolution), Properties.ts (base event properties). PostHogBridge.ts now composes these modules for improved testability.\n- **Cocoon:** Submodule updated to 33544546.\n\nThis coordinated update delivers documentation improvements and modular telemetry architecture while maintaining identical runtime behavior.",
-			"SHA": "6b50bc739324d0d9404e706f7c8adb5a33206b71"
+			"Message": "fix(Project): Distinguish user vs built-in extensions, add IPC stubs\n\nCoordinate fix across Mountain, Output, and Wind submodules:\n\n- **Mountain:** Add `IsUserExtensionScanPath()` helper to detect whether a scan directory represents the user-writable `~/.land/extensions` root versus bundled paths like `Resources/extensions` and VS Code's submodule. Previously every extension was marked `IsBuiltin = true` regardless of source, causing user-installed VSIXes to appear under \"Built-in\" in the Extensions sidebar and leaving `@installed` (which filters for User-scope) empty.\n\n- **Output/Wind:** Add missing stub handlers in TauriMainProcessService to prevent renderer crashes when VS Code code calls unimplemented services: extension tips (empty arrays), MCP management (empty arrays), user data sync (status tuple), and language detection (empty extensions). These stubs return safe empty values matching the absence of corresponding backends in Land.\n\nImpact: User VSIX extensions now appear correctly under \"Installed\" (not \"Built-in\") and VS Code workbench code gracefully handles the lack of sync/tips/MCP/language detection backends without crashing.",
+			"SHA": "2af35a6c2d381bb04045e0d3344f14f1fe92a056"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:04:59Z",
+			"Date": "2026-04-22T22:55:15Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "",
-			"SHA": "21bd4370c008d4e752271f718493d65faea466fb"
+			"Message": "fix(Mountain): Ensure extension manifest fields and type filtering work correctly\n\nTwo related fixes address extension loading failures and missing activation:\n\n1. **Manifest field serialization** (`Extensions.rs`, DTOs): Remove `skip_serializing_if = \"String::is_empty\"` from `Name`, `Version`, `Publisher` fields. VS Code's trusted-publishers migration calls `manifest.publisher.toLowerCase()` at boot—if the key is omitted, the renderer crashes with `TypeError: undefined is not an object`. Add IPC handler hardening to inject explicit fallback values (\"unknown\") when fields are missing.\n\n2. **Extension type filtering** (`Extensions.rs`, `mod.rs`): Respect the `ExtensionType` filter passed to `getInstalled(type?)`. Previously all calls returned the full list as `type: 0, isBuiltin: true`. Now System extensions (type=0) and User extensions (type=1, including VSIX) are properly distinguished. Forward filters from `scanSystemExtensions` and `scanUserExtensions` handlers.\n\n3. **Post-install activation** (`Extension.rs`): Fire `onStartupFinished` activation events after `$deltaExtensions` adds an extension. Without this, extensions like `Anthropic.claude-code` register but never activate—sidebar contributions silently no-op until restart.\n\n4. **Log file eager init** (`Entry.rs`, `DevLog.rs`): Call `InitEager()` at binary startup to preserve logs before any panic. Fix `BinarySignature()` PascalCase splitting. Expand benign ENOENT ignore list.\n\nImpact: VSIX extensions now show under \"Installed\" with Uninstall, activate immediately after install without reload, and the Extensions sidebar refresh works correctly.",
+			"SHA": "75cf03921a7c58ba540974f2d06ac58bfc3f3235"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:04:59Z",
+			"Date": "2026-04-22T22:17:39Z",
 			"File": [
-				"⣿⠁⠀⠀⠀",
+				"⠁⠀⠀⠀⠀",
 				28,
-				6
+				1
 			],
-			"Message": "build(Project): Coordinate Element submodule updates across 6 components\n\nSynchronize all 6 Element submodules with the following changes:\n\n- **Mountain:** Add extension metadata passthrough (Atom TH1) — 14 new fields to ExtensionDescriptionStateDTO for VS Code package.json metadata (Categories, DisplayName, Description, Keywords, Repository, Bugs, Homepage, License, Icon, AiKey, ExtensionKind, Capabilities, ExtensionDependencies, ExtensionPack). Implement IPC round-trip for applyEdit/showTextDocument (Atom T1) using request/response pattern instead of fire-and-forget events. Add Node version checking (Atom N1) — ResolveNodeBinary queries `node --version` and logs resolved version with warning for outdated major versions. Add compile-time PostHog config (Atom P2) via env! macro in build.rs. Add IPC logging with paired entry/exit lines for latency diagnosis.\n\n- **Sky:** Add round-trip IPC handlers (Atom T1) for workspace/applyEdit and window/showTextDocument with RequestIdentifier tracking. Implement UI dialog round-trip replies (Atom Q1) for show-message-request, show-input-box-request, show-quick-pick-request. Add PostHog configuration via environment (Atom PH1/PH2) with client-side rate limiting and batch window. Add extension runtime dependency installer (Atom S1) that runs `npm install --production` for extensions with runtime deps.\n\n- **Wind:** Add PostHog telemetry bridge (Source/Telemetry/PostHogBridge.ts) that reuses Sky's window.posthog instance in webview or falls back to HTTP POST in Node.js. Tags events with $tier: \"wind\" for analytics filtering.\n\n- **Common:** Bump pnpm/action-setup from 6.0.0 to 6.0.3 (dependabot).\n\n- **Maintain:** Replace em-dashes with hyphens in CHANGELOG and code comments for consistent formatting.\n\n- **Cocoon:** Submodule updated to 38b5cb557b5de41dd3164ed71b46fdafc09aac01.\n\nThis coordinated update delivers IPC round-trip reliability for editor operations, extension metadata filtering support, frontend PostHog telemetry, and Node version diagnostics.",
-			"SHA": "f476c8de30dc27799b8160c4124fc0f3a6a68597"
+			"Message": "fix(Mountain): Add shutdown guard and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings.\n\nExtend static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader resolves asset URLs relative to the current document, which strips the leading slash before reaching the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.\n\nThis prevents spurious shutdown warnings, fixes TextMate grammar loading, and reduces log noise.",
+			"SHA": "8adf5bfc83b8f1bb64be9883facf6d0933a64315"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T14:22:48Z",
+			"Date": "2026-04-22T20:26:34Z",
 			"File": [
-				"⣿⣿⠁⠀⠀",
+				"⠇⠀⠀⠀⠀",
 				28,
-				12
+				2
 			],
-			"Message": "build(Project): Coordinate Element submodule updates across 12 components\n\nSynchronize all 12 Element submodules with the following changes:\n\n- **Mountain:** Add Node binary resolver for Cocoon sidecar spawning - checks explicit override, shipped runtime, version managers (fnm, volta, asdf, nvm), Homebrew, and PATH fallback. Add extension path environment variables (LAND_DISABLE_BUILTIN_EXTENSIONS, LAND_BUILTIN_EXTENSIONS_DIR, LAND_USER_EXTENSIONS_DIR, LAND_EXTRA_EXTENSIONS_DIRS, LAND_DEV_EXTENSIONS_DIR). Fix profile sentinel to use compile-time option_env! instead of runtime env::var. Add extensions:resetPinnedStateForAllUserExtensions handler.\n\n- **Sky:** Signal Mountain lifecycle phases from frontend via `lifecycle:advancePhase` IPC command to skip 8s/23s fallback timers. Uses dynamic import for @tauri-apps/api/core in plain module context. Implements Atom P3 milestone for optimized lifecycle management.\n\n- **Cocoon, Echo, Wind, Worker:** Dependency updates - pnpm/action-setup bumped to 6.0.3 across all TypeScript repos. Echo also updates @cloudflare/workers-types, wrangler, and miniflare.\n\n- **Mist, Output, Rest:** Normalize CHANGELOG formatting - replace em dashes (—) with hyphens (-) in version headers and list separators for consistent Keep a Changelog style.\n\n- **Common:** Merge branch sync with upstream.\n\nThis coordinated update delivers Node runtime resolution for extension host spawning, frontend-driven lifecycle optimization, and standardizes documentation formatting across the monorepo.",
-			"SHA": "465c079ac6d688b91a25cccbac2c2234ec6237da"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T12:52:17Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "",
-			"SHA": "60e27fae1069f3d57854e7bca7e78f8eceb110dc"
+			"Message": "build(Project): Coordinate Element submodule updates across 2 components\n\nSynchronize Mountain and Sky submodules with the following changes:\n- **Mountain:** Simplify binary naming from verbose development profile identifier to just 'Mountain'. Update Tauri identifier to 'land.editor.binary'. Remove externalBin reference to Binary/node since Node.js sidecar is now handled differently. Add vscode-file and vscode-file://vscode-app to img-src Content Security Policy for VS Code file protocol support. Delete temporary backup files (Cargo.toml.Backup, tauri.conf.json.Backup).\n- **Sky:** Add exception signature throttling to PostHog bridge — exceptions share the `$exception` event-name slot in posthog-js, so a burst of CSP refusals/console.error/unhandledrejection callbacks during workbench boot would blow through the 10/10s rate limit. Add a secondary throttle layer keyed by the first 200 chars of the error message. Unique exceptions still reach PostHog while bursts of the same error collapse into one. Both regular and exception drop counts are now reported in the `land:sky:throttle-dropped` event for visibility.\n\nThis coordinated update delivers build configuration simplification and PostHog rate limit protection while maintaining identical runtime behavior.",
+			"SHA": "3c5b85b952028923580cc7c9f3a867bf7e1987df"
 		}
 	],
-	"TimeStamp": 1780149368927
+	"TimeStamp": 1780236103000
 }

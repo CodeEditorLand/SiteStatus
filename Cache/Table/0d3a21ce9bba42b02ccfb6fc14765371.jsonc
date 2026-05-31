@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:01:08Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				28,
-				5
-			],
-			"Message": "feat(Project): Coordinate performance optimization and diagnostic instrumentation\n\nThree coordinated changes eliminate ~156 unnecessary Tauri IPC round-trips per editor boot and add comprehensive diagnostic capabilities:\n\n- **Performance (Wind/Output):** Add no-op IPC stubs for telemetryAppender (155 calls/boot) and mcpGalleryManifest (1 call/boot). These channels were falling through to Rust invoke with undefined handlers, adding latency to every editor startup. Stubs short-circuit in the TypeScript layer.\n\n- **Diagnostics (Mountain):** Add Git service handlers implementing the full localGit channel (clone, pull, checkout, revParse, fetch, etc.). Add SkyEmit instrumentation logging all Mountain→Wind/Sky emits under the sky-emit tag. Expand provider registration from 8 to 34+ types with scheme extraction.\n\n- **Diagnostics (Sky):** Track cel:* CustomEvent listener registration via document.addEventListener patching. Log consumer-present flag on every dispatch to identify orphan events (Mountain emits but no workbench listener). These are F1.1 indicators where features silently fail.\n\nImpact: Editor startup latency reduced by eliminating ~156 IPC round-trips. Developers can now audit SkyEmit traffic via LAND_DEV_LOG=sky-emit and identify dead event routes via cel-dispatch consumer-present=false.",
-			"SHA": "0e69949349f5d303288bef0ea1eac5a5970bc2cf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:57:54Z",
+			"Date": "2026-04-24T01:22:45Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
 				28,
 				3
 			],
-			"Message": "feat(Project): Add unified dev-log forwarding from Wind/Sky/Cocoon to Mountain\n\nCoordinate logging infrastructure across Mountain, Output, and Wind to enable filtered dev logging in a single file. Three related changes:\n\n- **Mountain**: Add `RenderDevLog` Tauri command that bridges TypeScript-side tagged logs into Mountain's `dev_log!` file sink. Also add five diagnostic tags (`notif-drop`, `provider-register`, `channel-stub`, `git`, `tree-view`) to isolate architectural gaps during debugging.\n\n- **Output**: Add `_DevLogForward` helper to TauriMainProcessService that mirrors IPC channel routing decisions into Mountain's dev-log. Logs channel name, command, route prefix, and hit/miss status in three code paths: fire-and-forget, stub hits, and misses.\n\n- **Wind**: Add `_DevLogForward` helper mirroring tagged log lines via `RenderDevLog` command, integrated into TauriChannel's three code paths.\n\nThis enables `LAND_DEV_LOG=<tag> tail -f Mountain.dev.log` to capture both TypeScript and Rust logs together, providing complete visibility into extension host integration issues.\n\nImpact: Developers can now filter by subsystem (e.g., `LAND_DEV_LOG=git,tree-view`) and see the full picture of a session in one file rather than cross-referencing browser console and log file.",
-			"SHA": "3ea53ff0555b7a38ed28c6af82980f1b66d7e2a8"
+			"Message": "feat(Project): Add workspace folders to extension host init, remove fallback status bar\n\nCoordinate init data and UI updates across Mountain and Sky submodules:\n\n- **Mountain (e10a5c04):** Add `folders` array inline to WorkspaceDTO in InitData so extensions reading `vscode.workspace.workspaceFolders` synchronously (vscode.git, eamodio.gitlens, typescript) see real folders immediately instead of `[]`. Also add `configuration` field for workspace config path. Enable CWD-autoload by default in debug builds (OFF in release) to support git repository scanning.\n\n- **Sky (05efccae):** Remove custom fallback status bar that was overlaying VS Code's native `.statusbar`. Extension-contributed status bar items are now dropped until `MainThreadStatusBar.$setEntry` is properly wired into the workbench. Add SCM event bridge handlers that dispatch `cel:scm:*` CustomEvents when Mountain emits `sky://scm/{register,unregister,updateGroup}`.\n\n- **Cocoon:** Submodule pointer update.\n\nImpact: Extensions like vscode.git and gitlens now surface tree-views on cold boot in debug builds. SCM state events are properly routed to Sky-side consumers.",
+			"SHA": "21ddbb2453f9fd6da04c91cc929d7104a695cbfd"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:35:36Z",
-			"File": [
-				"⣿⣿⠀⠀⠀",
-				28,
-				11
-			],
-			"Message": "refactor(Project): Standardize IPC event channel naming to kebab-case\n\nCoordinate refactoring across Common, Mountain, Sky, and Wind to unify IPC event channel naming:\n- Standardize all `sky://` event channels to consistent kebab-case format (status-bar → statusbar)\n- Remove duplicate/forked channels: StatusBarMessage, TreeViewRegister, WebviewPostMessageCamelCase, WebviewSetHTMLCamelCase\n- Add test comparing Rust enum wire strings against TypeScript mirror to prevent future drift\n- Emit TreeViewCreate events after TreeDataProvider registration so renderer wires up data providers\n- Add diagnostics stub methods in Wind/Output for getWorkspaceFileExtensions to prevent language detection crashes\n\nAlso updates various dev dependencies:\n- Bumps @effect/platform (0.96.0 → 0.96.1) in Cocoon/Wind\n- Bumps effect (3.21.1 → 3.21.2) in Cocoon/Wind\n- Bumps @cloudflare/workers-types (4.20260422.1 → 4.20260423.1) in Common/Echo\n\nImpact: Extension tree views now render correctly, language detection runs without crashes, and IPC channel naming is consistent across the Rust/TypeScript boundary.",
-			"SHA": "5863abdef967d6e882adcdaa557928f0f048a795"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:47:01Z",
+			"Date": "2026-04-24T00:09:52Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
 				28,
 				4
 			],
-			"Message": "fix(Project): Coordinate submodule updates for extension host reliability\n\nFour submodule updates improve extension activation and webview compatibility:\n\n- **Mountain**: Treat view registry commands (<viewId>.focus, .resetViewLocation, .removeView) as silent no-ops to eliminate GitLens error spam. Also preserve VSIX executable bits (0o755) during extraction so extensions with native binaries (codex, language servers) can spawn correctly.\n\n- **Output**: Add StripWebviewIframeSandbox transform plugin to remove sandbox attribute from VS Code's webview iframe. WKWebView blocks custom protocol loads (vscode-webview://, land://) from sandboxed iframes, breaking extension webview panels.\n\n- **Echo**: Submodule sync for task scheduler alignment.\n\n- **Cocoon**: Submodule sync for extension host alignment.\n\nImpact: Extensions with native binaries now activate correctly, extension webview panels load in Tauri, and spurious error logs are eliminated.",
-			"SHA": "16d2489435802c024a25ce8b6d3e0963f1fb4cce"
+			"Message": "refactor(Project): Improve Mountain gRPC reliability, cleanup Output config, fix Sky status bar\n\nMultiple cross-cutting improvements:\n\n- **Mountain (26891b30):** Implement exponential backoff for Cocoon gRPC handshake (50ms initial, 2s ceiling, 20s budget) replacing fixed 1s retry. Healthy spawns now connect in ~400ms vs previous ~20s. Add child-exit detection during connection loop to fail fast with actionable diagnostics when Node exits early (unhandled exception, invalid module). Handle activation-race TOCTOU for `_typescript.configurePlugin` commands with early null return. Add pre-flight bundle probe to fail fast on missing Cocoon bundle.\n\n- **Output (51de686e):** Remove Configuration source directory (ESBuild configs, TypeScript configs, build plugins, polyfills) from Output element. Output should contain only final bundled JS artifacts consumed by Cocoon at runtime. Configuration files should be regenerated from source definitions during build.\n\n- **Sky (2ed0e226):** Strip VS Code codicon syntax (`$(name)`, `$(name~spin)`) from status bar text before rendering to prevent garbled \"weird emojis\" in fallback bar. Change status bar items to ALWAYS use dedicated fallback bar - never inject into VS Code's native `.statusbar` DOM to avoid visual conflicts between two rendering systems.\n\n- **Sky deps:** Bump @xterm/xterm (6.1.0-beta.199→202), vite (8.0.9→10), @astrojs/compiler-rs (0.1.8→9).",
+			"SHA": "31cf2b5f1cfd8b55ab088cd252ed860aea02fed9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:28:50Z",
+			"Date": "2026-04-23T22:41:52Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "feat(Project): Eliminate startup visual flash across Mountain, Sky, and Wind\n\nCoordinate startup sequence improvements across three submodules to eliminate the \"purple/dark flash\" and panel-pop flicker observed on cold boot:\n\n- **Mountain (993a69a7):** Implement hidden-until-ready window pattern using WebviewWindowBuilder.visible(false), reveal only when Sky reports phase 3 (Restored). Add 3s safety timer to force-reveal if Sky crashes before phase 3 (prevents invisible-window lockup).\n\n- **Sky (0cf2e4da):** Add missing SkyBridge initialization to Electron Layout to subscribe to cel:* Tauri events (tree-view, SCM, debug, extensions). Previously, panels painted empty on first frame then re-rendered with data, causing \"tree-views flash empty then pop\".\n\n- **Wind (bb3b6fc3):** Add PostHogDefines to TargetConfig.ts mapping LAND_POSTHOG_* environment variables to esbuild define directives. Completes the hardcoded-key removal work, enabling PostHog config driven entirely by environment variables.\n\nImpact: Eliminates four-repaint startup cascade (native chrome → #1e1e1e → VS Code theme → workbench DOM). All panels now render with data on first paint.",
+			"SHA": "3ff9bbf02757290f4128143f97cfbaecfd01c5ec"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T21:18:38Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				28,
+				5
+			],
+			"Message": "refactor(Project): Remove hardcoded PostHog keys and decompose Utilities\n\nCoordinate submodule updates across Mountain, Sky, and Wind to remove hardcoded credentials and improve module organization:\n\n- **Mountain (8cba79c0):** Decompose monolithic Utilities.rs into 7 domain-specific modules (ApplicationRoot, ChannelPriority, JsonValueHelpers, MetadataEncoding, PathExtraction, RecentlyOpened, UserdataDir). Update all call sites to use explicit reverse-hierarchical paths (e.g., `Utilities::PathExtraction::extract_path_from_arg`).\n\n- **Mountain (5140a389):** Simplify binary/library names from verbose development format back to 'Mountain' in Cargo.toml and tauri.conf.json. Remove PostHog API key from build.rs and bootstrap-fork.js. Clean up tauri.conf.json identifier to 'land.editor.binary'.\n\n- **Sky (9b67e2e6):** Remove hardcoded PostHog API key from PostHogBridge.ts and astro.config.ts, requiring LAND_POSTHOG_KEY environment variable.\n\n- **Wind (a0e09d67):** Remove hardcoded PostHog API key from Configuration.ts.\n\nImpact: Security hardening by eliminating hardcoded credentials across 3 submodules. Improved code organization with explicit module dependencies following CLAUDE.md requirements.",
+			"SHA": "b03e5a60d3d19957ab41a059dc5e5d8150bb2842"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T20:54:32Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, not the flat structure the scanner was expecting. This caused all extensions to appear as 'unknown' with empty names/publishers.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures @builtin/@installed extension split works correctly in the sidebar.",
-			"SHA": "0a994328767963658121b9a37c38ca896ef7819a"
+			"Message": "",
+			"SHA": "056425e324d08252ff9aae17882dfbf2be311659"
 		}
 	],
-	"TimeStamp": 1780149367807
+	"TimeStamp": 1780236101843
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:48:50Z",
+			"Date": "2026-05-20T01:36:15Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1945,
+				2
+			],
+			"Message": "feat(Wind): Add file system IPC command definitions and URI converters\n\nIntroduce `MountainCommands.ts` to centralize the string literals for Mountain's file-system gRPC/Tauri methods (e.g., `file:stat`, `file:readdir`), ensuring they stay synchronized with the native backend handlers in `Element/Mountain`. Simultaneously, implement `Converters.ts` to provide pure functions for translating between VS Code URI shapes and Mountain's raw JSON responses.\n\nThese modules isolate the protocol mapping logic from the core service implementation. `toIStat` and `toDirectoryEntries` handle the transformation of Mountain's `file:stat` and `file:readdir` payloads into the VS Code `IStat` and directory entry tuple formats, while `uriToPath` and `pathToUri` manage absolute path resolution. This separation enables unit testing of data mapping without requiring the full Effect-TS runtime or active IPC stack.",
+			"SHA": "a25a3c5b9087f34ddc8cf3715785cfda75a24e2e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T01:29:14Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1943,
+				2
+			],
+			"Message": "feat(Wind): Add low-level Tauri invoke and tracing primitives\n\nIntroduce `MountainInvoke.ts` to encapsulate raw `__TAURI__` invocation logic. This module provides `InvokeMountain` for direct native backend calls and `InvokeViaNode` to bridge requests through the Cocoon Node.js runtime, removing duplicate Tauri access code from the routing layer.\n\nSimultaneously, add `Trace.ts` to supply non-invasive diagnostic utilities. It implements `Trace` for performance markers, `DevLogForward` to mirror logs to Mountain's file sink, and `TimedTrace` to wrap async operations in `performance.measure` spans for OTEL collection.\n\nThese utilities consolidate IPC error handling and enable structured observability without cluttering the core service logic.",
+			"SHA": "fd230e54afd2a2a5daf9ea88f49272430d3c861d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T01:27:42Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1941,
+				2
+			],
+			"Message": "feat(Wind): Implement IPC channel routing map and stub response catalog\n\nIntroduce the `ChannelRouteMap` to translate VS Code IPC channel names into Mountain `method:` prefixes, enabling `TauriChannel.call` to correctly dispatch requests to the Tauri-native backend. Simultaneously, establish `StubChannels` to provide safe, typed default responses for shared-process channels not yet implemented in Land (e.g., sync, telemetry, webviews).\n\nThese additions prevent `Unknown method` runtime errors and undefined crashes by intercepting unimplemented IPC calls and returning plausible empty states or typed stubs before they reach the Workbench. The implementation ensures the UI remains stable while native handlers for specific features are progressively added.",
+			"SHA": "32580878317efc44d05bd6bf5c6f1a5d37577251"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T01:17:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1939,
 				1
 			],
-			"Message": "feat(Wind): Configure default IPC routing tier to Mountain\n\nAdd the `IPC` configuration entry to the `Tier` constant in Source/Utility/Tier.ts, establishing 'Mountain' as the default routing strategy. This setting controls the `TierIPC` environment variable behavior, ensuring the workbench defaults to direct Tauri invocation over the `NodeDeferred` or `Node` fallback paths.\n\nThis change completes the type-safe configuration setup for the three-tier IPC routing system introduced in recent commits, providing a clear entry point for toggling between native and Node.js-based execution modes.",
-			"SHA": "45b5bee224c1e63afa845242a9220c47d17915ee"
+			"Message": "refactor(Wind): Align global tier injection fallback syntax in TauriMainProcessService\n\nUpdate the `__LandTiers` global resolution logic in `TauriMainProcessService.ts` to explicitly chain property access on the optional `__LandTiers` object. This refactoring ensures the parser correctly handles the optional chaining operator before accessing the nested `TierIPC` string value.\n\nThis adjustment maintains consistency with the recent commits that standardized the global tier injection strategy (`__LandTiers` over legacy symbols) and prevents potential syntax interpretation errors during runtime fallback resolution. The default fallback remains 'Mountain' for Tauri-native execution.",
+			"SHA": "bbe422bf555850c228db6d6b1ed5358122fa0123"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:47:30Z",
+			"Date": "2026-05-20T01:00:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1939,
 				1
 			],
-			"Message": "feat(Wind): Define IPC routing tier types for NodeDeferred support\n\nIntroduce the `TierIPCValue` type definition ('Mountain' | 'NodeDeferred' | 'Node') in Source/Utility/Tier.ts to support the new three-tier IPC routing strategy. This typology enables the `ResolveInvoke` mechanism to selectively fallback to the Cocoon Node.js runtime when Tauri handlers are unavailable, as introduced in the recent IPC routing commits.\n\nThis change formalizes the configuration options for the `TierIPC` environment variable, ensuring type safety when selecting between direct Tauri invocation, deferred Node fallback, or direct Node routing.",
-			"SHA": "a244b175fffd281dbc290851089b7a641cc9e878"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:37:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1939,
-				4
-			],
-			"Message": "feat(Wind): Implement NodeDeferred IPC routing and expand workspace/debug channel catalog\n\nExtended the IPC subsystem to support a new `NodeDeferred` routing tier, enabling seamless fallback to the Cocoon Node.js runtime when Mountain/Tauri handlers are unavailable. This introduces a three-tier configuration via the `TierIPC` environment variable:\n- `Mountain` (default): Direct invocation via Tauri.\n- `NodeDeferred`: Attempt Tauri first; on failure, forward requests to the Cocoon Node.js extension host via the `cocoon:request` bridge.\n- `Node`: Route all traffic directly to Cocoon, bypassing the Tauri layer.\n\nImplemented the `_InvokeViaNode` helper to facilitate relay calls through Mountain's gRPC bridge, ensuring compatibility with `__TAURI__` and `__TAURI_INTERNALS__` globals.\n\nAdditionally, updated the IPC channel catalog (`Source/IPC/Channel.ts`) with 20+ new stub channels covering workspace lifecycle events, storage operations, language features, SCM controls, debugging sessions, task execution, and authentication management. Standardized logging in `Source/Preload.ts` to use `_PreloadShimLog` instead of `console.warn` to reduce noise, and updated `ConfigurationImplementation.ts` to utilize `DevLog` for error reporting.",
-			"SHA": "ede96ed63fcbba52010dfb85eaff36d379b2e422"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:38:11Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1939,
-				1
-			],
-			"Message": "fix(Wind): Add polling loop for Tauri IPC bridge initialization\n\nThe `ResolveConfiguration` function previously assumed the Tauri IPC globals (`__TAURI_INTERNALS__` or `__TAURI__`) were immediately available. In certain webview load orderings or with the specific Mountain fork, these globals may be undefined during initial module evaluation, causing the configuration fetch to fail prematurely.\n\nIntroduce a 5-second polling loop with a 25ms interval that retries detection of the `Invoke` function. If the IPC bridge remains unavailable after the deadline, log a diagnostic message via `DevLog` and proceed with default path fallbacks. This ensures the workbench can boot in degraded mode rather than stalling indefinitely during initialization, while still attempting to recover native functionality if the bridge becomes ready shortly after start.\n\nThe update refactors the IPC resolution logic into a reusable `ResolveInvoke` helper and wraps the invocation with explicit TypeScript casting to satisfy the type checker.",
-			"SHA": "ca4b721dc89fe3ab21da124d09dd57aa980c36db"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:50:06Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1939,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Wind into Current",
-			"SHA": "c928421d028338a11145855b6dd5389665cd8e5c"
+			"Message": "fix(Wind): Standardize global tier injection in TauriMainProcessService\n\nUpdate the fallback mechanism for the `TierIPC` configuration in `TauriMainProcessService.ts` to use explicit `globalThis` property access (`__LandTiers`) instead of the legacy `__LAND_TIERS__` symbol check. This aligns the runtime resolution logic with the current build pipeline's global injection strategy, ensuring consistent detection of the IPC routing tier ('Mountain', 'NodeDeferred', or 'Node') during initialization.\n\nThis adjustment resolves potential undefined reference issues when the global object is accessed outside specific bundler contexts, stabilizing the default fallback to 'Mountain' for the Tauri-native execution path.",
+			"SHA": "364a8bfd840b7c18782d128bf46265cfbc0a485c"
 		}
 	],
-	"TimeStamp": 1780149348333
+	"TimeStamp": 1780236086807
 }

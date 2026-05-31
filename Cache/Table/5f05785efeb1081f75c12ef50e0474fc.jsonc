@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:13:28Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1219,
+				2
+			],
+			"Message": "fix(Mountain): Ensure workspace auto-seed defaults to HOME on GUI launch\n\nAddress a boot-time regression where releasing Mountain via Finder (macOS `.app` launch) resulted in an empty workspace because `current_dir` defaults to `/`. The previous debug-only autoload logic left release builds with no folder, causing tree views and SCM panels to remain empty.\n\nRefactor `Source/Binary/Initialize/CliParse.rs` to:\n- Unconditionally attempt CWD autoload (overridable via `Walk=0`).\n- Skip CWD if it is the filesystem root `/` (safety check against full-disk scans).\n- Add a final fallback to the user's `$HOME` directory when no workspace is detected, ensuring a visible directory tree on first launch.\n\nAdditionally, restructure `Source/Binary/Initialize/RuntimeBuild.rs` to align with the project's modular naming conventions. The file now serves as an index exporting submodules (`SchedulerConfig`, `Build`, `BuildDebug`, etc.) for the Echo scheduler configuration, as the primary usage has moved inline to `Binary::Main`.\n\nThis change guarantees a consistent user experience across debug and release profiles regardless of the launch method (CLI vs. GUI).",
+			"SHA": "c9ba82bedba46712b6b4b21def8272290ce7087a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:13:22Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1219,
+				5
+			],
+			"Message": "feat(Mountain): Expose keybinding management commands to Tauri frontend\n\nAdd the initial Tauri command layer for the keybinding subsystem to enable communication between the `Wind` service and the `Mountain` backend. Implement five new command handlers in `Source/Command/Keybinding/` to support the Keyboard Shortcuts UI:\n\n- `CheckKeybindingConflicts`: Detect chord-sequence overlaps (stub implementation).\n- `GetResolvedKeybindings`: Fetch the weighted aggregation of defaults and user overrides.\n- `GetUserKeybindings`: Return user-defined overrides (stub pending persistence).\n- `RegisterExtensionKeybindings`: Accept contribution payloads from the extension host.\n- `UnregisterExtensionKeybindings`: Remove bindings contributed by a specific extension.\n\nEach command retrieves the `KeybindingProvider` from the shared `ApplicationRunTime` state via the `Requires` trait, establishing the contract for future logic implementation. While most handlers currently return stub JSON responses or pass-through errors, this commit completes the IPC interface required for the frontend to manage and visualize keybinding states.",
+			"SHA": "c0b7bc5676e38b05ef0199ea3d46838fff4cde32"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:13:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1213,
+				2
+			],
+			"Message": "feat(Mountain): Inject user shell environment for GUI launches\n\nImplement a boot-time utility in `Source/Environment/Utility/EnhanceShellEnvironment` to resolve the minimal environment problem inherent in macOS/Linux GUI app launches (e.g., Finder, Dock, Spotlight).\n\nWhen launched non-interactively, the app receives a bare `PATH` missing user customizations like `NVM_DIR`, `HOMEBREW_PREFIX`, and `JAVA_HOME`. This previously caused child processes (Cocoon's Node, language servers, Git extensions) to fail or use outdated system binaries.\n\nThe solution spawns the user's login shell with `-ilc env` to capture their full runtime environment, then safely merges new variables into the parent process environment. It includes:\n- A 2-second timeout to prevent boot hangs from misbehaving `.rc` files.\n- A check to skip injection if already running from a TTY.\n- A safety filter (`IsPortableEnvName`) to reject non-standard variable names.\n- A strict policy to preserve existing environment variables unless they are unset, ensuring no overwrites of deliberate user overrides.\n\nThis ensures Mountain and its sidecars (Cocoon, Air) operate with the same environment context as a user's terminal session.",
+			"SHA": "240102ddfe032c28ba28bd65c16ce7412642abf1"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-02T09:12:27Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "feat(Mountain): Define core IPC message types and priority system\n\nIntroduce the foundational data structures for the Inter-Process Communication layer within `Source/IPC/Common/MessageType`. This commit establishes the contract for request, response, and message handling across the Mountain backend and connected services.\n\nThe implementation adds:\n- `MessagePriority::Enum`: A four-tier priority ladder (Low, Normal, High, Critical) supporting comparison and ordering for scheduling logic.\n- `IPCCommand::Struct`: A builder-pattern command request allowing positional `Args`, named `Params`, and explicit priority assignment.\n- `IPCMessage::Struct`: A generic transport envelope including a UUID, timestamp, optional correlation ID for request tracking, and a priority field.\n- `IPCResponse::Struct`: A standardized response type with `Success`/`Error` constructors, preserving the correlation ID for async matching and capturing execution results or failure reasons.\n\nAll types derive `Serialize` and `Deserialize` to enable JSON transmission over the gRPC (Vine) protocol and Tauri IPC channels. These models unify the messaging interface, enabling the `Wind` service layer and `Cocoon` extension host to exchange structured data with explicit priority handling and traceability.",
 			"SHA": "b95a7333e3b00c5c13850fdaeb0ad7e5ef0efa37"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:07:00Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1191,
-				1
-			],
-			"Message": "refactor(Mountain): Align ApplicationState import with PascalState DTO naming\n\nUpdate the import statement in `ApplicationState` to use the full type path `TestProviderState::Struct` instead of the raw module reference. This aligns with the project's strict PascalCase naming convention where state data structures are explicitly named `...::Struct` (as defined in recent commits for `TestProviderState`).\n\nEnsures the type signature correctly resolves the aggregated state manager for test execution contexts, maintaining consistency with other DTO definitions and preventing potential compiler ambiguity when `ApplicationState` is cloned or accessed across threads.",
-			"SHA": "d61a52c94a249624bbc77eefa14d3a2678ba43ce"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:55Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1191,
-				1
-			],
-			"Message": "fix(Mountain): Correct import path for URI normalization utility\n\nResolve a broken import path in `Source/IPC/WindServiceHandlers/Extensions.rs` where the `Normalize` module was referenced incorrectly. Update the path from `IPC::UriComponents::Normalize` to `IPC::UriComponents::Normalize::Fn` to align with the actual module structure and expose the normalization function required for processing extension URIs.\n\nThis ensures the extension management handlers can correctly resolve URI components during the filtering of installed extensions, preventing potential runtime panics or logic errors when interacting with the `Wind` service layer.",
-			"SHA": "27f727498c52bb68469eda25b9df43e452c463e8"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1191,
-				3
-			],
-			"Message": "feat(Common): Introduce health monitoring data models and score logic\n\nDefine the core data structures for the editor's health monitoring subsystem within `Source/IPC/Common/HealthStatus`. This commit adds `SeverityLevel::Enum` to classify issue criticality, `HealthIssue::Enum` as a tagged union for specific failure modes (e.g., MemoryPressure, ConnectionLoss), and `HealthMonitor::Struct` to aggregate state.\n\nThe `HealthMonitor` calculates a dynamic `HealthScore` (0-100) based on a deterministic penalty system derived from issue severities (Low: -5, Medium: -15, High: -25, Critical: -40). It provides methods for adding/removing issues, filtering by severity, and determining overall system health status (`IsHealthy`, `IsCritical`). All types derive `Serialize`/`Deserialize` to enable transmission over the gRPC (Vine) and Tauri IPC channels for real-time status propagation to the Wind and Sky layers.\n\nThese models lay the foundation for the backend to expose service liveness metrics to the frontend without blocking the main thread.",
-			"SHA": "23d6eddefce6d663ef87fdd01e468309c773f80d"
 		}
 	],
-	"TimeStamp": 1780149384051
+	"TimeStamp": 1780236105177
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:58:11Z",
+			"Date": "2026-04-24T01:47:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5213,
 				1
 			],
-			"Message": "feat(Project): Add unified dev-log forwarding from Wind/Sky/Cocoon to Mountain\n\nCoordinate logging infrastructure across Mountain, Output, and Wind to enable filtered dev logging in a single file. Three related changes:\n- **Mountain**: Add `RenderDevLog` Tauri command that bridges TypeScript-side tagged logs into Mountain's `dev_log!` file sink. Also add five diagnostic tags (`notif-drop`, `provider-register`, `channel-stub`, `git`, `tree-view`) to isolate architectural gaps during debugging.\n- **Output**: Add `_DevLogForward` helper to TauriMainProcessService that mirrors IPC channel routing decisions into Mountain's dev-log. Logs channel name, command, route prefix, and hit/miss status in three code paths: fire-and-forget, stub hits, and misses.\n- **Wind**: Add `_DevLogForward` helper mirroring tagged log lines via `RenderDevLog` command, integrated into TauriChannel's three code paths.\n\nThis enables `LAND_DEV_LOG=<tag> tail -f Mountain.dev.log` to capture both TypeScript and Rust logs together, providing complete visibility into extension host integration issues.\n\nImpact: Developers can now filter by subsystem (e.g., `LAND_DEV_LOG=git,tree-view`) and see the full picture of a session in one file rather than cross-referencing browser console and log file.",
-			"SHA": "ba431af6c47cc7cd6694715a65cc97e1ddb1c2a1"
+			"Message": "feat(Project): Add ExposeWorkbenchAccessor transform plugin\n\nUpdate Element submodule to pull in new ESBuild transform plugin that exposes VS Code's IInstantiationService and IWorkbench facade on globalThis. The transform patches web.main.js to stash IInstantiationService after workbench.startup() and web.factory.js to expose the IWorkbench facade after workbenchPromise.complete(). Both injections are idempotent, short-circuiting on existing markers.\n\nThis enables Sky-side bridge code to resolve internal VS Code services via __CEL_INSTANTIATION_SERVICE.invokeFunction(), allowing proper integration of extension-contributed UI elements like status bar items and SCM providers without re-implementing parallel UI surfaces.",
+			"SHA": "45b2541a478d94e694610be813fdfd6011787e9b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:36:35Z",
+			"Date": "2026-04-24T01:24:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5213,
 				1
 			],
-			"Message": "refactor(Project): Standardize IPC event channel naming to kebab-case\n\nCoordinate refactoring across Common, Mountain, Sky, and Wind to unify IPC event channel naming:\n- Standardize all sky:// event channels to consistent kebab-case format (status-bar → statusbar)\n- Remove duplicate/forked channels: StatusBarMessage, TreeViewRegister, WebviewPostMessageCamelCase, WebviewSetHTMLCamelCase\n- Add test comparing Rust enum wire strings against TypeScript mirror to prevent future drift\n- Emit TreeViewCreate events after TreeDataProvider registration so renderer wires up data providers\n- Add diagnostics stub methods in Wind/Output for getWorkspaceFileExtensions to prevent language detection crashes\n- Bump dev dependencies: effect (3.21.1 → 3.21.2), @effect/platform (0.96.0 → 0.96.1), @cloudflare/workers-types (4.20260422.1 → 4.20260423.1)\n\nImpact: Extension tree views now render correctly, language detection runs without crashes, and IPC channel naming is consistent across the Rust/TypeScript boundary.",
-			"SHA": "d6e148f1a77a6ab8a7b9ed8effd08007db5ed6a8"
+			"Message": "chore(Project): Update Element submodule with workspace folders, status bar removal, SCM events\n\nSynchronize Element submodule reference from 31cf2b5f to 21ddbb2. This pulls in coordinated changes across Mountain, Sky, and Cocoon:\n\n- **Mountain:** Add `folders` array inline to WorkspaceDTO in InitData so extensions reading `vscode.workspace.workspaceFolders` synchronously (vscode.git, gitlens, typescript) see real folders immediately instead of `[]`. Also add `configuration` field for workspace config path. Enable CWD-autoload by default in debug builds to support git repository scanning.\n\n- **Sky:** Remove custom fallback status bar that was overlaying VS Code's native `.statusbar`. Extension-contributed status bar items now display properly through the native mechanism. Add SCM event bridge handlers that dispatch `cel:scm:*` CustomEvents when Mountain emits `sky://scm/{register,unregister,updateGroup}`.\n\n- **Cocoon:** Submodule pointer update.\n\nImpact: Extensions like vscode.git and gitlens now surface tree-views on cold boot in debug builds. SCM state events properly route to Sky-side consumers.",
+			"SHA": "57037f91c30cb6ae84bcd0ca48ddbeb7a21a1ccb"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:47:53Z",
+			"Date": "2026-04-24T00:10:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
-				1
+				5213,
+				4
 			],
-			"Message": "fix(Project): Coordinate submodule updates for extension host reliability\n\nFour submodule updates improve extension activation and webview compatibility:\n- **Mountain**: Treat view registry commands (<viewId>.focus, .resetViewLocation, .removeView) as silent no-ops to eliminate GitLens error spam. Also preserve VSIX executable bits (0o755) during extraction so extensions with native binaries (codex, language servers) can spawn correctly.\n- **Output**: Add StripWebviewIframeSandbox transform plugin to remove sandbox attribute from VS Code's webview iframe. WKWebView blocks custom protocol loads (vscode-webview://, land://) from sandboxed iframes, breaking extension webview panels.\n- **Echo**: Submodule sync for task scheduler alignment.\n- **Cocoon**: Submodule sync for extension host alignment.\n\nImpact: Extensions with native binaries now activate correctly, extension webview panels load in Tauri, and spurious error logs are eliminated.",
-			"SHA": "ae825d2c75e042f9b65ae397c3ea7e0160b43e7b"
+			"Message": "feat(Project): Add route manifest generation for dual-track RPC routing\n\nAdd GenerateRouteManifest.sh script that scans Mountain Rust handlers, StockLift exports, and Cocoon fallback functions to emit a TypeScript manifest consumed by DualTrack.ts at runtime. The manifest enables smart tier selection for method dispatch - Mountain gRPC for tier-1 methods, StockLift pure functions for tier-2, bespoke Node fallbacks for tier-3 - and identifies tier-4 (unavailable) methods.\n\nIntegrate the script into both Debug and Release build pipelines. Idempotent execution completes in <500ms.\n\nAlso update Element submodule to pull in Mountain reliability improvements (exponential backoff for Cocoon gRPC handshake, child-exit detection, activation-race TOCTOU handling, pre-flight bundle probe), Output configuration cleanup (remove source directory from bundle artifacts), and Sky status bar codicon stripping.",
+			"SHA": "3cf802b2a5ca05e9396aceff75403a929a7e2103"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:29:16Z",
+			"Date": "2026-04-23T22:42:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
-				1
+				5212,
+				4
 			],
-			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, rather than the flat structure the scanner previously expected. This caused all extensions to appear as 'unknown' with empty names/publishers in the sidebar.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures the @builtin/@installed extension split works correctly in the Extensions sidebar.",
-			"SHA": "cf9e5e4553a92c5bb2acc4525ca38669931e5bd5"
+			"Message": "feat(Project): Eliminate startup visual flash and add compiled debug profiles\n\nCoordinate startup sequence improvements across Mountain, Sky, and Wind to eliminate the \"purple/dark flash\" and panel-pop flicker observed on cold boot:\n\n- **Mountain:** Implement hidden-until-ready window pattern using WebviewWindowBuilder.visible(false), reveal only when Sky reports phase 3 (Restored). Add 3s safety timer to force-reveal if Sky crashes before phase 3 (prevents invisible-window lockup).\n- **Sky:** Add missing SkyBridge initialization to Electron Layout to subscribe to cel:* Tauri events (tree-view, SCM, debug, extensions). Previously, panels painted empty on first frame then re-rendered with data.\n- **Wind:** Add PostHogDefines to TargetConfig.ts mapping LAND_POSTHOG_* environment variables to esbuild define directives, completing the hardcoded-key removal work.\n\nAdditionally, add two new debug profiles for single-binary embedded resource testing:\n- `debug-electron-compiled` - Electron workbench with all Sky/Output assets embedded via Tauri's resource table, preserving debug symbols and dev-log tags\n- `debug-mountain-compiled` - Same embedded-resource layout on the lighter Mountain workbench\n\nAlso update turbo.json to declare global dependencies (.env files) and globalEnv variables (LAND_POSTHOG_*, Product*, Tier*, etc.) for proper cache invalidation.\n\nImpact: Eliminates four-repaint startup cascade. All panels now render with data on first paint.",
+			"SHA": "ee6a383737da87d261c60b7d46466ae249c89981"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:21:10Z",
+			"Date": "2026-04-23T21:18:55Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				100,
-				1
+				"⠃⠀⠀⠀⠀",
+				5212,
+				300
 			],
-			"Message": "build(Project): Coordinate extension scanning and file URI handling fixes\n\nThree related fixes improve extension host integration:\n- **Mountain:** Add `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes from URIs before creating PathBuf. Applies to all 8 FileSystem operations (ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, Copy). This fixes redhat.java extension activation failure with \"Resource not found: file:///...\" errors.\n- **Output:** Separate system and user extension scanning in ExtensionScannerIPC. Now calls `extensions:scanSystemExtensions` for ForceBuiltin=true and `extensions:scanUserExtensions` for ForceBuiltin=false. Previously all extensions were hardcoded as builtin, causing user VSIXes to appear under @builtin in the sidebar. Also implements the stubbed `scanUserExtensions()` method.\n- **Cocoon:** Minor submodule sync.\n\nImpact: User-installed extensions now appear under \"Installed\" (not \"Built-in\") and file operations correctly resolve paths from gRPC FileSystem calls.",
-			"SHA": "a672e28212a9effc120c8f7d8074f8043d6cc3a3"
+			"Message": "",
+			"SHA": "9abb5023d636985a9649c66290c1b7b8d27f81d2"
 		}
 	],
-	"TimeStamp": 1780149372299
+	"TimeStamp": 1780236103603
 }

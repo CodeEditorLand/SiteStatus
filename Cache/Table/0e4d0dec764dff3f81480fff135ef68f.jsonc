@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:07:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1191,
+				1
+			],
+			"Message": "refactor(Mountain): Align ApplicationState import with PascalState DTO naming\n\nUpdate the import statement in `ApplicationState` to use the full type path `TestProviderState::Struct` instead of the raw module reference. This aligns with the project's strict PascalCase naming convention where state data structures are explicitly named `...::Struct` (as defined in recent commits for `TestProviderState`).\n\nEnsures the type signature correctly resolves the aggregated state manager for test execution contexts, maintaining consistency with other DTO definitions and preventing potential compiler ambiguity when `ApplicationState` is cloned or accessed across threads.",
+			"SHA": "d61a52c94a249624bbc77eefa14d3a2678ba43ce"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:06:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1191,
+				1
+			],
+			"Message": "fix(Mountain): Correct import path for URI normalization utility\n\nResolve a broken import path in `Source/IPC/WindServiceHandlers/Extensions.rs` where the `Normalize` module was referenced incorrectly. Update the path from `IPC::UriComponents::Normalize` to `IPC::UriComponents::Normalize::Fn` to align with the actual module structure and expose the normalization function required for processing extension URIs.\n\nThis ensures the extension management handlers can correctly resolve URI components during the filtering of installed extensions, preventing potential runtime panics or logic errors when interacting with the `Wind` service layer.",
+			"SHA": "27f727498c52bb68469eda25b9df43e452c463e8"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:06:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1191,
+				3
+			],
+			"Message": "feat(Common): Introduce health monitoring data models and score logic\n\nDefine the core data structures for the editor's health monitoring subsystem within `Source/IPC/Common/HealthStatus`. This commit adds `SeverityLevel::Enum` to classify issue criticality, `HealthIssue::Enum` as a tagged union for specific failure modes (e.g., MemoryPressure, ConnectionLoss), and `HealthMonitor::Struct` to aggregate state.\n\nThe `HealthMonitor` calculates a dynamic `HealthScore` (0-100) based on a deterministic penalty system derived from issue severities (Low: -5, Medium: -15, High: -25, Critical: -40). It provides methods for adding/removing issues, filtering by severity, and determining overall system health status (`IsHealthy`, `IsCritical`). All types derive `Serialize`/`Deserialize` to enable transmission over the gRPC (Vine) and Tauri IPC channels for real-time status propagation to the Wind and Sky layers.\n\nThese models lay the foundation for the backend to expose service liveness metrics to the frontend without blocking the main thread.",
+			"SHA": "23d6eddefce6d663ef87fdd01e468309c773f80d"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-02T09:06:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "feat(Mountain): Define hover command data models and DTOs\n\nIntroduce the foundational data structures for the Hover subsystem within `Source/Command/Hover/Interface`. This commit establishes the contract for LSP-compatible hover requests and responses, adhering to the project's strict PascalCase naming conventions.\n\nThe implementation adds:\n- `Position::Struct`: Zero-based line and character offset.\n- `Range::Struct`: Inclusive range bounded by start/end positions.\n- `HoverRequest::Struct`: Inbound DTO capturing document URI and cursor position.\n- `HoverContent::Enum`: Tagged union for plain text, markdown, and markup with language hints.\n- `HoverResponse::Struct`: Outbound DTO containing an ordered list of content items and an optional range.\n\nAll types derive `Serialize` and `Deserialize` to enable JSON transmission over the Tauri IPC event bus. These models prepare the `Wind` service layer to request and render code documentation overlays without blocking the main thread.",
 			"SHA": "8c97e9610fb18bcb7c930ab071089290d80aab28"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1175,
-				5
-			],
-			"Message": "feat(Mountain): Introduce test provider state and lifecycle data models\n\nEstablish the foundational data structures for the testing subsystem within the `Source/Environment/TestProvider` module. This commit introduces five new types adhering to project PascalCase conventions:\n\n- `TestControllerState::Struct`: Registration record for extension-provided controllers.\n- `TestProviderState::Struct`: Aggregate state managing controller registries and active run maps.\n- `TestRun::Struct`: Active execution context tracking status, timing, and per-test results.\n- `TestResult::Struct`: Per-test outcome including pass/fail status, duration, and failure diagnostics.\n- `TestRunStatus::Enum`: Lifecycle state machine (Queued, Running, Passed, Failed, Skipped, Errored).\n\nThese types utilize `Serialize`/`Deserialize` traits for IPC readiness and are designed to be held behind `tokio::sync::RwLock` in `ApplicationState` for concurrent access during test execution. This lays the groundwork for the `Wind` service layer to manage test discovery, execution, and reporting without blocking the main thread.",
-			"SHA": "8b4bbfdf16647ae11cc85575c822c7f60d75f7a0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:01Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1169,
-				4
-			],
-			"Message": "feat(Mountain): Introduce stub health probe commands for backend services\n\nAdd a new suite of Tauri commands under `Source/Binary/IPC/HealthCommand` to expose readiness states for internal and sidecar services to the Wind frontend. This includes `cocoon_debug_service_health`, `cocoon_extension_host_health`, and `cocoon_search_service_health` for the extension host subsystem, alongside a generic `shared_process_service_health` dispatcher.\n\nThe implementation follows the project's PascalCase naming conventions for command registration while intentionally retaining snake_case function names to align with the `SharedProcessProxy` invoker in the Wind service layer. `cocoon_search_service_health` and `shared_process_service_health` currently return `true` to signal filesystem readiness or known service availability, whereas DAP and extension host probes return `false` as stubs pending the actual gRPC wire-up with Cocoon.\n\nThis establishes the initial IPC interface for service liveness monitoring, allowing the frontend to conditionally enable features based on backend component status without blocking the main thread.",
-			"SHA": "ba9d963cc9fe42079f53c1ca6177d9ad57ae0ca8"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1164,
-				6
-			],
-			"Message": "feat(Mountain): Implement cross-platform process introspection commands\n\nAdd a suite of new Tauri commands within `Binary/IPC/ProcessCommand` to expose essential runtime environment data to the Wind frontend. These commands include `ProcessGetArch`, `ProcessGetPlatform`, `ProcessGetPid`, `ProcessGetExecPath`, `ProcessGetShellEnv`, and `ProcessGetMemoryInfo`.\n\nThe implementation bridges the gap between Rust's native system calls and VS Code's Node-style expectations. `ProcessGetPlatform` normalizes OS names (e.g., mapping `macos` to `darwin`), while `ProcessGetMemoryInfo` executes platform-specific probes (`ps` on macOS, `tasklist` on Windows, `/proc/self/statm` on Linux) to calculate private, shared, and resident set memory in bytes. All commands return results as `Result` types with graceful fallbacks (zeroed values or empty maps) if underlying system queries fail, ensuring the renderer remains stable even during environment anomalies.\n\nThis establishes the foundational IPC layer for the `ProcessPolyfill` service, allowing the editor to correctly identify the host architecture, platform, and resource constraints without relying on external Node.js shims.",
-			"SHA": "e1803d15dcd25dea32c474b7aa749ec60a9954da"
 		}
 	],
-	"TimeStamp": 1780149384833
+	"TimeStamp": 1780236105599
 }

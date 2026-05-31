@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T00:32:49Z",
-			"File": [
-				"⣿⠇⠀⠀⠀",
-				26,
-				7
-			],
-			"Message": "",
-			"SHA": "a8558ed28c71bc51894b56bee1af44742c9a3f54"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:36:42Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				26,
-				2
-			],
-			"Message": "fix(Project): Remove Cocoon file event stubs, normalize Mountain IPC\n\nAdvance Cocoon and Mountain submodules with a coordinated fix and refactor.\n\n**Cocoon file event fix:**\nSix stub file lifecycle event handlers (`onWillCreateFiles`, `onWillDeleteFiles`, `onWillRenameFiles`, `onDidCreateFiles`, `onDidDeleteFiles`, `onDidRenameFiles`) on the Workspace namespace were returning no-op disposables, overriding the real `EventSubscriber` implementations already provided by the `BuildDocumentEventMembers` spread. Extensions subscribing to these events — including GitLens — were silently receiving dead handlers that emitted nothing. Remove the stubs so live events flow through. Mountain now fires `willCreate`/`willDelete`/`willRename` notifications via Vine before VFS mutation.\n\n**Mountain IPC handler normalization (refactor):**\nRename the three Cocoon IPC entry points from descriptive names (`CocoonExtensionHostMessage`, `CocoonNotify`, `CocoonRequest`) to the uniform `Fn` ident, with matching `as` aliases in mod.rs re-exports so downstream callers are unaffected.\n\nAdd four new ExtensionHost IPC handlers also exporting as `Fn`:\n- DebugServiceClose: emits `sky://exthost/debug-close` via Tauri Emitter\n- DebugServiceReload: emits `SkyEvent::ExtHostDebugReload` for cache purging\n- StarterCreate: returns stub extension-host ID (`\"1\"`)\n- StarterStart: returns real Cocoon PID for debugger attachment\n\nAll handler modules now follow a single convention, eliminating naming guesswork when adding new IPC routes.",
-			"SHA": "346e1280854bf61586f46bbbb49171c5b34788fe"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:31:00Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				26,
-				2
-			],
-			"Message": "fix(Project): Fix Cocoon bootstrap stage ordering and cache Mountain extension metadata\n\nAdvance Cocoon and Mountain submodules with a coordinated fix and performance update across the extension host bootstrap and metadata pipeline.\n\n**Cocoon bootstrap stage reordering (fix):**\nThe Stage 3 MountainConnection gRPC probe previously ran ahead of Stage 5 RPCServer in the bootstrap pipeline, causing Mountain's 20-second gRPC retry budget to exhaust on every startup since port 50052 was never bound within the connect window. Swap the execution order in `makeBootstrap` so RPCServer binds first, then MountainConnection connects to a live listener. Reduce retry caps proportionally: TCP probe from 10 to 3 attempts, gRPC connect from 15 to 5 attempts.\n\n**Mountain extension cache (perf):**\nBuilding the serialized `ILocalExtension[]` array on every `extensions:getInstalled` IPC call re-serialized ~1.8 MB of extension metadata, causing multi-hundred-millisecond UI stalls on startup. Add a `OnceLock`-backed static cache keyed by TypeFilter variant (None, System, User). First call per type populates the cache; subsequent calls return a cloned `Value` in <1 ms. Empty responses are not cached to avoid poisoning on first-call timeout.\n\n**Mountain reliability fixes:**\n- `FileCloneNative` now creates the target parent directory via `tokio::fs::create_dir_all` before `fs::copy`, resolving ENOENT failures for VS Code's per-file history directories.\n- CocoonManagement IO forwarders switch from `tokio::spawn` to `tauri::async_runtime::spawn` so forwarder tasks persist while the spawning async task awaits elsewhere. Restructure read loops to handle EOF and read errors explicitly rather than silently dropping the pipe.\n\n**Build (Mountain):**\nAdd `Proto/Vine.proto` to `tauri.conf.json` resource globs so the .proto file is available at runtime from `Contents/Resources/`.\n\nNo runtime behaviour regressions — all changes are bounded by existing gRPC retry and timeout contracts.",
-			"SHA": "392f0aef133c75f34afc19f22fdd5b5a0e6bf719"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:39:33Z",
-			"File": [
-				"⣿⠇⠀⠀⠀",
-				26,
-				7
-			],
-			"Message": "fix(Project): Serve extension webview panels via localhost URL and add Bootstrap Cocoon bundle\n\nAdvance 7 Land/Element submodules in a coordinated update that resolves blank secondary webview panels, adds a self-contained Cocoon bundle for .app deployment, and normalises config formatting across three submodules.\n\n**Webview panel fix (Mountain, Sky):**\nSecondary extension webview panels (settings panel, extension webviews) were blank because Mountain's tauri.conf.json has no frontendDist, so Tauri's asset server could not serve WebviewHost.html via WebviewUrl::App. Mountain now loads panels from the localhost plugin at http://localhost:PORT/Mountain/WebviewHost instead, using a new LocalhostUrl singleton (OnceLock) populated during AppLifecycleSetup and consumed in create_webview_panel_impl.\n\nSky adds WebviewHost.astro as a lightweight HTML shell served at that URL. The page forwards __WEBVIEW_INITIAL_STATE__ to the main window via window.opener.postMessage with a \"webview-host-ready\" event, allowing Sky's bridge layer to resolve pending webview handles. Extension panels now render correctly in their own Tauri WebviewWindow while maintaining IPC with the main editor window.\n\n**Bootstrap Cocoon bundle (Cocoon):**\nAdd Configuration/ESBuild/Config/Bootstrap/Config.ts that inlines all npm dependencies into a single self-contained bundle for deployment at Contents/Resources/Cocoon/Target/Bootstrap/Implementation/Cocoon/Main.js, where no node_modules directory exists. Only Node.js built-ins and vscode/electron stubs remain external. Wire through ESBuild index.ts and prepublishOnly.sh.\n\n**Cleanup and refactoring (Mountain, Air):**\n- Extract Cocoon subprocess env-building and I/O forwarding into BuildCocoonEnvironment and SpawnCocoonIoForwarders named functions (pure refactor).\n- Replace filesystem-based Canonicalize with lexical Normalize for non-existent scan paths.\n- Remove stale HandleSlot accumulator in OutputChannelCoalesce and unused imports.\n- Add stub IPC handlers for browserView:* and extensionHostStarter:waitForExit to prevent caller hangs.\n- Air: Remove unused serde_json::Value import.\n\n**Style normalisation (Output, Wind, Worker):**\n- Output: Hoist __defProp/__name shims above imports to avoid forward-reference hazards; convert from tabs to 2-space; collapse multi-line expressions; strip trailing commas across 100+ compiled artifacts.\n- Wind: Convert ESBuild configs from tabs to 2-space; local-before-external import ordering; multi-line export blocks.\n- Worker: Revert ESBuild configs from tabs back to 2-space; collapse declarations; multi-line named exports.\n\nNo runtime behaviour regressions — all formatting passes produce semantically identical build output.",
-			"SHA": "a27b4a9f37b11618d19f12472792af974bd83a5e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T07:50:19Z",
+			"Date": "2026-05-23T05:34:30Z",
 			"File": [
 				"⣿⠀⠀⠀⠀",
 				26,
 				5
 			],
-			"Message": "feat(Project): Enable .app bundle resource resolution and normalise Element config formatting\n\nAdvance 5 Land/Element submodules in a coordinated update adding Mountain .app bundle resource resolution across the extension cache, Cocoon entry, and Node sidecar paths, alongside formatting normalisation across four submodules.\n\n**Bundle resource resolution (Mountain):**\n- Extension manifest cache now probes both `BinaryDir/extensions.manifest.json` (dev) and `BinaryDir/../Resources/extensions.manifest.json` (bundle layout), skipping the staleness threshold check for bundled caches.\n- CocoonManagement pre-flight falls back to Tauri's `BaseDirectory::Resource` resolver when the repo-layout path does not exist.\n- NodeResolver TryShipped resolves the `node` binary as a Tauri sidecar sibling of the Mountain executable rather than in a `Node/bin/` subdirectory.\n- ScanPathConfigure canonicalises resolved paths for cleaner logs; `IsTrustedSystemPath` adds `../Resources/Static/Application/extensions` to the bundle-root allowlist.\n- Bootstrap-fork Cocoon entry iterates both bundle (2-level) and repo (3-level) URL bases for candidate entry paths.\n- `tauri.conf.json` maps `bootstrap-fork.js`, `extensions.manifest.json`, and the Cocoon binary into `Contents/Resources/`.\n- `LoadFromCache.rs` refactors per-manifest field extraction with local `str()`/`arr()` closures, eliminating repeated `Manifest.get().and_then(Value::as_str)` chains.\n\n**Style normalisation (Cocoon, Output, Wind, Worker):**\n- Cocoon: Restore tab indentation and trailing commas across all config JS files; reorder imports so re-exports precede local imports; flatten Environment Constant.js named exports.\n- Output: Move `__defProp`/`__name` shims below static import statements to avoid forward-reference hazards; add blank line separators between import groups; normalise expression formatting across all 100+ compiled artifacts.\n- Wind: Convert ESBuild configuration modules from 2-space to tab indentation; local-before-external import ordering; inline export blocks.\n- Worker: Convert ESBuild config from 2-space to hard tabs; expand helpers across multiple lines; add trailing commas.\n\nNo runtime behaviour regressions — all formatting passes produce semantically identical build output.",
-			"SHA": "cf11775e5f8c738a139a27a1e891eed033f8542d"
+			"Message": "chore(Project): Sync editor element submodules for SCM protocol alignment and build stability\n\nUpdate all tracked editor element submodules (Cocoon, Common, Maintain, Mountain, Sky) to their latest revisions on the Current branch to resolve Source Control Management (SCM) payload deserialization issues and harden the build pipeline.\n\n**Specific Changes:**\n- **Cocoon:** Fix the `update_scm_group` RPC call payload to use `providerId` and `groupId` instead of non-standard `scmHandle` fields, ensuring alignment with `Vine.proto` definitions.\n- **Common:** Make `ProviderHandle` optional in Source Control DTOs (`SourceControlGroupUpdateDTO`) to support flexible serialization where the handle is passed positionally.\n- **Mountain:** Prevent Tauri build failures by generating a stub `extensions.manifest.json` if missing, and refine the `UpdateScmGroup` logic to emit correct `scmId` events for the Sky frontend. Additionally, extend the extension descriptor cache lifetime to 24 hours to reduce redundant rescans.\n- **Sky:** Integrate new Astro build integrations for baking the extension manifest at compile-time and compressing the bundle with Brotli, reducing runtime overhead and distribution size.\n- **Maintain:** Consolidate lint suppressions in `build.rs` to match the main crate strategy and reduce build noise.\n\nThese changes ensure the SCM group updates function correctly across the Mountain-Cocoon-Sky IPC boundary while optimizing the application startup sequence and build reliability.",
+			"SHA": "19ae8e1a8b650e16de7e0837a317a1915a5a6f8c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T04:26:24Z",
+			"File": [
+				"⣿⡇⠀⠀⠀",
+				26,
+				8
+			],
+			"Message": "chore(Project): Update editor element submodules to consolidate build script lint allowances\n\nSync all tracked editor element submodules (Air, Common, Echo, Grove, Maintain, Mountain, Rest, SideCar) to their latest revisions on the Current branch. The primary focus is the centralization of lint suppression directives (`non_snake_case`, `dead_code`, `unused_*`) into `build.rs` files across Rust-based submodules.\n\nThis follows the recent enforcement of strict PascalCase naming in source modules by moving blanket allowances out of `Source/` directories. The build scripts now handle warnings generated by build-time metadata, external FFI bindings, and auto-generated code, ensuring the main application source remains clean and warning-free. Maintain also aligns its `Library.rs` to suppress `dead_code` at the crate level for stub implementations.\n\nThese changes unify the linting strategy across the backend ecosystem, preventing build noise during refactoring while maintaining the project's strict naming conventions for functional code.",
+			"SHA": "f42c11645c7091e7f4bbfb9d07bfa76c836c62b1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T04:22:04Z",
+			"File": [
+				"⣿⣿⠁⠀⠀",
+				26,
+				11
+			],
+			"Message": "chore(Project): Update editor element submodules with lint standardization and PascalCase enforcement\n\nSync all tracked editor elements (Air, Cocoon, Common, Echo, Grove, Mist, Mountain, Output, Rest, SideCar, Wind) to their latest revisions on the Current branch. The primary focus across Rust-based submodules is the consolidation of lint suppressions and strict enforcement of the project-wide PascalCase naming convention.\n\n**Specific Changes:**\n- **Air, Mountain, SideCar, Rest, Grove, Mist:** Remove blanket `#![allow(dead_code, unused_imports)]` directives from individual modules, migrating necessary exceptions to centralized `Source/Library.rs` files. Mountain specifically strips suppressions from over 200 files and normalizes file headers by removing redundant empty lines after doc comments.\n- **Wind, Cocoon, Output:** Regenerate build artifacts, route manifests, and ESBuild configurations to align with updated gRPC definitions and service handlers.\n- **Common, Echo, Rest:** Update `package.json` dependencies, expand temporary lint allowances for active refactoring, and rename test modules to PascalCase (`tests/Library.rs`).\n- **Grove:** Adopt the Rust 2024 edition and restructure entry points to match the new naming standards.\n\nThese updates unify code styling across the backend ecosystem, eliminate compiler warning noise, and ensure all future contributions adhere to the strict PascalCase and linting policies defined in `CLAUDE.md`.\n\nRefs #CLAUDE.md",
+			"SHA": "4e753cb4eff8e6faf3d5b26bbd05eb3754f143ab"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T03:07:33Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				26,
+				2
+			],
+			"Message": "chore(Project): Update SideCar and Worker submodules to current revision\n\nSync the SideCar (extension host sidecar) and Worker (frontend web worker) submodules to their latest revisions on the Current branch.\n\n**SideCar:** Update from ac3bb57 to b751b77. This merge incorporates recent changes to the extension runtime environment and maintains alignment with the updated gRPC interface definitions in Mountain.\n\n**Worker:** Update from c404059 to 948a811. This pull includes necessary adjustments to the web worker execution context to support the latest Wind service layer events.\n\nThese updates ensure the editor's sidecar processes and background workers remain synchronized with the core application state and recent architectural refinements.",
+			"SHA": "5a906127d4ef6b0f368bd3c3cd0df9d87155f31d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T03:05:41Z",
+			"File": [
+				"⣿⡇⠀⠀⠀",
+				26,
+				8
+			],
+			"Message": "chore(Project): Update editor element submodules to enforce PascalCase naming and consolidate lint configurations\n\nUpdate all tracked editor elements (Air, Common, Echo, Grove, Maintain, Mist, Mountain, SideCar) to their latest revisions. The primary focus is the removal of blanket lint allowances (`non_snake_case`, `non_camel_case_types`, `non_upper_case_globals`) that were masking violations of the project-wide PascalCase naming convention.\n\n**Specific Changes:**\n- **Air, Common, Mountain, SideCar:** Remove broad suppression directives from binary and core modules, enforcing strict casing for functions, variables, and structs.\n- **Mist:** Consolidate lint exceptions into `lib.rs` to reduce visual clutter in individual source files.\n- **Grove:** Re-enable specific `non_snake_case` allowance in `main.rs` to preserve FFI compatibility for transport constants.\n- **Vine (Mountain):** Strip generated lint suppressions from gRPC bindings to ensure generated IPC code adheres to project standards.\n- **Maintain:** Update Rust documentation submodule to Nightly 1.97.0.\n- **Echo:** Sync Rust documentation submodule.\n\nThese changes unify the codebase styling, ensure lints are active for all standard identifiers, and centralize necessary FFI exceptions.",
+			"SHA": "efb7012e152e615c24b14314b53f1e5d825a56be"
 		}
 	],
-	"TimeStamp": 1780149351381
+	"TimeStamp": 1780236089353
 }

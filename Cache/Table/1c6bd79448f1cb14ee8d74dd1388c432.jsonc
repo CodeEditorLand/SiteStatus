@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:12:38Z",
+			"Date": "2026-05-02T00:15:33Z",
+			"File": [
+				"⣿⣿⠀⠀⠀",
+				28,
+				11
+			],
+			"Message": "perf(Element): Coalesce high-frequency IPC emits and restore webview rendering\n\nSynchronize 11 Element submodules to address IPC saturation during extension boot and fix webview initialization failures.\n\nMountain introduces batched emits for Decoration, Progress, and TreeView handlers, grouping high-frequency notifications (e.g., 6000+ git progress updates) into 16ms frames to prevent WKWebView channel starvation. Implement deduplication for filesystem watchers and single-flight directory walks to reduce kernel resource exhaustion. Standardize IPC variable names to PascalCase and fix URI normalization for workspace paths.\n\nSky adds a placeholder registry for webview creation to prevent silent drops of `set-html` calls before the workbench accessor is ready, and optimizes bridge logging to emit only on first resolution. Wind normalizes trailing slashes in workspace folder URIs to ensure correct relative path resolution for breadcrumbs.\n\nOutput restores eager paint overrides and re-enables `isolation: isolate` CSS to fix layout issues, while injecting the missing `IWebviewWorkbenchService` to render extension panels like Roo and Claude. Other submodules (Cocoon, Common, Echo, etc.) sync to include dependency updates (pnpm, wrangler) and maintain consistency.\n\nThese changes restore input responsiveness during heavy extension activation and ensure reliable rendering of complex extension features.",
+			"SHA": "ffb68d18bd2e474842cbbdc8c1ae580b32b0ddcd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T01:32:38Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "refactor(Element): Sync submodules with PascalCase naming convention\n\nSynchronize four Element submodules with PascalCase refactoring:\n- Air: Rename CLI handlers (handle_status → Status, handle_restart → Restart, handle_config → Config, handle_metrics → Metrics, handle_logs → Logs, handle_debug → Debug) and plugin trait methods (handle_message → Message, handle_event → Event)\n- Grove: Rename handle_call → Call in APIBridgeImpl\n- Mountain: Rename IPC handler functions (handle_commands_execute → CommandsExecute, handle_configuration_get → ConfigurationGet, handle_incoming_message →IncomingMessage, etc.)\n\nThese changes align with the project's naming convention specified in CLAUDE.md, removing handle_ prefixes for shorter, consistent method names across the codebase.\n\nAdditionally, Sky adds an event-driven installation path for Wind's LandWorkbench bridge that listens for cel:services-ready, ensuring proper sequencing: services DI container populated → install Wind bridge → notify subscribers.",
+			"SHA": "e86cbf076d24ae8068136ca73697bf3d16e1ce3c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T01:17:53Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "perf(Element): Batch command registration to eliminate IPC saturation during extension boot\n\nSynchronize four Element submodules with coordinated performance fixes addressing keystroke lag during extension boot:\n\n- Mountain (f304bd40): Add CommandEmitBatch to buffer 1000+ registerCommand notifications and flush after 16ms, reducing individual emit storms to single batched IPC round-trip\n- Output (2afe4b46): Revert DisableLazyPaint opt-in gate (regressed editor mount) and remove PartZIndexCSS `isolation: isolate` rule that blocked input events under WKWebView while keeping CSS lazy-paint fix\n- Sky (06fd1942): Accept batched `{ commands: [...] }` format alongside legacy single-command shape via new RegisterOneCommand helper\n- Cocoon: Sync to latest (a877808c)\n\nThese changes prevent 1000+ Tauri events per extension boot from saturating the shared WKWebView IPC channel that also delivers keystrokes, restoring input responsiveness during the most resource-intensive phase.",
+			"SHA": "16654395ae34db87fbc5e301bdc94688e202a995"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T00:36:04Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "feat(Wind): Add WorkbenchActivity and WorkbenchEditor services\n\nAdd two new workbench-tier Effect-TS service layers bridging VS Code's native\nactivity and editor services to Wind's service architecture:\n\nWorkbenchActivityService:\n- Manages activity badges for view containers, views, accounts, and global activity\n- Provides ShowBadge (disposable badge with count/text/priority) and Clear operations\n- Problem ADT: WorkbenchActivityBridgeUnavailable, WorkbenchActivityRefused\n\nWorkbenchEditorService:\n- Bridges VS Code's native editor service for pane management\n- Provides Active (current editor snapshot), Open, CloseActive, and OnActiveChange stream\n- Open accepts resource URI with options for preserveFocus, preview, pinned, columnIndex\n- Problem ADT: WorkbenchEditorBridgeUnavailable, WorkbenchEditorOpenFailed, WorkbenchEditorCloseFailed\n\nBoth services follow the established Wind pattern with BridgeShape (upstream typed interface), Service (abstract contract), Tag (Context.Tag for DI), Problem (ADT for errors), and Live (runtime bridge implementation via globalThis.__CEL_SERVICES_).",
-			"SHA": "6128caf49144c295618b6f88450747a4c4625b9c"
+			"Message": "refactor(Output): Make DisableLazyPaint RAF/IO overrides opt-in\n\nWrap the requestAnimationFrame and IntersectionObserver overrides in a conditional guard. These overrides redirect Monaco's rAF callbacks to the macrotask queue and replace native IntersectionObserver with a fire-on-observe stub that calls getBoundingClientRect() synchronously.\n\nThe problem: both bypass WKWebView's compositor-frame coordination—which also delivers keyboard input. Once Monaco starts rendering (theme load, decorations, cursor blink, minimap, scrollbars), the macrotask queue floods and keystrokes starve, causing the input lag symptom this polyfill was meant to solve.\n\nSolution: make these overrides opt-in via `__LAND_AGGRESSIVE_LAZY_PAINT__ = true` set BEFORE workbench bootstrap. Keep the CSS lazy-paint kill (content-visibility: visible) always applied—it solves the original \"panels invisible until hover/scroll\" WKWebView bug without affecting input latency.\n\nThis complements the recent IPC logging fix (2588fe4) and EditContext polyfill (44e160c) in addressing WKWebView input starvation.",
+			"SHA": "7df7d851b9734f17560e6323145e1544c3962d05"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:10:06Z",
+			"Date": "2026-05-01T00:16:11Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⡿⠀⠀⠀⠀",
 				28,
-				1
+				5
 			],
-			"Message": "feat(Wind): Add codegen emission layer for service schemas and catalog\n\nAdd the code emission layer to Wind's VS Code service codegen pipeline, completing Phase-2 of the system:\n- Codegen.ts: Runnable entry point invoked by prepublishOnly.sh\n- RunCodegen.ts: Orchestrator that walks source tree, extracts decorators, emits schemas\n- EmitServiceSchema.ts: Per-service schema emitter - writes `<Decorator>Upstream.ts` files with typed interface members and source-line back-links\n- EmitServiceCatalog.ts: Catalog emitter - writes ServiceCatalog.ts index of all discovered decorators with metadata\n- index.ts: Public exports for library consumers\n\nThe emission layer takes the ServiceDecoratorRecord extraction results from Phase-1 (added in previous commit) and produces typed TypeScript files under Effect/Generated/ that Wind bridge shapes can import type from. Schema files are idempotent (byte-identical on re-run) with diff-friendly formatting: members sorted by source line, JSDoc preserved verbatim.\n\nRefs: Land/.claude/tauri/Patches/14-StreamingGRPC.md",
-			"SHA": "89d68124f9ca9c3443180c16819d407bc3492d4f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:08:05Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "feat(Element): Sync submodule updates with codegen pipeline and production build config\n\nSynchronize multiple Element submodules to their latest downstream versions:\n\n- Mountain (16bcfef9): Update binary/lib names and Tauri config for production build profile. Rename the Mountain binary and library to include the full production environment profile string (ProductionNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Compile_ElectronProfile_EsbuildCompiler_Mountain) to distinguish this build variant from development builds. Update tauri.conf.json productName and identifier, and add Binary/node to externalBin for production node path.\n\n- Wind (c4fc5b33): Add VS Code service decorator codegen pipeline and global bridge accessor. Add a new regex-based codegen system that walks the VS Code source tree and extracts `createDecorator(...)` sites with interface members: ExtractDecoratorMatch, ExtractInterfaceMembers, IterateServiceDecorators, SourceTreeWalker. Also adds LandWorkbenchGlobal.ts - typed wrapper around globalThis.__CEL_WIND__ exposing CELWind().RunPromise(...) for Sky consumers.\n\n- Cocoon: Submodule pointer update.\n\nThis synchronization delivers the Wind codegen infrastructure for automated bridge shape generation from upstream VS Code source, while configuring Mountain for production build profile separation.",
-			"SHA": "ed7b93f4835433642564a6494d448807fb15e5ff"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:03:36Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "feat(Wind): Add LandWorkbench composition layer and WorkbenchWorkspace service\n\nSynchronize Wind submodule to deliver a new LandWorkbench composition layer merging all previously-added workbench-tier services (WorkbenchClipboard, Command, Dialog, Host, Keybinding, Lifecycle, Notification, Storage, Theme) plus the new WorkbenchWorkspace service into a single Layer for convenient consumption by Sky.\n\nThe WorkbenchWorkspaceService bridges VS Code's native IWorkspaceService, providing Snapshot (workspace id, folders, configuration), Folders (array of workspace folders), FolderForResource (lookup folder by URI), and OnFolderChange (stream of folder add/remove/change events). The Live implementation reads from globalThis.__CEL_SERVICES__.Workspace with proper error handling via WorkbenchWorkspaceProblem ADT.\n\nThe LandWorkbenchLayer uses Layer.mergeAll so a failure in one service doesn't poison others, and LandWorkbenchRuntime provides a lazy singleton ManagedRuntime for efficient per-webview instantiation.\n\nRefs: Land/.claude/tauri/Patches/14-StreamingGRPC.md",
-			"SHA": "f26349980f62934c7db60ff00a21b6f635213175"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:01:50Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				28,
-				6
-			],
-			"Message": "feat(Element): Sync submodule updates delivering Workbench service layers\n\nSynchronize multiple Element submodules to their latest downstream versions:\n- Wind (b91de584): Add WorkbenchClipboard, WorkbenchHost, and WorkbenchKeybinding services. Three new Effect-TS service layers bridging VS Code's native workbench services: WorkbenchClipboardService (read/write text and resources), WorkbenchHostService (reload, restart, close, focus operations), and WorkbenchKeybindingService (keybinding lookup and resolution). Each follows the established Wind pattern with Context.Tag, interface, Live implementation, and Problem ADT.\n- Output, Worker: Submodule pointer updates with internal improvements.\n- Rest, SideCar, Sky: Submodule pointer updates.\n\nThis synchronization delivers the final tier of Wind workbench services, completing the service layer coverage for VS Code integration.",
-			"SHA": "77871c6b08f9673b272bb742f3844946326a5b65"
+			"Message": "perf(Element): Reduce IPC channel saturation to fix keystroke lag during extension boot\n\nSynchronize five Element submodules with performance optimizations addressing input lag caused by IPC channel saturation:\n- Mountain: Gate mountain_sync_status_update and mountain_performance_update events behind LAND_SYNC_STATUS_EMIT and LAND_PERF_EMIT env vars. Add subscriber fast-path to skip lock-and-drain when Subscribers.is_empty().\n- Output: Remove success-case tauri-invoke logging in InvokeMountain and fire-and-forget channel stub logging. Only log drift disposition (uncovered commands).\n- Sky: Remove per-fire _CelDispatchLog traces (now requires __LAND_TRACE_CEL_DISPATCH__=true). Diagnostic bridges for markers-bridge and webview-bridge now only log on pushable=false or hasRegister=false.\n- Wind: Remove success-case tauri-invoke forward (failures still forwarded). Remove fire-and-forget stub logging entirely. Only forward drift disposition case.\n\nThese changes prevent 50-100 log/emits per second during extension boot from saturating Tauri's invoke channel and starving keystroke delivery on the shared WebKit message channel.",
+			"SHA": "2082615be7eab87db7b9a1b0931b9697d916fdb5"
 		}
 	],
-	"TimeStamp": 1780149362036
+	"TimeStamp": 1780236096364
 }

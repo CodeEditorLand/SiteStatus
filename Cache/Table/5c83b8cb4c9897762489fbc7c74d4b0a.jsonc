@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:44:28Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1003,
+				8
+			],
+			"Message": "refactor(Mountain): Decompose Terminal RPC handlers into file-per-struct modules\n\nExtract all gRPC entry points within `Source/RPC/CocoonService/Terminal` into dedicated PascalCase modules to align with the project-wide architectural convention. New modules cover the full terminal lifecycle: `OpenTerminal` (spawning PTY via `TerminalProvider::CreateTerminal`), `CloseTerminal` (disposing via `DisposeTerminal`), `TerminalInput` (forwarding bytes to the master writer), `ResizeTerminal` (emitting dimensions to Sky), and notifications for `AcceptTerminalOpened`, `AcceptTerminalClosed`, `AcceptTerminalProcessData`, and `AcceptTerminalProcessId`.\n\nEach handler implements the `Fn` signature required for Tauri's `generate_handler!` macro and bridges the `Vine` gRPC protocol to the `Sky` UI layer. Notifications are emitted via Tauri events (`sky://terminal/create`, `/exit`, `/data`, `/processId`, `/resize`) using lossy UTF-8 decoding for stream data. This completes the decomposition of the `CocoonService` namespace, ensuring consistent symbol resolution and maintainability across the terminal subsystem.",
+			"SHA": "1a89bda0e090338927fd29676be62533ef50ca16"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:43:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				994,
+				4
+			],
+			"Message": "feat(Mountain): Decompose TreeView RPC handlers into file-per-struct modules\n\nExtract the `TreeView` gRPC entry points within `Source/RPC/CocoonService` into dedicated PascalCase modules (`EnqueueTreeViewEmit`, `GetTreeChildren`, `RegisterTreeViewProvider`, `ViewIdHandle`) to align with the project-wide architectural convention.\n\nThe `EnqueueTreeViewEmit` module implements a static batcher that coalesces 30+ `tree-view/create` events from boot into single 16 ms window payloads, utilizing `AtomicBool` locking and `tokio::spawn` for non-blocking emission to the `Sky` UI layer. `GetTreeChildren` bridges the `Vine` gRPC protocol to the `Cocoon` extension host, performing a 5-second timeout-protected round-trip to `$provideTreeChildren` and returning empty lists on provider registration failures. `RegisterTreeViewProvider` registers tree data providers in `ApplicationState` using a consistent 31-based string hash for handle generation and triggers the batched emit. `ViewIdHandle` centralizes the hash logic for provider lookup.\n\nAll handlers are exposed as `Fn` functions for invocation via `Tauri::generate_handler!`, completing the refactoring of the `CocoonService` RPC namespace.",
+			"SHA": "39923726563a05fc656a7c3766fa7bd4f9232528"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T05:42:40Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				989,
+				16
+			],
+			"Message": "feat(Mountain): Decompose Window RPC handlers into file-per-struct modules\n\nExtract all gRPC entry points within the `Source/RPC/CocoonService/Window` namespace into dedicated PascalCase modules. This completes the architectural refactor initiated in previous commits for Workspace, Command, and Configuration, ensuring the monolithic `mod.rs` no longer contains inline handler logic.\n\nNew modules include handlers for window management (CreateWebviewPanel, DisposeWebviewPanel, SetWebviewHtml), status bar operations (CreateStatusBarItem, SetStatusBarText), and user interface interactions (ShowErrorMessage, ShowInformationMessage, ShowWarningMessage, ShowInputBox, ShowQuickPick, ShowTextDocument). Additional handlers cover progress reporting (ShowProgress, ReportProgress) and webview messaging (OnDidReceiveMessage, PostWebviewMessage).\n\nEach handler implements the `Fn` signature required by Tauri's `generate_handler!` macro and bridges the `Vine` gRPC protocol to the `Sky` UI layer. The implementations utilize the `CommonLibrary` traits (`StatusBarProvider`, `WebviewProvider`, `UserInterfaceProvider`) for state registration and stateful operations. Fallback mechanisms via direct `sky://` Tauri events are preserved for trait failures to prevent state leaks in webview and status bar components.",
+			"SHA": "adfab9f41833191c1652fc00fb0b0d91aa16054d"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-02T05:37:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "refactor(Mountain): Decompose CocoonService RPC handlers into file-per-struct modules\n\nDecompose the monolithic `Source/RPC/CocoonService` modules to align with the project-wide PascalCase file-per-struct convention. Extract the handler logic for every gRPC entry point across Auth, Command, Debug, Extension, FileSystem, Initialization, Output, Provider, SCM, Secret, Task, Terminal, TreeView, Window, and Workspace into dedicated submodules (e.g., `Command/RegisterCommand.rs`, `FileSystem/ReadFile.rs`, `Window/ShowTextDocument.rs`).\n\nEach handler is now exposed as a function within its own module and invoked via the fully qualified path `Module::Function::Fn` in the main `mod.rs` implementation. This mirrors the architectural pattern established in recent `Workspace`, `Echo`, and `Telemetry` refactors. The changes preserve all existing logic, including the TreeView emission batching, SCM state tracking, and webview panel lifecycle management, while ensuring correct symbol resolution for Tauri's `generate_handler!` macro and gRPC wire protocol generation.",
 			"SHA": "ef96dfe524b73c7c862a7a1c74bf8088065d5b35"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:36:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				966,
-				3
-			],
-			"Message": "refactor(Mountain): Extract Command DTOs and service into file-per-struct modules\n\nDecompose the Command RPC module to align with the project-wide PascalCase file-per-struct convention. Create dedicated `Command.rs`, `CommandService.rs`, and `CommandValidation.rs` files within `Source/RPC/Commands`.\n\nThe `Command` struct defines the core DTO for command metadata (id, title, description) and implements `Serialize` and `Deserialize` for Tauri event payloads. `CommandService` establishes a placeholder in-memory registry using `HashMap` to track registered command handlers. `CommandValidation` provides the initial stub for input validation logic.\n\nEach file defines its core type as `Struct` to satisfy Tauri's `generate_handler!` macro symbol resolution requirements, maintaining architectural consistency with recent refactors in Echo, Telemetry, and Configuration modules.",
-			"SHA": "0c75e06733f49b2421aff02e083ac4d8a1f3c70a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:36:16Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				962,
-				3
-			],
-			"Message": "refactor(Mountain): Extract Configuration DTOs and service into file-per-struct modules\n\nDecompose the new Configuration RPC module to align with the project-wide PascalCase file-per-struct convention. Create dedicated `ConfigurationScope.rs`, `ConfigurationService.rs`, and `ConfigurationUpdate.rs` files within `Source/RPC/Configuration`.\n\nThe `ConfigurationScope` enum defines Global, Workspace, and Folder scopes. `ConfigurationUpdate` acts as the DTO carrying key, value, and scope for configuration changes. `ConfigurationService` implements a placeholder in-memory key-value store using `HashMap<String, Value>` with `get` and `set` methods. All files define their core types as `Struct` or `Enum` to satisfy Tauri's `generate_handler!` macro symbol resolution requirements, mirroring the architectural pattern established in recent Echo, Telemetry, Workspace, and Vine refactors.",
-			"SHA": "118c95c7742e8f7cce344f7cb801d3f8d3d245f4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:35:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				958,
-				4
-			],
-			"Message": "refactor(Mountain): Decompose EchoAction RPC module into file-per-struct submodules\n\nDecompose the monolithic `Source/RPC/EchoAction` module to align with the project-wide PascalCase file-per-struct convention. Extract core logic into dedicated `EchoActionServer.rs`, `ExtensionHostRegistry.rs`, `ExtensionRouter.rs`, and `ResolveMethodPriority.rs` files.\n\nThe `Struct` in `EchoActionServer` encapsulates the singleton submission gate and task dispatch logic, coordinating with the `Echo` scheduler and priority lanes. `ExtensionHostRegistry` manages the mapping of extension identifiers to active host processes, while `ExtensionRouter` provides lookup capabilities for routing requests. `ResolveMethodPriority` defines the static mapping logic for assigning Echo priority lanes (High, Normal, Low) based on incoming wire method names.\n\nAll files adhere to the `Struct` and `Fn` naming patterns required by Tauri's `generate_handler!` macro for correct symbol resolution, continuing the architectural consistency established in recent `Workspace`, `Telemetry`, and `Vine` refactors.",
-			"SHA": "74aa2e6a8f907db173a00a6b9f858f81c536b5b3"
 		}
 	],
-	"TimeStamp": 1780149396666
+	"TimeStamp": 1780236109991
 }

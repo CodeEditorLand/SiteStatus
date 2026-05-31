@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:47:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1251,
+				2
+			],
+			"Message": "refactor(Mountain): Modularize IPC health and process command units\n\nRestructure the `Source/Binary/IPC` subsystem to align with CodeEditorLand's distributed architecture and PascalCase naming standards. The monolithic `HealthCommand.rs` and `ProcessCommand.rs` files have been decomposed into flat module trees where each Tauri command resides in its own unit file.\n\nFor `HealthCommand`, extract logic into dedicated modules (`cocoon_extension_host_health`, `shared_process_service_health`, etc.) to serve as thin probes for Wind's `SharedProcessProxy`. For `ProcessCommand`, split the polyfill bridge into individual units (`process_get_exec_path`, `process_get_memory_info`, etc.) to maintain snake_case wire names for Node.js compatibility while enforcing the \"one export per file\" pattern internally.\n\nThis reorganization reduces file complexity, clarifies the boundary between Mountain's Rust backend and Wind's TypeScript frontend, and prepares the IPC layer for finer-grained testing and type safety.",
+			"SHA": "e6c40574156a55c0aea7c472481573328e1b4252"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:46:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1251,
+				1
+			],
+			"Message": "fix(Mountain): Disable app sandbox and enable hardened runtime exemptions\n\nConfigure Entitlements.plist to disable the macOS App Sandbox, which is incompatible with a code editor's requirement to access arbitrary file system locations selected by the user. With sandbox enabled, the editor cannot open folders outside its container, breaking standard workflows like 'Open Recent' and drag-and-drop.\n\nSimultaneously, enable specific Hardened Runtime exemptions required by the embedded Node.js sidecar (Cocoon) and Tauri dependencies:\n- `allow-jit` and `allow-unsigned-executable-memory`: Essential for V8 JIT compilation in the extension host.\n- `allow-dyld-environment-variables`: Required for extension hosts spawning helper binaries with custom linker paths.\n- `disable-library-validation`: Necessary to load unsigned native addons (e.g., sharp, esbuild) bundled via npm.\n- `apple-events`: Permits extensions to invoke external system commands via AppleScript (e.g., 'Reveal in Finder').\n\nThis ensures the binary can be signed and notarized while maintaining full functionality for the editor and its extension ecosystem.",
+			"SHA": "8d0dd90346bc8ae1bea2143c155fd332e5abb547"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:40:48Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1251,
+				2
+			],
+			"Message": "refactor(Mountain): Modularize Environment providers into distributed units\n\nAlign the `Source/Environment` subsystem with CodeEditorLand's distributed architecture and PascalCase naming standards. Previously monolithic files (`TestProvider.rs`, `WebviewProvider.rs`) have been restructured into flat modules where each concept resides in its own unit file.\n\nFor `TestProvider`: Extract `TestControllerState::Struct`, `TestRunStatus::Enum`, `TestResult::Struct`, `TestRun::Struct`, and `TestProviderState::Struct` into dedicated files (`TestControllerState`, `TestRunStatus`, etc.). Refactor the `TestController` trait implementation to use these new types (e.g., `TestRunStatus::Enum::Passed`) and simplify the parent file to handle only logic dispatch.\n\nFor `WebviewProvider`: Extract `WebviewLifecycleState::Enum` and `WebviewMessage::Struct` into `WebviewLifecycleState` and `WebviewMessage` modules. Move implementation details for `Lifecycle`, `Configuration`, and `Messaging` into private submodules accessed via `#[path]` directives, exposing only the necessary DTOs and the main `impl` block in the root file.\n\nThis reorganization reduces file size, enforces the \"one export per file\" pattern, and prepares the environment layer for finer-grained IPC integration and type safety.\n\nRefs #Telemetry",
+			"SHA": "4cd523aea02e5f592326b6412600b2645691656c"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-02T09:40:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "feat(Mountain): Expand extension root discovery and modularize telemetry/hover units\n\nExtend the LocalhostPlugin to resolve built-in extensions from multiple distribution paths (`Contents/Resources/extensions`, `Contents/Resources/app/extensions`) and the development monorepo layout. This ensures icon stylesheets for the 93 bundled extensions render correctly in packaged `.app` builds and prevents empty boxes in the extension view.\n\nApply the established distributed architecture pattern to the PostHog analytics and Hover command subsystems. Refactor `PostHogPlugin` and `Command/Hover` into distinct unit files (e.g., `Initialize::Fn`, `Position::Struct`, `HoverContent::Enum`), enforcing PascalCase naming and separating DTO definitions from logic. This aligns with recent telemetry refactors and prepares the codebase for stricter IPC type safety.\n\nImpact: Fixes extension icon rendering in production builds and standardizes the module structure for observability and LSP features.",
 			"SHA": "0bb57d42016d8ab3ea6bc79312fdbcb8681e2657"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:30:57Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1251,
-				13
-			],
-			"Message": "refactor(Mountain): Modularize telemetry gate subsystem into distinct units\n\nRestructure the `Source/Telemetry/Gates` module to align with CodeEditorLand's PascalCase naming conventions and the established distributed architecture pattern.\n\nKey modifications include:\n- Extract compile-time predicates (`IsDebugBuild`, `IsDevelopmentBuild`, `IsTelemetryEnabled`, `IsMetricsEnabled`, `IsDistributedTracingEnabled`, `IsFeatureFlagsEnabled`) into dedicated `Fn` unit files using `cfg!` macros.\n- Isolate runtime gate management (`RuntimeGates`, `GetRuntimeGates`, `RuntimeGateEnabled`, `ListEnabledGates`, `ValidateRequiredGates`) into separate units sharing a private `GATES` singleton.\n- Convert `EnableRuntimeGate` into a no-op `Fn` shim with documentation noting the required migration from `OnceLock<HashSet>` to `RwLock` for mutable state.\n- Update `mod.rs` to export the new flat structure, removing the previous monolithic implementation.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the gate system for runtime configuration injection and IPC integration.\n\nRefs #Telemetry",
-			"SHA": "2a691e34b07b06fa7cc73d6c99d68b16635230a0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:30:11Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1239,
-				6
-			],
-			"Message": "refactor(Mountain): Modularize tracing subsystem into distinct utility units\n\nRestructure the `Source/Telemetry/Tracing` module to align with CodeEditorLand's PascalCase naming conventions and modular design principles. Replace the previous monolithic implementation with a distributed architecture where each concept resides in its own file.\n\nKey modifications include:\n- Extract `CreateSpan::Fn`, `InitializeTracing::Fn`, `InstrumentRPC::Fn`, `InstrumentCommand::Fn`, and `MeasureTime` macro into dedicated unit files.\n- Enforce feature-gated compilation so the `Telemetry` flag completely toggles the system on/off with zero overhead in release builds.\n- Standardize function names to `Fn` and maintain strict separation between span creation, RPC wrapping, command instrumentation, and inline timing macros.\n- Update `mod.rs` to export the new structure and simplify the public API surface.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the observability layer for future integration into the IPC hot paths and binary entry point.\n\nRefs #Telemetry",
-			"SHA": "ceb085c32354e6cfeb53302f933fe3d527606057"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:26:08Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1234,
-				10
-			],
-			"Message": "feat(Mountain): Refactor metrics subsystem into modular singleton architecture\n\nRestructure the `Source/Telemetry/Metrics` module to align with CodeEditorLand's PascalCase naming conventions and modular design principles. Replace the previous single-file implementation with a distributed architecture where each concept resides in its own file.\n\nKey modifications include:\n- Extract `Metric::Struct` and `MetricValue::Enum` into dedicated type definitions.\n- Isolate the `MetricsRegistry::Struct` (bounded ring buffer) and `GlobalRegistry::REGISTRY` singleton into separate units.\n- Introduce `Timer::Struct` for RAII-style histogram recording with label support.\n- Create convenience accessors `RecordCounter::Fn`, `RecordGauge::Fn`, and `GetAllMetrics::Fn` that operate against the global singleton.\n- Update `mod.rs` to export the new structure and add `Initialize::Fn` for feature-gated bootstrapping.\n\nThis reorganization ensures strict adherence to the project's naming standards (e.g., `Fn`, `Struct`, `REGISTRY`) and prepares the telemetry layer for future integration with the IPC fast paths and binary main entry point.",
-			"SHA": "adbf0e3f64efb9475766d21b6c343e9f24a608d2"
 		}
 	],
-	"TimeStamp": 1780149382476
+	"TimeStamp": 1780236104592
 }

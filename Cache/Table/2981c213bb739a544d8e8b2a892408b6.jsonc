@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T15:49:11Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				26,
-				1
-			],
-			"Message": "refactor(Mountain): Expand parameter extraction utilities for IPC dispatch\n\nExtend the `Utilities::Params` module with typed helpers (`i64_at`, `u64_at_or`, `obj_str`, `obj_val`, etc.) to handle both positional arrays and JSON object payloads without inline boilerplate. Introduce `obj_*` variants specifically for named-key extraction used by UI service providers.\n\nApply these new utilities across the `CreateEffectForRequest` tree (Debug, LanguageFeatures, SCM, Secrets, StatusBar, Terminal, TreeView, UserInterface, Webview) to replace verbose `get().and_then().unwrap_or()` chains. This unifies parameter parsing logic, reduces code duplication, and ensures consistent default handling for handles, strings, numbers, and boolean flags across all IPC request handlers.",
-			"SHA": "c3502e8e72ddeeae430be9c7966678f2a26dc22f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T15:42:48Z",
+			"Date": "2026-05-25T08:35:21Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				26,
 				2
 			],
-			"Message": "chore(Project): Sync Cocoon and Mountain submodules for build refresh and IPC standardization\n\nUpdate the Cocoon and Mountain element submodules to align with recent refactorings in the native backend IPC layer and extension host build pipeline.\n\n**Cocoon:** Regenerate all ESBuild output artifacts in `Target/` and update `Source/Generated/RouteManifest.ts` with the current compilation timestamp. This ensures the extension host bootstrap and RPC method handlers are synchronized with the latest source state following upstream service layer changes.\n\n**Mountain:** Refactor `WindowUI` and `Workspace` IPC handlers to utilize new centralized utility functions (`array_unwrap`, `uri_from_params`, `ensure_array`) from the `Utilities::Params` module. Replace inline conditional logic for unwrapping JSON arrays and normalizing URI parameters, eliminating duplicated type checks and ensuring consistent argument normalization across Tauri event handlers.\n\n**Impact:** These changes maintain binary artifact consistency for the extension host and further reduce boilerplate in the native backend dispatch layer, reinforcing the project's Effect-based architectural principles.",
-			"SHA": "b20c14839d0ecbd28de8cff661e8e3e99ec8e054"
+			"Message": "feat(Land): Advance Element submodules — hierarchy prepare routing and config notifications\n\nAdvance Cocoon and Mountain submodules to fix language provider method dispatch and extend IPC notification coverage for the extension host.\n\nCocoon extends its GRPCServerService method router to match `$prepareCallHierarchyItems`, `$prepareTypeHierarchyItems`, and similar `$prepare*` language feature invocations alongside the existing `$provide*` and `$resolve*` patterns. Previously, the regex gate would drop prepare-method requests before they reached InvokeLanguageProvider, causing call and type hierarchy features to silently fail in the extension host.\n\nMountain forwards configuration update events to Cocoon through a fire-and-forget Vine notification, enabling `vscode.workspace.onDidChangeConfiguration` to fire for extensions like rust-analyzer, ESLint, and Prettier that react to workspace config changes. The changed key is included in the payload so Cocoon can scope the change event; a Vine send failure must not propagate back and fail the caller's awaiting IPC response.\n\nBoth hierarchy intelligence and config-change reactivity now function correctly across the Mountain ↔ Cocoon gRPC boundary.",
+			"SHA": "4dd20438695e32f57af2b5d894c2c03a18bb085c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T15:34:46Z",
+			"Date": "2026-05-25T08:29:53Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				26,
+				4
+			],
+			"Message": "feat(Land): Advance Element submodules — terminal shell integration chain plus eliminate tooling fixes\n\nAdvance Cocoon, Sky, Mountain, and Maintain submodules to their latest revisions.\n\nCocoon implements `$acceptTerminalShellIntegrationActivated` and `$acceptTerminalCwdChange` notification handlers from Sky Bridge, setting a minimal `shellIntegration` stub on matching terminals and parsing OSC 633 `P;cwd=` sequences into URI-like objects so extensions can read `shellIntegration.cwd.fsPath`.\n\nMountain exposes the backend half of the same feature: `setShellIntegrationActive` and `setCwd` gRPC notifications that persist the shell's working directory in ApplicationState. It also adds process introspection IPC handlers (getPlatform, getArch, getPid, getExecPath, getMemoryInfo, getCpuInfo) for Wind's shared-process diagnostics, differentiates ENOENT as NotFound across FileRead/Readdir/Stat, and fixes the language configuration Tauri event emission to forward the full params object (language + rules) instead of only the language string.\n\nSky parses VS Code shell integration OSC 633 sequences from terminal output in its bridge layer, forwarding them to Mountain via MountainIPCInvoke so the Cocoon → Mountain → Sky chain completes for `terminal.shellIntegration.cwd` and activation detection.\n\nMaintain accumulates multiple fixes and merges across the eliminate tool: span-based text patching that preserves inline comments, blank lines, and original indentation (replacing the prettyplease full-reprint path); a new --reformat CLI flag to opt into the old behaviour; loop-body inlining safety that prevents initialiser expressions from being moved inside for/while/loop bodies (changing evaluation semantics); and free-variable-move-safety checks that skip inlining when a binding's Init references variables moved before the substitution site.",
+			"SHA": "42c424dbf2278960aa68a23d0080a52db1d8318f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T08:29:21Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
 				26,
 				1
 			],
-			"Message": "chore(Mountain): Update submodule to fix macro formatting\n\nUpdate the Mountain submodule from 56cd4ccb to 5366ce11 to remove a trailing blank line following the `forward_to_cocoon!` macro definition in `WindServiceHandlers/mod.rs`.\n\nThis minor style adjustment ensures consistent formatting within the IPC dispatch module following recent refactorings that localized dispatch macros.",
-			"SHA": "07cf20257ccdf05290dfe6b8e692f57cdc13da9b"
+			"Message": "fix(Maintain): Skip inlining when free vars in Init are moved before substitution site\n\nAdvance the Maintain submodule to include the fix for premature inlining of bindings whose Init expression references free variables that are later moved before the substitution site. This E0382 regression occurred when a binding like `let display = var.clone()` passed all safety checks (count=1, not in closure, not oversized) but was inlined after `var` was moved into a struct field, placing the clone after the move.\n\nThe new `IsFreeVarSafe` function in Safe.rs collects plain-identifier free variables from Init, then scans intervening statements for by-value uses (function arguments, struct field shorthands, assignments) of those variables. Candidates with moved free vars are skipped. The check is conservative — it only inspects Expr::Path single-segment identifiers — guaranteeing no false negatives that produce compile errors, at the cost of possible false positives that keep suboptimal bindings live.\n\nA regression test in Inline.rs covers the exact get_file_info / get_configuration pattern from Mountain's AirClient sidecar.",
+			"SHA": "05b68391922170f5b7b40b214d82456466f38f6b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T15:34:04Z",
+			"Date": "2026-05-25T07:31:20Z",
 			"File": [
-				"⣿⠁⠀⠀⠀",
+				"⣿⣿⠃⠀⠀",
 				26,
-				6
+				12
 			],
-			"Message": "chore(Project): Sync all element submodules to latest functional and build revisions\n\nUpdate all primary Land element submodules to align with recent architectural refactors and build pipeline updates:\n\n**Mountain:** Localize the `call!` macro within the IPC dispatcher to enforce closure hygiene and strict scope. Enhance the `proxy_cocoon` utility for error mapping and implement immediate `$acceptModelSaved` notifications to the Cocoon extension host upon UI-initiated Sky saves, ensuring `onDidSaveTextDocument` triggers correctly.\n\n**Wind:** Refresh the codegen pipeline to synchronize TypeScript service contracts with upstream VS Code changes, adding `browser.chatActionsSubmenu` and updating the `CommandCatalog` to 551 entries. Enable project references in `tsconfig.json` for incremental builds.\n\n**Output:** Expand `browserViewGroup` IPC stubs to include `updateKeybindings`, `openDevTools`, and other UI channels, aligning the compiled artifact with Sky component requirements.\n\n**Cocoon & Rest:** Regenerate build artifacts and update the bundled Rust/OXC binary to incorporate recent linting changes and ensure strict PascalCase compliance.\n\n**Impact:** These synchronizations ensure the IPC contract, build artifacts, and extension host visibility are consistent across the native backend, UI services, and extension runtime layers.",
-			"SHA": "40a70b79c723df34e700eec756ae55c6aab86534"
+			"Message": "",
+			"SHA": "aae97430dbdae1246cc2860383cb84e958faa101"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T11:13:15Z",
+			"Date": "2026-05-25T06:51:32Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
 				26,
 				1
 			],
-			"Message": "chore(Mountain): Sync submodule to centralize Cocoon IPC and URI sanitization\n\nUpdate the Mountain submodule to revision a430e1c4 to continue the standardization of the native backend IPC layer.\n\n**Key Changes:**\n- Introduce the `proxy_cocoon` helper in `Utilities::Proxy` to replace verbose inline `SendRequestToSideCar` logic in `CustomEditorProvider`, `StatusBarProvider`, `TestProvider`, `Authentication`, `Task`, and `FileSystem` handlers. This abstracts `ApplicationRunTime` retrieval and method string construction.\n- Consolidate URI sanitization by extracting `StripFileUriScheme` into `Utilities::Params` as `strip_file_uri`. Apply this to all `FileSystem` operations (ReadFile, WriteFile, Stat, etc.) to normalize `file://` URI variants consistently.\n\nThese changes reduce boilerplate in the extension host communication layer and ensure robust, unified path handling across the IPC surface.",
-			"SHA": "6b92b99db0ac3e58b59bba147bba049ec482773e"
+			"Message": "chore(Rest): Update dependabot action to v1.3.0\n\nBumps ad-m/github-push-action from 1.1.0 to 1.3.0 in Rest workflow.\n\nThis updates the GitHub Actions version used for dependency management automation.",
+			"SHA": "5c5967dfdb4df8554b4e255008bb3ccc7909779f"
 		}
 	],
-	"TimeStamp": 1780149348485
+	"TimeStamp": 1780236087329
 }

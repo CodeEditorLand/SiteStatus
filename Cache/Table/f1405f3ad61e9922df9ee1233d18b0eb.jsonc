@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T15:11:53Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				26,
-				4
-			],
-			"Message": "refactor(Land): Advance submodules — Output build-time drag selectors, Wind codegen, Cocoon rebuild, Mountain dep bump\n\nAdvance four Element submodules with a build-time refactor in Output, daily codegen regeneration in Wind, a compiled-output rebuild in Cocoon, and a CI dependency bump in Mountain.\n\nOutput reworks InjectTauriDragRegion from a runtime stylesheet walker to a build-time CSS source scanner. Since WebKit drops the Chromium-only `-webkit-app-region` declaration at parse time, runtime CSSStyleRule inspection returns empty strings under WKWebView. The new approach extracts drag/no-drag selectors via regex from VS Code's CSS source files on disk at build time and bakes them into the workbench bundle as `globalThis.__LAND_DRAG_SELECTORS__` / `__LAND_NO_DRAG_SELECTORS__` arrays. The runtime polyfill switches from walking stylesheets to iterating these pre-collected lists with querySelectorAll, with an early bail when both arrays are empty. Companion changes: remove the left: 80px drag-region CSS inset from MacTitlebarOffsetCSS (the HTML attribute polyfill handles Tauri hit-testing), add padding-right: 0 assertion to prevent right-edge titlebar drift, improve the triple-signal fullscreen detector, and gate InjectPartZIndexCSS behind DisableUIFixes.\n\nWind regenerates all generated artifacts after upstream VS Code source corrections — CommandCatalog drops from 551 to 550 entries, ServiceCatalog grows from 500 to 502 (adding IChatViewFactory and ISessionsPartService), ISessionsManagementService gains a setActive method, and four per-service upstream files have corrected source line references.\n\nCocoon rebuilds Target/ artifacts after RouteManifest regeneration. Mountain bumps ad-m/github-push-action from 1.1.0 to 1.3.0 via Dependabot.",
-			"SHA": "0f281e4508bba88675bb19ea30c7f5ff353fa3ca"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T14:18:27Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				26,
-				1
-			],
-			"Message": "refactor(Output): Replace hardcoded drag selectors with stylesheet-driven extraction\n\nThe InjectTauriDragRegion polyfill previously maintained a brittle hardcoded list of titlebar drag and no-drag CSS selectors that required manual updates whenever VS Code upstream changed its titlebar or sidebar markup.\n\nReplace the selector list with a runtime stylesheet walker that discovers which elements VS Code already declares as `-webkit-app-region: drag` / `no-drag` in its CSS rules and stamps the equivalent `data-tauri-drag-region` attribute dynamically. The walker recurses into CSSMediaRule and CSSSupportsRule containers so OS-scoped and feature-gated rules are picked up automatically. Selectors are cached after the first full pass and reused across MutationObserver callbacks; a second collection runs on `window.onload` to cover lazy-loaded extension stylesheets. Cross-origin sheets that throw on `cssRules` access are skipped defensively, and selectors that fail `querySelectorAll` (e.g. `:has()` / `:where()` on older WebKit builds) are caught per-selector without aborting the pass.\n\nThis eliminates the need to manually update the polyfill whenever VS Code upstream changes its drag-region markup — the polyfill now reflects whatever the stylesheets declare.",
-			"SHA": "d223e6fdba417a840b75561804779492dcb3ca8a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T14:04:35Z",
-			"File": [
-				"⡏⠀⠀⠀⠀",
-				26,
-				3
-			],
-			"Message": "feat(Land): Advance submodules — Mountain refactor, Output polyfills, Wind regeneration\n\nAdvance Mountain, Output, and Wind Element submodules with architectural cleanup, editor UI polyfills, and daily codegen regeneration.\n\nMountain reverts the binary, library, and package names from the verbose encoded build-configuration string back to the canonical \"Mountain\", reducing developer friction in local tooling and debugging. Tauri resource entries are reordered for consistency, the missing shell-integration/zsh.zsh resource is added, and the identifier is restored to fiddee.editor.binary. Stale .Backup artifacts from the encoding revert are removed.\n\nOutput introduces two Tauri 2 editor UI polyfills. InjectTauriDragRegion stamps data-tauri-drag-region attributes on titlebar elements (with data-tauri-drag-region=\"false\" on interactive children) so native window-drag hit-testing works with the overlay-titlebar configuration, with a MutationObserver for late-mounted regions. The MacTitlebarOffsetCSS polyfill is extended with a triple-signal fullscreen detector (HTML5 fullscreen API, display-mode media query, dimension heuristic) that toggles body.land-fullscreen to reclaim 80px left padding when macOS native fullscreen hides the traffic-light cluster, with explicit padding-right: 0 assertion. InjectPartZIndexCSS is gated behind DisableUIFixes to prevent menubar and dropdown clipping under specific configurations.\n\nWind regenerates the full set of generated artifacts — CommandCatalog (551 entries), ServiceCatalog (500 entries), per-service Upstream interfaces for ~500 services extracted from the VS Code source tree, and 16 bridge shapes (Activity, Clipboard, Command, ContextKey, Dialog, Editor, Extension, Host, Keybinding, Lifecycle, Notification, Product, Progress, Settings, Storage, Workspace) — all carrying the DO NOT EDIT BY HAND header.",
-			"SHA": "e966e663b4509584f9ee265f86de4301e0ffd4e7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T13:15:43Z",
-			"File": [
-				"⡏⠀⠀⠀⠀",
-				26,
-				3
-			],
-			"Message": "chore(Land): Advance Cocoon, Mountain, and Wind submodules — build config, resource bundle, and stale artifact cleanup\n\nAdvance three Element submodules with build-system and housekeeping changes across the editor stack.\n\nCocoon: Rebuild Target/ JS bundles and source maps after RouteManifest regeneration. No new RPC methods — Mountain method count remains at 140. Ensures bootstrap, service, handler, and gRPC artifacts are consistent with the current RouteManifest.\n\nMountain: Encode the full build configuration string (DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler) in the binary, library, package, and product name for unambiguous artifact provenance in debugging and CI. Add the missing Sky Target resource entries (Browser, BrowserProxy, Bundled, Electron, Favicon, Isolation, Manifest.json, Mountain) to tauri.conf.json so Tauri bundles the complete Sky build output — previously the app bundle could ship without all editor UI resources, causing runtime load failures. Also update the app identifier to the expanded canonical form matching the product name.\n\nWind: Delete stale generated TypeScript artifacts under Source/Effect/ — CommandCatalog, ServiceCatalog, all IAsteriskUpstream service interface definitions, and 16 bridge shape implementations that were superseded by the previous daily regeneration cycle. No functional changes: removes only generated files with no hand-authored code.",
-			"SHA": "c3abe5adcf3a2a75d84f2ba5bc4e56b1f9af0fb3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T13:05:54Z",
+			"Date": "2026-05-28T14:08:42Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
-				26,
+				27,
 				2
 			],
-			"Message": "chore(Land): Advance Cocoon and Common submodules — rebuild and doc fix\n\nAdvance Cocoon to include a rebuild of Target/ JS bundles, source maps, and RouteManifest timestamp with no new RPC methods — Mountain method count remains at 140.\n\nAdvance Common to correct the inline completion provider doc comment, clarifying that `ProvideInlineCompletionItems` serves any extension via the provider registry pattern (not exclusively AI assistants), improving trait documentation accuracy for Mountain and Wind implementors.\n\nBoth are non-functional changes: rebuilt artifacts and documentation correction.",
-			"SHA": "4cdcf1ee739db779dfc1c0bf0c900c843284a87e"
+			"Message": "chore(Land): Advance Mountain and Vine submodules — Finalize notification delegation to canonical Vine crate\n\n**Mountain** (refactor): Replace the local `super::Notification::*` dispatch with direct calls to `::Vine::Server::Notification::*`, completing the extraction of Cocoon→Mountain IPC logic. All 46+ notification handlers are now thin pass-throughs delegating to the shared Vine library. The `MountainVinegRPCService` is reduced to a pure routing table, with only Mountain-specific utilities (`Support`, `OutputChannelCoalesce`, `TerminalEnvCollection`) retained locally.\n\n**Vine** (refactor): Inline trivial provider unregistration atoms (`UnregisterFileSystemProvider`, `UnregisterUriHandler`) that performed single-step delegation to `UnregisterByHandle`. Retain `UnregisterScmProvider` which contains DJB-31 handle recomputation logic and Sky event relay. Consolidate the unregistration surface to expose only atoms with multi-step orchestration needs.\n\nImpact: Mountain is now a pure composition layer with all Cocoon→Mountain IPC contracts defined canonically in Vine. The provider unregistration pathway is fully symmetrical, and redundant wrapper modules have been eliminated.",
+			"SHA": "b08029a42927a463950a743a5ff00ac20245760d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T14:03:20Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				27,
+				3
+			],
+			"Message": "chore(Land): Advance Cache, Mountain, and Vine submodules — Notification delegation completion and provider lifecycle symmetry\n\n**Cache** (docs): Reformat documentation comments in Library.rs to improve readability in source viewers and documentation generators.\n\n**Mountain** (refactor): Complete the systematic decomposition of the gRPC notification surface by delegating all remaining handlers to the Vine crate. Convert `CocoonService` and `MountainService` trait imports to use canonical definitions from `::Vine::Generated`, eliminating local re-exports. The server-side notification modules (`UpdateScmGroup`, `WebviewLifecycle`, `RelayToSky`, provider unregistration) are now thin shims forwarding to `Vine::Server::Notification`. The client-side `Shared` module and stub implementations are reduced to empty pass-throughs, with active code paths using `::Vine::Client::*` directly.\n\n**Vine** (feat): Implement the symmetrical provider unregistration surface — `UnregisterRemoteAuthorityResolver`, `UnregisterScmProvider`, `UnregisterTaskProvider`, and `UnregisterUriHandler` — all integrating with the central `UnregisterByHandle` utility. Add `WebviewLifecycle` notification to canonicalize Cocoon's positional arrays into named-key objects before emitting to Sky renderer channels. Implement `UpdateScmGroup` notification with SCM marker persistence via `VineHost::UpdateScmGroupMarkers` for boot-time replay. Enhance `UnregisterFileSystemProvider` with scheme logging for diagnostic observability.\n\nImpact: Mountain is now a pure composition layer with all Cocoon→Mountain IPC delegated to the shared Vine crate. The provider lifecycle is fully symmetrical with clean disposal pathways, and SCM/webview state persists across page reloads.",
+			"SHA": "536326f228c847b9574e31f0f72513ba5cf4e984"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T13:53:39Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				27,
+				2
+			],
+			"Message": "chore(Land): Advance Grove and Vine submodules — Transport reformat and Terminal/SCM/Provider registration\n\n**Grove** (style): Reformat the `connect`, `send`, and `close` method chains in `Source/Transport/Strategy.rs` across all transport variants (gRPC, IPC, WASM, WebSocket). Split `.await` and `.map_err` calls onto separate lines to align with organization formatting standards and improve error-handling clarity.\n\n**Vine** (feat): Expand the `VineHost` trait surface to support native terminal management, SCM provider registration, and normalized language provider dispatch. Implements `TerminalLifecycle` and `WindowCreateTerminal` handlers to bridge Cocoon PTY requests with the native provider and xterm renderer. Adds `RegisterScmProvider` and `RegisterScmResourceGroup` logic to reconstruct URLs from `UriComponents` and manage sequential handles. Introduces a centralized `RegisterLanguageProvider` dispatcher that normalizes 46+ wire method names to standard `TypeName` identifiers before delegating to the embedder registry.\n\nImpact: Extension-driven terminal sessions, SCM viewlet integration, and full VS Code language intelligence features are now supported via the gRPC notification surface.",
+			"SHA": "079fec72572b9f69076639dd5be36a63d4619761"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T13:23:19Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				27,
+				2
+			],
+			"Message": "chore(Land): Advance submodules — Air style and Grove WebSocket transport\n\nAdvance the Air and Grove Element submodules to implement a high-frequency WebSocket transport layer and normalize service-layer code style.\n\n**Grove** (`feat`): Implement the `MistTransport` strategy to support JSON-RPC over WebSockets via the Mist protocol. This adds the `websocket` feature gate, extends `TransportType` enums, and provides a low-latency alternative to gRPC for extension host ↔ Mountain communication.\n\n**Air** (`style`): Collapse multi-line function signatures and import declarations within the `AirServiceProvider`. This purely cosmetic refactor reduces vertical fragmentation without altering the gRPC client's functional logic.",
+			"SHA": "8f25290a957c0c906ed3eb858c1440fc14e42fc6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T13:14:30Z",
+			"File": [
+				"⣿⣿⠃⠀⠀",
+				27,
+				12
+			],
+			"Message": "chore(Land): Advance submodules — Decouple Mountain via Air, Vine, and Cache delegation\n\nAdvance 11 Element submodules to modularize the Mountain backend and finalize the gRPC communication surface for the Air daemon and Cocoon extension host.\n\nMountain (refactor): Systematically delegate gRPC client logic, Cocoon notification handlers, and caching mechanisms to the dedicated Air, Vine, and Cache crates. Replace local implementations for AssetMemoryMap, PathCanon, and Vine connectivity with thin compatibility shims, significantly reducing Mountain's internal code surface.\n\nAir (feat): Implement 14 domain methods in the AirClient (ApplyUpdate, Authenticate, etc.) and introduce the AirServiceProvider façade. This provides a high-level, thread-safe gRPC orchestration layer with automated RequestID generation and ergonomic response normalization.\n\nVine (feat + refactor): Implement a comprehensive suite of Cocoon notification handlers featuring a \"channel-drain\" coalescing pattern. High-frequency events like ProgressReport and SetTextEditorDecorations are now batched within 16-50ms temporal windows to preserve Sky renderer performance under heavy extension load.\n\nCache (feat): Add the Cache element as a standalone submodule to centralize asset mapping and path canonicalization logic previously housed within Mountain.\n\nOutput (fix): Refactor window management commands to use the typed Tauri 2 window API, ensuring native drag and maximize operations work reliably in the Sky renderer.\n\nOther: Advance pointers for Cocoon (RouteManifest), SideCar (lint suppressions), and routine dependency bumps for Common, Echo, and Sky.",
+			"SHA": "711d768c81882601b714ba177b8030f0ab8f98a8"
 		}
 	],
-	"TimeStamp": 1780149346616
+	"TimeStamp": 1780236085619
 }
