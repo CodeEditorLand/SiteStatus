@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:49:01Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1251,
+				2
+			],
+			"Message": "refactor(Mountain): Modularize keybinding and language feature command surfaces\n\nAlign the `Source/Command` subsystem with the distributed architecture's 'one export per file' pattern. The monolithic `Keybinding.rs` and `LanguageFeature.rs` files have been decomposed into flat module trees where each Tauri command resides in its own unit file.\n\nFor `Keybinding`, extract the five wire-bound commands (`GetResolvedKeybinding`, `GetUserKeybindings`, etc.) into dedicated modules, converting the root file into a manifest of public modules. For `LanguageFeature`, split the polyfill bridge and six IPC commands (`MountainProvideHover`, `MountainProvideCodeActions`, etc.) into individual units, exposing the `#[command]` shells while keeping implementation details (`Hover`, `CodeActions`, `Validation`, `InvokeProvider`) private via `pub(crate)` visibility.\n\nThis reorganization reduces file complexity, enforces strict PascalCase naming for all public exports, and clarifies the boundary between the Rust backend and the TypeScript frontend. The changes prepare the IPC layer for finer-grained testing and type safety, continuing the modularization trend initiated in the recent `Source/IPC` and `Source/Environment` refactorings.",
+			"SHA": "5e571efe18203567968fbe04062cdc021dfe5867"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:48:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1251,
+				5
+			],
+			"Message": "refactor(Mountain): Modularize IPC common types and telemetry entry points\n\nRestructure the `Source/IPC/Common` subsystem to align with the distributed architecture's 'one export per file' pattern. The monolithic `HealthStatus`, `MessageType`, `PerformanceMetrics`, and `ServiceInfo` modules have been decomposed into flat module trees where each struct, enum, or logical unit resides in its own file (e.g., `SeverityLevel`, `HealthIssue`, `IPCCommand`, `ServiceRegistry`).\n\nSimultaneously, update `Source/Telemetry/Initialize.rs` to dispatch initialization logic to specific unit files (`InitializeTracing`, `InitializeMetrics`) within the Telemetry hierarchy, removing inline function definitions.\n\nThis reorganization reduces file complexity, enforces strict PascalCase naming for all exports, and clarifies the boundary between abstract DTOs and their lifecycle logic. The changes prepare the IPC layer for finer-grained testing and future convergence with the `IPC::StatusReporter` implementation. All new module paths follow the `File = Identity` rule (e.g., `pub mod HealthIssue;` exposes `HealthIssue::Struct`).",
+			"SHA": "263e0b50b6793c0caf3232d136baa7675469c330"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-02T09:47:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "refactor(Mountain): Modularize Environment providers into distributed units\n\nAlign the `Source/Environment` subsystem with CodeEditorLand's distributed architecture and PascalCase naming standards. Previously monolithic files (`TestProvider.rs`, `WebviewProvider.rs`) have been restructured into flat modules where each concept resides in its own unit file.\n\nFor `TestProvider`: Extract `TestControllerState::Struct`, `TestRunStatus::Enum`, `TestResult::Struct`, `TestRun::Struct`, and `TestProviderState::Struct` into dedicated files (`TestControllerState`, `TestRunStatus`, etc.). Refactor the `TestController` trait implementation to use these new types (e.g., `TestRunStatus::Enum::Passed`) and simplify the parent file to handle only logic dispatch.\n\nFor `WebviewProvider`: Extract `WebviewLifecycleState::Enum` and `WebviewMessage::Struct` into `WebviewLifecycleState` and `WebviewMessage` modules. Move implementation details for `Lifecycle`, `Configuration`, and `Messaging` into private submodules accessed via `#[path]` directives, exposing only the necessary DTOs and the main `impl` block in the root file.\n\nThis reorganization reduces file size, enforces the \"one export per file\" pattern, and prepares the environment layer for finer-grained IPC integration and type safety.\n\nRefs #Telemetry",
 			"SHA": "4cd523aea02e5f592326b6412600b2645691656c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:40:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1251,
-				2
-			],
-			"Message": "fix(Mountain): Enhance AppLifecycle resolution and inject shell environment on boot\n\nThe `AppLifecycle` module previously relied solely on Tauri's `resource_dir` for resolving the `Sky/Target` path. This caused raw release binary launches (outside the `.app` bundle) to fail resolving the frontend root, resulting in 404s for extension-contributed icons (e.g., GitLens, Roo) and empty view containers.\n\nRefactor `AppLifecycleSetup` to implement a multi-tier fallback strategy: first check the standard `.app` bundle layout (`Contents/Resources`), then the monorepo relative path (`../../../Sky/Target`), and finally an executable-relative fallback. This ensures the `STATIC_APPLICATION_ROOT` is correctly set regardless of the launch context.\n\nAdditionally, inject the user's interactive shell environment (loading `PATH`, `NVM_DIR`, `HOMEBREW_PREFIX`) in `Entry` before spawning child processes. This resolves issues where GUI-launched applications (Finder/Dock) lack necessary CLI tools (Homebrew, Git, Node/NVM), causing extension host failures. Update command handler registrations to strictly adhere to PascalCase naming conventions (e.g., `Initialize::Fn`, `MountainProvideHover::MountainProvideHover`).\n\nImpact: Fixes icon rendering in production builds, ensures extension host stability in GUI launches, and standardizes binary entry point naming.",
-			"SHA": "72f7a764914ca9ec250a6f3a3da8481723b892cd"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:39:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1251,
-				4
-			],
-			"Message": "feat(Mountain): Expand extension root discovery and modularize telemetry/hover units\n\nExtend the LocalhostPlugin to resolve built-in extensions from multiple distribution paths (`Contents/Resources/extensions`, `Contents/Resources/app/extensions`) and the development monorepo layout. This ensures icon stylesheets for the 93 bundled extensions render correctly in packaged `.app` builds and prevents empty boxes in the extension view.\n\nApply the established distributed architecture pattern to the PostHog analytics and Hover command subsystems. Refactor `PostHogPlugin` and `Command/Hover` into distinct unit files (e.g., `Initialize::Fn`, `Position::Struct`, `HoverContent::Enum`), enforcing PascalCase naming and separating DTO definitions from logic. This aligns with recent telemetry refactors and prepares the codebase for stricter IPC type safety.\n\nImpact: Fixes extension icon rendering in production builds and standardizes the module structure for observability and LSP features.",
-			"SHA": "0bb57d42016d8ab3ea6bc79312fdbcb8681e2657"
 		}
 	],
-	"TimeStamp": 1780236104592
+	"TimeStamp": 1780336602349
 }

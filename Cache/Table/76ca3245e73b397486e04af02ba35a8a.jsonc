@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T00:08:20Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				2
+			],
+			"Message": "perf(Mountain): Coalesce tree-view emits and canonicalize webview payloads\n\nExtend the 16ms coalescing pattern to the `RegisterTreeViewProvider` RPC in `Source/RPC/CocoonService/TreeView.rs`. During extension boot, 30+ tree view registrations previously saturated the Tauri IPC channel. The new `TreeViewEmitBatch` singleton accumulates payloads and emits a single batch per frame, preserving the `sky://tree-view/create` channel while deferring to `sky-emit` logging for diagnostics.\n\nStandardize `webview` IPC payload shapes in `Source/Track/Effect/CreateEffectForRequest/Webview.rs`. Fix a critical bug where positional arguments (`[Handle, Value]`) from Cocoon were wrapped in `{ method, handle, args }`, causing SkyBridge's listeners (expecting `viewId` or `html` keys) to reject payloads, leaving iframes blank. The new logic detects wire formats, extracts named fields, and normalizes camelCase method names (e.g., `setHtml`) to kebab-case channel suffixes (`set-html`) to match the `Common` library definitions. Ensure both webview-panels and webview-views render correctly for extensions like Roo and claude-vscode.",
+			"SHA": "6d8f8d296641459e47b373e39f865cfbe6b2219c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T00:07:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				3
+			],
+			"Message": "refactor(Mountain): Standardize IPC variable and identifier names to PascalCase\n\nComplete the project-wide naming convention migration by renaming all local variables and parameter identifiers in the IPC layer (`Connection/Manager.rs`, `TauriIPCServer.rs`, `TauriIPCServer/Server.rs`) from camelCase to PascalCase.\n\nRename `handle` → `Handle`, `message` → `Message`, `app_handle` → `app_handle` (struct field remains, local param updated to `AppHandle` where applicable), and generic error bindings like `e` → `Error` in documentation and code comments. Update all associated doc strings, example code blocks, and logging statements to reflect these changes. Also normalize terminology in comments (e.g., 'message' → 'Message', 'router' → 'Router') to align with the strict PascalCase convention specified in CLAUDE.md for all identifiers, including local variables within `impl` blocks and test modules.\n\nThis refactor ensures consistent code style across the Mountain backend IPC subsystem without altering any runtime logic or data flow.",
+			"SHA": "e2f06c0d52af54f8abe630eacded288a29f29433"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-02T00:07:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "perf(Mountain): Batch decoration and progress emits to reduce IPC load\n\nExtend the 16ms coalescing strategy to two additional high-frequency Vine notification handlers, following the `CommandEmitBatch` pattern established for command registration.\n\n`DecorationTypeLifecycle`: Extension activation generates ~650 create/dispose calls per session, mostly registering syntax-highlight decorations. Previously each call fired an individual Tauri event on `sky://decoration/<suffix>`. Add `DecorationEmitBatch`, grouping payloads by channel and emitting a single `{ batch: [...] }` per channel per 16ms frame. SkyBridge demultiplexes these back into individual `cel:decoration:*` CustomEvents.\n\n`ProgressReport`: The git extension alone fires 6000+ `progress.report` calls per session during repository scans. Add `ProgressEmitBatch`, accumulating per-handle `increment` deltas and keeping the latest non-empty `message` over a 16ms window. Each progress handle receives one coalesced update per frame preserving the same final cumulative state, instead of dozens of individual emits.\n\nBoth use `OnceLock`-initialised static singletons with atomic flush scheduling to prevent duplicate timer tasks. This keeps the shared WKWebView IPC channel clear for keystrokes during extension boot and repository scanning when the renderer is most busy.",
 			"SHA": "644b96ee46ecc92796e2b34d2dcce2dc1c9be91f"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-01T02:40:30Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
-				1
-			],
-			"Message": "",
-			"SHA": "51d4bddbf442268c76e36e70ef9e176c98fe2c3b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:32:25Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				868,
-				55
-			],
-			"Message": "refactor(Mountain): Rename IPC handler functions to follow PascalCase convention\n\nRename all `handle_*` IPC handler functions in WindServiceHandlers, ConfigurationBridge, TauriIPCServer, and related modules to match the PascalCase naming convention specified in CLAUDE.md. Functions like `handle_commands_execute` → `CommandsExecute`, `handle_configuration_get` → `ConfigurationGet`, `handle_incoming_message` → `IncomingMessage`, etc. The new names align with the command/channel names they service (e.g., `commands:execute` → `CommandsExecute`), improving code clarity and consistency across the Mountain IPC layer.\n\nThis is a pure refactor with no functional changes.",
-			"SHA": "9134f4bf64e3333b62d9591a5c58b4764b8d5b47"
 		}
 	],
-	"TimeStamp": 1780236112279
+	"TimeStamp": 1780336611767
 }
