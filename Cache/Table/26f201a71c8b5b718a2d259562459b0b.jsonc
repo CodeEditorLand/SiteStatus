@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T19:10:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				19
+			],
+			"Message": "feat(Mountain): Implement EnvironmentVariableCollection and tier defaults\n\nAdd TerminalEnvCollection — a global registry for per-extension environment variable mutations matching VS Code's `EnvironmentVariableCollection` API (Replace/Append/Prepend/Delete/Clear/SetPersistent/SetDescription). Seven `terminal.envCollection.*` Vine notification handlers in MountainVinegRPCService dispatch Cocoon's requests to the registry via TerminalEnvCollectionDispatch. At every PTY spawn, TerminalProvider collects the inherited process env, applies all registered mutators via ApplyToEnv, and layers shell-integration vars on top, ensuring extensions like language servers see the environment they requested.\n\nAdd `tree.refresh` and `outputChannel.replace` Vine notification relays: the former forwards TreeDataProvider.onDidChangeTreeData events to Sky as `sky://tree-view/refresh`; the latter provides atomic output channel buffer replacement that avoids the visual flash of separate clear+append.\n\nExpand the tier routing infrastructure by adding compile-time defaults and Info.plist entries for 14 additional subsystems (Auth, Debug, Encryption, ExtensionHost, LanguageFeatures, Model, NativeHost, OutputChannel, SCM, Search, Storage, Tasks, Terminal, TreeView, WebSocket) and extending LandFixTier::LogResolvedTiers to emit all 16 tier values at boot for full routing observability.\n\nTidy formatting across AppLifecycle, Entry, RunGit, Reload, mod.rs, CocoonManagement, Dispatcher, build.rs, and bash.sh with no semantic changes.",
+			"SHA": "abba8a235310b01bca76aa32de8fe2de37a9a9af"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T13:49:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1742,
+				8
+			],
+			"Message": "feat(Mountain): Add per-subsystem tier routing and reload-safe panels\n\nIntroduce the tier routing framework that allows each IPC subsystem to be dispatched to either Mountain-native or Cocoon Node.js at compile time (via build.rs EmitTierDefaults) or at runtime (via env var overrides). Routing constants for Terminal, SCM, Debug, LanguageFeatures, Search, OutputChannel, NativeHost, TreeView, Storage, Model, Tasks, Auth, Encryption, ExtensionHost, and WebSocket are baked at build time; the `tier_routes_to_node` helper in mod.rs evaluates the tier and forwards matching commands to Cocoon's gRPC surface. Storage and SCM commands gain tier-gated arms first.\n\nImplement webview panel state persistence across `nativeHost:reload`: before the renderer reload, ask Cocoon to serialize all registered webview panels via `ExtHostWebviewPanels$serializeAllWebviewPanels` and store the snapshot in global storage under `__webview_panel_state__`. After Cocoon restarts and extensions re-activate, deserialize each panel entry via `ExtHostWebviewPanels$deserializeWebviewPanel` and clear the cache to prevent double-restore on subsequent reloads.\n\nAdd optional Mist WebSocket transport in Entry.rs: when `TierWebSocket=Mist`, a localhost JSON-RPC WebSocket binds on port 5051 for high-frequency IPC (storage updates, decorations, model changes) that bypasses the Tauri-invoke + gRPC double hop. The secret and port are exposed via environment variables for Cocoon/Sky workbench configuration consumption.\n\nApply a 30-second wall-clock timeout to git subprocess execution (RunGit.rs) so a hung git process — stalled on a credential prompt, index lock, or unresponsive network mount — releases the Mountain effect slot via the registry-aware PID killer rather than blocking indefinitely.\n\nAdd crash-safe memento hydration at boot (AppLifecycle.rs): the `MementoLoader` reads global.json, quarantines corrupted files to `.corrupted.<ts>` siblings, and populates the in-memory map from an empty baseline so a partial write from a prior crash doesn't panic the boot path.\n\nFix a minor formatting issue in bash shell integration (`2> /dev/null` to `2>/dev/null`).",
+			"SHA": "db5e7784a51c6f267aa6a9c90624ad8346577df2"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-25T13:48:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "",
 			"SHA": "131d4fecaf3d3e2a92c55968a3caba7d6b998ce9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:34:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1742,
-				1
-			],
-			"Message": "feat(Mountain): Notify Cocoon of configuration changes via Vine\n\nForward configuration update events to the extension host (Cocoon) through a Vine notification so that `vscode.workspace.onDidChangeConfiguration` fires for extensions like rust-analyzer, ESLint, and Prettier that react to workspace config changes.\n\nThe notification is fire-and-forget — a Vine send failure must not propagate back and fail the IPC call that the caller (typically a Wind service or Sky command) is awaiting. The changed key is included in the notification payload so Cocoon can scope the change event accordingly.",
-			"SHA": "bae7a91ad2610135fe510a56701a73846ae2bcbb"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:26:02Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1742,
-				7
-			],
-			"Message": "feat(Mountain): Implement terminal shell integration and process IPC\n\nAdd terminal shell integration event handlers (`setShellIntegrationActive`, `setCwd`) that forward OSC 633 sequences from Sky's terminal bridge to Cocoon via gRPC notifications, enabling `terminal.shellIntegration` and `shellIntegration.cwd` in the extension host.\n\nPersist the shell's current working directory in ApplicationState so `refreshProperty(PropId=0)` returns it without probing the OS process. Implement process introspection IPC handlers (`getPlatform`, `getArch`, `getPid`, `getExecPath`, `getMemoryInfo`, `getCpuInfo`) for Wind's shared-process diagnostics and About dialog.\n\nDifferentiate NotFound errors from generic IO failures across `FileReadNative`, `FileReaddirNative`, and `FileStatNative` by suffixing \"resource not found\" on ENOENT, allowing Wind's file-system error classifier to map to `FileSystemError.FileNotFound`.\n\nFix the language configuration Tauri event emission in both Dispatcher and SkyEmit to forward the full params object (language + rules) instead of only the language string, so Sky's Monaco bridge receives actual bracket/comment/indentation rules.",
-			"SHA": "0f6240bef82f03217077bd32bc12c670d9ef27ff"
 		}
 	],
-	"TimeStamp": 1780336581759
+	"TimeStamp": 1780506236516
 }

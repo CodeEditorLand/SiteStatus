@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T00:15:58Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				1
+			],
+			"Message": "perf(Mountain): Gate sync/performance emits behind env vars and add subscriber fast-path\n\nTwo optimizations to reduce IPC channel contention:\n\n1. **Env var gating**: The `mountain_sync_status_update` and `mountain_performance_update` events were emitting on every tick even though Sky has no subscriber. Every emit now waits behind keystrokes on the shared Tauri IPC pipe. Gate both behind `LAND_SYNC_STATUS_EMIT=1` and `LAND_PERF_EMIT=1` respectively for debugging or future Sky consumers.\n\n2. **Subscriber fast-path**: The 100ms real-time updates tick was acquiring the lock and draining pending updates even with zero subscribers. Add an early check to skip the entire lock-and-drain path when `Subscribers.is_empty()`, making the tick a true no-op until a subscriber registers.\n\nTogether these keep the shared IPC channel free for keystrokes during extension boot when the renderer is most busy.",
+			"SHA": "75d2f1dbe4d77d92e1f679c84aa4885ce355a12d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T23:34:46Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				868,
+				2
+			],
+			"Message": "feat(Mountain): Add Disable env var and fix first-click focus issue\n\nTwo unrelated but complementary fixes:\n\n1. **accept_first_mouse(true)**: Fix the \"I clicked, I'm typing, nothing's happening\" bug where WKWebView swallows the first click on an unfocused window as a \"make me key\" no-op. The user had to click twice - first to focus the NSWindow, second to focus the Monaco textarea. This change flips the responder chain so the first click already reaches WKWebView's content.\n\n2. **Disable environment variable**: Add master \"disable Land customisations\" gate via `Disable=true` env var. When enabled, Mountain skips: WindowEvent::CloseRequested intercept (Cmd+W routes natively), Cocoon/Air sidecar spawn, and Wind/SkyBridge registration. This is useful for bisecting whether typing-input regressions originate in the extension host or upstream/Tauri/WKWebView. Also rename DevTools auto-open from LAND_OPEN_DEVTOOLS to `Inspect=1` to follow Land's PascalCase env var convention.",
+			"SHA": "14b86efb22e841a2d2fa91ea12ba33c37b6cec33"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-30T20:27:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "build(Mountain): Revert to simple Mountain naming and add extension roots allowlist\n\nRevert the binary/library names and Tauri config back to simplified \"Mountain\" identifier, matching the pattern established in commit 20b9363. This removes the verbose production profile string from Cargo.toml (binary, lib, default-run) and tauri.conf.json (identifier, productName), and eliminates the duplicate externalBin entry.\n\nAdditionally, configure the localhost plugin with extension_root allowlist for both Land and VSCode extension directories. This enables the `/Extension/<abs-fs-path>` URL prefix to serve extension-contributed assets (icon fonts from iconsStyleSheet.js, webview resources, images) directly from ~/.land/extensions and ~/.vscode/extensions. Without this, sideloaded extensions like GitLens render icons as blank missing-glyph boxes because WKWebView cannot resolve vscode-file:// URLs.",
 			"SHA": "320e57a2ae6800e40bca9c97e7cb4d52cb49db85"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:22:22Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				870,
-				4
-			],
-			"Message": "build(Mountain): Rename binary and library to verbose production profile name\n\nUpdate Cargo.toml binary, library, and default-run targets to use the full production environment profile string (ProductionNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Compile_ElectronProfile_EsbuildCompiler_Mountain) to distinguish this build variant from development builds.\n\nAlso update tauri.conf.json productName and identifier to match the verbose naming scheme, and add duplicate \"Binary/node\" entry to externalBin for the production node path.\n\nThis configuration supports the multi-profile build pipeline for distinguishing between development and production environment builds.",
-			"SHA": "3f0b690818017b0b8daee59e7f1127a68ac4c329"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:15:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
-				4
-			],
-			"Message": "build(Mountain): Revert production profile names to simple Mountain identifier\n\nComplete the reversion of verbose production build profile names back to simplified \"Mountain\" naming. Update Cargo.toml binary, library, and default-run targets to use \"Mountain\" instead of the full production profile string. Update tauri.conf.json productName and identifier to match, and remove the duplicate \"Binary/node\" entry from externalBin. Also delete the now-redundant Cargo.toml.Backup and tauri.conf.json.Backup files.\n\nThis aligns with the simplified naming scheme for both development and production builds, reducing configuration complexity while maintaining the multi-profile build pipeline functionality.",
-			"SHA": "20b936312a943ce8be8f0a2837225f346b5715af"
 		}
 	],
-	"TimeStamp": 1780336612465
+	"TimeStamp": 1780506277330
 }

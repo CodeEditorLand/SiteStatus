@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T00:02:12Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				28,
+				1
+			],
+			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object args ({ path, encoding: \"utf8\" }) and the response was assumed to be a string. Mountain actually returns raw bytes as { buffer: number[] } and ignores the encoding param entirely. When VS Code loaded binary files (WASM, fonts, images), the response body became \"[object Object]\" which corrupted the data. This broke TextMate syntax highlighting with: \"WebAssembly.Module doesn't parse at byte 0: module doesn't start with '\\0asm'\".\n\nFix by: 1) Invoking file:read with positional array args [path] as expected by MountainIPCInvoke 2) Adding UnwrapReadResult() to unwrap { buffer: number[] } into Uint8Array for binary-safe Response bodies 3) Updating content type to Uint8Array | string | Blob | null. All three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler, FileHandler) now use the binary-safe pattern.\n\nThis restores TextMate grammar loading and binary asset handling.",
+			"SHA": "5864c4e9c32ce3903e9f1ec3efae89b372751099"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-22T23:44:51Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "fix(Mountain): Add shutdown guard and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings.\n\nExtend static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader resolves asset URLs relative to the current document, which strips the leading slash before reaching the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.\n\nThis prevents spurious shutdown warnings, fixes TextMate grammar loading, and reduces log noise.",
 			"SHA": "8adf5bfc83b8f1bb64be9883facf6d0933a64315"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T20:26:34Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "build(Project): Coordinate Element submodule updates across 2 components\n\nSynchronize Mountain and Sky submodules with the following changes:\n- **Mountain:** Simplify binary naming from verbose development profile identifier to just 'Mountain'. Update Tauri identifier to 'land.editor.binary'. Remove externalBin reference to Binary/node since Node.js sidecar is now handled differently. Add vscode-file and vscode-file://vscode-app to img-src Content Security Policy for VS Code file protocol support. Delete temporary backup files (Cargo.toml.Backup, tauri.conf.json.Backup).\n- **Sky:** Add exception signature throttling to PostHog bridge — exceptions share the `$exception` event-name slot in posthog-js, so a burst of CSP refusals/console.error/unhandledrejection callbacks during workbench boot would blow through the 10/10s rate limit. Add a secondary throttle layer keyed by the first 200 chars of the error message. Unique exceptions still reach PostHog while bursts of the same error collapse into one. Both regular and exception drop counts are now reported in the `land:sky:throttle-dropped` event for visibility.\n\nThis coordinated update delivers build configuration simplification and PostHog rate limit protection while maintaining identical runtime behavior.",
-			"SHA": "3c5b85b952028923580cc7c9f3a867bf7e1987df"
 		}
 	],
-	"TimeStamp": 1780336600510
+	"TimeStamp": 1780506261214
 }

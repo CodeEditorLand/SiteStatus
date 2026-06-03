@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:54:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				129,
+				1
+			],
+			"Message": "feat(Project): Synchronize Element submodule for active editor tracking and OS property caching\n\nAdvance the Element submodule from a433ff65 to 504dc46b, wiring synchronous active editor tracking in Cocoon and caching OS property queries in Mountain.\n\nKey modifications across components:\n- **Cocoon**: Wire `window.didChangeActiveTextEditor` from Handler.ts into a minimal TextEditor stub derived from URI and languageId. Patch `__activeTextEditor` on Context so extensions reading `vscode.window.activeTextEditor` synchronously in `activate()` see the current value. Upgrade `showTextDocument` from a fire-and-forget notification to a `sendRequest` round-trip returning the TextEditor stub from Mountain, with a disposable fallback to prevent crashes when chaining `.selection` or `.revealRange`. Migrate `ExtensionSecretStorage` from `sendNotification` to `sendRequest` with namespaced methods (`secrets.get`, `secrets.store`, `secrets.delete`) and scoped `extensionId` isolation.\n- **Mountain**: Cache OS property collection (type, release, arch, CPU topology) and Rosetta 2 detection behind `OnceLock`, eliminating ~10ms subprocess overhead per IPC call. After document open, call `SetActiveDocumentURI` on application state and fire a fire-and-forget gRPC `window.didChangeActiveTextEditor` notification to keep Cocoon's shim in sync. Refactor `localPty:getTerminalLayoutInfo`/`setTerminalLayoutInfo` to use `GetStorageValue`/`UpdateStorageValue` on StorageProvider, removing manual JSON serialization.\n\nTogether these changes eliminate three extension-host crash categories (synchronous reads of undefined `activeTextEditor`, awaited `showTextDocument` returning undefined, and unhandled secret storage notification rejections) while reducing IPC latency for OS queries and keeping terminal layout persistence simpler.",
+			"SHA": "411b4d6b8240fff16cd87885420d4904ecaf3270"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-19T21:47:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "chore(Project): Synchronize Element submodule for sandbox config fix and doc refresh\n\nUpdate the Element submodule from 08ff6e0f to b3e613ba, pulling in a critical fix for extension host startup and build system documentation improvements.\n\nKey modifications across components:\n- **Mountain**: Supply eight missing non-optional `INativeWindowConfiguration` fields (`perfMarks`, `loggers`, `colorScheme`, `mainPid`, `os`, `dataFolderName`, `sharedDataFolderName`, `version`) in `ConstructSandboxConfiguration`. Omitting these caused `TypeError` crashes during extension host initialization and workbench service construction.\n- **Maintain**: Rewrite the Mermaid architecture diagram in README.md with internal module subgraphs (Build CLI, Rhai scripting, Run logic), shell entrypoints, and build artifact classDefs. Fix a literal tab character in PlistEdit.rs replacing it with the escaped `\\t` byte.\n- **Cocoon**: Rebuild Target artifacts and synchronize RouteManifest timestamps — confirming build pipeline consistency with no source-level changes.\n\nThese changes prevent extension host startup crashes, improve build system documentation, and keep compiled artifacts aligned with source revisions.",
 			"SHA": "9f3d23ed920cd1f1713ec94b1d134d28e44aec15"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T04:22:26Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				129,
-				1
-			],
-			"Message": "chore(Project): Integrate Mountain gRPC across Cocoon and synchronize Element submodules\n\nUpdate the Element submodule from ec5306a2 to 08ff6e0f, pulling in two layers of integration work: architecture detection optimization in Cocoon and the native file descriptor API in Mountain, followed by the complete wiring of Mountain gRPC across Cocoon's command synchronization, extension registry, storage persistence, and command execution event surfaces.\n\nKey modifications across components:\n- **Cocoon**: Wire MountainGRPCClientService for bidirectional command sync, merge ILocalExtension manifests from Mountain into ExtensionRegistry, replace Memento stubs with Mountain-backed persistence, and subscribe to onDidExecuteCommand events. Optimize DetectWebArchitecture with a direct synchronous process.arch check. Purge stale Target/ build artifacts.\n- **Mountain**: Implement file:open/file:close IPC backed by a process-global HashMap<u32, File>, refine Tauri window handlers (setDocumentEdited, setMinimumSize, positionWindow), eliminate polling in is_alive, reduce terminal startup latency from 120ms to 20ms and command registration yield from 50ms to 20ms. Add CustomEditorProvider registry, route watch_file/resize_terminal to real FSEvents/inotify and PTY SIGWINCH, add extensions:activate handler, introduce StorageWriteDebouncer with 100ms coalescing, strip osascript from getCursorScreenPoint, and fix logsPath in ISandboxConfiguration.\n- **Common**: Add ExtensionsActivate IPC channel mapping to complete the extension activation signal chain.\n- **Output**: Register five new channel bridges for VFS file changes, configuration updates, workspace folder changes, and lifecycle phase transitions — establishing a locked IPC contract with Wind's service layer.\n- **Wind**: Remove mock Effect.sleep(10) from MountainSyncHelper and prune hundreds of stale generated stubs and bridge shapes.\n- **Echo**: Advance to the latest development state.\n- **Documentation**: Redraw architecture diagrams across all components with detailed Mermaid subgraphs and accurate IPC flow annotations.\n\nThese changes close the last integration stubs between Cocoon and Mountain, optimize extension activation and command dispatch latency, eliminate polling overhead throughout the native backend, and align architectural documentation with the actual codebase.",
-			"SHA": "10870eb4ab3de674417e08d349946806d81d0516"
 		}
 	],
-	"TimeStamp": 1780336587628
+	"TimeStamp": 1780506244915
 }

@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T14:02:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
+			],
+			"Message": "refactor(Mountain): Simplify binary, library, and product name to Mountain\n\nRevert the binary, library, package, and product name from the verbose encoded build configuration string back to the simple canonical name \"Mountain\". The previous encoding embedded the full DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler string into artifact names, causing developer friction during local tooling integration and debugging.\n\nAlso tidy up tauri.conf.json by normalizing array formatting, reordering resource entries for consistency, adding the missing shell-integration/zsh.zsh resource, and restoring the identifier to fiddee.editor.binary. Remove the stale .Backup files left behind when the encoding was introduced.",
+			"SHA": "3e26a02371e60ff23f0017843e4209fb76d47807"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T13:14:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1748,
+				4
+			],
+			"Message": "build(Mountain): Encode full build config in binary name and bundle additional Sky resources\n\nRename the Mountain binary, library, package, and product name to carry the complete build configuration string: DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler_Mountain. This embeds build provenance directly in the artifact name for unambiguous debugging and CI traceability.\n\nAdd the missing Sky Target resource entries (Browser, BrowserProxy, Bundled, Electron, Favicon, Isolation, Manifest.json, Mountain) to tauri.conf.json so Tauri bundles these directories at build time. Previously the bundle only included a subset of Static/Application assets and miscellaneous files; the full Sky build output was not guaranteed to be present in the app bundle, which could cause runtime failures when the editor UI tries to load these resources.\n\nAlso normalize array formatting in externalBin and targets for consistency with the file style.\n\nChange the app identifier from fiddee.editor.binary to the expanded canonical form matching the product name.",
+			"SHA": "e7685bfe4621e4f04e14861cd855a7c5f8faa8fb"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-26T09:07:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "fix(Mountain): Relay terminal shell execution events to Cocoon extension host\n\nAdd two new IPC notification handlers in WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, bridging terminal shell execution events from Sky to the Node.js extension host.\n\n`$acceptTerminalShellExecutionStart` fans to Cocoon so `vscode.window.onDidStartTerminalShellExecution` fires for extension subscribers. `$acceptTerminalShellExecutionEnd` fans two Vine notifications: `$acceptTerminalShellExecutionEnd` (for `onDidEndTerminalShellExecution`) and a derived `$acceptExecutedTerminalCommand` so `vscode.window.onDidExecuteTerminalCommand` subscribers observe the executed command without an additional Sky-side detection pass.\n\nAlso inline a multi-line closure chain in `CreateEffectForRequest/Diagnostics.rs` to a single-line filter_map for consistency with surrounding code style.",
 			"SHA": "275e31a312378afe6b7deb7a8e7f6f579e52b42c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:08:42Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				4
-			],
-			"Message": "fix(Mountain): Forward editor state change notifications to Cocoon extension host\n\nAdd five missing Vine notification relays so VS Code API subscribers inside the Node.js extension host observe changes Mountain already delivers to the renderer:\n\n- **ThemesSet.rs**: Fan `$acceptActiveColorTheme` on theme switch, computing the workbench theme kind (Light/Dark/HighContrast) from the theme id. Without this, `vscode.window.onDidChangeActiveColorTheme` never fires for Node-resident extensions (GitLens, Roo Code, rust-analyzer).\n\n- **WindServiceHandlers/mod.rs**: Relay four Sky-detected editor state changes as Cocoon notifications: `$acceptVisibleEditorsChanged` (`onDidChangeVisibleTextEditors`), `$acceptTabsChanged` (`onDidChangeTabs`/`onDidChangeTabGroups`), `$acceptVisibleRangesChanged` (`onDidChangeTextEditorVisibleRanges`), and `$acceptTextEditorOptionsChanged` (`onDidChangeTextEditorOptions`). Each forwards the Sky-provided payload directly.\n\n- **Diagnostics.rs**: After every `SetDiagnostics`/`ClearDiagnostics` call, fan `$acceptDiagnosticsChanged` back to Cocoon with the owner and affected URIs so `vscode.languages.onDidChangeDiagnostics` subscribers in peer extensions observe the change. For clears, emit an empty URI list — consumers should re-query `getDiagnostics(uri)`.\n\n- **DebugLifecycle.rs**: For `debug.addBreakpoints`/`debug.removeBreakpoints` only, fan `$onDidChangeBreakpoints` with added/removed/changed arrays so `vscode.debug.onDidChangeBreakpoints` fires in all extensions, not just the one that made the mutation.\n\nCompletes the Mountain-to-Cocoon notification pipeline for theme, editor, diagnostics, and debug breakpoint surfaces that were previously renderer-only.",
-			"SHA": "dd925de41e8f4558f960cb99f6d1a78674eba4e7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:53:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				2
-			],
-			"Message": "fix(Mountain): Relay executed command notifications to Cocoon extension host\n\nDual-emit `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, so that `vscode.commands.onDidExecuteCommand` callbacks fire inside extensions running in the Node.js extension host. The existing Tauri-emit only reaches the renderer (Sky); Cocoon has no Tauri runtime to subscribe to those events.\n\nCocoon's `Services/Handler/Notification/Handler.ts` maps `$acceptCommandExecuted` to an internal emitter that the `Commands/Namespace.ts` `onDidExecuteCommand` subscriber listens to. The Vine notification is fire-and-forget — failure is non-fatal since the renderer-side observers have already been notified via the Tauri event.\n\nAlso add the `tauri::Emitter` trait import in `CreateEffectForRequest/Commands.rs` to satisfy the compiler for the Tauri event emit.",
-			"SHA": "eeb3d39b739ebe9019b39f18ad4415ad9ad0fcb2"
 		}
 	],
-	"TimeStamp": 1780336581068
+	"TimeStamp": 1780506234682
 }
