@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T00:32:41Z",
+			"Date": "2026-05-23T09:25:54Z",
 			"File": [
-				"⣿⠁⠀⠀⠀",
+				"⠀⠀⠀⠀⠀",
 				1181,
-				268
+				5
 			],
-			"Message": "",
-			"SHA": "b140428760a4a56040cb9b13ef4e0cf4483b251d"
+			"Message": "fix(Cocoon): Robust URI string reconstruction in gRPC handlers\n\nReplace fragile reliance on `.toString()` and `.external` properties with explicit structural checks across Document, Language, Notification, Window, and gRPC handlers. When a Uri object lacks standard string conversion, construct the URL manually using `scheme`, `authority`, and `path` properties.\n\nThis prevents malformed URIs from being sent to Mountain during RPC calls, ensuring robust request routing for file operations and document events even when VS Code's URI implementation varies or shim interactions fail.\n\nImpact: Restores stability in file access, language provider invocations, and notification flows by guaranteeing valid URI strings are transmitted over the gRPC wire.",
+			"SHA": "217fc9329f143b6057295e361d30dfcf4ecda7aa"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:36:22Z",
+			"Date": "2026-05-23T09:20:05Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1208,
-				1
+				"⠃⠀⠀⠀⠀",
+				1181,
+				52
 			],
-			"Message": "fix(Cocoon): Remove file event stub overrides that silenced real Vine events\n\nSix stub file lifecycle event handlers (`onWillCreateFiles`, `onWillDeleteFiles`, `onWillRenameFiles`, `onDidCreateFiles`, `onDidDeleteFiles`, `onDidRenameFiles`) on the Workspace namespace were returning no-op disposables, overriding the real `EventSubscriber` implementations already provided by the spread of `BuildDocumentEventMembers` into the workspace object.\n\nExtensions subscribing to these events — including GitLens and similar file-system-aware extensions — were silently receiving dead handlers that emitted nothing. Remove the stubs so the live events flow through. Mountain now fires `willCreate`/`willDelete`/`willRename` notifications to Cocoon via Vine before the VFS mutation lands on disk, giving watchers correct pre-mutation signal.",
-			"SHA": "a44ce732e7fee7aa9f09c22146df31eedab6301f"
+			"Message": "feat(Cocoon): Introduce Storage.GetItems method and refine URI resolution\n\nAdd `Storage.GetItems` to the Mountain RPC method set in `RouteManifest.ts`, increasing the known method count to 137. This expands the storage interface beyond simple key-value pairs to support bulk retrieval, aligning with the `Vine.proto` contract.\n\nRefactor the URI parsing logic in `Services/Handler/Request/Routing/Handler.ts` to robustly construct URL strings from `Uri` objects. The previous implementation relied on `.toString()` or `.external` properties; the new logic explicitly checks for `scheme`, `authority`, and `path` properties to construct `scheme://authority/path` when standard string conversion fails, preventing malformed URIs during request routing.\n\nAll ESBuild artifacts and the RouteManifest report are regenerated to reflect these source changes.",
+			"SHA": "e9951a8909034edfe9cae2eb20308c3ce1353eba"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:30:33Z",
+			"Date": "2026-05-23T07:59:38Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1208,
-				1
+				"⠁⠀⠀⠀⠀",
+				1181,
+				43
 			],
-			"Message": "fix(Cocoon): Reorder bootstrap stages so RPCServer binds before MountainConnection\n\nThe Stage 3 MountainConnection gRPC probe previously ran ahead of Stage 5 RPCServer in the bootstrap pipeline. This meant Mountain's 20-second gRPC retry budget saw port 50052 unbound on every attempt — the server never started within the connect window, causing persistent bootstrap failures.\n\nSwap the execution order in `makeBootstrap` so RPCServer binds port 50052 first, then MountainConnection's gRPC client connects to a live listener. With the ordering fixed, reduce retry caps proportionally: TCP probe drops from 10 to 3 attempts (300ms timeout, 100ms gap → ~1.2s worst case), gRPC connect from 15 to 5 attempts (500ms backoff → ~7.5s worst case). The old aggressive caps were papering over the sequencing bug.\n\nUpdate all related inline documentation to reflect the new stage ordering and rationale.",
-			"SHA": "4eaa3135556e509319e9b956145bb6272007202e"
+			"Message": "refactor(Cocoon): Align RPC method names with Vine proto PascalCase\n\nUpdate the gRPC method invocation strings across multiple Cocoon services to match the exact PascalCase naming defined in the `Vine.proto` specification. Replace legacy camelCase and lowercase prefixes (e.g., `window.showMessage`, `fs.stat`, `storage:set`) with their canonical counterparts (`Window.ShowMessage`, `FileSystem.Stat`, `Storage.GetItems`).\n\nApply corrections in the following namespaces:\n- `API/Factory`: Map VS Code message dialogs to `Window.ShowMessage`.\n- `Extension/Context`: Align memento storage calls to `Storage.GetItems` and `Storage.Set`.\n- `File/Service`: Standardize file system operations (`FileSystem.Stat`, `ReadFile`, `WriteFile`, `ReadDirectory`, `CreateDirectory`, `Delete`, `Rename`).\n- `Tasks`: Rename `taskType` to `type` in provider registration payloads.\n- `Workspace/Text/Document`: Switch `saveAll` fallback from notification to `Workspace.SaveAll` request to bypass silent Tauri re-emission issues.\n- `Terminal`: Correct send text to `$terminal:sendText`.\n\nThis ensures strict adherence to the strongly-typed IPC contract, preventing silent failures where the Mountain backend rejects unrecognized method names during the gRPC call resolution phase.",
+			"SHA": "4cfa806fcad082e2acd24678913c01bb5078a0f7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:45:28Z",
+			"Date": "2026-05-23T07:05:57Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1208,
-				1
+				"⠁⠀⠀⠀⠀",
+				1181,
+				38
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Cocoon into Current",
-			"SHA": "b7f7e8893680d8c256089b9f30ac0ae3ace3a182"
+			"Message": "feat(Cocoon): Include file selector metadata in custom editor registration\n\nEnhance the `RegisterCustomEditor` handler in the Window namespace to scan the `Context.ExtensionRegistry` for the custom editor contribution matching the `ViewType`. Extract the file `Selector` (glob patterns like `*.{png,jpg}`) and include it in the payload sent to Mountain via `webview.registerCustomEditor`.\n\nPreviously, only the `ViewType` and `Options` were transmitted. Without the selector, Mountain lacks the necessary context to register the editor with `IEditorResolverService`, preventing VS Code from routing file opens to the custom editor instead of the default text editor.\n\nThis change ensures the full registration contract is satisfied, allowing custom editors defined in `package.json` to be correctly activated and file associations to be honored. The commit also includes a standard regeneration of the `RouteManifest` timestamp and all ESBuild artifacts in the `Target/` directory.",
+			"SHA": "c3faa474ad2232dc1b76d66fb046deec30ef8a57"
 		},
 		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-05-22T08:45:17Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T06:28:47Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1173,
-				1
+				"⠃⠀⠀⠀⠀",
+				1181,
+				51
 			],
-			"Message": "Merge pull request #461 from CodeEditorLand/dependabot/npm_and_yarn/protobufjs-8.4.2\n\nbuild(deps): bump protobufjs from 8.4.1 to 8.4.2",
-			"SHA": "cd3f54f19f02bee754beb047853a99a194c54541"
+			"Message": "fix(Cocoon): Fix bootstrap ordering and extend gRPC method validation\n\nReorder the bootstrap pipeline in `Effect/Bootstrap.ts` to initialize the `ModuleInterceptor` (the `require('vscode')` shim) before establishing the `MountainConnection`. Previously, Mountain could send `InitializeExtensionHost` before the shim was ready, causing race conditions during extension activation. Also, await all extension activations in `Handler/Extension/Host/Handler.ts` to ensure the response is not sent until extensions are fully loaded, preventing premature LSP requests.\n\nRelax the `IsValidMethod` check in `Services/gRPC/Server/Service.ts` to accept any non-empty string. The previous strict regex blocked valid dynamic methods (e.g., `$resolve*`, `$onDid*`), silently dropping LSP traffic like code actions and hover data. Replace redundant circuit breaker failure increments in `Services/Mountain/Client/Service.ts` and add null-safety to `Notification/Handler.ts`.\n\nEnsure diagnostics without messages render as `\"(diagnostic)\"` and normalize `relatedInformation` shapes in `Services/Handler/VscodeAPI/Languages/Namespace.ts` to prevent empty markers from being silently dropped by VS Code's marker service. Regenerate build artifacts and the route manifest timestamp.",
+			"SHA": "cd86977aaf77f366b37f1598cff36f9747f47d98"
 		}
 	],
-	"TimeStamp": 1780506247238
+	"TimeStamp": 1780672807379
 }

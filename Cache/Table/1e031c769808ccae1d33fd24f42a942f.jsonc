@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:43:24Z",
+			"Date": "2026-05-02T06:35:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				994,
-				4
+				1117,
+				1
 			],
-			"Message": "feat(Mountain): Decompose TreeView RPC handlers into file-per-struct modules\n\nExtract the `TreeView` gRPC entry points within `Source/RPC/CocoonService` into dedicated PascalCase modules (`EnqueueTreeViewEmit`, `GetTreeChildren`, `RegisterTreeViewProvider`, `ViewIdHandle`) to align with the project-wide architectural convention.\n\nThe `EnqueueTreeViewEmit` module implements a static batcher that coalesces 30+ `tree-view/create` events from boot into single 16 ms window payloads, utilizing `AtomicBool` locking and `tokio::spawn` for non-blocking emission to the `Sky` UI layer. `GetTreeChildren` bridges the `Vine` gRPC protocol to the `Cocoon` extension host, performing a 5-second timeout-protected round-trip to `$provideTreeChildren` and returning empty lists on provider registration failures. `RegisterTreeViewProvider` registers tree data providers in `ApplicationState` using a consistent 31-based string hash for handle generation and triggers the batched emit. `ViewIdHandle` centralizes the hash logic for provider lookup.\n\nAll handlers are exposed as `Fn` functions for invocation via `Tauri::generate_handler!`, completing the refactoring of the `CocoonService` RPC namespace.",
-			"SHA": "39923726563a05fc656a7c3766fa7bd4f9232528"
+			"Message": "fix(Mountain): Correct ApplicationState import path in StateBuild\n\nUpdate the import statement in `Source/Binary/Initialize/StateBuild.rs` to explicitly reference the nested `State::ApplicationState::ApplicationState` struct. The previous flat import path `ApplicationState::ApplicationState` failed to resolve the type correctly within the current module hierarchy.\n\nThis change ensures the `ApplicationState` type is properly available for state build configuration logic, aligning with the recent refactoring of the application state module structure and preventing potential compilation errors related to missing type definitions.",
+			"SHA": "cad8f0c930e3691d69e2387a8b4a6e2b007d6092"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:42:40Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				989,
-				16
-			],
-			"Message": "feat(Mountain): Decompose Window RPC handlers into file-per-struct modules\n\nExtract all gRPC entry points within the `Source/RPC/CocoonService/Window` namespace into dedicated PascalCase modules. This completes the architectural refactor initiated in previous commits for Workspace, Command, and Configuration, ensuring the monolithic `mod.rs` no longer contains inline handler logic.\n\nNew modules include handlers for window management (CreateWebviewPanel, DisposeWebviewPanel, SetWebviewHtml), status bar operations (CreateStatusBarItem, SetStatusBarText), and user interface interactions (ShowErrorMessage, ShowInformationMessage, ShowWarningMessage, ShowInputBox, ShowQuickPick, ShowTextDocument). Additional handlers cover progress reporting (ShowProgress, ReportProgress) and webview messaging (OnDidReceiveMessage, PostWebviewMessage).\n\nEach handler implements the `Fn` signature required by Tauri's `generate_handler!` macro and bridges the `Vine` gRPC protocol to the `Sky` UI layer. The implementations utilize the `CommonLibrary` traits (`StatusBarProvider`, `WebviewProvider`, `UserInterfaceProvider`) for state registration and stateful operations. Fallback mechanisms via direct `sky://` Tauri events are preserved for trait failures to prevent state leaks in webview and status bar components.",
-			"SHA": "adfab9f41833191c1652fc00fb0b0d91aa16054d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:37:42Z",
+			"Date": "2026-05-02T06:35:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				972,
-				5
+				1117,
+				1
 			],
-			"Message": "refactor(Mountain): Decompose Workspace RPC handlers into file-per-struct modules\n\nDecompose the `Source/RPC/CocoonService/Workspace` module to align with the project-wide PascalCase file-per-struct convention. Extract the handler logic for `ApplyEdit`, `OpenDocument`, `SaveAll`, `UpdateConfiguration`, and `UpdateWorkspaceFolders` into dedicated submodules.\n\nEach handler is exposed as a public async function `Fn` within its own file, invoked via fully qualified paths in the parent `mod.rs`. The implementations bridge the gRPC `Vine` protocol to the frontend: `ApplyEdit`, `OpenDocument`, `SaveAll`, and `UpdateConfiguration` emit specific Tauri events to the `Sky` UI layer, while `UpdateWorkspaceFolders` performs direct mutation of the `ApplicationState.Workspace` DTOs and triggers the standard notification mechanism. This preserves all existing logic for text editing ranges, untitled file handling, and folder index stability, ensuring consistent symbol resolution for Tauri's `generate_handler!` macro.",
-			"SHA": "3ad7df3dc9d9447ced7b2baf5725e63fb4752381"
+			"Message": "refactor(Mountain): Replace legacy TauriIPCServer documentation with atomic placeholder\n\nRemove the verbose legacy documentation from `Source/IPC/TauriIPCServer/mod.rs` which detailed the batched, single-file synchronization model. Replace the content with a concise module header indicating this is now the placeholder for the new atomic Tauri IPC server orchestrator.\n\nThe old implementation is preserved in the sibling path `IPC::TauriIPCServer_Old` for reference. This change aligns the `Source/IPC` directory with the project's shift towards fine-grained state management and clears the namespace for the upcoming rewrite of the communication bridge between Mountain and Wind. An `allow(non_snake_case)` attribute is added to suppress lints during the transition period as consumers migrate to the new `Server::TauriIPCServer` entry point.",
+			"SHA": "0b7e312cd3157b064776df5d50a010822c6fcb9e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:37:15Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				966,
-				16
-			],
-			"Message": "refactor(Mountain): Decompose CocoonService RPC handlers into file-per-struct modules\n\nDecompose the monolithic `Source/RPC/CocoonService` modules to align with the project-wide PascalCase file-per-struct convention. Extract the handler logic for every gRPC entry point across Auth, Command, Debug, Extension, FileSystem, Initialization, Output, Provider, SCM, Secret, Task, Terminal, TreeView, Window, and Workspace into dedicated submodules (e.g., `Command/RegisterCommand.rs`, `FileSystem/ReadFile.rs`, `Window/ShowTextDocument.rs`).\n\nEach handler is now exposed as a function within its own module and invoked via the fully qualified path `Module::Function::Fn` in the main `mod.rs` implementation. This mirrors the architectural pattern established in recent `Workspace`, `Echo`, and `Telemetry` refactors. The changes preserve all existing logic, including the TreeView emission batching, SCM state tracking, and webview panel lifecycle management, while ensuring correct symbol resolution for Tauri's `generate_handler!` macro and gRPC wire protocol generation.",
-			"SHA": "ef96dfe524b73c7c862a7a1c74bf8088065d5b35"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T05:36:33Z",
+			"Date": "2026-05-02T06:35:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				966,
-				3
+				1117,
+				1
 			],
-			"Message": "refactor(Mountain): Extract Command DTOs and service into file-per-struct modules\n\nDecompose the Command RPC module to align with the project-wide PascalCase file-per-struct convention. Create dedicated `Command.rs`, `CommandService.rs`, and `CommandValidation.rs` files within `Source/RPC/Commands`.\n\nThe `Command` struct defines the core DTO for command metadata (id, title, description) and implements `Serialize` and `Deserialize` for Tauri event payloads. `CommandService` establishes a placeholder in-memory registry using `HashMap` to track registered command handlers. `CommandValidation` provides the initial stub for input validation logic.\n\nEach file defines its core type as `Struct` to satisfy Tauri's `generate_handler!` macro symbol resolution requirements, maintaining architectural consistency with recent refactors in Echo, Telemetry, and Configuration modules.",
-			"SHA": "0c75e06733f49b2421aff02e083ac4d8a1f3c70a"
+			"Message": "refactor(Mountain): Initialize atomic StatusReporter module structure\n\nReplace the legacy single-file implementation in `Source/IPC/StatusReporter/mod.rs` with a placeholder module header. The original documentation and re-export logic are removed to clear the namespace for a new granular, atomic status reporting system.\n\nThe legacy file content has been preserved in a sibling path for reference. This change aligns the `Source/IPC` directory with the project's shift towards fine-grained state management and prepares the architecture for the upcoming rewrite of the observability layer.",
+			"SHA": "9a4cc80af215da4b18c502e3978094d4b4c27896"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T06:35:11Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1117,
+				1
+			],
+			"Message": "fix(Mountain): Correct ApplicationState import path in extension scanner\n\nUpdate the import statement in `Source/ExtensionManagement/Scanner.rs` to explicitly reference the nested `State::ApplicationState::ApplicationState` struct. The previous flat import path failed to resolve the type correctly within the current module hierarchy.\n\nThis change ensures the `ApplicationState` type is properly available for extension state management logic, preventing compilation errors related to missing type definitions in the extension scanner.",
+			"SHA": "a6fa8e0baf0f34804f514a65c32a36d5e3c985c2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T06:35:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1117,
+				1
+			],
+			"Message": "fix(Mountain): Correct application state type import and formatting\n\nUpdate the import path for `ApplicationState` in `PathSecurity.rs` to reference the nested `State::ApplicationState::ApplicationState` struct, resolving a type resolution issue where the previous flat import path was incorrect.\n\nThe fix aligns the usage with the current Rust module hierarchy where the state type resides. Additionally, apply consistent formatting to the `Canonicalize` calls by splitting the long lines and removing unnecessary whitespace, ensuring readability matches the existing code style in the `Source/Environment/Utility` directory.\n\nThis change prevents compilation errors related to the missing type import and cleans up the path resolution logic for filesystem security checks.",
+			"SHA": "deb80e8f137b2d5fc4060ee8ab609749d40cb51d"
 		}
 	],
-	"TimeStamp": 1780506274514
+	"TimeStamp": 1780672840602
 }

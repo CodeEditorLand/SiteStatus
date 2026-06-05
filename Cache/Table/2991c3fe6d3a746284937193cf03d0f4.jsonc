@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-04-26T02:26:36Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T10:38:12Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				81,
+				85,
 				1
 			],
-			"Message": "",
-			"SHA": "7506d7f4f0037644c33c879f2e402dc6275d77a4"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-25T02:04:13Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "",
-			"SHA": "bfd743269b6e0c2ee3216b43dc22619c0abb4127"
+			"Message": "feat(Sky): Add column-based match highlighting for text search results\n\nParse Mountain's `columns` array (0-based UTF-8 char offsets) and transform into VS Code's 1-based `ISearchRange` format for result ranges. Also populate `preview.matches` with preview-local coordinates so the renderer shows the actual matched-substring highlight inside each line.\n\nPreviously all matches displayed as full-line highlights with no sub-line underline. With columns, users now see precise character-level highlighting in the search results widget.",
+			"SHA": "6184960547bdde71192e36850d605b9e2353f4d0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T02:03:44Z",
+			"Date": "2026-04-26T09:58:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				84,
+				85,
 				1
 			],
-			"Message": "fix(Sky): Restore Bundle mode distinction for worker script loading\n\nReintroduce separate code paths for `Bundle=true` and `Bundle=false` build profiles in Electron.astro, after the previous fix collapsed both into identical separate script tags.\n\n- Add `Bundle` environment detection from `process.env.Bundle`\n- `Bundle=true` profiles now use npm-package imports (`@codeeditorland/worker/Target/Worker/*.js`) inside a single `<script>` block, which Vite bundles into one chunk\n- `Bundle=false` profiles continue using separate `<script is:inline type=module src=...>` tags serving static assets from `/Worker/*.js`\n\nThe ordering requirement remains: CSS Load → Policy → Register. Bundle mode relies on declaration order within the bundled chunk; non-bundle mode relies on browser document-order-execute-modules guarantee. This restores compatibility with existing build profiles while maintaining correct execution order.",
-			"SHA": "87d321335829ff7369b3db799184bffa1996e36d"
+			"Message": "fix(Sky): Fix text search result mapping and fileSearch params\n\nUpdate MatchFromHit to read Mountain's actual response format: use `Hit.resource` instead of `Hit.uri`, and `Hit.matches[]` array (each with `preview` and `line_number`) instead of flat per-hit shape. Add backwards-compat support for the old flat `{uri, lineNumber, preview}` format for any future Mountain path that returns it.\n\nFix search:findFiles IPC call to include required null exclude parameter. Without it, MaxResults shifted into the exclude slot, causing the glob extractor to ignore max and default to 10000.\n\nThis resolves empty search results where previous code produced resource=MakeFileUri(\"\") with empty results array because Mountain's response never contained the expected flat hit fields.",
+			"SHA": "a3139802b461c5b1201b2f3b51f36196a97fbdfb"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:51:59Z",
+			"Date": "2026-04-26T09:49:48Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				84,
-				3
+				"⠀⠀⠀⠀⠀",
+				85,
+				1
 			],
-			"Message": "fix(Sky): Fix NLS message loading and worker script execution order\n\nThe workbench bootstrap was failing with `SyntaxError: Unexpected token '<'` because `nls.messages.js` did not exist in the Sky pipeline. When the VS Code loader requested this file, the server fell through to the SPA HTML, and the browser attempted to parse HTML as JavaScript.\n\nChanges:\n- Add stub `Public/Static/Application/nls.messages.js` that seeds an empty `_VSCODE_NLS_MESSAGES` array so `vs/nls.js` falls back to literal fallback strings (the second argument every workbench callsite already passes).\n- Fix `Source/Workbench/NLS.astro` to always load `vs/nls.js` regardless of dev/prod mode; the companion `nls.messages.js` request is now served by the static stub.\n- Fix `Source/pages/Electron.astro` worker script loading: the previous bundle-mode branch collapsed three ordered scripts into one async module, breaking document order guarantees. Both modes now use separate `<script is:inline type=\"module\" src=...>` tags, ensuring browsers serialize execution in document order while permitting parallel fetch.\n\nThe workbench now bootstraps successfully in both dev and production modes.",
-			"SHA": "b62c0127510bd7c79d48bef9eb46942c12d4f102"
+			"Message": "fix(Sky): Add BuildOpenArg helper for real URI instances in open commands\n\nThe previous manual POJO construction `{ $mid: 1, path, scheme }` for vscode.open and similar commands fails when in-process consumers (command palette, quick pick) call `uri.with()` or `uri.toString()` directly without going through `revive` - the same root cause as the search results dedup bug fixed in the previous commit.\n\nAdd `BuildOpenArg` function that accepts string, URI instance, UriComponents, or workspace-folder shape and produces a real URI when `GetServices()?.URI` is available. Falls back to POJO with `$mid: 1` for code paths that DO call `revive`.\n\nUpdates two call sites in SkyBridge: OpenFile and the other vscode.open invocation to use the helper instead of manual object construction.",
+			"SHA": "18f9fb7fee75a0fa00c4fe1d0823061309905ec1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:28:01Z",
+			"Date": "2026-04-26T09:29:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				81,
+				85,
 				1
 			],
-			"Message": "fix(Sky): Improve tree view data provider attachment for late-registering extensions\n\nThe original 5-retry × 150ms attachment logic (750ms total budget) times out for extensions like gitlens, clangd, and dependencies that register their views 3-5 seconds into boot.\n\nChanges:\n- Replace fixed retry schedule with exponential-ish backoff (~10s across 12 retries)\n- Add PendingAttaches set to queue views that exhaust their retry budget\n- Add RetryPendingAttaches() to sweep pending views when any successful attach occurs (indicating the workbench bridge is now wired)\n- Extract AttachToDescriptor for reuse across both immediate and pending paths\n\nThis handles the full async boot sequence where view contributions register after the initial tree-view:create event fires.",
-			"SHA": "6de3a52c25e53d309283809f9dcc90b71792485d"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
+			"SHA": "a2c0d3ce109bb45b7047f2933edb4c995d0c3e27"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T09:28:59Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				85,
+				1
+			],
+			"Message": "fix(Sky): Fix URI object construction in search results for workbench deduplication\n\nThe previous manual resource object construction (`{ $mid: 1, path, scheme }`) fails when the workbench attempts result deduplication via `uri.with({...})` because it's a POJO without methods. Add `CelUriCtor` and `CelUri` interfaces to type VS Code's URI class, then create `MakeFileUri` that uses the actual `Ctor.file()` method when `__CEL_SERVICES__.URI` is available.\n\nThe lookup is re-resolved on each result construction to handle the event-rescue path where SkyBridge registers before the URI patch binds. Includes a last-resort POJO fallback for edge cases, though the workbench will gracefully fail on dedup in that scenario.\n\nUpdates both `MatchFromHit` (text search results) and file search result mapping to use `MakeFileUri` instead of manual object construction.",
+			"SHA": "e9eff04e9a2e6a16986b6817863f204c2c1c3c3e"
 		}
 	],
-	"TimeStamp": 1780506253390
+	"TimeStamp": 1780672828935
 }

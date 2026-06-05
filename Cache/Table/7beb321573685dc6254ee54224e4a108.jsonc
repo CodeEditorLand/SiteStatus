@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:22:18Z",
+			"Date": "2026-05-22T05:36:04Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				1173,
+				72
+			],
+			"Message": "feat(Cocoon): Wire extension host secrets, storage, provider dispatch, and live UI dialogs through Mountain\n\nReplace stubs across the Cocoon extension host with real implementations routed through Mountain's gRPC IPC:\n\n**Secrets & Storage** (`ActivateExtension.ts`): Extension secrets (`secrets.get/store/delete/onDidChange`) now round-trip via Mountain's AES-256-GCM encrypted storage with extension-scoped keys. Workspace/global state uses a local cache primed asynchronously from `Storage.Get`.\n\n**Extension Dependency Ordering** (`Extension/Host/Handler.ts`): Replace flat fire-and-forget activation with `ActivateWithDeps` — a recursive, depth-guarded (max 20) sequential activator that resolves `extensionDependencies` before the depending extension. Cycle-breaking via `InProgress` set.\n\n**Language Provider Resolution** (`Language/Provider/Handler.ts`): Add `$provideFileDecoration` and two-phase resolution handlers (`$resolveCodeAction`, `$resolveCodeLens`, `$resolveCompletionItem`, `$resolveHover`, `$resolveInlayHint`, `$resolveDocumentLink`, `$resolveWorkspaceSymbol`) so extension providers can return lightweight items that Monaco resolves for details.\n\n**Notification Handler** (`Notification/Handler.ts`): Track `window.focused/blurred` state via `__windowState`. Overhaul virtual document model in `$acceptModelChanged` — range-aware `getText()`, `lineAt()` with `range`/`firstNonWhitespaceCharacterIndex`/`isEmptyOrWhitespace`, `getWordRangeAtPosition()`, correct `offsetAt()`/`positionAt()`, `isUntitled` detection, language derivation from extension. Route `revealRange`/`showTextDocument` through `sendRequest` (Track effect) not `SendToMountain`. Add `$acceptTerminalOpened`/`$acceptTerminalClosed` handlers for UI-created terminal lifecycle.\n\n**Content Provider Routing** (`Request/Routing/Handler.ts`): Add `$provideTextDocumentContent` route that looks up the registered `__textDocumentContentProvider:{scheme}` and calls `provideTextDocumentContent` with a hydrated `Uri`.\n\n**VSCode API Namespaces:**\n- **Authentication**: Stash registered provider in `ExtensionRegistry` as `__authProvider:{id}` so `ExtHostAuthentication$getSession` can call `getSessions()`.\n- **Debug**: Stash debug config provider; forward `_TriggerKind` parameter.\n- **Languages**: `setLanguageConfiguration` now forwards through Mountain's `set_language_configuration` notification for Sky/Monaco relay.\n- **Tasks**: Stash task provider in `ExtensionRegistry` for `ExtHostTaskService$fetchTasks` callback.\n- **StatusBarItem** (`CreateStatusBarItem.ts`): Reactive getter/setter properties for `text`, `tooltip`, `command`, `backgroundColor`, `color` — each setter pushes an incremental `statusBar.update` to Mountain. `accessibilityInformation` stub added.\n- **Window** (`Window/Namespace.ts`): Live `showInformationMessage` with action buttons routes through `Window.ShowQuickPick` when actions are present. Live `createQuickPick`/`createInputBox` that open via `Window.ShowQuickPick`/`Window.ShowInputBox` round-trips and emit `onDidAccept`/`onDidChangeSelection`/`onDidHide` events. `showTextDocument` returns a full `TextEditor` shim with live `setDecorations()`, `edit()`, `insertSnippet()`, `revealRange()`, `show()` methods that dispatch through Mountain. Active tab getter returns a minimal `Tab` shape. `state` becomes a live getter backed by `__windowState`. Terminal creation fires `didOpenTerminal`/`didChangeActiveTerminal` events; dispose fires `didCloseTerminal`/`didChangeActiveTerminal`.\n- **Workspace/Providers**: Wire `onDidChange` handler on `TextDocumentContentProvider` — re-fetches content on provider change and emits `didChangeTextDocument` for virtual docs. Stash/unstash task providers on register/unregister.\n- **Workspace/Text/Document** (`Document.ts`): `openTextDocument({language, content})` creates an untitled in-memory document. `untitled:` scheme documents return synchronously from cache. Scheme-based provider dispatch queries `__textDocumentContentProvider:{scheme}` before falling back to disk/Mountain. `BuildSaveAll` routes through `Workspace.SaveAll`. `BuildApplyEdit` routes through Mountain's `applyEdit` Track effect (awaitable round-trip). `onWillSaveTextDocument` now supports `waitUntil` via `__willSaveListeners` array for format-on-save.\n\n**gRPC Server** (`GRPCServerService`): Route `$resolve*` methods alongside `$provide*` to language provider handler. Implement `ExtHostAuthentication$getSession` via stashed auth providers. Implement `ExtHostTaskService$fetchTasks/provideTasks/executeTask` via stashed task providers. Implement `ExtHostDebug$resolveDebugConfiguration/provideDebugConfigurations` via stashed debug config providers. Implement `ExtHostFileSystem$readFile/writeFile/stat/readDirectory/createDirectory/delete/rename/copy` via stashed file system providers. Add generic `ExtHost[A-Z]` fallback returning `null` instead of crashing on unknown methods.\n\n**Build**: Re-indent `ESBuild.js` from tabs to 4-space indentation. Regenerate `RouteManifest.ts` timestamp.\n\n388 Mountain RPC methods registered, 0 bespoke routes.",
+			"SHA": "a6241df5a0c6a01f9eaeb1420d08f646c8d3b396"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T01:49:59Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1173,
+				1
+			],
+			"Message": "",
+			"SHA": "2938d7c371fa6e94785c3f1456bb68ba76d15e71"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T00:53:28Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1173,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Cocoon into Current",
+			"SHA": "545a2d40944c9cfbe744cfa3515bdb42a81f27b4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T00:51:48Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				1173,
 				40
 			],
-			"Message": "style(Cocoon): Normalise config JS to tab indentation with trailing commas\n\nReformat all Configuration/ESBuild/*.js and Configuration/Mountain/Config.js from 2-space indentation back to tab indentation, matching the project's prevailing convention. Alongside the indentation change:\n\n- Reorder import/export declarations so re-exports appear after local imports, refining the convention established in the previous style pass.\n- Add trailing commas to all array and object literals across every config file.\n- Consolidate duplicate imports in Target.js (default3/default5 now share a single import from Config/Target/Config.js).\n- Flatten Environment Constant.js exports to a single-line block.\n- Re-wrap long function-call argument lists and template expressions at softer line widths (Compile Config.js, Mountain Config.js).\n\nRegenerate the RouteManifest timestamp (2026-05-20T08:08:59Z) and rebuild all Target/ compiled artifacts to reflect the reformatted configuration sources. No functional changes to build logic, RPC method registration (still 135 Mountain methods), or runtime behaviour.",
-			"SHA": "1e273240b714bf8094b9aca371bcf702abc79aee"
+			"Message": "style(Cocoon): Normalise config JS to 2-space indentation without trailing commas\n\nReformat all Configuration/ESBuild/*.js and Configuration/Mountain/Config.js from tab indentation to consistent 2-space indentation, the opposite direction from the previous style pass. Alongside the indentation change:\n\n- Remove trailing commas from all array and object literals across every config file.\n- Normalise import ordering so re-exports (export *) appear before local imports, and node:path imports precede project imports.\n- Consolidate duplicate imports in Target.js (default3/default5 now share a single import from Config/Target/Config.js).\n- Collapse __name helper calls in Compile Config.js and Mountain Config.js from multi-line to single-line format.\n- Flatten Environment Constant.js boolean expressions to single lines, and expand exports to multiline block format.\n- Move named export declarations to the end of the module body in Base Config.js, matching the convention used by sibling config files.\n\nRegenerate the RouteManifest timestamp (2026-05-21T23:59:06Z) and rebuild all Target/ compiled artifacts to reflect the reformatted configuration sources. No functional changes to build logic, RPC method registration (still 135 Mountain methods), or runtime behaviour.",
+			"SHA": "0977a9fd01435d081d1433a0c98c1eb677fdb0b2"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:38:21Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1173,
-				42
-			],
-			"Message": "style(Cocoon): Normalise esbuild config JS to 2-space indentation\n\nReformat all Configuration/ESBuild/*.js files and Configuration/Mountain/Config.js from tab indentation to consistent 2-space indentation, matching project conventions. Reorder import/export declarations for consistency across the config module tree — re-exports now appear before local imports, and duplicate/default import aliases are deduplicated (Target.js no longer re-imports TargetConfig under two aliases).\n\nRegenerate the RouteManifest timestamp and rebuild all Target/ compiled artifacts to reflect the reformatted configuration sources. No functional changes to build logic, RPC method registration (still 135 Mountain methods), or runtime behaviour.",
-			"SHA": "986b90460fea5813aa884130c99e05ffe94c422a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:13:42Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				1173,
-				47
-			],
-			"Message": "refactor(Cocoon): Extract custom editor registration and registry maps into dedicated modules\n\nContinue the modularisation of the Window namespace by lifting the inline RegisterCustomEditor function into its own Source/Services/Handler/VscodeAPI/Window/RegisterCustomEditor.ts file and relocating all shared registry maps (CustomEditorProviders, CustomEditorProvidersByViewType, TreeDataProviders, TreeDataProvidersByViewId, WebviewViewProviders, WebviewViewBuilders, WebviewPanels) into a companion Registry.ts module. Namespace.ts now re-exports these maps and retains only the CreateWindowNamespace factory and its event subscriber helpers.\n\nThis follows the same extraction pattern applied to the extension host handler monolith in the previous commit, reducing Namespace.ts by roughly 170 lines of inline declarations. No functional changes to provider registration, lifecycle dispatch, or Mountain notification wiring.\n\nRegenerate all Target/ compiled artifacts and update the RouteManifest timestamp to reflect the new build.",
-			"SHA": "d83ab1de7f16c00568710b5609626d80456c1268"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:37:38Z",
+			"Author": "github-actions[bot]",
+			"Date": "2026-05-21T08:47:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1164,
-				6
+				1173,
+				1
 			],
-			"Message": "refactor(Cocoon): Extract extension host monolith into focused atomic modules\n\nSplit the 1500-line inline implementation in Handler.ts (InstallVscodeModuleHooks, EnsureVscodeAPIRegistered, ActivateExtension, CreateExtensionContext) into three dedicated files — VscodeModuleHooks.ts, EnsureVscodeAPI.ts, and ActivateExtension.ts — improving maintainability and reducing the extension host handler to a thin dispatch layer.\n\nAlongside the extraction, fix several real-world extension compatibility issues:\n- ActivateExtension.ts: Add fs preflight check before importing main bundle (skips Copilot and other extensions whose dist files are absent from source checkouts); populate `context.extension.packageJSON` from the real manifest on disk so `@vscode/extension-telemetry` reads `aiKey`; seed workspace config cache from the extension's `contributes.configuration.properties` before activate() runs (prevents GitLens TypeError on nested config access); backfill `activate()` return value into the registry entry so `vscode.extensions.getExtension(id).exports` resolves correctly; use the real VS Code URI class when available to avoid `URI.joinPath` errors\n- EnsureVscodeAPI.ts: Add POJO-tolerant RelativePattern wrapper (fixes Shopify.ruby-lsp activation); add missing VS Code API enums (LogLevel, OverviewRulerLane, UIKind, TextEditorCursorStyle, DebugConfigurationProviderTriggerKind, IndentAction) that the extHostTypes spread misses — extensions referencing them at module-load time crashed with undefined\n- VscodeModuleHooks.ts: (carried forward, no functional change)\n- Notification handler: Fix `willSaveTextDocument` — collect all `waitUntil` thenables and batch returned TextEdits into a single `window.applyTextEdits` call instead of forwarding eagerly per-thenable, matching VS Code's `acceptWillSaveDocument` ordering\n- Configuration cache: Support `\"*\"` sentinel for full model rebuild — wipe and re-prime cached keys on settings.json writes that affect many keys at once",
-			"SHA": "e4175f34918950d520c425f71d9878afdaeb3d70"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:21:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1161,
-				3
-			],
-			"Message": "fix(Cocoon): Keep extension-observable state live in workspace, terminals, and diagnostics\n\nReplace multiple stale or empty state placeholders in the Cocoon extension host with live-tracking counterparts that extensions actually query at runtime.\n\nURI robustness: MakeUriStub provides a minimal URI-like object when LazyURI.parse fails, preventing folders from being silently dropped from the workspace list.\n\nVisible text editors: Track the active editor in `__visibleTextEditors`, upsert on `didChangeTextEditorSelection`, and filter on `$acceptModelRemoved` so iterators (GitLens, Error Lens, formatters) see real open-editor state instead of a static empty array.\n\nTerminals: `createTerminal` now pushes into `__terminals` and sets `__activeTerminal`, with proper cleanup on dispose. The `terminals` and `activeTerminal` properties are getters backed by these arrays.\n\nDiagnostics: Introduce a module-level `_AllDiagnostics` cache that mirrors every DiagnosticCollection.set/delete/clear call. `getDiagnostics()` now returns real aggregated diagnostics across owners instead of an empty array, and emits `diagnostics.didChange` events so downstream consumers can react to diagnostic updates without an async Mountain round-trip.",
-			"SHA": "6a1ecbf53b069944bb7ca27fd9361fa86a8a8d4d"
+			"Message": "Merge pull request #460 from CodeEditorLand/dependabot/npm_and_yarn/grpc/grpc-js-1.14.4\n\nbuild(deps): bump @grpc/grpc-js from 1.14.3 to 1.14.4",
+			"SHA": "689f9758a5e32bda467f97872beaeec9d909d3c4"
 		}
 	],
-	"TimeStamp": 1780506248391
+	"TimeStamp": 1780672809096
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:16:54Z",
+			"Date": "2026-05-19T04:43:59Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1510,
 				1
 			],
-			"Message": "fix(Mountain): Consolidate panic recovery logic in scheme handlers\n\nMigrate the panic recovery implementation in `VscodeWebviewSchemeHandler` to match the established pattern in `VscodeFileSchemeHandler`. The previous implementation attempted to use `catch_unwind` but failed to handle the `AssertUnwindSafe` trait requirement and redundantly implemented the result matching logic inside the closure.\n\nUpdate `VscodeWebviewSchemeHandler` to use `catch_unwind` with `AssertUnwindSafe` for the closure wrapper and move the `match` result handling and `dev_log` error reporting to the function scope. This ensures that panics within the webview asset loading path (e.g., in MIME type resolution or file reading) are caught, logged with backtrace details, and converted to HTTP 500 responses without crashing the editor process.\n\nAlign the import structure in `Scheme.rs` to group `panic` imports correctly. This change unifies the error handling strategy for both file and webview scheme handlers, ensuring consistent graceful degradation across the native backend's asset serving layer.",
-			"SHA": "139de360adc2c0b17a5adbef32cee1d8d6e06c54"
+			"Message": "fix(Mountain): Supply missing INativeWindowConfiguration fields in sandbox config\n\nAdd eight non-optional fields to the `ConstructSandboxConfiguration` JSON blob that VS Code's `NativeWorkbenchEnvironmentService` and related environment service layers access without null-checks:\n\n- `perfMarks`, `loggers` — empty arrays expected by performance-mark collection and logger initialization pathways.\n- `colorScheme` — default `{ dark: false, highContrast: false }` used early in startup before the real theme is resolved.\n- `mainPid` — the current process ID, consumed by process-tree and crash-reporter logic.\n- `os` — includes `release`, `hostname`, and `arch` derived from `std::env::consts`, required by platform-conditional feature gating in the workbench.\n- `dataFolderName` / `sharedDataFolderName` — set to `.fiddee` (or the `ProductDataFolderName` env var), preventing `URI.joinPath(userHome, undefined, \"extensions\")` from throwing a TypeError in `extensionsPath` and `appSharedDataHome`.\n- `version` — read from `ProductVersion` env var, defaulting to `1.0.0`, used by extension compatibility checks and telemetry reporting.\n\nMissing any of these causes crashes during extension host initialization and workbench service construction. Body uses trailing comma syntax consistently.",
+			"SHA": "0066703567eaf9dd4ae8579009011dbc6b79318a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:10:11Z",
+			"Date": "2026-05-19T04:19:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				2
+				1510,
+				6
 			],
-			"Message": "fix(Mountain): Migrate VS Code webview scheme handler to internal panic wrapper\n\nMove the VS Code webview scheme handler logic into a private `_VscodeWebviewSchemeHandler` function and wrap the public entry point with `std::panic::catch_unwind`. This mirrors the protective pattern recently implemented for the file scheme handler to prevent editor crashes caused by panics crossing the Objective-C FFI boundary.\n\nConcurrently, remove the `LSEnvironment` dictionary from `Info.plist`. These runtime configuration values (including network ports and feature tiers) were previously stored in the property list but are now generated and injected at build time via `build.rs` and `Scheme.rs`. Removing the dead XML nodes cleans up the configuration file and aligns the binary structure with the current build process.\n\nThis change ensures graceful error recovery for webview asset requests and resolves configuration drift by centralizing environment setup in the Rust build logic.",
-			"SHA": "230ca02557a152875ce896802af0b4c5ec9d5929"
+			"Message": "fix(Mountain): Add logsPath to sandbox config, clean up handlers\n\nAdd the required `logsPath` field to `ISandboxConfiguration` to prevent VS Code's `NativeWorkbenchEnvironmentService.logsHome` from resolving to `undefined`, which crashes the extension host with a `TypeError` in `path.join`. The path is derived from `AppDataDir/logs/<session-timestamp>`, created eagerly before constructing the sandbox object.\n\nRemove the `nativeHost:setDocumentEdited` handler body — `NSWindow::setDocumentEdited` is not exposed by Tauri 2.x's `WebviewWindow` API — and strip the unused `ping_timeout` field from `ConnectionHealthChecker` since health checks are now call-path-driven rather than timer-based.\n\nSimplify early-return control flow in `isPortFree` and `getTerminalProcessId` to reduce branch nesting and eliminate dead returns. Fix the `TerminalId` type in `ResizeTerminal` with an explicit `.into()` conversion.\n\nRedraw the README architecture diagram as a structured subsystem hierarchy (Binary/, Track/, RunTime/, IPC/, Vine/, RPC/) with accurate gRPC port annotations for the Cocoon (:50052) and Air (:50053) sidecars.\n\nAdd `MIRIFLAGS=-Zmiri-disable-isolation` to `.cargo/config.toml` to permit `_NSGetExecutablePath` calls during Miri testing.",
+			"SHA": "0644dc0e1c7ea10717d827c6f4bdbde334d3da45"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:05:17Z",
+			"Date": "2026-05-19T03:01:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1510,
 				1
 			],
-			"Message": "fix(Mountain): Wrap scheme handlers in panic catch to prevent editor crash\n\nAdd `std::panic::catch_unwind` guards around `_VscodeFileSchemeHandler` and `_VscodeWebviewSchemeHandler` to prevent the entire editor process from aborting. These handlers run inside the `wkwebview` Objective-C FFI boundary, where panics crossing the `extern \"C\"` limit cause immediate process termination.\n\nThe implementation catches panics, logs the error message and current thread backtrace via the `lifecycle` dev_log, and returns a standard HTTP 500 Internal Server Error response instead. This ensures that bugs in memory mapping (mmap) or MIME type handling within the asset loading path result in a graceful failure rather than a full application crash.",
-			"SHA": "478ca92acb177ec84b73c6e5faf4f56c4d4b5ddf"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "f05bb15337235ffc6fc2de4ac1988fe3a8d9e19a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T21:54:43Z",
+			"Date": "2026-05-19T03:01:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				2
+				1510,
+				14
 			],
-			"Message": "chore(Mountain): Align documentation structure with recent refactoring and cleanup configuration\n\nUpdate README.md to reflect the current source directory structure following the recent migration from `Binary.rs` to the `Binary/` module folder and the addition of new components like `IPC/`, `RPC/`, `Telemetry/`, and `Cache/`. Correct the architectural diagram and module descriptions to match the actual file layout in `Source/`.\n\nAdditionally, clean up `Info.plist` by removing extraneous indentation and empty XML nodes around the `LSEnvironment` key to ensure a valid, consistent property list format. Remove trailing whitespace to maintain formatting standards.\n\nThis change synchronizes the project documentation with the current codebase state and resolves formatting inconsistencies in the build configuration.",
-			"SHA": "4ce8e735fd7551cdf8c3d5c41f2820eaef15eefc"
+			"Message": "feat(Mountain): Implement custom editor registry, wire file watcher and PTY resize, optimize hot paths\n\nComplete several IPC/RPC stubs with actual implementations:\n- Store ViewType-to-sidecarId mappings in CustomEditorProvider's global\n  once-locked registry, enabling proper cleanup on unregistration\n- Route watch_file gRPC to FileWatcherProvider::RegisterWatcher for real\n  FSEvents/inotify monitoring instead of a no-op stub\n- Route resize_terminal gRPC through TerminalProvider to resize the PTY\n  (delivers SIGWINCH to the shell) alongside the existing Tauri event\n- Add extensions:activate handler sending $activateByEvent to Cocoon so\n  Wind's ExtensionsService triggers activation programmatically\n\nRefine IPC dispatch and sidecar routing:\n- Emit sky://commands/executed after commands:execute dispatch so\n  telemetry collectors and command subscribers observe every command\n- Look up debug configuration provider from ApplicationState.Feature.Debug\n  for correct sidecar routing instead of hardcoding cocoon-main\n\nOptimize high-frequency and hot paths:\n- Add StorageWriteDebouncer with 100ms write coalescing, replacing\n  per-call tokio::spawn disk writes with batched single-writes\n- Strip osascript subprocess from nativeHost:getCursorScreenPoint,\n  returning (0,0) to eliminate ~50ms macOS process spawn per invocation\n- Gate logger info/debug/trace to opt-in vscode-log tag; forward\n  error/warn/critical to dev_log consistently\n- Replace SystemTime-based ID generation with atomic sequence counters\n  in Notification and WindowUI, eliminating syscall overhead\n\nUpdate Tauri ACL manifests with the new tray allow-set-icon-with-as-template\npermission.",
+			"SHA": "e2e1d1e1b9088429512644b8901afcf9dd8d2347"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T21:13:48Z",
+			"Date": "2026-05-19T02:56:16Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1490,
-				33
+				"⠀⠀⠀⠀⠀",
+				1510,
+				1
 			],
-			"Message": "refactor(Mountain): Consolidate imports and reformat Rust code across core modules\n\nStandardize multi-line import blocks to use brace-compressed syntax in CertificateManager.rs. Apply consistent line-wrapping and removal of unnecessary vertical whitespace across the Environment provider modules, Command handlers, and Track effect handlers.\n\nThis change focuses purely on formatting and code style alignment. No functional logic, business rules, or error handling flows are altered. The modifications ensure uniform indentation and line length compliance (typically wrapping comments and long method chains at 100 characters) across the Mountain native backend codebase.\n\nThis improves readability and prepares the codebase for automated linting enforcement.",
-			"SHA": "c8a486c1635ccee407de53db21f6127a3cce049b"
+			"Message": "perf(Mountain): Reduce command registration yield delay to 20ms\n\nThe 50ms `tokio::time::sleep` after extension activation was conservatively oversized since the `registerCommand` IPC channel drains in roughly 16ms. Lower the yield to a single 20ms frame, matching the actual batch-flush cadence of the Tauri event system.\n\nThis shaves 30ms from the extension activation hot path, accumulating measurably when multiple extensions register commands during startup.",
+			"SHA": "7c91748de9acede25cf29c983732453e7ffc2d4e"
 		}
 	],
-	"TimeStamp": 1780506253202
+	"TimeStamp": 1780672822620
 }

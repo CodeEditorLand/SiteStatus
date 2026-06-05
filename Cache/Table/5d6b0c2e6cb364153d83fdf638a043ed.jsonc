@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:33:11Z",
+			"Date": "2026-05-26T17:57:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1731,
-				11
-			],
-			"Message": "refactor(Mountain): Consolidate Cocoon forwarding logic and remove redundant handler modules\n\nEliminate the `Source/IPC/WindServiceHandlers` directory structure (Git, UI, and shared modules) which previously contained repetitive boilerplate for forwarding IPC commands to the Cocoon extension host. Replace the scattered, copy-paste implementations of payload serialization and gRPC invocation with a centralized `forward_to_cocoon` macro and `cocoon_payload` helper in `mod.rs`.\n\nThis refactoring unifies the handling logic for SCM, Debug, Tasks, and Authentication namespaces within the main IPC dispatcher (`mountain_ipc_invoke`). The new macro handles argument normalization (Null, single value, or array) and manages the `WaitForClientConnection` and `SendRequest` lifecycle consistently, reducing code duplication and improving maintainability. The deletion of individual handler files streamlines the Mountain backend architecture while preserving the functional bridge to the VS Code runtime in Cocoon.",
-			"SHA": "f6139fff82bc66bce7ac77abc19964d6ca44898e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:13:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1741,
+				1746,
 				2
 			],
-			"Message": "fix(Mountain): Correct event naming and simplify language configuration payload\n\nRefactor `SetLanguageConfiguration` to emit the entire parameter object directly instead of reconstructing the payload with a single `language` field. This aligns the RPC handler with the generic notification pattern used by other Sky emit handlers.\n\nIn `WebviewLifecycle`, correct the event suffix mapping for the `postMessage` command. Change the target event string from the kebab-case `post-message` to the PascalCase `postMessage`. This resolves a naming inconsistency and aligns the Tauri event identifiers with the project-wide PascalCase naming convention established in previous refactorings.\n\nThese changes ensure consistent payload structures for language configuration and restore strict adherence to naming standards for webview IPC events.",
-			"SHA": "e5c08bc20068b79fa24a3c1d986c536cf8a9a1dc"
+			"Message": "fix(Mountain): Realign SCM DTO import path and enable native window capabilities\n\nFix the `SourceControlManagementResourceDTO` import in `UpdateScmGroup` to use the reorganized `DTO` submodule path under `CommonLibrary::SourceControlManagement`, correcting the module resolution after Common's struct rehoming.\n\nAdd window management capability permissions (`start-dragging`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`, `internal-toggle-maximize`) to `capabilities/default.json`, enabling the Sky UI to drive native window chrome operations — dragging the titlebar, maximizing/minimizing/closing — through Tauri's IPC permission layer.\n\nWithout these capabilities, the editor's custom titlebar was non-interactive and the workbench window could not be controlled programmatically from the frontend.",
+			"SHA": "4a6097c8945fea0e487dc49487de53a47983988f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:02:33Z",
+			"Date": "2026-05-26T17:23:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1741,
-				5
+				1746,
+				6
 			],
-			"Message": "refactor(Mountain): Standardize event naming and implement blocking notification logic\n\nCorrect the Tauri event suffix for webview messages across `GenericNotification` handlers, changing \"post-message\" to \"postMessage\" to align with the project-wide PascalCase naming convention. Update the fallback notification router in `MountainVinegRPCService` to sanitize event names by replacing dots with slashes, ensuring compatibility with Tauri's strict character set requirements for event identifiers.\n\nRefactor the `Window.ShowMessage` effect in `WindowUI` to support blocking behavior. Replace the fire-and-forget timestamp-based ID generation with a thread-safe atomic sequence counter for request identification. When action items are present, the handler now emits a `show-message-request` event to the `INotificationService`, registers a pending request in the application state, and awaits a one-shot channel response. This enables the UI to render action buttons and return the user's selection to the extension host, replacing the previous non-interactive implementation.\n\nThese changes ensure consistent event naming, prevent illegal event name crashes, and restore full interactivity for notification actions in the extension host IPC layer.",
-			"SHA": "cb905d7a9fcd21ff5161c4316b9757f4e2adeaa2"
+			"Message": "fix(Mountain): Replay SCM resource groups and persist snapshots for late subscribers\n\nCocoon fires `register_scm_resource_group` before SkyBridge's listener is attached (Tauri events are not buffered), so the workbench booted with the SCM provider header visible but zero groups — and even when `update_scm_group` arrived, the resource tree stayed empty because the event was consumed without persisting the snapshot for boot-time replay.\n\n- **UpdateScmGroup**: Persist each incoming `ResourceStates` array into MarkerState as `SourceControlManagementResourceDTO` entries keyed by `(ProviderHandle, GroupId)`, so the replay loop can re-emit the latest snapshot.\n- **ReplayEvents**: Add two new replay legs — group registration (`sky://scm/registerGroup`) and resource update (`sky://scm/updateGroup`) — reconstructing the same `GroupHandle = \"{ProviderHandle}/{GroupId}\"` that the live wire path produces, resolved through the provider identifier map (defaulting to \"git\").\n- **LoggingPlugin**: Cap `tauri::manager` and `tauri::manager::asset` to Warn, `tauri::webview` and `wry` to Info, to suppress the flood of expected 404 fallback probes for sourcemap/module URLs that WebKit auto-fetches with the wrong base under `tauri://localhost`.\n- **LocalPTYGetProfiles**: Rename `Arguments` → `args` (lowercase) to match VS Code's `ITerminalProfile.args` — the uppercase key silently mis-parsed and the profile picker fell back to `$SHELL`.\n- **SCM Effect**: Accept `git.openChange` / `git.openFile` as diff-forwarding aliases alongside `vscode.diff` / `$scm:openDiff`; these are the actual command IDs the built-in vscode.git extension uses on resource state entries.\n- **build.rs**: Normalize array formatting in `PropagatePostHogSentinel`.\n\nThe SCM panel now populates with groups and working-tree state at boot, and terminal profiles render with their configured arguments.",
+			"SHA": "2db7957cc5af3113a94be7ee360e1f2cb34cb769"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:39:56Z",
+			"Date": "2026-05-26T17:22:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1741,
+				1746,
+				7
+			],
+			"Message": "refactor(Mountain): Rename OTLP env vars and tighten default trace categories\n\nRename the baked compile-time environment variables `OTLPEndpoint` to `Pipe` and `OTLPEnabled` to `Emit` across build.rs, PostHogPlugin constants, runtime hydration, Cocoon process environment propagation, and OTLP span emitter docs. The shorter names reduce line noise in the env map and align with the single-word naming convention of sibling keys (`Capture`, `Beam`, `Brand`, `Report`).\n\nNarrow the `Trace` sentinel value in Info.plist from the catch-all `\"all\"` to an explicit comma-delimited list of active trace categories, ensuring debug log output only covers relevant subsystems instead of flooding stderr with every DevLog call.\n\nAlso fix a stale doc comment reference in CaptureAllowed.rs that mentioned `OTLPEnabled` instead of the current `Emit` toggle name.",
+			"SHA": "b1ff14804289a99599bd3c0aab3c552e49564057"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T14:51:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				1
+			],
+			"Message": "Merge pull request #60 from CodeEditorLand/dependabot/github_actions/ad-m/github-push-action-1.3.0\n\nchore(deps): Bump ad-m/github-push-action from 1.1.0 to 1.3.0",
+			"SHA": "2add8ef9dc6ce3535b0359c1e99417c0de6a04c6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T14:02:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
 				4
 			],
-			"Message": "feat(Mountain): Implement unregisterExternalUriOpener and unregisterRemoteAuthorityResolver notifications\n\nRegister two new gRPC notification handlers in `MountainVinegRPCService` to support the disposal of external URI opener and remote authority resolver handles defined in the Vine protocol.\n\nCreate dedicated notification modules `UnregisterExternalUriOpener` and `UnregisterRemoteAuthorityResolver` within `Source/Vine/Server/Notification/`. Both modules leverage the existing `UnregisterByHandle` helper to perform the cleanup logic, ensuring consistent registration state management across the extension host IPC layer.\n\nThese changes extend the Mountain backend to fully support the lifecycle management of remote authority and URI opener extensions via the gRPC interface.",
-			"SHA": "9c72840ca6348b0f64076aa13e4b742ec13dcbd5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:35:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1739,
-				2
-			],
-			"Message": "feat(Mountain): Add webview.setOptions support and align postMessage event naming\n\nRegister the new `webview.setOptions` handler within the `MountainVinegRPCService` routing logic to enable configuration updates for Tauri webviews. This expands the IPC surface to match the updated Vine protocol requirements.\n\nIn the `CreateEffectForRequest` tracker, correct the event suffix mapping for the `postMessage` command. Restore the PascalCase naming convention by changing the target event string from \"post-message\" to \"postMessage\". This ensures consistency with the project-wide PascalCase naming standard for all UI-to-Rust event identifiers.\n\nThese changes complete the `setOptions` integration and resolve an event naming inconsistency in the webview effect registry.",
-			"SHA": "948a6514d4e201dc15936998f5375a0064360d9b"
+			"Message": "refactor(Mountain): Simplify binary, library, and product name to Mountain\n\nRevert the binary, library, package, and product name from the verbose encoded build configuration string back to the simple canonical name \"Mountain\". The previous encoding embedded the full DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler string into artifact names, causing developer friction during local tooling integration and debugging.\n\nAlso tidy up tauri.conf.json by normalizing array formatting, reordering resource entries for consistency, adding the missing shell-integration/zsh.zsh resource, and restoring the identifier to fiddee.editor.binary. Remove the stale .Backup files left behind when the encoding was introduced.",
+			"SHA": "3e26a02371e60ff23f0017843e4209fb76d47807"
 		}
 	],
-	"TimeStamp": 1780506239573
+	"TimeStamp": 1780672812697
 }

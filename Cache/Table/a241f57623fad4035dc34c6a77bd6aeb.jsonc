@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T14:08:34Z",
+			"Date": "2026-06-04T19:14:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1733,
+				1731,
+				2
+			],
+			"Message": "refactor(Mountain): Finalize CreateEffectForRequest string matching simplification\n\nComplete the CreateEffectForRequest dispatch refactoring by converting the remaining two modules from macro-generated patterns to explicit string predicates.\n\nLanguageFeatures.rs replaces its match expression with `MethodName.starts_with(\"register_\") && MethodName.ends_with(\"_provider\")` and removes a stray extra brace left over from macro expansion. WindowUI.rs replaces the catch-all wildcard match with `MethodName.starts_with(\"Window.\")` plus a descriptive comment, ensuring only Window-namespace methods route here.\n\nAll CreateEffectForRequest modules now use explicit, self-documenting dispatch predicates instead of macro-generated tokens.",
+			"SHA": "bc05e8208557e6236d112704752939fa17599dc3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-04T19:14:01Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1731,
+				25
+			],
+			"Message": "refactor(Mountain): Simplify CreateEffectForRequest string matching\n\nReplace macro-generated match expressions and identifier constants with explicit string literal comparisons and `starts_with`/`ends_with` predicates across all CreateEffectForRequest modules. Static method names now use direct string matching (\"Authentication.GetSession\" | \"Authentication.GetAccounts\") instead of inferred identifier constants. Dynamic command patterns collapse into concise boolean expressions — `$gitExec` and `$terminal:` families use `MethodName.starts_with(...)`, `register_*_provider` uses a start+end check, and `$scm:`, `$statusBar:`, `$webview:`, and `tree.` prefixes follow the same pattern.\n\nThis removes macro coupling from the dispatch predicates, makes accepted method names immediately visible in each file, and eliminates stale `std::sync::Arc` imports left over from macro expansion. The central dispatcher now routes through cleaner pre-filters that operate on concrete strings rather than generated tokens.",
+			"SHA": "cafbc510d7e2b33f142fd0badacefb43068381ff"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-04T19:09:50Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1731,
+				28
+			],
+			"Message": "refactor(Mountain): Add Matches pre-filter and borrow Parameters in CreateEffectForRequest\n\nIntroduce a `Matches(MethodName: &str) -> bool` predicate on every CreateEffectForRequest module so the central dispatcher can reject non-matching method names before invoking the full constructor. This eliminates unnecessary work and aligns with the ActionEffect dispatch pattern used elsewhere.\n\nChange `CreateEffect` signatures across all modules from `Parameters: Value` to `Parameters: &Value`, removing the unconditional `Parameters.clone()` call from the hot dispatch path and deferring cloning into the individual effect macro invocations only when needed.\n\nReorder the module chain in `Source/Track/Effect/CreateEffectForRequest/mod.rs` — moving `FileSystem`, `Commands`, `Terminal`, and `TreeView` into a new sequence — and wrap each `Try!` invocation with the `Matches` guard.",
+			"SHA": "be9aaf5b1cc0156d3236573d11a617984e0da2ef"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-04T19:06:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1731,
 				1
 			],
-			"Message": "refactor(Mountain): Route remaining provider unregistration atoms to canonical Vine handlers\n\nReplace the specialized `UnregisterFileSystemProvider` and `UnregisterUriHandler` notification handlers with delegations to `::Vine::Server::Notification::Support::UnregisterByHandle`, following the pattern established for task and other provider unregistrations. Add `dev_log!` instrumentation at the dispatch site to capture the scheme identifier for debugging purposes.\n\nThe `unregister_scm_provider` handler retains its dedicated Vine atom due to its additional logic (scmId handle computation and Sky relay). Reformat several decoration and status bar notification invocations for consistent multi-line formatting.\n\nThis completes the migration of provider unregistration logic into the shared Vine library, reducing Mountain's code surface and enforcing consistent IPC handling across all provider types.",
-			"SHA": "a8102299f1da98d3bd3cce625049ffe3ed145ac6"
+			"Message": "fix(Mountain): Clean up ActiveOperations registry on RPC cancellation\n\nImmediately remove the cancelled operation from the ActiveOperations write lock after triggering its cancellation token, preventing a leaked CancellationToken per RPC that accumulated when operations did not reach their own UnregisterOperation call site.\n\nRemove the redundant client-side method name format check that rejected paths containing \"../\" or \"::\" separators from the request validation path.",
+			"SHA": "28bf3528fd4eb3af543c2ef45b1a37c622cd6088"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T14:08:27Z",
+			"Date": "2026-06-04T19:03:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1733,
-				2
+				1731,
+				4
 			],
-			"Message": "refactor(Mountain): Route all notification atoms to canonical Vine crate\n\nReplace the local `super::Notification::*` dispatch in `MountainVinegRPCService.rs` with direct calls to `::Vine::Server::Notification::*`, collapsing the Mountain-local notification modules in `Source/Vine/Server/Notification/mod.rs` to only the three Mountain-specific utilities: `Support`, `OutputChannelCoalesce`, and `TerminalEnvCollection`.\n\nAll 46+ wired notification handlers — extension lifecycle, progress reporting, output channels, webview/terminal lifecycle, SCM registration, language providers, debug/status-bar/decoration APIs — are now thin pass-throughs that delegate to the canonical implementations in the Vine library crate. This finalizes the extraction of Cocoon→Mountain IPC logic from Mountain into the shared gRPC protocol layer.\n\nMountain's `send_cocoon_notification` dispatcher is reduced to a pure routing table with no inline logic, and the Notification module no longer re-exports the full atom suite, enforcing Vine as the single source of truth for IPC contracts.",
-			"SHA": "d3b63235b1e7a8560b093a2ca8e21096c02f14cd"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T14:02:40Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1733,
-				2
-			],
-			"Message": "refactor(Mountain): Consolidate Vine gRPC service trait imports\n\nRedirect the `CocoonService` and `MountainService` trait imports to use the canonical definitions from the `::Vine::Generated` namespace, removing the redundant local re-exports from `Source/Vine/Generated/mod.rs`.\n\nThe imports in `Source/RPC/CocoonService/mod.rs` and `Source/Vine/Server/MountainVinegRPCService.rs` now point directly to `::Vine::Generated::cocoon_service_server::CocoonService` and `::Vine::Generated::mountain_service_server::MountainService` respectively, eliminating the intermediate path through the local `crate::Vine::Generated` module.\n\nThis finalizes the migration to the shared Vine library for gRPC service definitions, ensuring Mountain delegates all RPC interface contracts to the canonical source.",
-			"SHA": "123bf22d7ad191d28dbbedebd3ed3653c58acabe"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T14:02:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1733,
-				7
-			],
-			"Message": "refactor(Mountain): Finalize Vine gRPC type forwarding and delegate remaining notification atoms\n\nComplete the extraction of Mountain's gRPC infrastructure into the `Vine` library crate. Replace the local generated code in `Source/Vine/Generated/mod.rs` with type aliases that forward all protobuf message types and service clients/servers to `::Vine::Generated::*`, ensuring the workspace uses a single canonical type definition.\n\nDelegate the remaining notification handler implementations to their Vine counterparts: `UpdateScmGroup`, `WebviewLifecycle`, and `RelayToSky` become thin pass-throughs. Consolidate provider unregistration by routing the simple variants directly to `::Vine::Server::Notification::Support::UnregisterByHandle` from the dispatcher, keeping only the complex cases (file system, SCM, URI handler) as separate modules.\n\nMove the SCM marker persistence logic from `UpdateScmGroup.rs` into `VineHostImpl::UpdateScmGroupMarkers`, decoupling the notification atom from Mountain-specific application state.\n\nThis removes the final locally-implemented gRPC handlers, reducing Mountain to a composition layer that delegates all Cocoon→Mountain IPC to the shared Vine crate.",
-			"SHA": "934aece1767c08e3ce1d5a4d239ee825ba03db85"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T13:42:36Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1733,
-				8
-			],
-			"Message": "refactor(Mountain): Finalize Vine notification system delegation to library crate\n\nConclude the systematic extraction of Mountain's gRPC notification handling into the dedicated `Vine` library by eliminating all remaining local implementations. On the client side, `PublishNotification`, `PublishNotificationFromMux`, and the entire `Shared` module (connection pool, broadcast channel, shutdown flag, metadata tracking) are reduced to empty stubs—Mountain's active code paths now use `::Vine::Client::*` directly. On the server side, the unregistration atoms (`UnregisterRemoteAuthorityResolver`, `UnregisterScmProvider`, `UnregisterTaskProvider`, `UnregisterUriHandler`) and the `RelayToSky` helper become thin delegators to their `::Vine::Server::Notification` counterparts.\n\nThis completes the migration of Cocoon→Mountain notification processing into the library layer, pruning Mountain's internal code surface and enforcing consistent IPC standards across the project.",
-			"SHA": "01ebad1dfa8901cb226f06b4ddd8499e2ecbde57"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "8efe02eff66da4e11cf592aca92f3fe82ea1f394"
 		}
 	],
-	"TimeStamp": 1780506232044
+	"TimeStamp": 1780672804865
 }

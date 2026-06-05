@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:25:49Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "refactor(Project): Consolidate polyfill implementations into Output module\n\nExtract Sky's inline build plugins into a reusable Output module and migrate all polyfill implementations from Wind to Output as the single source of truth.\n\nChanges:\n- Output: Add Plugin module with CopyVSOutput, CopyVSRootFiles, SupplementFromDependency, CopyWorker, CopyNodeModules, StubUnpublishedAddons, CopyTauriMainProcessService copy plugins and StripCSSImport, InjectNameShim, ReplaceElectronIPCService, ReplaceSharedProcess, StaticToDynamicImport, StripDanglingSourceMap, ExtensionScannerIPC transform plugins\n- Sky: Update polyfill imports from @codeeditorland/wind/Target/Polyfills/* to @codeeditorland/output/Polyfill/*\n- Wind: Replace polyfill implementations with thin re-exports pointing to Output (ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill, IPCRendererShim, NativeModulePolyfill, ProcessPolyfill, SharedProcessProxy)\n\nThis eliminates duplicate code across the monorepo — polyfill fixes now only need to be made in Output to propagate to all consumers (Sky, Wind, Cocoon, and any future desktop shells).",
-			"SHA": "dccf43cee4990710f009f59f6dd3c99febf7f1f6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:12:19Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				28,
-				5
-			],
-			"Message": "build(Project): Coordinate Element submodule updates across 5 components\n\nSynchronize Cocoon, Mountain, Output, Sky, and Wind submodules with the following changes:\n\n- **Mountain:** Initialize PostHog telemetry at boot before CLI parsing to capture early crash context. Fix incorrect #[tauri::command] attribute on internal dispatcher with clarifying docstring. Restore recently opened folder via BuildInitialUrl reading RecentlyOpened.json and passing ?folder=<path> to skip Welcome → Open Folder → hard reload round-trip (fixes purple splash flash, stuttering, empty @builtin sidebar, broken keybindings from double layer boot). Fix macOS window dragging by replacing maximized(true) with TitleBarStyle::Overlay + hidden_title(true) (keeps traffic lights visible, allows VS Code custom titlebar drag). Normalize en-dashes to hyphens in documentation.\n\n- **Sky:** Eliminate early paint flash by adding inline CSS in <head> matching VS Code Dark+ (#1e1e1e background, #d4d4d4 text). Add client-side PostHog throttling with 10s window and 2×/sec per-event limit, reporting dropped events as land:sky:throttle-dropped. Fix lifecycle phase signaling by moving phase 3→4 advancement to separate <script> before workbench import, fixing Tauri invoke signature from mountain_ipc_invoke to MountainIPCInvoke (previously caused silent deserialization failures). Adjust timing: phase 3 immediate, phase 4 at 1500ms.\n\n- **Wind:** Route all colon-prefixed IPC methods (file:read, file:write, shared_process:invoke) through MountainIPCInvoke to work around Rust function name limitations. Update TauriIPC.ts to use consistent PascalCase \"MountainIPCInvoke\" instead of snake-case. Fix em dashes to hyphens in LifecycleService and PostHog/Fallback comments.\n\n- **Output:** Route colon-prefixed Tauri commands in polyfills (ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill, IPCRendererShim, NativeModulePolyfill, ProcessPolyfill, SharedProcessProxy) through MountainIPCInvoke. Update sendTauri in IPCRendererShim for consistency.\n\n- **Cocoon:** Submodule updated to a5ec2e6d.\n\nThis coordinated update delivers recently opened folder restoration, macOS window drag fixes, IPC routing consistency, and early paint flash elimination while maintaining identical runtime behavior.",
-			"SHA": "ec42cbd0d685c2846cb80972bf002a309fbafc3c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:13:45Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "build(Project): Coordinate Element submodule updates across 3 components\n\nSynchronize Cocoon, Mountain, and Wind submodules with the following changes:\n- **Mountain:** Streamline extension path and NodeResolver module docs — simplify ScanPathConfigure comments for extension skip flags and builtin path override. Condense NodeResolver module docstring to compact ladder list showing resolution order: LAND_NODE_BINARY → shipped runtime → fnm/volta/asdf/nvm → homebrew → PATH. Behavior unchanged.\n- **Wind:** Split monolithic PostHogBridge.ts into modular components under Source/Telemetry/PostHog/ — Browser.ts (window.posthog lookup), Configuration.ts (import.meta.env config), Fallback.ts (fetch POST fallback), Identifier.ts (distinct_id resolution), Properties.ts (base event properties). PostHogBridge.ts now composes these modules for improved testability.\n- **Cocoon:** Submodule updated to 33544546.\n\nThis coordinated update delivers documentation improvements and modular telemetry architecture while maintaining identical runtime behavior.",
-			"SHA": "6b50bc739324d0d9404e706f7c8adb5a33206b71"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:04:59Z",
+			"Date": "2026-04-22T22:17:39Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "",
-			"SHA": "21bd4370c008d4e752271f718493d65faea466fb"
+			"Message": "fix(Mountain): Add shutdown guard and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings.\n\nExtend static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader resolves asset URLs relative to the current document, which strips the leading slash before reaching the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.\n\nThis prevents spurious shutdown warnings, fixes TextMate grammar loading, and reduces log noise.",
+			"SHA": "8adf5bfc83b8f1bb64be9883facf6d0933a64315"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:04:59Z",
+			"Date": "2026-04-22T20:26:34Z",
 			"File": [
-				"⣿⠁⠀⠀⠀",
+				"⠇⠀⠀⠀⠀",
 				28,
-				6
+				2
 			],
-			"Message": "build(Project): Coordinate Element submodule updates across 6 components\n\nSynchronize all 6 Element submodules with the following changes:\n\n- **Mountain:** Add extension metadata passthrough (Atom TH1) — 14 new fields to ExtensionDescriptionStateDTO for VS Code package.json metadata (Categories, DisplayName, Description, Keywords, Repository, Bugs, Homepage, License, Icon, AiKey, ExtensionKind, Capabilities, ExtensionDependencies, ExtensionPack). Implement IPC round-trip for applyEdit/showTextDocument (Atom T1) using request/response pattern instead of fire-and-forget events. Add Node version checking (Atom N1) — ResolveNodeBinary queries `node --version` and logs resolved version with warning for outdated major versions. Add compile-time PostHog config (Atom P2) via env! macro in build.rs. Add IPC logging with paired entry/exit lines for latency diagnosis.\n\n- **Sky:** Add round-trip IPC handlers (Atom T1) for workspace/applyEdit and window/showTextDocument with RequestIdentifier tracking. Implement UI dialog round-trip replies (Atom Q1) for show-message-request, show-input-box-request, show-quick-pick-request. Add PostHog configuration via environment (Atom PH1/PH2) with client-side rate limiting and batch window. Add extension runtime dependency installer (Atom S1) that runs `npm install --production` for extensions with runtime deps.\n\n- **Wind:** Add PostHog telemetry bridge (Source/Telemetry/PostHogBridge.ts) that reuses Sky's window.posthog instance in webview or falls back to HTTP POST in Node.js. Tags events with $tier: \"wind\" for analytics filtering.\n\n- **Common:** Bump pnpm/action-setup from 6.0.0 to 6.0.3 (dependabot).\n\n- **Maintain:** Replace em-dashes with hyphens in CHANGELOG and code comments for consistent formatting.\n\n- **Cocoon:** Submodule updated to 38b5cb557b5de41dd3164ed71b46fdafc09aac01.\n\nThis coordinated update delivers IPC round-trip reliability for editor operations, extension metadata filtering support, frontend PostHog telemetry, and Node version diagnostics.",
-			"SHA": "f476c8de30dc27799b8160c4124fc0f3a6a68597"
+			"Message": "build(Project): Coordinate Element submodule updates across 2 components\n\nSynchronize Mountain and Sky submodules with the following changes:\n- **Mountain:** Simplify binary naming from verbose development profile identifier to just 'Mountain'. Update Tauri identifier to 'land.editor.binary'. Remove externalBin reference to Binary/node since Node.js sidecar is now handled differently. Add vscode-file and vscode-file://vscode-app to img-src Content Security Policy for VS Code file protocol support. Delete temporary backup files (Cargo.toml.Backup, tauri.conf.json.Backup).\n- **Sky:** Add exception signature throttling to PostHog bridge — exceptions share the `$exception` event-name slot in posthog-js, so a burst of CSP refusals/console.error/unhandledrejection callbacks during workbench boot would blow through the 10/10s rate limit. Add a secondary throttle layer keyed by the first 200 chars of the error message. Unique exceptions still reach PostHog while bursts of the same error collapse into one. Both regular and exception drop counts are now reported in the `land:sky:throttle-dropped` event for visibility.\n\nThis coordinated update delivers build configuration simplification and PostHog rate limit protection while maintaining identical runtime behavior.",
+			"SHA": "3c5b85b952028923580cc7c9f3a867bf7e1987df"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T19:45:13Z",
+			"File": [
+				"⣿⠃⠀⠀⠀",
+				28,
+				7
+			],
+			"Message": "build(Project): Coordinate Element submodule updates across 7 components\n\nSynchronize Air, Cocoon, Grove, Mist, Mountain, Output, and Rest submodules with the following changes:\n\n- **Air:** Migrate SHA256 checksum generation to hex::encode for sha2 0.11 compatibility — sha2 crate 0.11 changed `Digest::finalize()` output from `GenericArray` to `hybrid_array::Array`, which no longer implements `LowerHex`. Replace format!(\"{:x}\", …) with hex::encode() across Daemon/Manager, Indexing/Scan/ScanFile, Indexing/State/CreateState, Security/ChecksumVerifier, Updates/UpdateManager, and Vine/Server/AirVinegRPCService.\n\n- **Mist:** Update to hickory-server 0.26 API — Migrate from hickory-server 0.25 module reorganization (authority::* → zone_handler::*, InMemoryAuthority → InMemoryZoneHandler<T>, ServerFuture → Server, AXFR bool → AxfrPolicy enum). Added DNS_TCP_RESPONSE_BUFFER_SIZE constant (65,535 bytes) for TCP listener registration.\n\n- **Mountain:** Update build configuration for development profile — Rename binary, lib, and product to include DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain. Add Binary/node to externalBin in tauri.conf.json. Replace deprecated posthog-rs api_endpoint() with host(). Apply sha2 0.11 hex::encode migration to ConfigurationBridge.rs.\n\n- **Rest:** Migrate to OXC 0.127 API for codegen and transform — Replace flat `comments: bool` in CodegenOptions with structured CommentOptions type. Migrate from deprecated `into_symbol_table_and_scope_tree()` / `build_with_symbols_and_scopes()` to unified `into_scoping()` / `build_with_scoping()` returning a single Scoping value.\n\nThis coordinated update delivers dependency compatibility, API migrations, and build configuration alignment while maintaining identical runtime behavior.",
+			"SHA": "d155a37d236b27ef62ffa009ad1e9ce24edc1d33"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T18:49:19Z",
+			"File": [
+				"⣿⠇⠀⠀⠀",
+				28,
+				8
+			],
+			"Message": "build(Project): Coordinate Element submodule updates across 8 components\n\nSynchronize all 8 submodules with the following changes:\n- **Cocoon:** Bump @vitest/coverage-v8 from v4.1.4 to v4.1.5 in extension host dependency\n- **Common:** Update @cloudflare/workers-types from 4.20260421.1 to 4.20260422.1 for improved type coverage\n- **Grove:** Bump Rust dependencies — wasmtime 42→44, wasmtime-wasi 42→44, wasmparser 0.245→0.247, prost 0.12→0.14, tonic 0.12→0.14, tonic-build 0.12→0.14, vergen 8→9\n- **Mountain:** Submodule updated (no additional commits)\n- **Output:** Remove compiled JavaScript artifacts (.js/.js.map) from Configuration directory, leaving only TypeScript sources\n- **Rest:** Update rayon from 1.11.0 to 1.12.0 for upstream performance improvements\n- **SideCar:** Bump tauri-plugin-shell from 2.0 to 2.3 for Tauri 2.x shell API support\n- **Sky:** Upgrade Astro from 6.1.8 to 6.1.9 and @astrojs/compiler-rs from 0.1.7 to 0.1.8\n\nThis coordinated update delivers dependency updates, build cleanup, and compatibility improvements across the monorepo while maintaining identical runtime behavior.",
+			"SHA": "3682595a7b47403f7e976e0a1bc7b7a7febeb87a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T18:31:40Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				28,
+				1
+			],
+			"Message": "refactor(Mountain): Centralize UriComponents construction with $mid marker\n\nAdd a shared UriComponents helper module ensuring every URI payload sent to the VS Code renderer carries the required `$mid: 1` marshalling marker. Without it, VS Code's IPC reviver leaves URIs as plain objects where `.fsPath` and `.with` are undefined, causing the sidebar and icon loader to silently fail.\n\nIntroduce FromFilePath, FromUrl, StampMidUri, and Normalize helpers that are now used consistently in handle_extensions_install (Extension.rs), handle_file_realpath (WindServiceHandler and WindServiceHandlers FileSystem.rs), and any other IPC handlers returning URI-shaped payloads.\n\nThis prevents regression of the earlier extension location URI fix — inline json! builders elsewhere risked the same silent break in the renderer's URI revival chain.",
+			"SHA": "f6f57e18385a44df9beaeaaa7e5bf27c16dcfc59"
 		}
 	],
-	"TimeStamp": 1780506261777
+	"TimeStamp": 1780672839711
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T17:48:39Z",
+			"Date": "2026-05-14T18:38:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1490,
 				1
 			],
-			"Message": "fix(WSAE): propagate Err from applyEdit instead of synthetic true (#54)\n\nWhen Sky does not answer sky://workspace/applyEdit, returning\nOk(json!(true)) causes every extension that checks the boolean\nresult of `workspace.applyEdit()` to believe the edit succeeded\nand proceed against post-apply state that never materialised.\n\nPropagate the error instead so the extension host surfaces the\nfailure correctly. showTextDocument already uses Ok(json!(null))\non its failure path; this aligns applyEdit with that safer\npattern while going one step further and returning a real Err\nso callers can distinguish a Sky failure from a successful\nfalse-result from the provider.",
-			"SHA": "fc59918c8e1ce7045b50bccabc57e23344167604"
+			"Message": "feat(Mountain): Enable conditional WKWebView inspection in debug builds\n\nAdd a conditional check in `Source/Binary/Build/WindowBuild.rs` to enable the `devtools` flag for the Tauri `WindowBuilder` when running in `debug_assertions` mode and the `Inspect` environment variable is set to a non-empty, non-zero value.\n\nThis modification allows external inspection tools (such as Safari Web Inspector or MCP) to attach to the native WKWebView instance on macOS during development, facilitating deep debugging of the editor's UI layer. The change preserves the existing behavior of disabling decorations on non-macOS platforms while introducing a gated mechanism for developer tooling on macOS.\n\nThe implementation leverages Wry's underlying `devtools` configuration to expose the native inspection interface only when explicitly requested.",
+			"SHA": "6e51ac8b9e213cd70f7a379fd3d3ba091f41e54f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T17:43:39Z",
+			"Date": "2026-05-14T16:50:21Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1490,
+				4
+			],
+			"Message": "refactor(Mountain): Reorder resources block and fix documentation links\n\nCorrect the ordering of files within the Tauri `resources` configuration in `tauri.conf.json` to group JavaScript bootstrap files prior to static assets and configuration manifests. This restores the logical dependency sequence expected during the application bundle initialization process.\n\nUpdate GitHub documentation URLs in `README.md` and `Documentation/GitHub/NamingConventions.md` from the legacy `blob` path to the canonical `tree` path, ensuring links correctly resolve to directory listings and file views on the `Current` branch.\n\nAlign dash formatting in `Source/Binary/Build/Scheme.rs` comments to use standard hyphens instead of en-dashes for code path descriptions.\n\nThese changes ensure consistent configuration loading and accurate external documentation references.",
+			"SHA": "53fdb1751c9017d8a5dcc41e9007e44d52464cc2"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-14T02:44:25Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1490,
 				1
 			],
-			"Message": "Merge pull request #53 from CodeEditorLand/fix/uiqp2-show-quick-pick\n\nfix(UIQP2): deserialise items and options from Parameters",
-			"SHA": "8083f74c0dab32d0b6bccdcab093011a0d3b9748"
+			"Message": "",
+			"SHA": "0fda20430898ee73c92c7fb362b98c436fc96b8f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T17:34:26Z",
+			"Date": "2026-05-14T01:31:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1490,
 				1
 			],
-			"Message": "fix(UIQP2): deserialise items and options from Parameters in ShowQuickPick",
-			"SHA": "77191858d1cb1af57f174db23fd7ee2f72f1eae7"
+			"Message": "fix(Mountain): Restore static runtime environment configuration in Info.plist\n\nReintroduce the `LSEnvironment` dictionary into `Info.plist` containing critical bootstrap configuration required for the native backend to establish sidecar connections. This restores the static injection of gRPC ports (`NetworkMountainPort`, `NetworkCocoonPort`), product identifiers, and execution tier definitions (e.g., `TierRemoteProcedureCall`, `TierExtensionActivation`).\n\nThis reverses the recent removal of these static settings, as the current initialization logic depends on the `LSRuntimeEnvironment` dictionary for early-stage environment variable population before dynamic configuration sources are available. Retain the `CFBundleIconFile` entry to ensure correct icon resolution on macOS.",
+			"SHA": "26d7f51e50a888a8aac54f47b665a380d01efc76"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T14:45:58Z",
+			"Date": "2026-05-14T00:52:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1490,
 				1
 			],
-			"Message": "Merge pull request #52 from CodeEditorLand/fix/uiqp-reply-channel\n\nfix(UIQP): wire oneshot reply channel for all four dialog methods",
-			"SHA": "805107d5c9c75d693eb2a77eb57388867870b0c9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T13:12:08Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				1
-			],
-			"Message": "fix(UIQP): wire reply channel for ShowQuickPick/ShowInputBox/ShowOpenDialog/ShowSaveDialog\n\nAll four dialog methods previously emitted the Sky event and returned\nOk(null) immediately (fire-and-forget), so the extension host never\nreceived the user's selection — every quick-pick and input-box resolved\nwith undefined on the Cocoon side.\n\nNow each handler:\n  1. Creates a tokio::sync::oneshot channel.\n  2. Registers the (nonce → tx) pair via ApplicationState.UI.AddPendingRequest.\n  3. Emits the Sky event with the nonce included in the payload.\n  4. Awaits rx, mapping the CommonError variant and the RecvError (sender\n     dropped / dialog cancelled) to String so the MappedEffect type is\n     satisfied.\n\nThe frontend calls the existing `ResolveUIRequest` Tauri command with the\nnonce and the selected value; that removes the sender from the map and\ncompletes the await here, returning the selection as Ok(Value) to the\nextension host.",
-			"SHA": "ad64c889c5c803a7f398123c93000e704240bd7d"
+			"Message": "refactor(Mountain): Remove static runtime environment configuration from Info.plist\n\nStrip the `LSEnvironment` dictionary and associated `Disable` and `Trace` flags from `Info.plist`. These static configurations, which defined critical gRPC ports (`NetworkMountainPort`, `NetworkCocoonPort`) and execution tiers (e.g., `TierRemoteProcedureCall`, `TierExtensionActivation`), were re-introduced in the previous commit but are being removed to transition the runtime environment setup away from static plist injection.\n\nRetain the `CFBundleIconFile` entry to ensure the application icon is correctly resolved by macOS. This change prepares the native backend to source its runtime configuration exclusively from the `Mountain` environment variable system or dynamic initialization logic, reducing coupling with the application bundle's metadata and aligning with the flexible configuration strategy required for multi-platform deployment.",
+			"SHA": "d29b58488ebff9a89e854038127b6ca2c6dadcb6"
 		}
 	],
-	"TimeStamp": 1780506256447
+	"TimeStamp": 1780672825087
 }

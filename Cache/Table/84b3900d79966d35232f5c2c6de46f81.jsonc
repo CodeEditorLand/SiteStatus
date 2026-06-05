@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:39:07Z",
+			"Date": "2026-05-22T06:19:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1552,
-				4
+				1584,
+				7
 			],
-			"Message": "feat(Mountain): Refactor IPC handlers and implement workspace glob matching\n\nRefactored the `mountain_ipc_invoke` dispatcher to delegate native operations to modular, reusable handlers and implemented a bounded workspace-contains glob matcher for VS Code extension activation.\n\nKey changes include:\n- **Handler Refactoring**: Extracted inlined logic for `nativeHost:showSaveDialog`, `UserInterface.ShowSaveDialog`, `nativeHost:showMessageBox`, `nativeHost:getEnvironmentPaths`, `localPty:resize`, and `localPty:freePortKillProcess` into dedicated functions (`NativeShowSaveDialog`, `UserInterfaceShowSaveDialog`, etc.) in `WindServiceHandlers/mod.rs`. This reduces code duplication, improves readability, and centralizes error handling.\n- **Clipboard Enhancements**: Added `NativeTriggerPaste` and `NativeReadImage` stubs to `NativeHost/Clipboard.rs`. These return safe fallbacks (`false` and empty array) to support the IPC contract while Tauri 2.x native implementations are finalized.\n- **Workspace Activation**: Introduced `WorkspaceContainsGlob` module to efficiently resolve `workspaceContains:<pattern>` activation events. The implementation supports literal paths, single-segment wildcards (`*`), and recursive wildcards (`**`) up to a depth of 3, with a safety cap of 4096 entries per root to ensure sub-100ms performance in large monorepos.\n\nThese changes align the IPC layer with the modular architecture established in recent commits and provide the necessary file-system introspection for correct extension lifecycle management.",
-			"SHA": "b37ff5594d3d5a121ee027062b90e8ca1c804fde"
+			"Message": "fix(Mountain): Normalize extension location URI from cache to plain string\n\nThe `LoadFromCache` path serialized `ExtensionLocation` as a JSON object\n`{\"value\": url}` — the Identifier wrapper shape — rather than a plain\n`Value::String` URI. The `Normalize.rs` URI parser then failed to match\nagainst the `scheme` key and fell through to `/extensions/unknown`,\nbreaking extension resolution for cached manifests.\n\n- Fix the source: emit `Value::String(LocationUri)` from\n  `LoadFromCache.rs`, matching the format `FromUrl::Fn` expects.\n- Fix the sink: add a backward-compatibility branch in `Normalize.rs`\n  that unwraps `{\"value\": url_string}` when encountered, so legacy\n  cache entries still resolve correctly.\n- Reorder Sky resource globs in `tauri.conf.json` alphabetically for\n  maintainability.\n\nAccompanying build metadata: the Cargo.toml package name, tauri\nidentifier, and productName are expanded to their full environment-keyed\nform (DevelopmentNodeEnvironment…) as part of the CI artifact\nlabelling scheme; backup files preserve the canonical values.",
+			"SHA": "af8fcdd2e74f49cd5943e056f6af38bddb0d7205"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:36:56Z",
+			"Date": "2026-05-22T05:35:38Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1551,
-				28
+				"⠀⠀⠀⠀⠀",
+				1582,
+				2
 			],
-			"Message": "feat(Mountain): Implement comprehensive WindService IPC handlers for Cocoon, ExtensionHost, and Native bridges\n\nExpanded the IPC dispatch layer to bridge the Rust backend (Mountain) with the Renderer (Wind/Sky) and Extension Host (Cocoon). This commit introduces a suite of new handlers to support VS Code's core workbench requirements, ensuring feature parity with Electron-based architectures.\n\nKey additions include:\n- **Cocoon Bridge**: Implemented `cocoon:request` (RPC), `cocoon:notify` (fire-and-forget), and `cocoon:extensionHostMessage` to relay binary protocol data. Includes boot-race guards to handle latency during startup.\n- **ExtensionHost Lifecycle**: Added `extensionHostStarter:*` and `extensionhostdebugservice:*` handlers. Crucially, `start` now returns the actual Cocoon PID instead of the Mountain process ID, enabling debuggers to attach to the correct Node.js runtime.\n- **NativeHost Features**: Implemented cross-platform clipboard access (`arboard`), environment path resolution (with session-timestamped logs), `moveItemToTrash` (using osascript/gio/powershell), security-hardened `openExternal` (allowlisting schemes), and modal dialogs (`showMessageBox`, `showSaveDialog`).\n- **Terminal Resilience**: Added `localPty:attachToProcess` and `detachFromProcess` to support window reloads without losing active shell sessions. Includes `resize` protection against race conditions and `freePortKillProcess` for port binding conflicts.\n- **State Replay**: Introduced `sky:replay-events` to recover buffered tree-view, SCM, command, and terminal data emitted before the SkyBridge listeners were fully initialized, preventing UI elements from appearing empty on cold boot.\n- **Dynamic Dispatch**: Enhanced the `mountain_ipc_invoke` dispatcher to defer unknown commands to the Cocoon Node.js runtime (via gRPC) when `TierIPC=NodeDeferred` is set, covering language features, SCM, debug, and authentication namespaces.\n\nThese changes collectively resolve boot-time initialization races, enable full terminal lifecycle management, and provide the necessary native capabilities for a robust code editing experience.",
-			"SHA": "69f0bb7bceacea46817ccd097aa254567b4dc5e3"
+			"Message": "refactor(Mountain): Extract inline JSON blocks to avoid macro recursion limit\n\nThe `ConstructSandboxConfiguration` function builds the entire `ISandboxConfiguration` payload in a single deeply-nested `json!()` macro invocation. As the `profiles` and `productConfiguration` sections grew, the macro expansion exceeded Rust's recursion limit, causing compilation failures on certain toolchain versions.\n\nExtract the `nls`, `productConfiguration`, `os`, and `profiles` sub-objects into separate `json!()` calls bound to local variables (`NlsSection`, `ProductConfig`, `OsSection`, `ProfilesSection`), then reference them by name in the outer `json!()` invocation. This breaks the single deep expansion into multiple shallow ones, staying well within the recursion limit without changing any emitted values.\n\nNo behavioral change — all pre-built variables produce identical JSON to the previously inlined blocks.",
+			"SHA": "78820a9ee66e89a88169dab5bf7acb7b986c1eb3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:42:07Z",
+			"Date": "2026-05-22T05:35:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1522,
-				6
+				1582,
+				19
 			],
-			"Message": "feat(Mountain): Wire Mountain IPC commands into Tauri 2 ACL system\n\nMountain's native Tauri commands (e.g., `MountainProvideHover`, `MountainWorkspaceOpenFolder`, `DnsResolve`) were being rejected at runtime with \"Plugin not found\" errors because Tauri 2 requires explicit permission entries for all `#[tauri::command]` definitions.\n\nIntroduce `permissions/default.toml` to define the custom permission identifier `allow-mountain-commands`. This file aggregates the complete allow-list for every Mountain IPC handler defined in `Source/Binary/Main/Entry.rs`.\n\nUpdate `capabilities/default.json` to reference this new `default` permission set alongside existing `fs`, `log`, and core plugin permissions. Regenerate the ACL manifests and JSON schemas (`gen/schemas/`) to reflect the new permission identifiers.\n\nThis ensures the webview can invoke Mountain's native methods without failing the security check, completing the IPC bridge required for Wind/Sky to communicate with the Rust backend.",
-			"SHA": "bff5321e154a82323fa9e65a9e0aaa3ff6c0358b"
+			"Message": "feat(Mountain): Complete Cocoon extension host bridge across providers, boot, and keyboard\n\nImplement the gRPC and provider-infrastructure layer for four extension-host features that Mountain forwards to Cocoon, three complementary improvements, and one build-config update.\n\n**Extension provider features:**\n\n- **Inline completion items** (GitHub Copilot, Roo Code, Continue): New `InlineCompletionItem` / `InlineCompletionContext` messages in Vine.proto, gRPC handler in `ProvideInlineCompletionItems.rs`, and `$provideInlineCompletionItems` dispatch from `FeatureMethods.rs` to Cocoon's registered provider. Registration flows through the generic notification dispatcher via `register_inline_completion_item_provider`.\n\n- **File decorations from extensions**: `DecorationsGet` in `Decoration.rs` falls back to `ProvideFileDecoration` via Cocoon gRPC when the in-memory store has no entry, populating git-status badges, error markers, and other extension-contributed decorations on demand.\n\n- **Terminal lifecycle sync**: `TerminalProvider.rs` emits `$acceptTerminalOpened` / `$acceptTerminalClosed` notifications to Cocoon so `vscode.window.terminals` stays current for terminals created from the UI (not just via the extension API).\n\n- **Webview message forwarding**: `Messaging.rs` implements the forward path for `acquireVsCodeApi().postMessage()` calls from extension iframes, sending them as `webview.message` notifications to Cocoon so the extension host's `onDidReceiveMessage` subscriber fires. `remove_webview_message_listener_impl` is now a logging stub rather than a no-op.\n\n**Boot performance and crash fixes:**\n\n- **Extension manifest cache (B7.P08)**: New `LoadFromCache.rs` reads a pre-baked `extensions.manifest.json` blob in a single `fs::read`, reducing extension-scan boot time from ~1200 ms to <50 ms. Falls back gracefully to the live `ScanAndPopulateExtensions` path on cache miss, staleness (>10 min), or corruption. The cache file is produced by `Maintain/Build/Manifest/PreBake.ts` during `beforeBundleCommand`.\n\n- **WKWebView NSUndoManager suppression**: `TauriBuild.rs` disables the macOS default menu (which pre-installs Edit > Undo/Redo). `WindowBuild.rs` injects a capture-phase keydown listener that `preventDefault()`s Cmd+Z/Cmd+Y before the webview's internal responder chain dispatches undo:/redo:, preventing WKWebView's NSUndoManager from competing with Monaco's undo stack.\n\n- **Profiles configuration**: `InitializationData.rs` adds the `INativeWindowConfiguration.profiles` section with all required URI fields (`languageModelsResource`, `agentPluginsHome`, `cacheHome`, etc.) to prevent the `TypeError: undefined is not an object (evaluating 'M.revive(o.languageModelsResource).with')` crash during workbench initialisation. Also adds `sqmId`, `devDeviceId`, and `isPortable` as defensive non-optional fields.\n\n**Build:** `tauri.conf.json` adds `node Maintain/Build/Manifest/PreBake.ts` to the `beforeBundleCommand` pipeline.\n\nCloses the Mountain side of the inline-completion provider circuit and addresses the workbench profile crash (VS Code desktop-mode init).",
+			"SHA": "8db51dd0dc8da12799836d25faaf61658c445a52"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:06:40Z",
+			"Author": "Auto",
+			"Date": "2026-05-22T02:53:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1520,
+				1580,
 				1
 			],
-			"Message": "feat(Mountain): Inject Tauri IPC diagnostic script for early failure detection\n\nIntroduce a diagnostic initialization script in WindowBuild.rs that executes at document_start, prior to any application scripts. This script captures the state of Tauri's IPC bridge and global objects (window.__TAURI_INTERNALS__, window.__TAURI__, window.ipc) immediately upon injection.\n\nThe script populates a global window.__MOUNTAIN_TAURI_DIAG object with timestamps and boolean flags indicating the presence and functionality of core IPC methods. It also records lifecycle events (DOMContentLoaded, load) to help pinpoint timing-related race conditions.\n\nThis addition enables developers to verify the integrity of the Tauri runtime and capability scoping directly from the DevTools console if the editor fails to initialize, without relying on the full bundle loading or downstream error handling.",
-			"SHA": "b5d79001860a7305fbe97f13f69ce906bdded054"
+			"Message": "",
+			"SHA": "138352332e04a0046c07228f1b171bb588a3f421"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:00:22Z",
+			"Date": "2026-05-22T00:51:32Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1520,
-				5
+				1580,
+				3
 			],
-			"Message": "",
-			"SHA": "21065aa39c3c860d98d46791dc5ab3a3019fb968"
+			"Message": "feat(Mountain): Add TierSchemeAssetsFileSystem cfg feature flag\n\nIntroduce the `TierSchemeAssetsFileSystem` feature flag alongside the existing `TierSchemeAssetsHybrid` gating in Cargo.toml. When enabled (via `TierSchemeAssets=FileSystem` in `.env.Land`), assets are served from disk via the `static_root` fallback path with `frontendDist: null`, rather than being embedded or served in hybrid mode.\n\nAlso removes the unused `fs` import in InitializationData.rs that was left over from prior refactoring.\n\nThe bundled `Target/debug/Mountain/index.html` changes are incidental rebuild artifacts — asset content-hash and timestamp updates from the build process, no semantic change.\n\nRefs the tier-configuration scheme introduced in 4ba376b9.",
+			"SHA": "1e601e16bea86ac97efd00dd27b98ff5499d55b0"
 		}
 	],
-	"TimeStamp": 1780506245977
+	"TimeStamp": 1780672817163
 }

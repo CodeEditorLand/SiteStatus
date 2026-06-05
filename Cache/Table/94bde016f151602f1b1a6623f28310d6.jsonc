@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:56:16Z",
+			"Date": "2026-05-20T06:37:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
+				1578,
 				1
 			],
-			"Message": "perf(Mountain): Reduce command registration yield delay to 20ms\n\nThe 50ms `tokio::time::sleep` after extension activation was conservatively oversized since the `registerCommand` IPC channel drains in roughly 16ms. Lower the yield to a single 20ms frame, matching the actual batch-flush cadence of the Tauri event system.\n\nThis shaves 30ms from the extension activation hot path, accumulating measurably when multiple extensions register commands during startup.",
-			"SHA": "7c91748de9acede25cf29c983732453e7ffc2d4e"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-19T02:49:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
-				1
-			],
-			"Message": "",
-			"SHA": "32a00801945f697b6a7504c419666c2c5ea56267"
+			"Message": "style(Mountain): Format arrays in tauri.conf.json\n\nReformat `externalBin` and `targets` arrays in tauri.conf.json from single-line to multi-line for consistency with the rest of the configuration file. Also strip the trailing newline to match convention.\n\nNo functional changes — purely cosmetic formatting.",
+			"SHA": "4b54b6c25ffbf182ea9e813b5027759384979cf7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:20:46Z",
+			"Date": "2026-05-20T06:13:28Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
-				3
-			],
-			"Message": "",
-			"SHA": "af45c696979f36bc068823417654b96805b2d491"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:20:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
+				1578,
 				7
 			],
-			"Message": "feat(Mountain): Implement native file descriptor API and refine Tauri window handlers\n\nComplete the implementation of the `nativeHost` IPC surface by adding `file:open` and `file:close` handlers. These functions establish a process-global file descriptor table (backed by `HashMap<u32, File>` and `AtomicU32`) to support VS Code's `DiskFileSystemProvider` for large binary I/O, replacing previous full-read/write fallbacks.\n\nRefine window management handlers: implement `setDocumentEdited` for the macOS dirty-dot indicator, `setMinimumSize` to prevent workbench collapse, and `positionWindow` for multi-window restoration. Update `setRepresentedFilename` to display the filename component in the title bar. Re-evaluate `is_alive` connection logic to remove artificial sleep delays.\n\nOptimize `tree-view/create` event emission in `EnqueueTreeViewEmit` by migrating from per-call `tokio::spawn` to a persistent mpsc channel with a 16ms frame-aligned batcher. This eliminates task overhead during boot. Additionally, reduce the terminal startup delay from 120ms to 20ms, matching M-series hardware capabilities, and improve `LifecyclePhaseState` formatting.",
-			"SHA": "8cde99c082f32ec6c8726e947e7a696d2c3ccf7e"
+			"Message": "style(Mountain): Normalize dispatcher indentation; update Cargo/tauri build identifiers\n\nRe-indent the extracted GenericNotification/Dispatcher and GenericRequest/Dispatcher files to remove the spurious extra block indentation level that was carried over from their original inline positions in CocoonService/mod.rs. Reorder imports (std before third-party) and collapse import brace formatting. No logic changes in either dispatcher.\n\nUpdate Cargo.toml binary/lib/package names and tauri.conf.json identifier/productName to the verbose build configuration string for the development/debug Electron profile, distinguishing this build artifact from production Mountain releases. Preserve originals as .Backup copies.\n\nOutcome: dispatcher code now matches project style conventions, and the development build artifact is correctly labelled for toolchain identification.",
+			"SHA": "e78bf315d71ba4a49c4200d7f7002d24f6058255"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:12:50Z",
+			"Date": "2026-05-20T06:13:01Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1508,
-				1
+				1576,
+				9
 			],
-			"Message": "",
-			"SHA": "6d6a91d70b16bd92b1e029b42f68b7a60810df75"
+			"Message": "refactor(Mountain): Extract CocoonService dispatchers; fix Send-ness in InitData; retry AppDataPrefix\n\nThe 1400+ line `process_mountain_request` and 600+ line `send_mountain_notification` handlers were inlined in `CocoonService/mod.rs`, making the file unwieldy and obscuring the gRPC service boundary. Extract both match blocks into dedicated `GenericRequest::Dispatcher` and `GenericNotification::Dispatcher` modules, reducing `mod.rs` by ~1900 lines.\n\nIn `InitializationData.rs`, the `MutexGuard` on `WorkspaceFolders` was held across an `.await` call, making the future non-`Send` and breaking `tauri::async_runtime::spawn`. Scope the guard to a block so it is dropped before any await point; extract logging scalars before moving `FoldersWire` into `WorkspaceDTO`.\n\nIn `AppDataPrefix.rs`, replace the `OnceLock<Option<String>>` that caches `None` forever (routing all dev logs to `/tmp` after the first failed resolution) with a two-phase system: `RESOLVED: OnceLock<String>` for the permanent prefix, and `RETRY: Mutex<bool>` that stays `true` on first failure so subsequent writes retry after Tauri has created the app-data directory.\n\nIn `WindServiceHandlers/mod.rs`, the previous boot-latency fix used a bare `return Ok(...)` inside a match arm, which exits the enclosing async block (not just the arm), changing the block's inferred return type from `()` to `Result<Value, _>` and breaking `Scheduler::Submit`'s `Output = ()` bound. Replace with an `if/else` expression that evaluates to `Ok(...)` in both branches.\n\nAlso fix a minor clippy-nit in `AliasPath.rs` by removing the redundant `.as_str()` call.",
+			"SHA": "47a603158ca0d368b2ae744ef8fd7edcf5ed7410"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:37:16Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1574,
+				4
+			],
+			"Message": "style(Mountain): Reflow long lines and brace placement across four files\n\nNormalize formatting in `UpdateValue.rs`, `WindServiceHandlers/mod.rs`, `InitializationData.rs`, and `CocoonService/mod.rs` to align with Rust style conventions. Changes are limited to comment reflow, static declaration compaction, method body compression, and brace positioning — no logic is altered.\n\nCleans up artifacts from prior commits where formatter passes were missed, keeping the codebase consistent.",
+			"SHA": "65f1cf26cfa85fc1639f84d0458df61276bfa44a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:37:05Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1574,
+				6
+			],
+			"Message": "feat(Mountain): Add lang-scoped config override, stable session ID\n\n**Language-scoped configuration overrides** — `UpdateValue` now writes into\n`\"[<langId>]\": { key: value }` when the `ConfigurationOverridesDTO` carries a\nnon-empty `OverrideIdentifier`, matching the VS Code convention used by\nprettier-vscode, vscode-eslint, and other per-language formatters. The scope\nkey is cleaned up when its last entry is removed.\n\n**Stable session ID** — `ConstructSandboxConfiguration` and\n`ConstructExtensionHostInitializationData` now share a `OnceLock`-backed\nstatic `SESSION_ID` instead of generating a fresh `Uuid::new_v4()` per call.\nExtensions comparing `telemetryInfo.sessionId` across initialization calls now\nsee a consistent value for the process lifetime.\n\n**Call/Type hierarchy RPC handlers** — `CocoonService` now dispatches\n`$provideCallHierarchyItems`/`prepareCallHierarchy` and\n`$provideTypeHierarchyItems`/`prepareTypeHierarchy` generic requests to\n`Environment::PrepareCallHierarchy` and `PrepareTypeHierarchy` respectively,\nunblocking F12 / Go to References / Call Hierarchy in the editor.\n\n**Real IPC stubs** — `mountain_get_configuration` returns the live merged\nconfig object; `mountain_get_services_status` reports actual Cocoon connection\nstate; `mountain_get_state` surfaces real workspace folder count and active\ndocument URI. Eliminates hardcoded mock data.\n\n**SOCKS proxy support** — Proxy env-var parsing now emits the correct PAC\nkeyword (`SOCKS` for socks/socks4/socks5 URIs, `PROXY` for http/https),\nso extensions using the `proxy` setting work behind SOCKS proxies.\n\n**Dev-log lock contention** — `FlushDedup::Fn` switches from `lock()` to\n`try_lock()` so a contended dedup mutex never parks a Tokio worker thread.\nThe dedup line is cosmetic; missing one flush costs nothing.\n\n**Atomic always-on-top toggle** — Replaces the heuristic title-prefix proxy\nwith a `static AtomicBool` so `nativeHost:toggleWindowAlwaysOnTop` correctly\nflips and sets the opposite state on each invocation.\n\n**ViewColumn forwarding** — The `window.didChangeTextEditorSelection`\nVine notification now includes `viewColumn` from the incoming arguments,\nso extensions calling `activeTextEditor.viewColumn` see the correct pane\nnumber in split-editor layouts.",
+			"SHA": "5c627091d0aecbc4b96f536dde7bdf12242cc6f7"
 		}
 	],
-	"TimeStamp": 1780506248748
+	"TimeStamp": 1780672819518
 }

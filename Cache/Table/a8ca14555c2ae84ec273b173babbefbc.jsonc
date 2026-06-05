@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:02:12Z",
+			"Date": "2026-04-23T15:35:36Z",
+			"File": [
+				"⣿⣿⠀⠀⠀",
+				28,
+				11
+			],
+			"Message": "refactor(Project): Standardize IPC event channel naming to kebab-case\n\nCoordinate refactoring across Common, Mountain, Sky, and Wind to unify IPC event channel naming:\n- Standardize all `sky://` event channels to consistent kebab-case format (status-bar → statusbar)\n- Remove duplicate/forked channels: StatusBarMessage, TreeViewRegister, WebviewPostMessageCamelCase, WebviewSetHTMLCamelCase\n- Add test comparing Rust enum wire strings against TypeScript mirror to prevent future drift\n- Emit TreeViewCreate events after TreeDataProvider registration so renderer wires up data providers\n- Add diagnostics stub methods in Wind/Output for getWorkspaceFileExtensions to prevent language detection crashes\n\nAlso updates various dev dependencies:\n- Bumps @effect/platform (0.96.0 → 0.96.1) in Cocoon/Wind\n- Bumps effect (3.21.1 → 3.21.2) in Cocoon/Wind\n- Bumps @cloudflare/workers-types (4.20260422.1 → 4.20260423.1) in Common/Echo\n\nImpact: Extension tree views now render correctly, language detection runs without crashes, and IPC channel naming is consistent across the Rust/TypeScript boundary.",
+			"SHA": "5863abdef967d6e882adcdaa557928f0f048a795"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T01:47:01Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "fix(Project): Coordinate submodule updates for extension host reliability\n\nFour submodule updates improve extension activation and webview compatibility:\n\n- **Mountain**: Treat view registry commands (<viewId>.focus, .resetViewLocation, .removeView) as silent no-ops to eliminate GitLens error spam. Also preserve VSIX executable bits (0o755) during extraction so extensions with native binaries (codex, language servers) can spawn correctly.\n\n- **Output**: Add StripWebviewIframeSandbox transform plugin to remove sandbox attribute from VS Code's webview iframe. WKWebView blocks custom protocol loads (vscode-webview://, land://) from sandboxed iframes, breaking extension webview panels.\n\n- **Echo**: Submodule sync for task scheduler alignment.\n\n- **Cocoon**: Submodule sync for extension host alignment.\n\nImpact: Extensions with native binaries now activate correctly, extension webview panels load in Tauri, and spurious error logs are eliminated.",
+			"SHA": "16d2489435802c024a25ce8b6d3e0963f1fb4cce"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T01:28:50Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object args ({ path, encoding: \"utf8\" }) and the response was assumed to be a string. Mountain actually returns raw bytes as { buffer: number[] } and ignores the encoding param entirely. When VS Code loaded binary files (WASM, fonts, images), the response body became \"[object Object]\" which corrupted the data. This broke TextMate syntax highlighting with: \"WebAssembly.Module doesn't parse at byte 0: module doesn't start with '\\0asm'\".\n\nFix by: 1) Invoking file:read with positional array args [path] as expected by MountainIPCInvoke 2) Adding UnwrapReadResult() to unwrap { buffer: number[] } into Uint8Array for binary-safe Response bodies 3) Updating content type to Uint8Array | string | Blob | null. All three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler, FileHandler) now use the binary-safe pattern.\n\nThis restores TextMate grammar loading and binary asset handling.",
-			"SHA": "5864c4e9c32ce3903e9f1ec3efae89b372751099"
+			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, not the flat structure the scanner was expecting. This caused all extensions to appear as 'unknown' with empty names/publishers.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures @builtin/@installed extension split works correctly in the sidebar.",
+			"SHA": "0a994328767963658121b9a37c38ca896ef7819a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:44:51Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "build(Project): Coordinate Element submodule updates across 2 components\n\nSynchronize Mountain and Output submodules with the following changes:\n- **Mountain:** Expand v2.1 changelog with April 17–22 commits (documentation-only update).\n- **Output:** Add CatchOutputFolderRejection transform plugin — Step 15 in the build pipeline catches an unhandled promise rejection from VS Code's outputServices.createFolder(). In Land, the VFS-IPC stat call rejects with FileNotFound before fileService can swallow it, causing the rejection to propagate past the .then(() => undefined) handler and surface as telemetry noise in PostHog. The plugin uses regex match against outputServices.js to append .catch(() => undefined) to the createFolder chain, silencing the harmless rejection since the output folder is created lazily on first channel write.\n\nThis coordinated update delivers documentation refresh and telemetry noise reduction while maintaining identical runtime behavior.",
-			"SHA": "0ecb3ed18924a00c4ab770e021efb0da418d50b7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:44:18Z",
+			"Date": "2026-04-23T01:20:51Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
 				28,
 				3
 			],
-			"Message": "fix(Project): Distinguish user vs built-in extensions, add IPC stubs\n\nCoordinate fix across Mountain, Output, and Wind submodules:\n\n- **Mountain:** Add `IsUserExtensionScanPath()` helper to detect whether a scan directory represents the user-writable `~/.land/extensions` root versus bundled paths like `Resources/extensions` and VS Code's submodule. Previously every extension was marked `IsBuiltin = true` regardless of source, causing user-installed VSIXes to appear under \"Built-in\" in the Extensions sidebar and leaving `@installed` (which filters for User-scope) empty.\n\n- **Output/Wind:** Add missing stub handlers in TauriMainProcessService to prevent renderer crashes when VS Code code calls unimplemented services: extension tips (empty arrays), MCP management (empty arrays), user data sync (status tuple), and language detection (empty extensions). These stubs return safe empty values matching the absence of corresponding backends in Land.\n\nImpact: User VSIX extensions now appear correctly under \"Installed\" (not \"Built-in\") and VS Code workbench code gracefully handles the lack of sync/tips/MCP/language detection backends without crashing.",
-			"SHA": "2af35a6c2d381bb04045e0d3344f14f1fe92a056"
+			"Message": "fix(Project): Coordinate extension scanning and file URI handling fixes\n\nThree related fixes improve extension host integration:\n\n- **Mountain:** Add `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes from URIs before creating PathBuf. Applies to all 8 FileSystem operations (ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, Copy). This fixes redhat.java extension activation failure with \"Resource not found: file:///...\" errors.\n\n- **Output:** Separate system and user extension scanning in ExtensionScannerIPC. Now calls `extensions:scanSystemExtensions` for ForceBuiltin=true and `extensions:scanUserExtensions` for ForceBuiltin=false. Previously all extensions were hardcoded as builtin, causing user VSIXes to appear under @builtin in the sidebar. Also implements the stubbed `scanUserExtensions()` method.\n\n- **Cocoon:** Minor submodule sync.\n\nImpact: User-installed extensions now appear under \"Installed\" (not \"Built-in\") and file operations correctly resolve paths from gRPC FileSystem calls.",
+			"SHA": "3b8390aef4f7de9ea413273d2829f52b1a8bc17c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T22:55:15Z",
+			"Date": "2026-04-23T00:40:14Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⠇⠀⠀⠀⠀",
 				28,
-				1
+				2
 			],
-			"Message": "fix(Mountain): Ensure extension manifest fields and type filtering work correctly\n\nTwo related fixes address extension loading failures and missing activation:\n\n1. **Manifest field serialization** (`Extensions.rs`, DTOs): Remove `skip_serializing_if = \"String::is_empty\"` from `Name`, `Version`, `Publisher` fields. VS Code's trusted-publishers migration calls `manifest.publisher.toLowerCase()` at boot—if the key is omitted, the renderer crashes with `TypeError: undefined is not an object`. Add IPC handler hardening to inject explicit fallback values (\"unknown\") when fields are missing.\n\n2. **Extension type filtering** (`Extensions.rs`, `mod.rs`): Respect the `ExtensionType` filter passed to `getInstalled(type?)`. Previously all calls returned the full list as `type: 0, isBuiltin: true`. Now System extensions (type=0) and User extensions (type=1, including VSIX) are properly distinguished. Forward filters from `scanSystemExtensions` and `scanUserExtensions` handlers.\n\n3. **Post-install activation** (`Extension.rs`): Fire `onStartupFinished` activation events after `$deltaExtensions` adds an extension. Without this, extensions like `Anthropic.claude-code` register but never activate—sidebar contributions silently no-op until restart.\n\n4. **Log file eager init** (`Entry.rs`, `DevLog.rs`): Call `InitEager()` at binary startup to preserve logs before any panic. Fix `BinarySignature()` PascalCase splitting. Expand benign ENOENT ignore list.\n\nImpact: VSIX extensions now show under \"Installed\" with Uninstall, activate immediately after install without reload, and the Extensions sidebar refresh works correctly.",
-			"SHA": "75cf03921a7c58ba540974f2d06ac58bfc3f3235"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T22:17:39Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "fix(Mountain): Add shutdown guard and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings.\n\nExtend static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader resolves asset URLs relative to the current document, which strips the leading slash before reaching the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.\n\nThis prevents spurious shutdown warnings, fixes TextMate grammar loading, and reduces log noise.",
-			"SHA": "8adf5bfc83b8f1bb64be9883facf6d0933a64315"
+			"Message": "fix(Wind): Align FileSystemProviderError names with VS Code's token format\n\nWind's FileSystemErrorCode uses key-like values ('FileNotFound', 'FileExists'), but VS Code's toFileSystemProviderErrorCode extracts the token from error.name and switches on 'EntryNotFound', 'EntryExists', etc. Add a mapping function VsCodeErrorCodeToken to translate between the two formats. Also set this.name to the '<code> (FileSystemError)' pattern that VS Code's markAsFileSystemProviderError() expects. Remove individual name assignments from subclasses since the base class now handles naming.\n\nWithout this fix, mkdirp and validateWriteFile treat missing-file/dir errors as unknown and rethrow, surfacing as unhandled rejections like 'Unable to write file .../tasks.log (Error: Failed to stat file ...)'.\n\nThis is a coordinated update with Cocoon (submodule sync).",
+			"SHA": "1a7667bfc7b1461b709cc31a642cd76a71431b93"
 		}
 	],
-	"TimeStamp": 1780506261214
+	"TimeStamp": 1780672838246
 }

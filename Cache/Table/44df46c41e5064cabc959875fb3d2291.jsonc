@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:19:51Z",
+			"Date": "2026-05-26T13:14:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1739,
-				3
-			],
-			"Message": "fix(Mountain): Restore ShowMessageBox text composition and multi-select return\n\nThe `ShowMessageBox` handler incorrectly relied on a non-existent `.body()` method, causing the detail text to overwrite the dialog title entirely. Update the implementation to concatenate the message and detail text with a newline separator before passing to the native dialog constructor, preserving the original title.\n\nIn `QuickInputShowQuickPick`, refactor the multi-select logic to extract the `CanPickMany` flag prior to consuming the options struct. This ensures the return value correctly returns the full array of selected labels for multi-select operations instead of silently discarding all but the first selection.\n\nAdditionally, remove the `showTextDocument` effect from `Workspace` IPC routing. This handler is obsolete as the functionality is now covered by the dedicated Sky UI service implementation, preventing redundant or conflicting event dispatching from the extension host.\n\nThese changes restore native dialog usability, fix multi-selection in quick pick inputs, and streamline the IPC effect registry.",
-			"SHA": "a499709153a4b0c357a78ab80630f38989bea10e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T08:01:24Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1739,
-				1
-			],
-			"Message": "feat(Mountain): Correct output channel payload structure for Sky integration\n\nThe `CreateOutputChannel` gRPC handler previously emitted an IPC event with a single `{ \"channel\": name }` property. Sky's `InstallEditorAndOutput.ts` component expects the payload to destructure `{ id, name }`. The mismatch caused both fields to resolve as undefined in the frontend map, keyed incorrectly by the string \"undefined\".\n\nUpdate the Tauri event emission to include both `id` and `name` fields set to `Request.name`. This aligns the Mountain backend output with the Sky component's destructuring logic, ensuring new output channels are correctly registered and displayed in the editor UI.",
-			"SHA": "930ce3222f11418b22c721b91133d0b33e55474a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T07:59:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1739,
-				13
-			],
-			"Message": "fix(Mountain): Propagate IPC errors and complete gRPC request handlers\n\nShifted all `WindServiceHandlers` to propagate I/O and path resolution errors instead of swallowing them. Updated `FileExistsNative`, `FileWriteNative`, `TextfileSave`, `ModelOpen`, `TextfileSave`, and `GetEnvironmentPaths` to return descriptive error messages. This prevents silent failures where VS Code interprets errors as 'not found' or flips documents into conflict states due to null metadata.\n\nCorrected `ShowMessageBox` to use `.body()` for detail text and fixed `QuickInputShowQuickPick` to return arrays for multi-select operations. Added missing gRPC handlers in `Storage`, `TreeView`, and `Workspace` for `Storage.GetItems`, `tree.reveal`, and `showTextDocument`, ensuring Cocoon can access extension state and UI features via the IPC layer.\n\nFixed a TOCTOU race in `ExtensionsGetInstalled` by subscribing to the `ScanReady` notification before executing the query. Added logic in `LoadFromCache` to treat empty extension lists as cache misses, forcing a live scan if the stub was generated prematurely. Updated `build.rs` to consistently write a valid `CacheBlob` struct for the manifest stub.\n\nThese changes ensure data integrity across the IPC layer, restore functionality for missing extension APIs, and prevent UI glitches caused by suppressed errors.",
-			"SHA": "416e8d7a0ddc284253f0b6080ad550338d89d9c2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T07:59:22Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1739,
-				1
-			],
-			"Message": "fix(Mountain): Correct stub format for ExtensionsManifest in build script\n\nUpdate the `build.rs` script to write a valid `CacheBlob` JSON structure instead of a bare JSON array when generating the stub `extensions.manifest.json`. The `LoadFromCache` parser expects an object containing `version`, `count`, and `extensions` fields, whereas the previous implementation wrote `[]`, causing potential parsing mismatches or type errors during startup.\n\nThis ensures the Tauri build process generates a structurally correct manifest stub that aligns with the runtime data deserialization expectations, preventing crashes when the Sky-generated manifest is unavailable.",
-			"SHA": "8924f19f5908567bc989f640cbf8626ba937dacf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T06:28:37Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1739,
+				1748,
 				4
 			],
-			"Message": "refactor(Mountain): Standardize DTO naming and repair UTF-8 path handling\n\nAlign `ModelVersionIdentifier` to `ModelVersionId` in `MarkerDataDTO` and `DiagnosticProvider` to match existing PascalCase conventions and reduce verbosity.\n\nEnhance the `FileWriteNative` IPC handler to detect and decode base64-encoded buffers received from VS Code serialization paths, falling back to raw bytes if decoding fails. This resolves data corruption when saving files via certain extension workflows.\n\nRewrite `percent_decode` in `PathExtraction` to correctly reconstruct multi-byte UTF-8 sequences from percent-encoded URI components. The previous implementation cast decoded bytes directly to `char`, corrupting non-ASCII paths (e.g., CJK or accented characters) and causing silent ENOENT errors. The new approach accumulates raw bytes and performs a safe `from_utf8` conversion with a lossy fallback.\n\nThese changes ensure robust file operations with international paths and consistent data integrity across the IPC layer.",
-			"SHA": "1ee9d6c0f0082ba72857e78be4316b0abb8af829"
+			"Message": "build(Mountain): Encode full build config in binary name and bundle additional Sky resources\n\nRename the Mountain binary, library, package, and product name to carry the complete build configuration string: DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler_Mountain. This embeds build provenance directly in the artifact name for unambiguous debugging and CI traceability.\n\nAdd the missing Sky Target resource entries (Browser, BrowserProxy, Bundled, Electron, Favicon, Isolation, Manifest.json, Mountain) to tauri.conf.json so Tauri bundles these directories at build time. Previously the bundle only included a subset of Static/Application assets and miscellaneous files; the full Sky build output was not guaranteed to be present in the app bundle, which could cause runtime failures when the editor UI tries to load these resources.\n\nAlso normalize array formatting in externalBin and targets for consistency with the file style.\n\nChange the app identifier from fiddee.editor.binary to the expanded canonical form matching the product name.",
+			"SHA": "e7685bfe4621e4f04e14861cd855a7c5f8faa8fb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T09:07:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				3
+			],
+			"Message": "fix(Mountain): Supplement cache-hit extension scan with user paths\n\nWhen the extension scan cache hits, the pre-baked extension map is returned immediately—but it only covers bundled paths (Mountain/Resources/extensions, Sky/Static/Application/extensions, VS Code Dependency extensions). User-writable paths like `~/.fiddee/extensions` and `~/.land/extensions` are never baked, so every VSIX-installed extension was invisible after a cache hit: `extensions:scanUserExtensions` returned 0 and the `@installed` view stayed empty.\n\nAdd a supplementary live-scan phase on cache hits that re-uses `Registry.GetExtensionScanPaths()` filtered through `Scanner::IsUserExtensionScanPath` so the classifier and the scan set stay coherent. Found entries overwrite cache entries with the same identifier—matching stock VS Code semantics where an installed VSIX shadows a built-in of the same ID.\n\nAlso make `IsUserExtensionScanPath` `pub(crate)` and add the legacy `~/.land/extensions` path to its classifier so extensions found at the path `ScanPathConfigure` registers (T3) are tagged as user-scope rather than built-in, fixing the sidebar classification mismatch.\n\nFinally, add the missing `TierCommandEventBroadcast` entry to `Info.plist` that was introduced in the tier-variable build.rs change but not recorded in the plist.",
+			"SHA": "02553de5f8cb49b60be80a8931ae356564abd157"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T08:11:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
+			],
+			"Message": "feat(Mountain): Add tier-gated command broadcast and IPC notification relays\n\nAdd three missing IPC notification handlers in WindServiceHandlers and an opt-in dual-emit mechanism for command execution events from the extension host.\n\n`localPty:setInteracted` forwards terminal interaction state (OSC 633 B) as `$acceptTerminalStateChanged`, enabling `onDidChangeTerminalState` subscribers in Node-resident extensions. `sky:editor:diffInformationChanged` relays Monaco diff metadata as `$acceptTextEditorDiffInformationChanged`. `sky:editor:viewColumnChanged` forwards editor group movement as `$acceptTextEditorViewColumnChanged`, completing the notification surface for `onDidChangeTextEditorDiffInformation` and `onDidChangeTextEditorViewColumn`.\n\nIntroduce `TierCommandEventBroadcast` (default `Off`) in build.rs. When set to `On`, Mountain dual-emits `$acceptCommandExecuted` over Vine after gRPC `Command.Execute` from Cocoon, ensuring `vscode.commands.onDidExecuteCommand` fires even for commands not locally registered in the extension host. The tier variable is surfaced in LandFixTier runtime diagnostics.",
+			"SHA": "a51086049e21a27597657cfe97db6b996922f356"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:15:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				2
+			],
+			"Message": "fix(Mountain): Relay terminal shell execution events to Cocoon extension host\n\nAdd two new IPC notification handlers in WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, bridging terminal shell execution events from Sky to the Node.js extension host.\n\n`$acceptTerminalShellExecutionStart` fans to Cocoon so `vscode.window.onDidStartTerminalShellExecution` fires for extension subscribers. `$acceptTerminalShellExecutionEnd` fans two Vine notifications: `$acceptTerminalShellExecutionEnd` (for `onDidEndTerminalShellExecution`) and a derived `$acceptExecutedTerminalCommand` so `vscode.window.onDidExecuteTerminalCommand` subscribers observe the executed command without an additional Sky-side detection pass.\n\nAlso inline a multi-line closure chain in `CreateEffectForRequest/Diagnostics.rs` to a single-line filter_map for consistency with surrounding code style.",
+			"SHA": "275e31a312378afe6b7deb7a8e7f6f579e52b42c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:08:42Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
+			],
+			"Message": "fix(Mountain): Forward editor state change notifications to Cocoon extension host\n\nAdd five missing Vine notification relays so VS Code API subscribers inside the Node.js extension host observe changes Mountain already delivers to the renderer:\n\n- **ThemesSet.rs**: Fan `$acceptActiveColorTheme` on theme switch, computing the workbench theme kind (Light/Dark/HighContrast) from the theme id. Without this, `vscode.window.onDidChangeActiveColorTheme` never fires for Node-resident extensions (GitLens, Roo Code, rust-analyzer).\n\n- **WindServiceHandlers/mod.rs**: Relay four Sky-detected editor state changes as Cocoon notifications: `$acceptVisibleEditorsChanged` (`onDidChangeVisibleTextEditors`), `$acceptTabsChanged` (`onDidChangeTabs`/`onDidChangeTabGroups`), `$acceptVisibleRangesChanged` (`onDidChangeTextEditorVisibleRanges`), and `$acceptTextEditorOptionsChanged` (`onDidChangeTextEditorOptions`). Each forwards the Sky-provided payload directly.\n\n- **Diagnostics.rs**: After every `SetDiagnostics`/`ClearDiagnostics` call, fan `$acceptDiagnosticsChanged` back to Cocoon with the owner and affected URIs so `vscode.languages.onDidChangeDiagnostics` subscribers in peer extensions observe the change. For clears, emit an empty URI list — consumers should re-query `getDiagnostics(uri)`.\n\n- **DebugLifecycle.rs**: For `debug.addBreakpoints`/`debug.removeBreakpoints` only, fan `$onDidChangeBreakpoints` with added/removed/changed arrays so `vscode.debug.onDidChangeBreakpoints` fires in all extensions, not just the one that made the mutation.\n\nCompletes the Mountain-to-Cocoon notification pipeline for theme, editor, diagnostics, and debug breakpoint surfaces that were previously renderer-only.",
+			"SHA": "dd925de41e8f4558f960cb99f6d1a78674eba4e7"
 		}
 	],
-	"TimeStamp": 1780506239864
+	"TimeStamp": 1780672813160
 }
