@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T09:07:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				3
+			],
+			"Message": "fix(Mountain): Supplement cache-hit extension scan with user paths\n\nWhen the extension scan cache hits, the pre-baked extension map is returned immediately—but it only covers bundled paths (Mountain/Resources/extensions, Sky/Static/Application/extensions, VS Code Dependency extensions). User-writable paths like `~/.fiddee/extensions` and `~/.land/extensions` are never baked, so every VSIX-installed extension was invisible after a cache hit: `extensions:scanUserExtensions` returned 0 and the `@installed` view stayed empty.\n\nAdd a supplementary live-scan phase on cache hits that re-uses `Registry.GetExtensionScanPaths()` filtered through `Scanner::IsUserExtensionScanPath` so the classifier and the scan set stay coherent. Found entries overwrite cache entries with the same identifier—matching stock VS Code semantics where an installed VSIX shadows a built-in of the same ID.\n\nAlso make `IsUserExtensionScanPath` `pub(crate)` and add the legacy `~/.land/extensions` path to its classifier so extensions found at the path `ScanPathConfigure` registers (T3) are tagged as user-scope rather than built-in, fixing the sidebar classification mismatch.\n\nFinally, add the missing `TierCommandEventBroadcast` entry to `Info.plist` that was introduced in the tier-variable build.rs change but not recorded in the plist.",
+			"SHA": "02553de5f8cb49b60be80a8931ae356564abd157"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T08:11:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
+			],
+			"Message": "feat(Mountain): Add tier-gated command broadcast and IPC notification relays\n\nAdd three missing IPC notification handlers in WindServiceHandlers and an opt-in dual-emit mechanism for command execution events from the extension host.\n\n`localPty:setInteracted` forwards terminal interaction state (OSC 633 B) as `$acceptTerminalStateChanged`, enabling `onDidChangeTerminalState` subscribers in Node-resident extensions. `sky:editor:diffInformationChanged` relays Monaco diff metadata as `$acceptTextEditorDiffInformationChanged`. `sky:editor:viewColumnChanged` forwards editor group movement as `$acceptTextEditorViewColumnChanged`, completing the notification surface for `onDidChangeTextEditorDiffInformation` and `onDidChangeTextEditorViewColumn`.\n\nIntroduce `TierCommandEventBroadcast` (default `Off`) in build.rs. When set to `On`, Mountain dual-emits `$acceptCommandExecuted` over Vine after gRPC `Command.Execute` from Cocoon, ensuring `vscode.commands.onDidExecuteCommand` fires even for commands not locally registered in the extension host. The tier variable is surfaced in LandFixTier runtime diagnostics.",
+			"SHA": "a51086049e21a27597657cfe97db6b996922f356"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:15:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				2
+			],
+			"Message": "fix(Mountain): Relay terminal shell execution events to Cocoon extension host\n\nAdd two new IPC notification handlers in WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, bridging terminal shell execution events from Sky to the Node.js extension host.\n\n`$acceptTerminalShellExecutionStart` fans to Cocoon so `vscode.window.onDidStartTerminalShellExecution` fires for extension subscribers. `$acceptTerminalShellExecutionEnd` fans two Vine notifications: `$acceptTerminalShellExecutionEnd` (for `onDidEndTerminalShellExecution`) and a derived `$acceptExecutedTerminalCommand` so `vscode.window.onDidExecuteTerminalCommand` subscribers observe the executed command without an additional Sky-side detection pass.\n\nAlso inline a multi-line closure chain in `CreateEffectForRequest/Diagnostics.rs` to a single-line filter_map for consistency with surrounding code style.",
+			"SHA": "275e31a312378afe6b7deb7a8e7f6f579e52b42c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:08:42Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
+			],
+			"Message": "fix(Mountain): Forward editor state change notifications to Cocoon extension host\n\nAdd five missing Vine notification relays so VS Code API subscribers inside the Node.js extension host observe changes Mountain already delivers to the renderer:\n\n- **ThemesSet.rs**: Fan `$acceptActiveColorTheme` on theme switch, computing the workbench theme kind (Light/Dark/HighContrast) from the theme id. Without this, `vscode.window.onDidChangeActiveColorTheme` never fires for Node-resident extensions (GitLens, Roo Code, rust-analyzer).\n\n- **WindServiceHandlers/mod.rs**: Relay four Sky-detected editor state changes as Cocoon notifications: `$acceptVisibleEditorsChanged` (`onDidChangeVisibleTextEditors`), `$acceptTabsChanged` (`onDidChangeTabs`/`onDidChangeTabGroups`), `$acceptVisibleRangesChanged` (`onDidChangeTextEditorVisibleRanges`), and `$acceptTextEditorOptionsChanged` (`onDidChangeTextEditorOptions`). Each forwards the Sky-provided payload directly.\n\n- **Diagnostics.rs**: After every `SetDiagnostics`/`ClearDiagnostics` call, fan `$acceptDiagnosticsChanged` back to Cocoon with the owner and affected URIs so `vscode.languages.onDidChangeDiagnostics` subscribers in peer extensions observe the change. For clears, emit an empty URI list — consumers should re-query `getDiagnostics(uri)`.\n\n- **DebugLifecycle.rs**: For `debug.addBreakpoints`/`debug.removeBreakpoints` only, fan `$onDidChangeBreakpoints` with added/removed/changed arrays so `vscode.debug.onDidChangeBreakpoints` fires in all extensions, not just the one that made the mutation.\n\nCompletes the Mountain-to-Cocoon notification pipeline for theme, editor, diagnostics, and debug breakpoint surfaces that were previously renderer-only.",
+			"SHA": "dd925de41e8f4558f960cb99f6d1a78674eba4e7"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-25T21:53:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "fix(Mountain): Relay executed command notifications to Cocoon extension host\n\nDual-emit `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, so that `vscode.commands.onDidExecuteCommand` callbacks fire inside extensions running in the Node.js extension host. The existing Tauri-emit only reaches the renderer (Sky); Cocoon has no Tauri runtime to subscribe to those events.\n\nCocoon's `Services/Handler/Notification/Handler.ts` maps `$acceptCommandExecuted` to an internal emitter that the `Commands/Namespace.ts` `onDidExecuteCommand` subscriber listens to. The Vine notification is fire-and-forget — failure is non-fatal since the renderer-side observers have already been notified via the Tauri event.\n\nAlso add the `tauri::Emitter` trait import in `CreateEffectForRequest/Commands.rs` to satisfy the compiler for the Tauri event emit.",
 			"SHA": "eeb3d39b739ebe9019b39f18ad4415ad9ad0fcb2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:37:54Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				4
-			],
-			"Message": "fix(Mountain): Forward previously unhandled IPC notifications\n\nAdd four notification handlers that were missing from the IPC dispatch tables, completing the Cocoon-to-Mountain-to-renderer pipeline:\n\n- **ScanPathConfigure**: Scan `~/.land/extensions` alongside the FIDDEE user directory so pre-migration installs (Roo Code, rust-analyzer, etc.) remain discoverable. The path is only pushed when the directory exists, making the addition harmless on clean installs.\n\n- **Debug.rs**: Forward `debug.dap-response` from Cocoon (inline-implementation adapters) to the workbench via `sky://debug/dap-message`, enabling the RawDebugSession sequencer to correlate DAP responses by `request_seq`.\n\n- **StatusBar.rs**: Handle `setStatusBarText` mutations from extension StatusBarItem `text()` setters. Without this arm, status bar text freezes after the initial create, never reflecting runtime updates.\n\n- **Task.rs**: Relay `terminate_task`/`Task.Terminate` to the extension host task service, allowing `vscode.tasks.executeTask(...).terminate()` to stop running tasks. Falls back gracefully with a dev_log warning when no task provider is available.",
-			"SHA": "23b235d68ce4fa03776183d9f8a9ac8bcb98b9f2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T20:45:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				7
-			],
-			"Message": "build(Mountain): Restore simple crate and bundle identifiers\n\nRestore \"Mountain\" as the crate binary, library, and package name, and the\nTauri productName and bundle identifier, replacing the verbose development\nbuild descriptors from the prior commit. The Backup files are removed.\n\nGate the Cocoon sidecar launch on both the ExtensionHostCocoon feature flag\nand the absence of the no_node_host cfg flag, so the extension host tier\nrouting (Node vs WebWorker) is respected at boot time.\n\nInclude the task type in the task provider Options payload, fixing the\nregistration schema for Cocoon's task system.\n\nDerive Clone on ExtensionCollection to support shared access patterns in\nthe terminal environment variable mutation pipeline.\n\nAdd the zsh shell integration script to the Tauri resource bundle and\ntidy resource ordering.",
-			"SHA": "279ff30481d2276785d0a819d7314527ec775fb6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:31:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1748,
-				4
-			],
-			"Message": "build(Mountain): Differentiate development build identifiers from release\n\nRename the crate binary, library, package, Tauri productName, and bundle identifier to a verbose development build descriptor encoding the full toolchain configuration (Node 22, VS Code dependency, debug profile, esbuild compiler). This prevents the development build's binary name and macOS bundle ID from colliding with the release build, enabling side-by-side installation and testing.\n\nExpand the Tauri resource bundle to include all Sky deployment variant directories (Browser, BrowserProxy, Bundled, Electron, Favicon, Isolation, Manifest.json, Mountain) that were previously omitted, ensuring the development build can serve every editor UI target.",
-			"SHA": "960cc2f2c87bbd38613db3e6da10c856b2ae0dd3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:10:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				19
-			],
-			"Message": "feat(Mountain): Implement EnvironmentVariableCollection and tier defaults\n\nAdd TerminalEnvCollection — a global registry for per-extension environment variable mutations matching VS Code's `EnvironmentVariableCollection` API (Replace/Append/Prepend/Delete/Clear/SetPersistent/SetDescription). Seven `terminal.envCollection.*` Vine notification handlers in MountainVinegRPCService dispatch Cocoon's requests to the registry via TerminalEnvCollectionDispatch. At every PTY spawn, TerminalProvider collects the inherited process env, applies all registered mutators via ApplyToEnv, and layers shell-integration vars on top, ensuring extensions like language servers see the environment they requested.\n\nAdd `tree.refresh` and `outputChannel.replace` Vine notification relays: the former forwards TreeDataProvider.onDidChangeTreeData events to Sky as `sky://tree-view/refresh`; the latter provides atomic output channel buffer replacement that avoids the visual flash of separate clear+append.\n\nExpand the tier routing infrastructure by adding compile-time defaults and Info.plist entries for 14 additional subsystems (Auth, Debug, Encryption, ExtensionHost, LanguageFeatures, Model, NativeHost, OutputChannel, SCM, Search, Storage, Tasks, Terminal, TreeView, WebSocket) and extending LandFixTier::LogResolvedTiers to emit all 16 tier values at boot for full routing observability.\n\nTidy formatting across AppLifecycle, Entry, RunGit, Reload, mod.rs, CocoonManagement, Dispatcher, build.rs, and bash.sh with no semantic changes.",
-			"SHA": "abba8a235310b01bca76aa32de8fe2de37a9a9af"
 		}
 	],
-	"TimeStamp": 1780672813429
+	"TimeStamp": 1780841379545
 }

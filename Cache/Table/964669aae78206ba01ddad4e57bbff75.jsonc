@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T23:44:07Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				215,
+				6
+			],
+			"Message": "feat(Output): Add CatchOutputFolderRejection transform plugin\n\nAdd Step 15 to the build pipeline that catches an unhandled promise rejection\nfrom VS Code's outputServices.createFolder(). In Land, the VFS-IPC stat call\nrejects with FileNotFound before fileService can swallow it, causing the\nrejection to propagate past the .then(() => undefined) handler and surface as\ntelemetry noise in PostHog.\n\nThe plugin uses a regex match against outputServices.js to append\n.catch(() => undefined) to the createFolder chain, silencing the harmless\nrejection since the output folder is created lazily on first channel write\nanyway. If upstream VS Code changes the exact .then(() => undefined) shape,\nthe Match() returns Unchanged and a LOG line surfaces as a regression tripwire.",
+			"SHA": "a900f339a30600bc403059043a5a71f9a2b4c854"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T23:24:42Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				212,
+				3
+			],
+			"Message": "fix(Output): Add IPC stubs for extension tips, MCP, sync, and language detection\n\nAdd missing stub handlers to TauriMainProcessService to prevent renderer crashes when VS Code code calls these services without Mountain handlers:\n\n- IExtensionTipsService: exeBasedRecommendations.ts calls .forEach() on the result, requiring array stubs (empty = no recommendations)\n- IMcpManagementService / IMcpWorkbenchManagement: mcpManagementIpc.ts calls .map() on server arrays, requiring array stubs\n- IUserDataSyncService: userDataSyncServiceIpc.ts destructures a [status, conflicts, lastSyncTime] tuple, requiring tuple stub\n- ILanguageDetectionService: iterates fileExtensions.extensions, requiring object stub with nested empty extensions array\n\nThese stubs return safe empty values that VS Code's workbench code can gracefully handle, preventing TypeError crashes in the renderer.",
+			"SHA": "1452db402083b54d42dd76a6ab8ea6a45111f087"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-22T19:42:06Z",
 			"File": [
 				"⣿⣿⠇⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "docs(Output): Document CopyNodeModules-StripDanglingSourceMap pairing rationale\n\nAdd rationale to Plugin/Index.ts explaining why the node_modules copy\nand sourcemap strip are expressed as separate plugins with role-scoped\nmatching rather than using the CopyPlugin.AfterCopy hook.\n\nStripDanglingSourceMap's Match is scoped to Role === \"app\" and\nCopyNodeModules writes into the app root, so the transform pass\nnaturally covers every file the copy emits. Leaving AfterCopy unused\nkeeps it available for future siblings (e.g., a copy that produces\nfiles outside the app root and still needs strip).\n\nThis clarifies the architectural decision made in the previous\nextraction commit.",
 			"SHA": "fbdf5352b1da3752cc680b5e44fe11c9d3b4a7f2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:25:29Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				174,
-				19
-			],
-			"Message": "feat(Output): Extract Sky's inline build plugins into reusable module\n\nMove all copy and transform plugins previously inlined in Sky's `astro.config.ts` into a dedicated `Plugin` module under Output. This enables reuse across Sky, future desktop shells, and test harnesses without esbuild dependencies.\n\nNew plugins added:\n- Copy: CopyVSOutput, CopyVSRootFiles, SupplementFromDependency, CopyWorker, CopyNodeModules, StubUnpublishedAddons, CopyTauriMainProcessService\n- Transform: StripCSSImport, InjectNameShim, ReplaceElectronIPCService, ReplaceSharedProcess, StaticToDynamicImport, StripDanglingSourceMap, ExtensionScannerIPC\n\nThe Apply.ts runner walks roots, executes copy plugins then transform plugins, and provides a BuildPipeline factory matching Sky's ordered Steps 1-14. Type.ts defines the Plugin contract with TransformPlugin and CopyPlugin shapes.\n\nThis extraction maintains the same behavior while making the logic portable and testable.",
-			"SHA": "4c879094fd169c2fdf5dc0164e818a4e95f08769"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:11:26Z",
-			"File": [
-				"⡏⠀⠀⠀⠀",
-				153,
-				21
-			],
-			"Message": "feat(Output): Route colon-prefixed Tauri commands through MountainIPCInvoke\n\nThe polyfill modules (ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill, IPCRendererShim, NativeModulePolyfill, ProcessPolyfill, SharedProcessProxy) were attempting to invoke commands with colons in the name (e.g., file:read, file:write, shared_process:invoke) directly via Tauri invoke.\n\nHowever, Rust function names cannot contain colons. These commands dispatch through Mountain's single MountainIPCInvoke command, which unwraps the method name and params back into the positional Vec<Value> that internal handlers consume.\n\nUpdate invokeTauri in all polyfills to detect colon-prefixed commands and route them through MountainIPCInvoke. Also update sendTauri in IPCRendererShim to maintain consistency between async and fire-and-forget forms.\n\nThis ensures all polyfills behave consistently with the rest of Wind/Sky/Output.",
-			"SHA": "e6a8a93234866009796415ecc121f2d2d226cb7a"
 		}
 	],
-	"TimeStamp": 1780672835016
+	"TimeStamp": 1780841398343
 }

@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-02-08T10:33:22Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				48,
+				5
+			],
+			"Message": "feat(Grove/Transport): Implement modular transport layer with gRPC, IPC, and WASM strategies\n\nThis commit introduces a flexible, strategy-based transport layer for the Grove extension host, abstracting the communication mechanisms required to interact with the Land ecosystem.\n\nThe implementation establishes a unified `TransportStrategy` trait that defines the contract for connectivity (`connect`, `send`, `close`). Three distinct concrete strategies are provided:\n\n- **GrpcTransport**: Connects Grove to the Mountain backend using `tonic`. This enables the remote control channel defined in the recent protocol updates, handling channel management and endpoint resolution.\n- **IpcTransport**: Provides high-performance local inter-process communication via Unix domain sockets (Unix) and named pipes (Windows). This facilitates efficient messaging between the host and local processes or the main editor window.\n- **WasmTransport**: Bridges the Grove host with loaded WASM modules. It integrates directly with the `WasmRuntime`, `MemoryManager`, and `HostBridge` to execute function calls within the sandboxed environment.\n\nThe module also includes `TransportConfig` for managing timeouts and retries, `TransportStats` for observability (latency, throughput), and a unified `Transport` enum to handle runtime strategy selection.\n\n**Impact**: This decouples Grove's orchestration logic from specific networking protocols, providing a robust foundation for the `SpineConnection` and enabling the host to seamlessly switch between remote (gRPC) and local (WASM/IPC) execution contexts.",
+			"SHA": "d2e113204c114dad3ca7896d2d90720ca8253cf1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-02-08T10:32:14Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				42,
+				3
+			],
+			"Message": "feat(Grove/Protocol): Define application-level gRPC contract and configuration service\n\nThis commit establishes the public API surface for the Grove extension host, defining the application-layer gRPC contract that bridges Grove with the Land environment.\n\nThe `Grove.proto` file introduces the `GroveService` and `GroveEventStream` definitions, exposing RPCs for the complete extension lifecycle:\n- **Lifecycle Management**: `LoadExtension`, `ActivateExtension`, `DeactivateExtension`, and `UnloadExtension`.\n- **Execution & API**: `ExtensionApiCall` for proxying VS Code API requests and `LoadWasmModule` for managing WASM artifacts.\n- **Configuration**: `GetConfiguration` and `UpdateConfiguration` for managing extension and workspace settings.\n- **Observability**: `HealthCheck` and `ListExtensions` for status monitoring.\n\nAdditionally, the commit implements the internal `ConfigurationService` to handle the logic required by these configuration RPCs:\n- **Service Architecture**: Introduces the `Service` trait in `mod.rs` as a common interface for Grove's internal components.\n- **Configuration Logic**: `ConfigurationService` supports scoped configuration (Global, Workspace, Extension), async file persistence, and change watchers.\n\n**Impact**: This provides the foundational contract for the Mountain backend to control the Grove host, enabling remote extension management, configuration updates, and event streaming.",
+			"SHA": "0e4bf8c29e5b5f16a99afc46c779c7b815bd482c"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-02-08T10:30:50Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Grove/API): Implement VS Code API facade and core types\n\nThis commit introduces the foundational API surface for the Grove extension host, defining the contract that WASM extensions will consume to interact with the editor environment.\n\n**Why:** To align Grove's capabilities with the standard VS Code extension API, ensuring compatibility and a familiar development model for extension authors moving from Cocoon or VS Code.\n\n**What:**\n- **`types.rs`**: Implements a comprehensive set of Data Transfer Objects (DTOs) including `Position`, `Range`, `Diagnostic`, `CompletionItem`, `WorkspaceEdit`, and `TextDocumentItem`. These types are fully serializable via `serde` to facilitate communication across the WASM bridge and internal host logic.\n- **`vscode.rs`**: Establishes the `VSCodeAPI` facade struct, exposing core namespaces (`commands`, `window`, `workspace`, `languages`, `extensions`, `env`). Contains placeholder implementations for registration, diagnostics, and window interaction that currently log to `tracing` or return default values, providing the structural skeleton for future implementation.\n- **`mod.rs`**: Configures the API module, defines version compatibility constants (targeting VS Code API 1.85.0), and provides utility functions for `semver` validation and JSON value conversion.\n\n**Impact:** This layer abstracts the complexity of the underlying host, providing a clean, strongly-typed interface for WASM extensions and completing a critical prerequisite for loading and executing user code.",
 			"SHA": "14b552bac17b46061a71994d2ef791b9f3056e33"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:27:51Z",
-			"File": [
-				"⡏⠀⠀⠀⠀",
-				23,
-				3
-			],
-			"Message": "feat(Grove/Common): Define core error types, shared traits, and utility modules\n\nThis commit establishes the foundational shared layer within the Grove extension host, providing the necessary data structures and contracts for the implementation of the WASM runtime and extension management logic.\n\n- **Error Handling (`error.rs`)**: Implements a comprehensive `GroveError` enum to categorize failures across extension lifecycle (load, activate, deactivate), WASM runtime (compilation, module not found), and transport/connection layers. Includes constructor helpers, error code classification, and checks for recoverable/transient states.\n\n- **Shared Contracts (`traits.rs`)**: Defines essential traits that will govern the behavior of components within Grove, including `ExtensionContext`, `ExtensionMetadata`, `Identifiable`, `Configurable`, `Resettable`, `Disposable`, `Observable`, `Validatable`, `Serializable`, `Versioned`, and `Retryable`.\n\n- **Utilities & Configuration (`mod.rs`)**: Exposes the error and trait modules, sets default configuration constants (timeouts, buffer sizes, heartbeat intervals), and provides utility functions for generating unique IDs, getting Unix timestamps, and async sleeping.\n\nThese modules serve as the internal \"Common\" crate for Grove, decoupling the specific implementation details of the host and runtime from their abstract definitions.",
-			"SHA": "219323e00dfb52e9feb804f0b397a76560ef9859"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:26:33Z",
-			"File": [
-				"⣿⣿⠁⠀⠀",
-				19,
-				8
-			],
-			"Message": "feat(Grove): Implement binary runtime, CLI, and Mountain service registration\n\nThis commit adds the executable logic to operate Grove as a standalone Rust binary or a managed service within the Land ecosystem.\n\n**Why:** To provide a functional entry point that bridges the library scaffold with the system, allowing Grove to start up, configure its WASM runtime, and announce itself to the Land backend.\n\n**What:**\n- **CLI Interface**: Introduces `clap`-based argument parsing in `main.rs` for `standalone`, `service`, `validate`, and `build` modes.\n- **Runtime Construction**: Implements `RuntimeBuild` to construct the `ExtensionHost` with configured `WasmRuntime` (Wasmtime) and `Transport` layers.\n- **Service Integration**: Adds `ServiceRegister` to handle the `Spine` gRPC protocol, registering the host with `Mountain` and maintaining heartbeats.\n- **Lifecycle Logic**: Defines `Entry` to manage the host's lifecycle, including extension loading, activation, and signal-based shutdown.\n\n**Impact:** This establishes Grove as a runnable component capable of executing WASM extensions and communicating with `Mountain` via the `Vine`/`Spine` protocol.",
-			"SHA": "ca02de295b05b0687e3b31689f0b17764ff2bbd0"
 		}
 	],
-	"TimeStamp": 1780672818062
+	"TimeStamp": 1780841383026
 }

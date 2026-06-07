@@ -2,6 +2,28 @@
 {
 	"Set": [
 		{
+			"Author": "Auto",
+			"Date": "2026-04-29T03:39:30Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				267,
+				1
+			],
+			"Message": "",
+			"SHA": "c7eef6cacab62664fa2fd8f62cd83b84fcfc397a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T02:08:29Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				267,
+				3
+			],
+			"Message": "fix(Output): Fix ExposeWorkbenchAccessor import markers and add service error isolation\n\nTwo fixes to the ExposeWorkbenchAccessor transform that were causing SkyBridge bridges to silently fail:\n\n1. Import marker quote style: The transform was using single-quote import markers that matched stock VS Code source, but esbuild/Land's Output bundler rewrites quotes to double quotes in the post-bundle file. The marker mismatch caused `Source.includes(ImportMarker)` to return false, silently no-opping the entire `__CEL_SERVICES__` patch. All SkyBridge hooks (search registration, SCM, status bar, tree views) were offline because `__CEL_SERVICES__` stayed undefined.\n\n2. Service error isolation: Each `invokeFunction` is now wrapped in its own try-IIFE. Previously, a single failed service lookup (interface decorator missing in this profile, service not yet registered) would throw out of the entire `__CEL_SERVICES__` object literal, leaving the whole facade undefined. Now each service degrades to `null` individually, preserving all other bridges.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNodeModulesPath + expose IMarkerService)",
+			"SHA": "f55a02821a2d7acad85060cf17796f62fda700d9"
+		},
+		{
 			"Author": "Nikola Hristov",
 			"Date": "2026-04-29T01:03:39Z",
 			"File": [
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Output): Fix Monaco worker bootstrap crashes and add polyfill telemetry\n\nAdd two new build transforms that fix worker bootstrap crashes in the bundled editor:\n\n1. InjectWorkerBootstrapShim: Injects `__name`/`__defProp` shim into `webWorkerServiceImpl.js::getWorkerBootstrapUrl` blob factory so Monaco's language workers (TS/CSS/HTML/JSON services, semantic tokens) inherit the helpers in their module scope. Without this, workers crash with `ReferenceError: Can't find variable: $4e` when Vite/OXC mangling renames `__name` to `$4e`.\n\n2. RewriteNestedWorkerBootstrap: Replaces `polyfillNestedWorker.js`'s `(function... ).toString()` pattern with a literal JSON.stringified source that omits the cosmetic `__name(...)` decorations. The `.toString()` approach returns mangled source (`$4e`) which the blob worker can't evaluate since the identifier isn't defined in its scope.\n\n3. RewriteStaticBlockSelfRef: Replace hardcoded 2-file whitelist with auto-detection across all `vs/*.js` files - the whitelist silently failed because VS Code's out-build mangler emits different class names than expected.\n\n4. InstrumentVscodeGit: Add markers F (createModel done) and L (openRepository getRepositoryRoot done) for finer-grained Git extension activation diagnostics.\n\n5. Telemetry: Add global `__LAND_POLYFILL_TELEMETRY__` hook and wire it into ChildProcessPolyfill, IPCRendererShim, ProcessPolyfill, and SharedProcessProxy to route silently-caught failures to PostHog for monitoring.",
 			"SHA": "e0fda068f1befeb3a76f470689b34bd8378fe554"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:56:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				266,
-				1
-			],
-			"Message": "refactor(Output): Update RewriteStaticBlockSelfRef to auto-detect affected files and remove manual whitelist\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "4fab2bb7a34e298cf9ea9c00697fedeedbacb2ac"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:48:41Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				266,
-				16
-			],
-			"Message": "feat(Output): Add HoistFunctionDeclarations and RewriteStaticBlockSelfRef transforms\n\nAdd two new build transforms to Output's ApplyPipeline that fix TDZ errors in bundled VS Code:\n\n1. HoistFunctionDeclarations: Moves top-level `function NAME(...) {...}` declarations and ESBuild helper vars (`__defProp`, `__name`, `__decorate`, `__param`) to the top of each file, before any calls. After Rollup concatenation converts function declarations to `let NAME; NAME = function(){...}`, calls before the assignment hit a TDZ. Pre-hoisting preserves the unbundled semantics.\n\n2. RewriteStaticBlockSelfRef: Rewrites class-name self-references (`ClassName.member`) inside `static {...}` blocks to `this.member`. After bundling, `class X {...}` becomes `let X; X = class{...}` so static block self-references resolve to undefined. Inside a static block, `this` IS the class.\n\nAlso update InjectNameShim to add 'unsafe-inline' to the iframe's CSP - the name shim injection invalidates the SHA256 hash. Update RewriteWorkbenchBaseURL to use a literal import string instead of runtime-computed URL, enabling Vite/Rollup to follow the module graph for bundling.\n\nThese transforms enable the bundled workbench to boot correctly after Output's tree shake + bundle pass.",
-			"SHA": "3c4cbf07803c8b20cfceed4186ca2dd24682c052"
 		}
 	],
-	"TimeStamp": 1780672825363
+	"TimeStamp": 1780841394384
 }

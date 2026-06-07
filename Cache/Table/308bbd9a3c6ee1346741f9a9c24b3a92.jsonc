@@ -2,6 +2,28 @@
 {
 	"Set": [
 		{
+			"Author": "Auto",
+			"Date": "2026-05-01T03:53:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				368,
+				1
+			],
+			"Message": "",
+			"SHA": "ed37ada6740a1c2f3f1b8f650649aad8b69a3314"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T01:17:23Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				368,
+				5
+			],
+			"Message": "fix(Output): Revert DisableLazyPaint opt-in gate and remove PartZIndexCSS isolation\n\nThe 9cafc7c opt-in gate for RAF/IntersectionObserver overrides (`__LAND_AGGRESSIVE_LAZY_PAINT__`) regressed editor mount behavior—the editor wouldn't load until the user clicked. The actual culprit for the input-starvation symptom was a Vim extension activating into Normal mode, not the polyfill itself.\n\nAdditionally, remove the `isolation: isolate` rule from `.monaco-workbench .part` in PartZIndexCSS. Under WKWebView this rule blocks input event delivery to Monaco's `<textarea class=\"inputarea\">`—the textarea is focusable, cursor blinks, keys press, but nothing reaches the editor's `keydown` listener. The explicit per-part `z-index` values already establish the desired stacking order without the isolation cost.\n\nRestores editor mount behavior while keeping the CSS lazy-paint fix that solves the original \"panels invisible until hover/scroll\" WKWebView bug.",
+			"SHA": "2afe4b4615dc1698fd2224b27ab12185c9630df1"
+		},
+		{
 			"Author": "Nikola Hristov",
 			"Date": "2026-05-01T00:35:49Z",
 			"File": [
@@ -33,29 +55,7 @@
 			],
 			"Message": "fix(Output): Disable EditContext and refine WKWebView input polyfills\n\nAdd ForceTextAreaInput transform that flips Monaco's `editor.editContext`\ndefault from `true` to `false`, routing keyboard input through the legacy\n`<textarea class=\"inputarea\">` rather than the EditContext API. WKWebView's\nEditContext support is flaky enough that focused divs silently swallow\nkeystrokes - users see the cursor blink but typing produces nothing.\n\nRefine WorkbenchInteractivityCSS polyfill (V2):\n- Remove blanket `visibility: visible` and `opacity: 1` on workbench parts.\n  These forced invisible click-capturing rectangles over the editor that\n  absorbed clicks before Monaco's mousedown handler fired, presenting as\n  \"I clicked the editor but typing doesn't work\".\n- Add explicit `pointer-events: auto` rules for Monaco's textarea input\n  chain (.overflow-guard, .lines-content, .inputarea) to survive stacking\n  context interactions with our `InjectPartZIndexCSS` `isolation:isolate`.\n\nRefine WorkbenchPaintPrime polyfill (V2):\n- Remove `keydown` and `focus` capture-phase listeners. Each keystroke\n  triggered a synchronous `FindPartAncestor` + forced reflow BEFORE the\n  event reached Monaco's textarea, and the oninput queue could drop the\n  keystroke. Keeping only `pointerdown` still primes paint on first click\n  without breaking the input path.\n\nAdd LandDisableAll gate: when `process.env.Disable` is `\"true\"`, skip all\ntransform plugins and run only Copy plugins. Produces \"vanilla VS Code on\nTauri\" useful for bisecting whether regressions are in our polyfills or\nin upstream/Tauri/WKWebView.",
 			"SHA": "44e160c6b8a8de6aaa693bc8e4b6e3fcd56d49c6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:34:25Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				365,
-				7
-			],
-			"Message": "feat(Output): Add RewriteWebviewShellCSP transform and fix icon URL rewriting\n\nAdd a new transform plugin that loosens the webview shell's CSP script-src from a stale sha256 hash to `'unsafe-inline' 'self' blob:`. Stock VS Code pins the hash; WKWebView computes it differently from Chromium, and any transform that touches the inline script body silently invalidates it. This matches Land's single-user desktop threat model and lets every extension webview boot.\n\nAlso fix RewriteIconsStyleSheetURLs to handle a third URL scheme that leaks through under Tauri/WKWebView: plain `file:///` URLs. Stock VS Code's FileAccess.uriToBrowserUri only converts file→vscode-file when process.versions.node exists, but the shim isn't always installed before iconsStyleSheet.getCSS() runs. The @font-face rule then fetches a 0-byte mixed-scheme response and codicons render as missing-glyph boxes. Add a third replace: `file:///...` → `<origin>/Extension/...`.\n\nBump marker version to _V2 so prior builds get re-patched rather than skipped. Update regex patterns to handle trailing replace chains from previous transform versions.",
-			"SHA": "8a3e8d281a0c6815422cea9dd2278e24923ff677"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T20:27:12Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				363,
-				19
-			],
-			"Message": "feat(Output): Add macOS titlebar offset and z-index CSS transforms\n\nAdd two new Output transforms that inject runtime CSS to fix WKWebView visual issues:\n\n- InjectMacTitlebarOffsetCSS: Reserve ~80px on the left of the workbench titlebar so the in-window menubar (`File / Edit / View / ...`) and command-center quick-pick stop overlapping with macOS traffic lights. Targets `.monoco-workbench.mac` only via the standard marker pattern.\n\n- InjectPartZIndexCSS: Establish explicit z-index hierarchy for every workbench part (`isolation: isolate` + numeric z-indexes) so a sibling that accidentally creates a stacking context (transform, opacity) can't hide the activity bar, sidebar, panel resize handle, status bar badges, or command-center dropdown.\n\nAlso expand StripWebviewIframeSandbox to patch BOTH the outer iframe creation site (`webviewElement.js`'s `element.sandbox.add(...)`) AND the pending-frame-swap site (`pre/index.html`'s `setAttribute('sandbox', ...)`). The earlier single-file patch wasn't sufficient - the outer iframe remained sandboxed and blocked all webview loads with the \"custom protocol from sandboxed iframe\" error.\n\nAdd RewriteWebviewShellCSP: loosen the webview shell's CSP script-src from a stale sha256 hash (WKWebView normalizes CR/LF differently) to `'unsafe-inline' 'self' blob:`. Matches Land's single-user desktop threat model; every extension webview now boots.",
-			"SHA": "0d47460778c1a546313b88539815d6ebde3bb03e"
 		}
 	],
-	"TimeStamp": 1780672821358
+	"TimeStamp": 1780841392706
 }

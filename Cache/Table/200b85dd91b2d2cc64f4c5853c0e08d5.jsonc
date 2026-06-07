@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-02-09T11:07:53Z",
+			"File": [
+				"⣿⣿⠀⠀⠀",
+				59,
+				23
+			],
+			"Message": "",
+			"SHA": "aa655c4934e6d5dcf9b7960b4d6150c6b083b41a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-02-09T10:18:55Z",
+			"File": [
+				"⣿⣿⣿⠇⠀",
+				60,
+				40
+			],
+			"Message": "refactor(Grove): Standardize formatting, upgrade dependencies, and introduce Spine action client\n\nThis commit applies `rustfmt` standards across the Grove codebase, upgrades core dependencies, and introduces a dedicated client for Spine/EchoAction protocols.\n\n**Code Formatting & Renaming:**\n- Applied consistent formatting (K&R braces, reduced vertical spacing) across all modules.\n- Renamed `GrpcTransport` and `IpctTransport` to `gRPCTransport` and `IPCTransport` to adhere to naming conventions (acronyms in PascalCase).\n- Standardized method visibility and casing in `SpineConnection` (e.g., `Connect` vs `connect`).\n\n**Dependency Updates:**\n- Upgraded `wasmtime` from `19.0` to `20.0`.\n- Removed `wasmtime-wasi` and `wasi-common` as dependencies.\n- Made `tonic` and `prost` optional features to support builds without gRPC.\n- Added `semver` and `chrono` for protocol and time handling.\n\n**New Features:**\n- **SpineActionClient:** Added `Source/Protocol/SpineActionClient.rs`, a new gRPC client for handling `EchoAction` communication with the Mountain backend. This provides a structured interface for bidirectional actions, host registration, and heartbeat management.\n- **SpineConnection Refactor:** Refactored `SpineConnection` to utilize the new client structure, introducing `HeartbeatConfig`, `ConnectionMetrics`, and simplified state management.\n\n**Impact:** Improves code maintainability and consistency while laying the groundwork for robust, typed communication with the Mountain backend.",
+			"SHA": "07643474e5a54440238b4865acd7ebddbca2f543"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-02-08T21:28:48Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Grove/WASM): Implement core WebAssembly runtime engine and execution environment\n\nThis commit establishes the foundational execution infrastructure for the Grove extension host, enabling the loading, sandboxing, and execution of WebAssembly modules using Wasmtime. It completes the \"WASM Strategy\" capability introduced in the recent Transport layer refactoring.\n\nThe implementation provides a comprehensive subsystem composed of five core modules:\n\n- **`Runtime`**: Encapsulates the `wasmtime::Engine` and configuration (`WasmConfig`). It manages the lifecycle of WASM stores, handles fuel metering for execution throttling, and enforces compilation settings (WASI, SIMD, multi-memory support).\n\n- **`ModuleLoader`**: Handles the ingestion of WASM artifacts from file paths, memory buffers, or remote URLs. It manages the compilation process, extracts module metadata (exports/imports), and coordinates instantiation via the Wasmtime linker.\n\n- **`MemoryManager`**: Enforces strict isolation and resource limits. It tracks allocation/deallocation, validates memory growth requests against global caps, and prevents OOM conditions within the host process.\n\n- **`HostBridge`**: Defines the communication protocol (marshalling/unmarshalling) between the Rust host and WASM guest. It manages type conversions (JSON/Bytes to Wasmtime `Val`) and provides the async-safe channels for bi-directional messaging.\n\n- **`FunctionExport`**: Implements the registry for exposing Rust host functions to WASM modules. It integrates with the Wasmtime `Linker` to wrap host callbacks, managing function signatures and call statistics.\n\n**Impact**: This subsystem transforms Grove from a message-passing orchestrator into a fully functional WASM runtime, providing the secure sandbox required to execute high-performance extensions within the Land architecture.",
 			"SHA": "e49e36848a2ce1fb0df9e7900430c65c1d18d992"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:33:22Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				48,
-				5
-			],
-			"Message": "feat(Grove/Transport): Implement modular transport layer with gRPC, IPC, and WASM strategies\n\nThis commit introduces a flexible, strategy-based transport layer for the Grove extension host, abstracting the communication mechanisms required to interact with the Land ecosystem.\n\nThe implementation establishes a unified `TransportStrategy` trait that defines the contract for connectivity (`connect`, `send`, `close`). Three distinct concrete strategies are provided:\n\n- **GrpcTransport**: Connects Grove to the Mountain backend using `tonic`. This enables the remote control channel defined in the recent protocol updates, handling channel management and endpoint resolution.\n- **IpcTransport**: Provides high-performance local inter-process communication via Unix domain sockets (Unix) and named pipes (Windows). This facilitates efficient messaging between the host and local processes or the main editor window.\n- **WasmTransport**: Bridges the Grove host with loaded WASM modules. It integrates directly with the `WasmRuntime`, `MemoryManager`, and `HostBridge` to execute function calls within the sandboxed environment.\n\nThe module also includes `TransportConfig` for managing timeouts and retries, `TransportStats` for observability (latency, throughput), and a unified `Transport` enum to handle runtime strategy selection.\n\n**Impact**: This decouples Grove's orchestration logic from specific networking protocols, providing a robust foundation for the `SpineConnection` and enabling the host to seamlessly switch between remote (gRPC) and local (WASM/IPC) execution contexts.",
-			"SHA": "d2e113204c114dad3ca7896d2d90720ca8253cf1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:32:14Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				42,
-				3
-			],
-			"Message": "feat(Grove/Protocol): Define application-level gRPC contract and configuration service\n\nThis commit establishes the public API surface for the Grove extension host, defining the application-layer gRPC contract that bridges Grove with the Land environment.\n\nThe `Grove.proto` file introduces the `GroveService` and `GroveEventStream` definitions, exposing RPCs for the complete extension lifecycle:\n- **Lifecycle Management**: `LoadExtension`, `ActivateExtension`, `DeactivateExtension`, and `UnloadExtension`.\n- **Execution & API**: `ExtensionApiCall` for proxying VS Code API requests and `LoadWasmModule` for managing WASM artifacts.\n- **Configuration**: `GetConfiguration` and `UpdateConfiguration` for managing extension and workspace settings.\n- **Observability**: `HealthCheck` and `ListExtensions` for status monitoring.\n\nAdditionally, the commit implements the internal `ConfigurationService` to handle the logic required by these configuration RPCs:\n- **Service Architecture**: Introduces the `Service` trait in `mod.rs` as a common interface for Grove's internal components.\n- **Configuration Logic**: `ConfigurationService` supports scoped configuration (Global, Workspace, Extension), async file persistence, and change watchers.\n\n**Impact**: This provides the foundational contract for the Mountain backend to control the Grove host, enabling remote extension management, configuration updates, and event streaming.",
-			"SHA": "0e4bf8c29e5b5f16a99afc46c779c7b815bd482c"
 		}
 	],
-	"TimeStamp": 1780672817265
+	"TimeStamp": 1780841382554
 }
