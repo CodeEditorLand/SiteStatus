@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-04-24T15:04:57Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T22:31:08Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
+				"⠁⠀⠀⠀⠀",
 				221,
-				1
+				6
 			],
-			"Message": "Merge pull request #137 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-3.0.0\n\nbuild(deps): bump pozil/auto-assign-issue from 2.2.0 to 3.0.0",
-			"SHA": "1c611d549ebc2284a78281e0830558596f5ec601"
-		},
-		{
-			"Author": "dependabot[bot]",
-			"Date": "2026-04-24T15:04:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				221,
-				1
-			],
-			"Message": "build(deps): bump pozil/auto-assign-issue from 2.2.0 to 3.0.0\n\nBumps [pozil/auto-assign-issue](https://github.com/pozil/auto-assign-issue) from 2.2.0 to 3.0.0.\n- [Release notes](https://github.com/pozil/auto-assign-issue/releases)\n- [Commits](https://github.com/pozil/auto-assign-issue/compare/v2.2.0...v3.0.0)\n\n---\nupdated-dependencies:\n- dependency-name: pozil/auto-assign-issue\n  dependency-version: 3.0.0\n  dependency-type: direct:production\n  update-type: version-update:semver-major\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
-			"SHA": "b8c24c622f684d96cc04b5e87306a6b7c36c2580"
+			"Message": "refactor(Output): Use static ES imports instead of runtime require() in ExposeWorkbenchAccessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of web.main.js instead of using runtime require() calls to resolve VS Code service modules. The transform now anchors on the stable `import { mark } from '../../base/common/performance.js'` line and adds IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports.\n\nThis eliminates the AMD require() resolution at runtime which could fail in the WKWebView context, ensuring `__CEL_SERVICES__` is populated synchronously before the microtask queue drains. Also adds the `cel:services-ready` DOM event dispatch and Mountain diagnostic logging on success/failure.\n\nThe transform now includes a guard check for the import marker to avoid matching unrelated files.",
+			"SHA": "ed06cce024f3c78dbd8db6ce7d842748a5094fa7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T14:48:51Z",
+			"Date": "2026-04-24T21:47:14Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				221,
 				3
 			],
-			"Message": "feat(Output): Resolve workbench services up-front in transform plugin\n\nEnhance the ExposeWorkbenchAccessor ESBuild transform to pre-resolve concrete service instances during workbench startup, not just expose the raw IInstantiationService. The transform now creates globalThis.__CEL_SERVICES__ with three pre-bound services:\n\n- Statusbar (via IStatusbarService)\n- Commands (via ICommandService)\n- CommandRegistry (direct module access)\n\nThis allows Sky-side bridge code to call method surfaces directly without re-entering the workbench's AMD loader. All three symbols are available in the stock web.main.js closure via the bundler's require map. Wrapped in a try-catch so a rename in upstream VS Code does not wedge boot - the raw instantiation service above still covers the fallback path.\n\nRefs a15387c29c3ea0495a9b3f060d0da6ad13632eb2",
-			"SHA": "354c448c4413ff1695609def7b4183e76c3403fe"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-24T03:26:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				221,
-				1
-			],
-			"Message": "",
-			"SHA": "a15387c29c3ea0495a9b3f060d0da6ad13632eb2"
+			"Message": "feat(Output): Route VS Code binary IPC channels to Mountain instead of stubs\n\nAdd MapChannelMethodToTauri, MapChannelToMountainPrefix, CoerceTauriParameters, and InvokeMountainRaw to route the VS Code workbench's binary IPC protocol (ChannelClient) to real Mountain backend handlers. Previously, channels like `localFilesystem`, `storage`, and `configuration` returned synchronous stub responses - filesystem ops returned FileNotFound, storage returned empty arrays, and configuration returned empty objects.\n\nNow these channels invoke Mountain asynchronously via the MountainIPCInvoke Tauri command, and the PromiseSuccess/PromiseError responses are relayed back through the binary IPC protocol. This enables the file explorer, search, settings editor, and workspace storage to persist data to the real filesystem and backend instead of operating on in-memory stubs.\n\nThe routing map covers 25+ channels: file, storage, configuration, search, workspaces, terminal, textFile, output, notification, progress, quickInput, environment, decorations, workingCopy, label, model, extensions, extensionHostStarter, localPty, nativeHost, themes, keybinding, lifecycle, url, menubar, encryption, and git.",
+			"SHA": "67176ce21428951e8f07ce8a45ce3252ef478961"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T01:46:35Z",
+			"Date": "2026-04-24T20:51:51Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				221,
 				3
 			],
-			"Message": "feat(Output): Add ExposeWorkbenchAccessor transform plugin\n\nAdd a new ESBuild transform plugin that patches VS Code's web.main.js\nand web.factory.js to expose the workbench's IInstantiationService and\nIWorkbench facade on globalThis. This enables Sky-side bridge code to\nresolve internal services (IStatusbarService, ISCMService, ICommandService,\netc.) via __CEL_INSTANTIATION_SERVICE__.invokeFunction() without\nre-implementing a parallel UI surface.\n\nThe transform makes two narrow additive patches:\n1. web.main.js - after workbench.startup(), stash the live\n   IInstantiationService on globalThis.__CEL_INSTANTIATION_SERVICE__\n2. web.factory.js - after workbenchPromise.complete(), expose the IWorkbench\n   facade on globalThis.__CEL_WORKBENCH__ and dispatch cel:workbench-ready\n\nBoth injections are idempotent (short-circuit on existing marker) so\nre-running the transform on an already-patched tree is a no-op.",
-			"SHA": "358449c0d10f262c5b4869d7088c5a0ccf2a9f23"
+			"Message": "fix(Output): Suppress benign ENOENT errors in Tauri invoke logging\n\nExtensions probe for optional workspace files (`.vscode/settings.json`,\n`.vscode/tasks.json`, etc.) that don't exist on fresh installs. Each probe\nwas logging a `tauri-invoke-error` entry, flooding the dev log with expected\nENOENT failures. Add logic to detect benign ENOENT errors for the\n`file:stat` and `file:readFile` methods by checking the error message for\n\"No such file or directory\", \"os error 2\", or \"Resource not found\" patterns.\nOnly non-benign errors forward to the log; legitimate errors still surface\nwhile harmless file probes stay quiet.",
+			"SHA": "358f7f7c1c2c6c46b8c24f22cc1baaab6a18ab9a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T20:37:08Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				221,
+				6
+			],
+			"Message": "feat(Output): Expose IViewsService and TreeViewByViewId in workbench accessor\n\nExtend the ExposeWorkbenchAccessor ESBuild transform to expose IViewsService alongside the existing Statusbar, Commands, CommandRegistry, and Search services. Add a TreeViewByViewId function that resolves ITreeView instances from the ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\nAlso separate error logging in TauriMainProcessService by tagging failed invokes with \"tauri-invoke-error\" instead of \"tauri-invoke\", allowing success logs to be opt-in via LAND_DEV_LOG while errors always forward.",
+			"SHA": "7b0b915803bc81fd576b9f5236ee75d13d0b1052"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T15:37:09Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				221,
+				3
+			],
+			"Message": "feat(Output): Add ISearchService to pre-resolved workbench services\n\nExtend the ExposeWorkbenchAccessor ESBuild transform to expose the ISearchService alongside the existing Statusbar, Commands, and CommandRegistry services.\n\nThis adds a require for `vs/workbench/services/search/common/search` and includes a `Search` entry in the `__CEL_SERVICES__` global object, allowing Sky-side bridge code to access the search service directly without re-entering the workbench's AMD loader.\n\nThe search service is now available at `globalThis.__CEL_SERVICES__.Search` for direct method surface access from the Land editor UI.",
+			"SHA": "f651b48fefe02cafb42eb682b2da760108ceb154"
 		}
 	],
-	"TimeStamp": 1780841397147
+	"TimeStamp": 1780934939164
 }

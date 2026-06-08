@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:06:12Z",
+			"Date": "2026-05-20T04:38:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1573,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "681cfe8f308427aac8ffd722e8e54fa78590d634"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-20T02:49:44Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1568,
 				1
 			],
-			"Message": "refactor(Mountain): Remove redundant menubar update handler logic\n\nThe inline `menubar:updateMenubar` handler, which implemented a per-100-call logging counter and returned `Null`, is removed. These high-frequency calls are now processed exclusively in the `IsHighFrequencyCommand` fast-path block established previously.\n\nThis cleanup eliminates the dead code fallback in `Source/IPC/WindServiceHandlers/mod.rs`, ensuring the IPC dispatch layer relies on the optimized path for menubar updates while maintaining a minimal fallback for command routing integrity.",
-			"SHA": "8fd7bc239ad2beac6260602e1d1a12261f11e188"
+			"Message": "",
+			"SHA": "36da8bc51580580fa19bb4f352b28c37e57a7073"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:05:01Z",
+			"Date": "2026-05-20T02:17:51Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1573,
+				42
+			],
+			"Message": "feat(Mountain): Implement hierarchy prepare, editor text IPC, and selection forwarding\n\nAdd call hierarchy and type hierarchy prepare entry-points across the full gRPC+LSP provider pipeline. The new `PerformCallHierarchy` and `PerformTypeHierarchy` provider modules in `Source/RPC/CocoonService/Provider/` parse the URI+position request and delegate to `PrepareCallHierarchy`/`PrepareTypeHierarchy` on the `LanguageFeatureProviderRegistry`, which invokes `$prepareCallHierarchyItems`/`$prepareTypeHierarchyItems` on the registered extension provider via Cocoon. This unblocks the incoming/outgoing calls and subtypes/supertypes panels in the editor UI.\n\nBridge two new Cocoon→Mountain→Sky notification atoms for extension-driven editor mutations: `window.setTextEditorDecorations` uses a channel-drain batching mechanism (16 ms frame-aligned aggregation, unbounded sender) to coalesce ~5-200+ calls/second into a single `sky://decoration/set-ranges` Tauri event per frame; `window.applyTextEdits` forwards `{uri, edits}` directly as `sky://editor/apply-text-edits` for `editor.edit(cb)` callers (formatters, code actions, vim-mode, Error Lens).\n\nAdd the `window.revealRange` Track Effect to `Source/Track/Effect/CreateEffectForRequest/Workspace.rs`, routing extension calls through `SendUserInterfaceRequest` to `sky://editor/revealRange` for go-to-definition and error-navigation scrolling.\n\nFire `document.willSave` to Cocoon before writing to disk in the workspace-save Track Effect, giving `onWillSaveTextDocument` listeners (format-on-save, organize-imports, trailing-whitespace strippers) a 1.5-second grace window before the actual disk write.\n\nWire two new Sky→Mountain IPC handlers in the `mountain_ipc_invoke` dispatcher — `sky:editor:selectionChanged` and `sky:editor:activeChanged` — which store the active document URI in workspace state and forward the notification to Cocoon so `activeTextEditor.selection` and `onDidChangeTextEditorSelection`/`onDidChangeActiveTextEditor` stay live.\n\nRecord `TierIPC: Mountain` in Info.plist alongside existing tier metadata.\n\nIncludes pervasive `cargo fmt` reformatting across 30+ source files: single-line short signatures, collapsed nested expressions, reordered import blocks for PascalCase alphabetic consistency.",
+			"SHA": "e85d15aa92cb2b7f45eb50f92c2c3613b10e4b56"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T01:32:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1569,
+				2
+			],
+			"Message": "feat(Mountain): Add stub utilities for PerformanceDashboard metrics\n\nIntroduce `DashboardHelpers` module under `Source/IPC/Enhanced/PerformanceDashboard` to provide deterministic, side-effect-free utility functions for the performance monitoring system.\n\nThe implementation includes stub functions for retrieving process memory and CPU usage (returning fixed values until platform metrics are wired) and UUID generators for trace, span, and alert identifiers. Additionally, a `metric_type_name` helper maps `MetricType` variants to human-readable display strings for the dashboard UI.\n\nThis change exports the new module in `mod.rs`, establishing the foundational layer for the PerformanceDashboard IPC feature while adhering to the pure function architecture for testability.",
+			"SHA": "e4c272b226471882b469bd9020eb70cb523cf39c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T01:07:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1568,
 				1
 			],
-			"Message": "refactor(Mountain): Remove stub acknowledgments for workspace folder events\n\nThe `workspaces:onDidChangeWorkspaceFolders` and `workspaces:onDidChangeWorkspaceName` commands previously returned a `Null` value as a stub acknowledgment to simulate a Tauri event listener handshake on the IPC binary rail.\n\nThese explicit handlers are removed as the actual workspace change notifications are now broadcast directly via Tauri events without requiring a corresponding `ack` response on the gRPC/Vine protocol rail. This cleanup eliminates dead code paths and streamlines the `mountain_ipc_invoke` dispatch logic in `Source/IPC/WindServiceHandlers/mod.rs`.\n\nThe workspace state change propagation remains intact through the existing event emission mechanism, ensuring the Wind UI layer still receives updates without unnecessary binary rail overhead.",
-			"SHA": "893b99ac4810581ca194db97cdbef1ff40bd3e08"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:48:43Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1568,
-				5
-			],
-			"Message": "feat(Mountain): Add glob pattern normalization and text edit utilities\n\nIntroduce two new utility modules under `Source/Environment/Utility` to support workspace scanning and document manipulation. `GlobPattern.rs` normalizes VS Code glob patterns from various serialized shapes (bare strings, `RelativePattern` objects, legacy `value` fields) into a unified string and extracts optional base directories for bounded file walks. `TextEdit.rs` provides pure side-effect-free helpers for computing UTF-16 line offsets and converting `(line, character)` positions to byte offsets, adhering to VS Code's `Range`/`Position` semantics. It also includes a self-contained percent-decoder for `file://` URIs.\n\nThese utilities are exported in `mod.rs` to be consumed by the `FindFiles` workspace provider and language service layers. Additionally, the build system is updated in `build.rs` to recognize `TierIPC` as a runtime-only configuration variable, and the logging utility `LandFixTier.rs` is enhanced to emit this runtime tier value alongside the build-baked tiers.",
-			"SHA": "00a3ccf53ec931b07171c9e1217f006a6cbd4a86"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:46:07Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1566,
-				3
-			],
-			"Message": "feat(Mountain): Implement extension manifest NLS resolution and default config collection\n\nIntroduce two new modules in `Source/ExtensionManagement` to prepare extension manifests for runtime consumption. `NLSResolver.rs` handles the resolution of `%key%` placeholders found in VS Code `package.json` manifests by loading and parsing `package.nls.json` bundles, supporting both string and `{message, comment}` object formats. `DefaultConfigurations.rs` scans all scanned extensions to recursively merge `contributes.configuration.properties` into a single flat JSON object, utilizing dot-notation for nested keys and guarding against circular references.\n\nThese changes ensure that localized UI strings and default user settings are correctly extracted from extension definitions before they are processed by the extension host or applied to the settings engine. Both modules are exported in `mod.rs` to enable integration with the extension scanner and IPC handlers.",
-			"SHA": "df0df3f19cd2aa052a86a6ac4745b35845d1164a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:44:49Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1564,
-				1
-			],
-			"Message": "refactor(Mountain): Modularize update service IPC handlers\n\nExtract inline update command logic from `mountain_ipc_invoke` into dedicated atomic handler functions (`UpdateGetInitialState`, `UpdateIsLatestVersion`, etc.) within the `WindServiceHandlers` module. This aligns the update service with the established modular architecture used for clipboard, trash, and dialog operations.\n\nThe new handlers return the initial idle state or no-ops as the update server implementation is not yet active. This reduces code duplication in the IPC dispatch layer and centralizes future update server integration points.\n\nThis completes the modularization of the update service path in preparation for Air daemon integration.",
-			"SHA": "349ea7ae99984d74c81645a0e10c6fe7eaf244a2"
+			"Message": "refactor(Mountain): Clarify logger command fallback handling\n\nUpdate the comment block for logger commands (`logger:log`, `logger:warn`, etc.) in `Source/IPC/WindServiceHandlers/mod.rs`. The inline acknowledgment explicitly states that these high-frequency calls are now primarily managed by the `IS_HIGH_FREQUENCY` fast-path short-circuit established in recent commits.\n\nThe fallback arms in the `mountain_ipc_invoke` dispatcher are described as a safety net to ensure `Mountain.dev_log` receives output if the high-frequency detection logic changes or fails. This aligns the documentation with the current architectural optimization for the IPC dispatch layer.",
+			"SHA": "db5faf8431473f060005b186245adfebef81bd7d"
 		}
 	],
-	"TimeStamp": 1780841392085
+	"TimeStamp": 1780934934967
 }

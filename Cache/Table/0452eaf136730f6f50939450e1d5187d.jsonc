@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:56:17Z",
+			"Author": "Auto",
+			"Date": "2026-04-29T03:39:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				266,
+				267,
 				1
 			],
-			"Message": "refactor(Output): Update RewriteStaticBlockSelfRef to auto-detect affected files and remove manual whitelist\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "4fab2bb7a34e298cf9ea9c00697fedeedbacb2ac"
+			"Message": "",
+			"SHA": "c7eef6cacab62664fa2fd8f62cd83b84fcfc397a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:48:41Z",
+			"Date": "2026-04-29T02:08:29Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				267,
+				3
+			],
+			"Message": "fix(Output): Fix ExposeWorkbenchAccessor import markers and add service error isolation\n\nTwo fixes to the ExposeWorkbenchAccessor transform that were causing SkyBridge bridges to silently fail:\n\n1. Import marker quote style: The transform was using single-quote import markers that matched stock VS Code source, but esbuild/Land's Output bundler rewrites quotes to double quotes in the post-bundle file. The marker mismatch caused `Source.includes(ImportMarker)` to return false, silently no-opping the entire `__CEL_SERVICES__` patch. All SkyBridge hooks (search registration, SCM, status bar, tree views) were offline because `__CEL_SERVICES__` stayed undefined.\n\n2. Service error isolation: Each `invokeFunction` is now wrapped in its own try-IIFE. Previously, a single failed service lookup (interface decorator missing in this profile, service not yet registered) would throw out of the entire `__CEL_SERVICES__` object literal, leaving the whole facade undefined. Now each service degrades to `null` individually, preserving all other bridges.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNodeModulesPath + expose IMarkerService)",
+			"SHA": "f55a02821a2d7acad85060cf17796f62fda700d9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T01:03:39Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				267,
+				8
+			],
+			"Message": "feat(Output): Add RewritePerfBaselineWorker transform\n\nAdd a new build transform that fixes worker bootstrap crashes in the\nbundled editor's timer service. The transform replaces\n`timerService.js`'s `(function() { ... __name(fib, \"fib\"); ... }).toString()`\nperfBaseline worker source with a literal-string equivalent that omits\nthe cosmetic `__name(...)` decoration.\n\nSame OXC-mangling-truth fix as `RewriteNestedWorkerBootstrap`: when Vite\ninlines `timerService.js` into Sky's `_astro/partsSplash.*.js` chunk,\nthe chunk's `__name` helper gets mangled (e.g., `$4e`). The IIFE captured\nby `.toString()` carries the mangled `$4e` reference; the worker scope\nhas no `$4e` defined and crashes at module-eval with `ReferenceError:\nCan't find variable: $4e`. The literal-string replacement is\nmangler-immune.\n\nAlso update prepublishOnly.sh to gate debug profiles on `Debug=true`\ninstead of `NODE_ENV`. Tauri's `.env` file was silently overriding\nBuild.sh's `NODE_ENV=development` export, forcing `out-build` (mangled)\neven for debug builds that should pull from readable `out/`.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNestedWorkerBootstrap)",
+			"SHA": "14cc0d5941bd561c41c6d5ffd190256cc92eafb9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T23:06:23Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
-				266,
-				16
+				264,
+				10
 			],
-			"Message": "feat(Output): Add HoistFunctionDeclarations and RewriteStaticBlockSelfRef transforms\n\nAdd two new build transforms to Output's ApplyPipeline that fix TDZ errors in bundled VS Code:\n\n1. HoistFunctionDeclarations: Moves top-level `function NAME(...) {...}` declarations and ESBuild helper vars (`__defProp`, `__name`, `__decorate`, `__param`) to the top of each file, before any calls. After Rollup concatenation converts function declarations to `let NAME; NAME = function(){...}`, calls before the assignment hit a TDZ. Pre-hoisting preserves the unbundled semantics.\n\n2. RewriteStaticBlockSelfRef: Rewrites class-name self-references (`ClassName.member`) inside `static {...}` blocks to `this.member`. After bundling, `class X {...}` becomes `let X; X = class{...}` so static block self-references resolve to undefined. Inside a static block, `this` IS the class.\n\nAlso update InjectNameShim to add 'unsafe-inline' to the iframe's CSP - the name shim injection invalidates the SHA256 hash. Update RewriteWorkbenchBaseURL to use a literal import string instead of runtime-computed URL, enabling Vite/Rollup to follow the module graph for bundling.\n\nThese transforms enable the bundled workbench to boot correctly after Output's tree shake + bundle pass.",
-			"SHA": "3c4cbf07803c8b20cfceed4186ca2dd24682c052"
+			"Message": "feat(Output): Add RewriteNodeModulesPath transform and expose IMarkerService\n\nAdd a new build transform and update an existing one:\n\n1. RewriteNodeModulesPath: Patch `vs/base/common/network.js`'s hardcoded paths (`vs/../../node_modules`, `vs/../../extensions`, etc.) to drop one `../` segment. Without this, the dev server resolves to `/Static/node_modules/` instead of `/Static/Application/node_modules/`, returns SPA `index.html` fallback, and all grammar/tokenization (textmate, oniguruma, language-detection) silently breaks across every extension.\n\n2. ExposeWorkbenchAccessor: Expose `IMarkerService` on `__CEL_SERVICES__.Markers` so SkyBridge can push extension diagnostics (rust-analyzer, TypeScript, ESLint) into the workbench. Mountain emits `sky://diagnostics/changed` events; the bridge now calls `Markers.changeOne(owner, uri, markers)` to paint red squiggles and populate the Problems panel.\n\nBoth transforms are idempotent and added to the BuildPipeline after RewriteNestedWorkerBootstrap.",
+			"SHA": "cf8dea549df816cc3b534beb9449f90bf678f69f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T05:26:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				260,
-				1
-			],
-			"Message": "refactor(Output): Exclude StaticToDynamicImport and CSS transforms from ApplyPipeline\n\nRemove CSSStrategy (InlineCSSImport/StripCSSImport) and StaticToDynamicImport from Output's ApplyPipeline. These transforms rewrite static imports into runtime forms (`await import(...)` for JS, `_LOAD_CSS_WORKER(...)` for CSS) which suit the `/Static/Application/` path where files are individually loaded via the Worker SW.\n\nFor Output's bundled tree where Vite walks Target, we WANT static imports so Rollup can follow the module graph and emit a single hashed chunk. CSS is handled by Vite's native pipeline which extracts and hashes CSS assets into `_astro/`, with `cssCodeSplit: false` in astro.config.ts to fold every CSS module into one file.\n\nSky's `astro:build:done` hook still runs the full BuildPipeline (including these transforms) over Sky/Target/Static/Application/, so the existing path maintains its runtime-load behavior. The two output trees diverge intentionally.",
-			"SHA": "5b9e387695fc9812e24274d0b447d42550613243"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:53:25Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				260,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "ae22fae83e8e83ac908e8af3a3159e2340b00435"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:53:22Z",
+			"Date": "2026-04-28T21:54:01Z",
 			"File": [
 				"⡿⠀⠀⠀⠀",
-				260,
-				46
+				261,
+				45
 			],
-			"Message": "feat: Implement ApplyPipeline for output-side transforms\n\n- Added ApplyPipeline.ts to run transform plugins after building VS Code.\n- Copied TauriMainProcessService.js to Output's Target for correct imports.\n- Introduced new transform plugins: InjectWebViewPolyfills, RewriteWorkerURLs, and RewriteWorkbenchBaseURL.\n- Updated existing plugins to ensure compatibility with new output structure.\n- Adjusted paths in Polyfill and Service modules to point to the new Target structure.\n- Modified prepublishOnly.sh to include the ApplyPipeline execution step.\n- Removed outdated exports and typesVersions from package.json.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "405c62842baa1e3d74c9403c903f299308f6bcb8"
+			"Message": "feat(Output): Fix Monaco worker bootstrap crashes and add polyfill telemetry\n\nAdd two new build transforms that fix worker bootstrap crashes in the bundled editor:\n\n1. InjectWorkerBootstrapShim: Injects `__name`/`__defProp` shim into `webWorkerServiceImpl.js::getWorkerBootstrapUrl` blob factory so Monaco's language workers (TS/CSS/HTML/JSON services, semantic tokens) inherit the helpers in their module scope. Without this, workers crash with `ReferenceError: Can't find variable: $4e` when Vite/OXC mangling renames `__name` to `$4e`.\n\n2. RewriteNestedWorkerBootstrap: Replaces `polyfillNestedWorker.js`'s `(function... ).toString()` pattern with a literal JSON.stringified source that omits the cosmetic `__name(...)` decorations. The `.toString()` approach returns mangled source (`$4e`) which the blob worker can't evaluate since the identifier isn't defined in its scope.\n\n3. RewriteStaticBlockSelfRef: Replace hardcoded 2-file whitelist with auto-detection across all `vs/*.js` files - the whitelist silently failed because VS Code's out-build mangler emits different class names than expected.\n\n4. InstrumentVscodeGit: Add markers F (createModel done) and L (openRepository getRepositoryRoot done) for finer-grained Git extension activation diagnostics.\n\n5. Telemetry: Add global `__LAND_POLYFILL_TELEMETRY__` hook and wire it into ChildProcessPolyfill, IPCRendererShim, ProcessPolyfill, and SharedProcessProxy to route silently-caught failures to PostHog for monitoring.",
+			"SHA": "e0fda068f1befeb3a76f470689b34bd8378fe554"
 		}
 	],
-	"TimeStamp": 1780841394674
+	"TimeStamp": 1780934936372
 }

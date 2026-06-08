@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:20:46Z",
+			"Date": "2026-05-19T04:19:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1510,
-				3
+				6
 			],
-			"Message": "",
-			"SHA": "af45c696979f36bc068823417654b96805b2d491"
+			"Message": "fix(Mountain): Add logsPath to sandbox config, clean up handlers\n\nAdd the required `logsPath` field to `ISandboxConfiguration` to prevent VS Code's `NativeWorkbenchEnvironmentService.logsHome` from resolving to `undefined`, which crashes the extension host with a `TypeError` in `path.join`. The path is derived from `AppDataDir/logs/<session-timestamp>`, created eagerly before constructing the sandbox object.\n\nRemove the `nativeHost:setDocumentEdited` handler body — `NSWindow::setDocumentEdited` is not exposed by Tauri 2.x's `WebviewWindow` API — and strip the unused `ping_timeout` field from `ConnectionHealthChecker` since health checks are now call-path-driven rather than timer-based.\n\nSimplify early-return control flow in `isPortFree` and `getTerminalProcessId` to reduce branch nesting and eliminate dead returns. Fix the `TerminalId` type in `ResizeTerminal` with an explicit `.into()` conversion.\n\nRedraw the README architecture diagram as a structured subsystem hierarchy (Binary/, Track/, RunTime/, IPC/, Vine/, RPC/) with accurate gRPC port annotations for the Cocoon (:50052) and Air (:50053) sidecars.\n\nAdd `MIRIFLAGS=-Zmiri-disable-isolation` to `.cargo/config.toml` to permit `_NSGetExecutablePath` calls during Miri testing.",
+			"SHA": "0644dc0e1c7ea10717d827c6f4bdbde334d3da45"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:20:44Z",
+			"Date": "2026-05-19T03:01:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1510,
-				7
+				1
 			],
-			"Message": "feat(Mountain): Implement native file descriptor API and refine Tauri window handlers\n\nComplete the implementation of the `nativeHost` IPC surface by adding `file:open` and `file:close` handlers. These functions establish a process-global file descriptor table (backed by `HashMap<u32, File>` and `AtomicU32`) to support VS Code's `DiskFileSystemProvider` for large binary I/O, replacing previous full-read/write fallbacks.\n\nRefine window management handlers: implement `setDocumentEdited` for the macOS dirty-dot indicator, `setMinimumSize` to prevent workbench collapse, and `positionWindow` for multi-window restoration. Update `setRepresentedFilename` to display the filename component in the title bar. Re-evaluate `is_alive` connection logic to remove artificial sleep delays.\n\nOptimize `tree-view/create` event emission in `EnqueueTreeViewEmit` by migrating from per-call `tokio::spawn` to a persistent mpsc channel with a 16ms frame-aligned batcher. This eliminates task overhead during boot. Additionally, reduce the terminal startup delay from 120ms to 20ms, matching M-series hardware capabilities, and improve `LifecyclePhaseState` formatting.",
-			"SHA": "8cde99c082f32ec6c8726e947e7a696d2c3ccf7e"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "f05bb15337235ffc6fc2de4ac1988fe3a8d9e19a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:12:50Z",
+			"Date": "2026-05-19T03:01:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1508,
+				1510,
+				14
+			],
+			"Message": "feat(Mountain): Implement custom editor registry, wire file watcher and PTY resize, optimize hot paths\n\nComplete several IPC/RPC stubs with actual implementations:\n- Store ViewType-to-sidecarId mappings in CustomEditorProvider's global\n  once-locked registry, enabling proper cleanup on unregistration\n- Route watch_file gRPC to FileWatcherProvider::RegisterWatcher for real\n  FSEvents/inotify monitoring instead of a no-op stub\n- Route resize_terminal gRPC through TerminalProvider to resize the PTY\n  (delivers SIGWINCH to the shell) alongside the existing Tauri event\n- Add extensions:activate handler sending $activateByEvent to Cocoon so\n  Wind's ExtensionsService triggers activation programmatically\n\nRefine IPC dispatch and sidecar routing:\n- Emit sky://commands/executed after commands:execute dispatch so\n  telemetry collectors and command subscribers observe every command\n- Look up debug configuration provider from ApplicationState.Feature.Debug\n  for correct sidecar routing instead of hardcoding cocoon-main\n\nOptimize high-frequency and hot paths:\n- Add StorageWriteDebouncer with 100ms write coalescing, replacing\n  per-call tokio::spawn disk writes with batched single-writes\n- Strip osascript subprocess from nativeHost:getCursorScreenPoint,\n  returning (0,0) to eliminate ~50ms macOS process spawn per invocation\n- Gate logger info/debug/trace to opt-in vscode-log tag; forward\n  error/warn/critical to dev_log consistently\n- Replace SystemTime-based ID generation with atomic sequence counters\n  in Notification and WindowUI, eliminating syscall overhead\n\nUpdate Tauri ACL manifests with the new tray allow-set-icon-with-as-template\npermission.",
+			"SHA": "e2e1d1e1b9088429512644b8901afcf9dd8d2347"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T02:56:16Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1510,
+				1
+			],
+			"Message": "perf(Mountain): Reduce command registration yield delay to 20ms\n\nThe 50ms `tokio::time::sleep` after extension activation was conservatively oversized since the `registerCommand` IPC channel drains in roughly 16ms. Lower the yield to a single 20ms frame, matching the actual batch-flush cadence of the Tauri event system.\n\nThis shaves 30ms from the extension activation hot path, accumulating measurably when multiple extensions register commands during startup.",
+			"SHA": "7c91748de9acede25cf29c983732453e7ffc2d4e"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-19T02:49:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1510,
 				1
 			],
 			"Message": "",
-			"SHA": "6d6a91d70b16bd92b1e029b42f68b7a60810df75"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:12:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1508,
-				8
-			],
-			"Message": "feat(Mountain): Implement native AES-256-GCM encryption and async lifecycle synchronization\n\nIntroduce a complete encryption subsystem for the Wind service handlers to support VS Code's `IEncryptionService`. Implement `encryption:encrypt` and `encryption:decrypt` using AES-256-GCM via the `ring` crate. The 256-bit key is derived from the host machine's hardware UUID (macOS `IOPlatformUUID`, Linux `/etc/machine-id`, Windows `MachineGuid`), ensuring stored secrets survive process restarts but remain unreadable on other machines, matching native editor semantics.\n\nRefactor the application lifecycle state to eliminate 100ms polling loops. Replace `LifecycleWhenPhase` busy-wait logic with `tokio::sync::Notify` primitives in `LifecyclePhaseState`. Handlers now await specific phase transitions immediately, reducing boot latency and CPU usage during startup.\n\nUpdate `DecorationTypeLifecycle` notification handling to use a single batched emit operation per channel, reducing IPC overhead during high-frequency UI updates.",
-			"SHA": "eafc4a40a6dc02017466152643d736c8eccced92"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:07:52Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1503,
-				1
-			],
-			"Message": "",
-			"SHA": "b0efb2cbc7f5e481b38f8b4190c511a99c41388e"
+			"SHA": "32a00801945f697b6a7504c419666c2c5ea56267"
 		}
 	],
-	"TimeStamp": 1780841393630
+	"TimeStamp": 1780934936433
 }

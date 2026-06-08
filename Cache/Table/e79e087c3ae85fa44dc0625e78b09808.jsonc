@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T15:16:21Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				155,
+				1
+			],
+			"Message": "feat(Sky): Refresh Extensions view after install/uninstall\n\nAfter Mountain emits `extensions:install` (VsixInstaller success) or `extensions:uninstall`, the Extensions view sidebar stays stale because VS Code's `IExtensionGalleryService` install pipeline does not expose a public hook that fires from outside Cocoon's process boundary.\n\nAdd `Commands.executeCommand` to the `ServicesProbe` structural interface and wire `RefreshExtensionsView` — a guard that invokes `workbench.extensions.action.refreshExtension`, the same command the toolbar \"Refresh\" button triggers. Internally it calls `IExtensionsWorkbenchService.queryLocal()`, which re-reads `IExtensionManagementService.getInstalled()` and rebuilds the view model. Called after both `sky://extensions/installed` and `sky://extensions/uninstalled` handlers, with a try/catch wrapper so a failing command never disrupts the DOM CustomEvent dispatch reserved for Wind orchestration listeners.\n\nThe Extensions sidebar now reflects newly installed or removed extensions live without requiring a workbench reload.",
+			"SHA": "81da5ccf80f101a9b6801c4554d64888dadfa9ba"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T08:10:15Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				155,
+				2
+			],
+			"Message": "feat(Sky): Relay diff information, view column, and terminal state events to Mountain IPC\n\nAdd three new bridge event relays that close remaining gaps between Sky's workbench integration layer and Cocoon extension event subscriptions:\n\n- **Diff information changes:** Subscribe to `onDidActiveEditorChange` and detect diff editor panes via duck-typing (`onDidUpdateDiff`, `getModifiedEditor`). Forward `getLineChanges()` delta on hook and each recomputation as `sky:editor:diffInformationChanged`, enabling extensions like GitLens and PR reviews to surface diff-relative inline annotations via `vscode.window.onDidChangeTextEditorDiffInformation`.\n\n- **View column changes:** Wire `onDidMoveEditor` per editor group to capture cross-group tab moves (split-view drag-and-drop, move-command). Emit `sky:editor:viewColumnChanged` with the destination group's 1-based index so `vscode.window.onDidChangeTextEditorViewColumn` fires accurately for layout-aware extensions.\n\n- **Terminal interaction state:** Parse OSC 633 ; B (command-input-begins) in the shell integration pipeline and flag the terminal as interacted-with. Notify Mountain once per terminal via `localPty:setInteracted` so `vscode.window.onDidChangeTerminalState` subscribers see `state.isInteractedWith` flip from false to true, matching VS Code's sticky interaction semantics.\n\nAll three channels use snapshot-style one-shot subscriptions at startup with safe teardown on editor switches and guarded try/catch wrappers so the render pipeline is never disrupted by a failing IPC call.",
+			"SHA": "080516fa01c61671f66c171f4dfdd4cb1c782262"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:14:29Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				155,
+				1
+			],
+			"Message": "feat(Sky): Relay terminal shell execution lifecycle via OSC 633 sequences\n\nExtend the Sky bridge terminal data pipeline to parse VS Code shell integration OSC 633 sequences beyond the existing cwd (;P) handler. Add `OscEndPattern` (;D[;<exitCode>]) and `OscCmdLinePattern` (;E;<commandLine>) regex parsers, plus a per-terminal `InflightExecution` Map that stashes the most recent commandLine and cwd for each terminal id.\n\nOn receiving OSC 633 ; C (output begins), fire `localPty:shellExecutionStart` via Mountain IPC with the captured commandLine and cwd. On OSC 633 ; D (command finished), fire `localPty:shellExecutionEnd` with exitCode, commandLine, and cwd. The in-flight snapshot is cleared of commandLine after the end event so the next execution re-populates fresh.\n\nCocoon extensions can now subscribe to `vscode.window.onDidStartTerminalShellExecution` and `onDidEndTerminalShellExecution` with accurate command context.",
+			"SHA": "8bf6245d60c90d63768563560deb8f774818acb3"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-25T22:08:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "fix(Sky): Replace bare specifier with relative path in workbench layouts\n\nThe three workbench layout entry points (Bundled Electron, standalone Electron, and Mountain Tauri) each imported the Sky bridge via the `@codeeditorland/sky` package specifier. When the build pipeline does not alias `@codeeditorland/sky` to the Sky source directory, this bare specifier can cause module resolution failures or produce duplicate copies of the bridge module in the bundle.\n\nReplace all three imports with explicit relative paths that resolve directly to `Function/Sky/Bridge.js` within the Sky source tree, ensuring deterministic module resolution across every workbench bootstrap path.",
 			"SHA": "a55b46df905fa8d512b45cb05d6cc3caf30ce51a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:08:57Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				155,
-				6
-			],
-			"Message": "fix(Sky): Bridge extension IPC flows to workbench service layer\n\nRegister decoration types directly with ICodeEditorService in InstallTasksAndDecorations so that setDecorationsByType paints extension decorations (ESLint squiggles, GitLens blame, Error Lens) instead of silently dropping them. The previous DOM-event-only relay left Monaco's renderer with no registered styling.\n\nSwitch from the deprecated setDecorations to setDecorationsByType in InstallEditorOperations, matching the \"ext\" description used during type registration.\n\nWire panel-mode webview lifecycle in InstallWebview by subscribing to onMessage, onWillDispose, and onDidActiveEditorChange and forwarding them back to Cocoon via cocoon:notify, so extensions receive postMessage, dispose, and viewState events. Set disableServiceWorker: true (WKWebView refuses SW registration on vscode-webview://), add stable origin per viewType for session storage, and replay pending HTML from the race window before openWebview resolves. Resolve postMessage by handle (panel) in addition to viewId (sidebar).\n\nAdd sky://output/replace handler in InstallEditorAndOutput for atomic output channel buffer replacement matching upstream's replace() semantics, and honour preserveFocus on sky://output/show.\n\nRelay sky://tree-view/refresh from Cocoon to the workbench's ITreeView.refresh() in Bridge.ts, triggering fresh getChildren round-trips back to extensions.\n\nTogether these changes close the gap between Sky's bridge layer and the workbench service layer — decorations now paint, webview panels are interactive, output channels update atomically, and tree views respond to data changes.",
-			"SHA": "52c452ced426f97e3693796a3488eca42c56d028"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T13:48:05Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				155,
-				1
-			],
-			"Message": "",
-			"SHA": "a334ff9a555433d7c686664263b418224c57b5a2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T13:48:05Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				155,
-				1
-			],
-			"Message": "feat(Sky): Relay treeView.reveal to workbench view panel\n\nCocoon extensions calling `vscode.treeView.reveal(element)` dispatch a\n`sky://tree-view/reveal` URI that must open and focus the corresponding tree\nview panel in the workbench. Add a relay handler in InstallSimpleRelays that\nfires a `cel:tree-view:reveal` DOM event and invokes `Views.openView(viewId)`\non the workbench service layer.\n\nThe handler is guarded by a null check on viewId and a try/catch so the\nrelay pipeline is never interrupted when the workbench is not yet initialised.\nStale optional chaining on `openView` cleaned up (the outer try/catch already\ncovers rejection).",
-			"SHA": "651bca38044971374a08dd5fab01e2cea093595a"
 		}
 	],
-	"TimeStamp": 1780841374327
+	"TimeStamp": 1780934924840
 }

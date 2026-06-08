@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:30:23Z",
+			"Date": "2026-05-25T20:47:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				133,
+				136,
 				1
 			],
-			"Message": "feat(Element): Advance submodules — terminal shell integration chain plus Maintain tooling fixes\n\nAdvance the Element container submodule to incorporate the latest fixes and features across Cocoon, Sky, Mountain, and Maintain.\n\n**Terminal Shell Integration:**\n- Cocoon implements `$acceptTerminalShellIntegrationActivated` and `$acceptTerminalCwdChange` via Sky Bridge, setting a minimal `shellIntegration` stub and parsing OSC 633 `P;cwd=` sequences into URI-like objects for extension access via `shellIntegration.cwd.fsPath`.\n- Mountain adds `setShellIntegrationActive` and `setCwd` gRPC notifications that persist the shell working directory in ApplicationState, plus process introspection IPC handlers (getPlatform, getArch, getPid, getExecPath, getMemoryInfo, getCpuInfo) for Wind's shared-process diagnostics.\n- Sky parses VS Code OSC 633 sequences from terminal output in its bridge layer, forwarding to Mountain via MountainIPCInvoke, completing the Cocoon → Mountain → Sky chain.\n\n**Maintain (eliminate tooling):**\n- Replace prettyplease full-reprint with span-based text patching that preserves inline comments, blank lines, and original indentation.\n- Add explicit `--reformat` CLI flag to opt into the old prettyplease behaviour.\n- Guard loop-body inlining to prevent initializer expressions from moving into for/while/loop bodies (semantic preservation).\n- Add free-variable-move-safety check (`IsFreeVarSafe`) that skips inlining when a binding's Init references variables moved before the substitution site, fixing an E0382 regression.\n\n**Additional Mountain fixes:**\n- Differentiate ENOENT as NotFound across FileRead, Readdir, and Stat IPC handlers.\n- Fix language configuration Tauri event emission to forward the full params object (language + rules) instead of only the language string.",
-			"SHA": "512540bb544df6fbab92df1f6b04c5691bf74636"
+			"Message": "fix(Land): Advance Element submodule — storage RPC fix, clean identifiers, per-subsystem tier routing\n\nAdvance the Element submodule pointer to cdef6cce, integrating fixes across Cocoon, Mountain, Output, and Wind submodules.\n\nCocoon corrects the RPC method name in the storage cache priming path from `storage:getItems` (kebab-case, object arg) to `Storage.GetItems` (PascalCase, empty array), matching Mountain's RPC dispatcher contract. Without this fix, extensions reading workspace or global state synchronously during `activate()` — Roo Code, Copilot, GitLens — received only defaults after every reload, causing UI state regressions across session boundaries.\n\nMountain restores \"Mountain\" as the crate binary, library, and package name, and the Tauri productName and bundle identifier, replacing the verbose development build descriptors introduced in the prior commit. The Cocoon sidecar launch is now gated on both `ExtensionHostCocoon` feature and absence of `no_node_host` cfg so the Node-vs-WebWorker tier is respected at boot. Includes task type in task provider Options payload for correct Cocoon task registration, derives Clone on ExtensionCollection for shared terminal env mutation, and adds zsh shell integration script to the Tauri resource bundle.\n\nOutput introduces per-subsystem tier resolution in the TauriChannel IPC router, enabling channels to route to Mountain or Cocoon independently rather than being governed by a single global `_TierIPC` variable. Routes `tasks` and `auth` to Node by default while keeping most subsystems on Mountain.\n\nWind wires the runtime dispatch layer in TauriMainProcessService that reads per-subsystem tier overrides from env vars and `__LandTiers` globals, routing channels resolved to \"Node\" directly to Cocoon via the `cocoon:request` bridge.\n\nExtension storage now persists correctly across reloads, development builds use clean identifiers, and the IPC tier routing supports per-subsystem dispatch across the Mountain-Cocoon boundary, completing TIER-SYSTEM Step 4b.",
+			"SHA": "c9b02f8863a7fcd422e399726413cd573f02ddd3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T07:31:29Z",
+			"Date": "2026-05-25T19:33:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				136,
+				1
+			],
+			"Message": "fix(Land): Advance Element submodule — dev build isolation, module resolution, dependency fixes\n\nAdvance the Element submodule pointer to ad1d49c2, integrating downstream fixes across six component submodules.\n\nMountain renames its crate binary, library, Tauri productName, and bundle identifier to a verbose development build descriptor (Node 22, VS Code dependency, debug profile, esbuild compiler), preventing binary name and macOS Bundle ID collisions with the release build. The Tauri resource bundle expands to include all Sky deployment variant directories.\n\nSky replaces three bare `@codeeditorland/sky` package specifiers in workbench entry points with explicit relative paths to `Function/Sky/Bridge.js`, ensuring deterministic module resolution when the build pipeline does not alias the package name to the Sky source directory.\n\nOutput adds the missing `browserslist` dependency to its package manifest, resolving an unhandled peer dependency that could cause downstream build failures.\n\nCocoon regenerates compiled JavaScript output, folding several target files into a single consolidated bootstrap pipeline through `Target/Effect/RPCServer.js`.\n\nMaintain relocates the `IsFreeVarSafe` check and `FindSubstSite` resolution from the eliminator loop into `TryBlockPreserve` in mod.rs, where the Preserve-pass text-patching logic actually consumes them.\n\nWind regenerates its TypeScript incremental build metadata for updated program structure after the module resolution changes.\n\nDevelopment and release builds now install side-by-side without Bundle ID conflicts, all entry points resolve the Sky bridge deterministically, and the missing browserslist dependency is restored.",
+			"SHA": "e6bbbe61ebb7a6a77013e1275099c329357d9251"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T19:13:37Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				133,
-				2
+				136,
+				3
 			],
-			"Message": "",
-			"SHA": "c1206b013c3253c86787b9eb8f7e4a11e62fb35a"
+			"Message": "feat(Land): Advance Element submodules — extension env collections, decoration rendering, tier routing expansion\n\nAdvance the Element and Dependency submodule pointers to integrate upstream VS Code improvements and close systemic gaps across the extension-host API surface, decoration pipeline, and IPC routing infrastructure.\n\n**Element (c7f7c6da):**\n- Cocoon replaces a dozen no-op stubs with real implementations — EnvironmentVariableCollection mutations forward to Mountain via terminal.envCollection.* notifications; workspaceState/globalState caches prime before activate(); extensionUri uses MakeUri(); registerTextEditorCommand drives atomic TextEditorEdit edits; language provider metadata flows to Mountain for correct Monaco invocation; executeTask returns a real handle; LogOutputChannel provides ISO-8601 timestamped, level-filtered output; status bar items support 1.74+ overloads with idempotent disposal; webview panels gain live viewColumn/active/visible tracking; tree data providers subscribe onDidChangeTreeData; filesystem writes encode binary as Uint8Array; applyEdit returns Mountain's actual success boolean. Adds __LandTier_* esbuild defines for 15 subsystems.\n- Mountain implements TerminalEnvCollection — a global registry dispatching Replace/Append/Prepend/Delete/Clear/SetPersistent/SetDescription from seven Vine terminal.envCollection.* handlers, applying registered mutators at every PTY spawn. Adds tree.refresh and outputChannel.replace Vine notification relays. Expands tier routing defaults to 14 additional subsystems; extends LandFixTier::LogResolvedTiers to emit all 16 values at boot.\n- Output exposes ICodeEditorService on the CELExposeAccessor services facade so extension decoration APIs paint visible squiggles, gutter icons, and inline hints.\n- Sky registers decoration types with ICodeEditorService in InstallTasksAndDecorations, switches to setDecorationsByType, wires panel-mode webview lifecycle with postMessage/dispose/viewState forwarding, adds sky://output/replace and sky://tree-view/refresh handlers.\n- Wind adds 14 per-subsystem IPC routing tier definitions with union types and default profiles.\n- Worker adds deepmerge-ts 7.1.5 for type-safe recursive ESBuild config merging.\n- Rest normalises shell redirection spacing and case indentation across scripts.\n\n**Dependency (e481e786):**\n- Advance Microsoft VS Code Editor submodule pointer for upstream changeset lifecycle caching and eviction, offline BYOK state resilience with proper reconnection reconciliation, and a dedicated sessions link in the chat view.\n\nExtension environment variables now survive reload, decorations paint on first render, webview panels remain interactive, output channels update atomically, tree views respond to data changes, and the IPC tier routing layer covers all 16 subsystems across Mountain ↔ Cocoon ↔ Wind ↔ Sky.\n\nRefs: microsoft/vscode",
+			"SHA": "35267970979a025481d75b3a82b4b2e223a89de5"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T07:31:28Z",
+			"Date": "2026-05-25T19:13:01Z",
 			"File": [
-				"⣿⠀⠀⠀⠀",
-				133,
-				25
+				"⣿⠁⠀⠀⠀",
+				136,
+				30
 			],
-			"Message": "chore(Land): Normalize shell script indentation and I/O redirection syntax in build scripts\n\nRefactor Build.sh, Run.sh, and other build maintain scripts to normalize indentation and I/O redirection. This change adjusts the formatting of shell scripts to be consistent. This ensures that all scripts under the Maintain/ directory follow the same style and formatting conventions.",
-			"SHA": "e1a123dddbb43db86fff0e2d9b770e53d293a446"
+			"Message": "docs(Land): Document per-subsystem routing tiers and normalize shell formatting across Maintain scripts\n\nRewrite TierGatedImplementationSelection.md with the complete per-subsystem routing tier table spanning TierTerminal through TierWebSocket, documenting the two-layer tier architecture (infrastructure Cargo features + per-subsystem runtime dispatch), flavor overlay workflow via `--flavor RustOnly|NodeFirst|Full`, TierEnvironment.sh propagation path, mod.rs compile-time dispatch using `tier_routes_to_node`, and expanded failure modes including flavor override surprises.\n\nNormalize redirect operators (`2>/dev/null` → `2> /dev/null`) and case-statement indentation across all 24 Maintain shell scripts, bringing them into consistent alignment with the shell-formatting convention established in the prior flavor-overlay commit.\n\nAdd `proc-macro2` with `span-locations` to Cargo.toml for improved proc-macro backtrace resolution. Restore `packageManager: pnpm@11.3.0` in package.json alongside `@tauri-apps/cli` dev dependency, and set `nodeLinker: hoisted` in pnpm-workspace.yaml for correct pnpm dependency resolution. Register `MountainWebSocketPort` and `MountainWebSocketSecret` in turbo.json globalEnv so Turborepo invalidates build caches when these runtime variables change.",
+			"SHA": "ff07b97e6f4ad62bf1fc3b58c43d7105aa5ca49f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T16:57:10Z",
+			"Date": "2026-05-25T13:51:59Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
-				133,
-				9
+				"⣿⠁⠀⠀⠀",
+				136,
+				29
 			],
-			"Message": "",
-			"SHA": "c1f97a690ee1c1aa0903592da976425eaa1a8db1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T07:55:43Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				133,
-				1
-			],
-			"Message": "chore(Land): Bump Rust dependency versions across workspace\n\nUpdate Cargo.toml to align with latest stable releases for core libraries and tooling. Key updates include:\n\n- **OXC Toolchain:** Bump all `oxc_*` crates from v0.129.0 to v0.132.0 for the Rest bundler, ensuring compatibility with latest JavaScript/TypeScript parsing and minification features.\n- **Security & Stability:** Patch `rustls` ecosystem (`tokio-rustls`, `rustls-pemfile`), `git2` (v0.20.4 → v0.21.0), and `sysinfo` to address potential vulnerabilities and improve platform stability.\n- **CLI & Config:** Upgrade `config` to v0.15.23 and `clap` to v4.6.1 for improved configuration parsing and CLI argument handling in Mountain/Air.\n- **Additions:** Introduce `prettyplease`, `quote`, and `syn` to support advanced code generation tasks within the build pipeline.\n\nThese updates maintain the Land editor's dependency health without altering architectural contracts.",
-			"SHA": "0dfc21429aa19d376b3f145bf1d9aac2951d2af0"
+			"Message": "feat(Land): Add tier flavor overlay system and normalize shell formatting\n\nIntroduce three tier-routing flavor overlays (RustOnly, NodeFirst, Full) that source per-subsystem Tier* values via `--flavor`/`-f` on Debug/Build.sh and Release/Build.sh, propagating into Mountain's build.rs and Cocoon's esbuild defines. The Flavors toggle between Mountain-native, Cocoon-Node, or hybrid Mist WebSocket IPC at compile time without profile duplication.\n\n- `.env.Land.RustOnly`: Every subsystem with a native Mountain implementation routes through Rust (Tier*=Mountain).\n- `.env.Land.NodeFirst`: All API surfaces route to Cocoon Node.js, leaving Mountain as a thin IPC pass-through for upstream VS Code feature debugging.\n- `.env.Land.Full`: Full-production routing with NodeDeferred fallback and Mist WebSocket transport enabled.\n\nAdvance the Element submodule to bring DAP inline debugging, webview panel persistence across nativeHost:reload, compile-time tier routing dispatch, Mist WebSocket transport on port 5051, 30-second git subprocess timeout, and crash-safe memento hydration.\n\nNormalize shell formatting across all Maintain scripts: convert case-statement indentation to consistent style, fix redirect spacing (2>/dev/null), and align pipeline continuations. Add new Tier* env vars and flavor overlay files to turbo.json cache inputs and env passthrough for Turborepo correctness.\n\nBuild and run tooling now accepts a `--flavor` flag for quick tier configuration switching without editing profile declarations.",
+			"SHA": "b79ff8acab516d29ae2c51a9f03936adeec376f3"
 		}
 	],
-	"TimeStamp": 1780841381508
+	"TimeStamp": 1780934928740
 }
