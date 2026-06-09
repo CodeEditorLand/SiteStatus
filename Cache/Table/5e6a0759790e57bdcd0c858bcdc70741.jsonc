@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:29:33Z",
+			"Date": "2026-04-27T21:26:58Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				224,
-				1
+				"⠁⠀⠀⠀⠀",
+				233,
+				6
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "842a79df562bc93fdaa122204343e99fa39933e9"
+			"Message": "feat(Output): Add PatchLocalTerminalBackend transform + expose IWebviewViewService\n\nAdd the PatchLocalTerminalBackend transform plugin to the build pipeline, which patches LocalTerminalBackend._connectToDirectProxy to bypass Electron's acquirePort('vscode:createPtyHostMessageChannel') that never resolves under Tauri/WKWebView. The patch routes all pty operations through the existing _localPtyService channel proxy (mainProcessService.getChannel('localPty') → Mountain's localPty:* handlers), forwarding process events into pty instances.\n\nAlso expand ExposeWorkbenchAccessor to expose IWebviewViewService on globalThis.__CEL_SERVICES__.WebviewViews, enabling SkyBridge's sky://webview/registerView listener to register resolvers for extension sidebar/panel webviews. When the user reveals an extension panel, the workbench invokes the resolver, which fires reverse-RPC into Cocoon to invoke the extension's resolveWebviewView callback.\n\nWithout these patches, terminal createProcess/attachToProcess calls hang forever (no PTY spawns) and extension webview panels fail to render.",
+			"SHA": "e78dcecd6741fbbb33b45d431e7ac46a542e9527"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:29:09Z",
+			"Date": "2026-04-27T20:52:55Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				224,
-				1
+				"⠁⠀⠀⠀⠀",
+				231,
+				3
 			],
-			"Message": "feat(Output): Expose URI class to SkyBridge search provider\n\nAdd the `URI` class from vscode-uri to the workbench accessor exports so Sky-side bridges can construct real URI instances that the workbench accepts directly.\n\nThe workbench's SearchService deduplicates results by calling `getComparisonKey(uri)` which invokes `uri.with(...)`. Returning raw URIComponents POJOs causes \"uri.with is not a function\" errors. The exposed URI class has the full prototype chain (`.with()`, `.fsPath`, `.toString()`) needed by SkyBridge's search provider result rows.",
-			"SHA": "7b179e1a9caddb1f048473c766f7437cadffc35c"
+			"Message": "feat(Output): Add terminal PTY patch + expose WebviewViewService\n\nAdd PatchLocalTerminalBackend transform to fix terminal creation under\nTauri. The upstream uses `acquirePort('vscode:createPtyHostMessageChannel')`\nwhich never resolves without Electron's utility-process MessagePort. The\npatch replaces `_connectToDirectProxy()` to route through the existing\n_localPtyService channel proxy (mainProcessService.getChannel('localPty')\n→ Mountain's localPty:* handlers), forwarding all process events from the\nservice into pty instances. Without this, every createTerminal/attachToProcess\ncall hangs forever and the terminal panel sits empty.\n\nAlso expand ExposeWorkbenchAccessor to export IWebviewViewService for\nSkyBridge's `sky://webview/registerView` listener, enabling the workbench\nto resolve extension sidebar/panel webviews through the extension host.",
+			"SHA": "dda0ddb6e62a1d8731e0e1449d2d7c4b08d4c1c4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:00:12Z",
+			"Date": "2026-04-27T20:18:22Z",
 			"File": [
-				"⣿⣿⠇⠀⠀",
-				224,
-				104
+				"⠀⠀⠀⠀⠀",
+				230,
+				2
 			],
-			"Message": "",
-			"SHA": "6b389ee08b3b3d3833c484dfc1e6916ef5f13c84"
+			"Message": "fix(Output): Add DI decorator metadata to ReplaceSearchService transform\n\nThe ReplaceSearchService transform was missing the TypeScript-compiled decorator helpers (__decorate, __param) that VS Code's DI container requires to resolve constructor parameters by their @IService decorator types. Without these, IInstantiationService bound parameters positionally with no type knowledge, causing all dependencies to arrive as undefined and crashing on this.uriIdentityService.extUri.\n\nThis commit adds: the __decorate/__param runtime helpers mirrored from VS Code's compiled output, the IInstantiationService import, the instantiationService parameter storage, and the __decorate([__param(...)]) call that binds each constructor slot to its service token (IModelService, IEditorService, ITelemetryService, ILogService, IExtensionService, IFileService, IInstantiationService, IUriIdentityService). Also changed class export from `export class` to `let` + named export to match TypeScript's parameter-decorator emit shape.\n\nThe search panel now properly delegates to Mountain's search:findFiles/search:findInFiles handlers via Tauri IPC.",
+			"SHA": "46eceea1004c74e6073d68561b04e3ee7694ef49"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-27T19:53:53Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				230,
+				6
+			],
+			"Message": "feat(Output): Add ReplaceSearchService transform plugin\n\nAdd a new build-pipeline transform that replaces VS Code's web-worker-\nbacked `RemoteSearchService` with a Tauri-IPC client delegating to\nMountain's `search:findFiles` / `search:findInFiles` Rust handlers.\n\nThe upstream search service uses `LocalFileSearchWorkerClient` which\ndepends on the HTML File System Access API (unavailable under\nTauri/WKWebView) and walks files without respecting `.gitignore`. This\ncaused two problems in Land: (1) the search panel showed files in the\nexplorer but the match counter stayed at 0 because no text-search backend\nran, and (2) ignored folders like `Target/` / `node_modules/` appeared\nin results.\n\nThe transform rewrites `searchService.js` with a `MountainTauriSearchProvider`\nthat invokes `MountainIPCInvoke` with the search channel name, then shapes\nthe response into `ISearchComplete`. It preserves the DI registration so\nthe workbench transparently receives the Mountain-backed implementation.\nBoth `search:findFiles` and `search:findInFiles` are `.gitignore`-aware via\nRust's `ignore::WalkBuilder` and run native (faster than the browser worker).",
+			"SHA": "b769bd954a5d923805706b02221538d95cff3c60"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-04-26T03:33:22Z",
+			"Date": "2026-04-27T03:36:56Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				172,
+				227,
 				1
 			],
 			"Message": "",
-			"SHA": "ab41e62bdffaf301fab60ca52b40cc3d29880f70"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-25T02:54:41Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				172,
-				1
-			],
-			"Message": "",
-			"SHA": "c2d3422523eb8dc1a8dc08ad0575ac7cc5aa8605"
+			"SHA": "b15b23fcc0bb6abe76c9a5368f90a6c924b6c1f0"
 		}
 	],
-	"TimeStamp": 1780934938277
+	"TimeStamp": 1781048772289
 }

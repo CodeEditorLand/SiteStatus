@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T08:17:37Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				26,
+				1
+			],
+			"Message": "chore(Project): Sync Sky submodule to eliminate retry loops and forced UI state\n\nUpdate the Sky submodule (9c424d95 -> 14346f54) to remove aggressive retry mechanisms and forced panel manipulation from the diagnostic and tree view bridges.\n\nIn `InstallDiagnostics`, remove logic that forcibly opened the Problems panel or cleared the `activeFile` filter, allowing the `MarkersView` to manage visibility naturally based on `IMarkerService` changes. In `InstallTreeView`, strip out exponential backoff retry logic and pending attach queues, switching to synchronous execution where registration fails immediately if services are unavailable.\n\nThese changes align with the stabilized workbench bootstrap sequence, reduce bundle size, and eliminate hidden asynchronous delays and complex error-handling paths that previously masked upstream initialization timing issues.",
+			"SHA": "feccffc38c954188cd9f6afab479e5965b38b94c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T08:12:55Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				26,
+				1
+			],
+			"Message": "chore(Project): Sync Sky submodule to remove aggressive retry logic\n\nUpdate the Sky submodule (9c424d95) to eliminate complex retry mechanisms and polling loops across the extension bridge layers.\n\nThe changes in `InstallInlineCompletions`, `InstallScm`, `InstallSearch`, and `InstallTreeView` replace exponential backoff and event-listener rescue paths with direct service acquisition and synchronous execution. This assumes the workbench bootstrap sequence is now stable upstream, allowing bridge layers to execute registration logic immediately. Failed registrations now fail fast rather than entering retry cycles.\n\nThis simplification reduces bundle size, removes hidden asynchronous delays in feature activation, and makes the bridge logic strictly deterministic.",
+			"SHA": "7adf09f0b5b39cca2934fc5783e64941a5f9de59"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-23T08:09:32Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "chore(Project): Sync editor element submodules for IPC alignment, error propagation, and event stability\n\nSynchronize all tracked editor element submodules (Cocoon, Mountain, Output, Sky, Wind) to their latest revisions on the Current branch to enforce strict PascalCase IPC contracts, restore error propagation, and eliminate event loop issues.\n\n**Specific Changes:**\n- **Cocoon:** Refactor all RPC method invocations to strictly match `Vine.proto` PascalCase definitions (e.g., `Window.ShowMessage`, `FileSystem.Stat`) to prevent silent gRPC rejections by the Mountain backend. Standardize task types and workspace save fallbacks.\n- **Mountain:** Fix `build.rs` to generate valid `CacheBlob` JSON structs for extension manifest stubs. Shift `WindServiceHandlers` to propagate I/O and path resolution errors instead of swallowing them, preventing silent document conflicts. Implement missing handlers for `Storage.GetItems`, `tree.reveal`, and `showTextDocument`.\n- **Output:** Reorder imports in the compiled `Accessor.js` artifact to align with the TypeScript definition's pattern matching rules, preventing structural drift in build pipeline injections.\n- **Sky:** Consolidate duplicate `onDidChangeActiveCodeEditor` listeners to prevent double-firing IPC events and listener accumulation. Implement retry logic with exponential backoff for SCM group registration to fix race conditions. Correct inline completion logic to avoid wrapping non-snippet text in snippet syntax. Fix missing `@tauri-apps/api/core` imports.\n- **Wind:** Register new IPC channels for Language features, Tree Views, and Model updates. Correct the `createWorker` stub to return a direct `Promise` instead of a wrapped object, resolving a deadlock in the `DiskFileSystemProvider` worker lifecycle.\n\nThese changes ensure robust binary data integrity, correct handling of non-ASCII paths, stable event routing, and reliable diagnostic visibility across the extension host and UI layers.",
 			"SHA": "deb49bcb2b3e61852e3fcc49fbbea5fafbd3ed66"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T07:06:03Z",
-			"File": [
-				"⡏⠀⠀⠀⠀",
-				26,
-				3
-			],
-			"Message": "chore(Project): Sync editor element submodules for custom editor resolver alignment\n\nSynchronize Cocoon, Output, and Sky submodules to their latest revisions on the Current branch to establish end-to-end support for custom editor contributions defined in extension manifests.\n\n**Specific Changes:**\n- **Cocoon:** Enhance `RegisterCustomEditor` to extract and transmit the file `Selector` (glob patterns) alongside `ViewType` and `Options`. This ensures Mountain receives the full registration contract required to route file opens correctly.\n- **Output:** Expose `IEditorResolverService` and `RegisteredEditorPriority` constants via the `ExposeAccessor` interface, enabling the extension host to programmatically register and prioritize custom editors.\n- **Sky:** Refactor `InstallWebview` payload parsing to support named-key arguments (`viewType`, `options`, `selector`) replacing legacy positional assumptions. Integrate `IEditorResolverService` registration with a `priority.option` fallback to ensure activation events fire reliably during lazy extension loading.\n\nThese changes ensure custom editors (e.g., Markdown previews, image viewers) are correctly registered, file associations are honored, and the resolver service is available across the IPC boundary for stable extension activation.",
-			"SHA": "bab9e25fd7f565a25b912c3fbe2fca9ac8d7dcf7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T06:28:55Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				26,
-				4
-			],
-			"Message": "chore(Project): Sync editor element submodules for IPC stability, UTF-8 path integrity, and diagnostic consistency\n\nSynchronize all tracked editor element submodules (Cocoon, Mountain, Sky, Wind) to their latest revisions on the Current branch to resolve race conditions in the extension host, repair binary/UTF-8 handling in native IPC, and fix frontend diagnostic rendering.\n\n**Specific Changes:**\n- **Cocoon:** Reorder bootstrap to initialize `ModuleInterceptor` before `MountainConnection` to prevent race conditions. Relax `IsValidMethod` regex to support dynamic LSP methods (e.g., `$onDid*`) and ensure extension activation responses await full loading. Normalize diagnostic shapes to prevent silent marker drops.\n- **Mountain:** Standardize DTO naming to PascalCase and repair `FileWriteNative` to handle base64 buffers. Rewrite `percent_decode` in `PathExtraction` to correctly reconstruct multi-byte UTF-8 sequences, preventing ENOENT errors on international paths.\n- **Sky:** Eliminate double-dispatch in bridge relays and fix the \"count shows but panel empty\" issue in Problems by throttling `ViewsSvc.openView` calls and persistently clearing active file filters. Resolve memory leaks in editor operation listeners and fix SCM array mutations.\n- **Wind:** Define new IPC channels for Git operations (`GitExec`, `GitClone`, etc.) and SCM provider activation to enable integrated version control workflows.\n\nThese changes ensure robust binary data integrity, correct handling of non-ASCII paths, stable event routing, and reliable diagnostic visibility across the extension host and UI layers.",
-			"SHA": "e3694627a292eb2763a92958586eef146ae1dbcf"
 		}
 	],
-	"TimeStamp": 1780934929347
+	"TimeStamp": 1781048764287
 }

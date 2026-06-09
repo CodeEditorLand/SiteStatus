@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T09:10:16Z",
+			"File": [
+				"⣿⠀⠀⠀⠀",
+				26,
+				5
+			],
+			"Message": "feat(Land): Advance submodules — comments shim and extension scan fix\n\nAdvance Cocoon, Mountain, Output, Rest, and Wind submodules to complete the registry-backed vscode.comments namespace shim in Cocoon and fix user extension discovery on extension cache hits in Mountain.\n\nCocoon replaces the stock no-op stub for `vscode.comments` with a dynamic import of a `CommentsNamespace` factory in Source/Services/Handler/VscodeAPI/Comments/Namespace.ts. Each CommentController now owns a Map-backed thread registry keyed on `UriStr:Line:Char` with mutable thread state. Registration is idempotent. The RouteManifest is regenerated with three newly exposed Mountain RPC methods (setStatusBarText, Task.Terminate, terminate_task), bringing the count from 137 to 140.\n\nMountain adds a supplementary live-scan phase on extension cache hits that re-uses `Registry.GetExtensionScanPaths()` filtered through `Scanner::IsUserExtensionScanPath`, ensuring VSIX-installed extensions at `~/.fiddee/extensions` and `~/.land/extensions` are discovered even when the bundled cache is fresh. The missing `TierCommandEventBroadcast` entry is also added to Info.plist.\n\nOutput, Rest, and Wind receive non-functional updates — regenerated VLQ mappings, rebuilt binary artifact, and daily catalog version date bump respectively.",
+			"SHA": "fe0afd794b553b3a6952d0123c2aa3911d3e1e65"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T08:24:42Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				26,
+				1
+			],
+			"Message": "feat(Cocoon): Implement registry-backed vscode.tests namespace shim\n\nReplace the stock inline no-op stub for `vscode.tests` in EnsureVscodeAPI.ts with a dynamically-imported, registry-backed `TestsNamespace` factory in Source/Services/Handler/VscodeAPI/Tests/Namespace.ts. The previous stub's empty `TestItemCollection` silently dropped every `controller.items.add(item)` call, causing extensions like vitest, mocha-explorer, and rust-analyzer to always get `undefined` back from `controller.items.get(id)` — breaking their internal state machines.\n\nEach TestController now owns a `Map`-backed `TestItemCollection` with working add/delete/get/replace/forEach, a profile registry for `createRunProfile`, and a `TestRun` state machine tracking the full queued/started/skipped/failed/errored/passed lifecycle. `TestRun.end()` emits `tests.didChangeTestResults` on the Emitter channel with per-item results and accumulated output.\n\nRegistration is idempotent — re-registering a controller with the same id returns the existing instance, softening VS Code's duplicate-id throw to handle dev-reload double-calls. Sky-side Testing panel rendering remains gated, but all extensions importing `vscode.tests` now maintain correct internal state without crashes or silent data loss.",
+			"SHA": "9b3109db2cf33aad3cff478e053cbdf444955dbd"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-26T08:11:59Z",
 			"File": [
 				"⡏⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "fix(Land): Advance Element submodules — bridged editor state, diagnostics, theme, and breakpoint event pipeline\n\nAdvance Cocoon, Mountain, and Sky submodules to complete the Mountain-to-Cocoon notification relay for six extension API surfaces that were previously renderer-only.\n\nCocoon adds Notification/Handler.ts cases for `$acceptDiagnosticsChanged`, `$acceptVisibleEditorsChanged`, `$acceptTabsChanged`, `$acceptVisibleRangesChanged`, `$acceptTextEditorOptionsChanged`, and `$acceptActiveColorTheme` — each pumping the Mountain notification through the matching Emitter channel consumed by extension subscribers. The `$acceptTabsChanged` handler caches tab-group snapshots on `__tabGroups` so synchronous `window.tabGroups.all` getters reflect current state.\n\nMountain fans five notification types back to Cocoon: `$acceptActiveColorTheme` in ThemesSet.rs on theme switch, `$acceptVisibleEditorsChanged`/`$acceptTabsChanged`/`$acceptVisibleRangesChanged`/`$acceptTextEditorOptionsChanged` in WindServiceHandlers/mod.rs forwarding Sky payloads, `$acceptDiagnosticsChanged` in Diagnostics.rs after Set/Clear calls, and `$onDidChangeBreakpoints` in DebugLifecycle.rs for breakpoint mutations.\n\nSky bridges four Monaco/workbench event streams through the IPC layer: `onDidScrollChange` (debounced to ~16 fps) emits visible ranges, `onDidChangeConfiguration` emits options changes, `onDidVisibleEditorsChange` emits the URI list of visible editors, and `onDidChangeActiveGroup`/`onDidAddGroup`/`onDidRemoveGroup` emit tab-group snapshots. All IPC calls are wrapped in try/catch so render failures never interrupt the UI pipeline.\n\nVS Code API subscribers inside Cocoon — `languages.onDidChangeDiagnostics`, `window.onDidChangeVisibleTextEditors`, `window.tabGroups.onDidChangeTabs`, `window.onDidChangeTextEditorVisibleRanges`, `window.onDidChangeTextEditorOptions`, `window.onDidChangeActiveColorTheme`, and `debug.onDidChangeBreakpoints` — now fire correctly for all extensions.",
 			"SHA": "c378308300e06748e4f3c0b7662a01626242c877"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:54:15Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				26,
-				2
-			],
-			"Message": "fix(Land): Advance Element submodules — command execution notification relay\n\nRelay executed command notifications from Mountain to Cocoon so that `vscode.commands.onDidExecuteCommand` callbacks fire inside Node.js extensions.\n\nCocoon replaces the dead `@tauri-apps/api/event`.listen call (which never fires without `window.__TAURI__`) with a subscription to the `commands.executed` Emitter channel, fed by two sources: the `$acceptCommandExecuted` Vine notification from Mountain and local command routes in Commands/Namespace.ts for extension-to-extension `executeCommand` calls. Also extends the `viewId` dual-key resolution strategy (established for `setHtml`/`postMessage`) to five more webview mutators — `dispose`, `setTitle`, `setIconPath`, `setOptions`, `reveal` — so panel mutations arriving before the workbench mounts the IOverlayWebview still reach their target.\n\nMountain dual-emits `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, alongside the existing Tauri event that reaches the renderer. The Vine notification is fire-and-forget — failure is non-fatal since renderer-side observers are already notified. Adds the `tauri::Emitter` trait import in CreateEffectForRequest/Commands.rs to satisfy the compiler.\n\nExtension `onDidExecuteCommand` hooks now fire correctly, webview panel mutations during mount race conditions resolve via the viewId fallback, and Cocoon's Terminal/Service.ts is marked deprecated pending vertical-split cleanup.",
-			"SHA": "69826df910f62df0c9a34707500640a4dfddc7fc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:39:06Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				26,
-				2
-			],
-			"Message": "fix(Land): Advance Element submodules — webview first-paint race, unhandled IPC notifications\n\nAdvance Cocoon and Mountain submodules to fix a webview panel first-paint race condition and add four IPC notification handlers that were missing from the Mountain dispatch table.\n\nCocoon sends `viewId: ViewType` alongside `handle` in the `webview.setHtml` and `webview.postMessage` request payloads. During first-paint, the `webview.create` acknowledgement can arrive before the workbench's `IOverlayWebview` instantiation has bound the handle to a WebviewInput, causing the initial `setHtml` to land in `ParkedHtml` and `postMessage` to miss its target. Sending both identifiers provides a fallback viewType-keyed lookup in Sky's `InstallWebview.ts` resolution. Also deprecates the `MountainGRPCClientLayer` Effect-TS service tag with documentation pointing consumers to canonical wire-method names.\n\nMountain forwards four previously unhandled IPC notification types: `ScanPathConfigure` to scan `~/.land/extensions` alongside the FIDDEE user directory for pre-migration extension discovery; `debug.dap-response` from Cocoon inline-implementation adapters to the workbench via `sky://debug/dap-message`, enabling the RawDebugSession sequencer to correlate DAP responses by `request_seq`; `setStatusBarText` mutations from extension StatusBarItem `text()` setters, which previously froze status bar text after initial create; and `terminate_task`/`Task.Terminate` to the extension host task service, allowing `vscode.tasks.executeTask().terminate()` to stop running tasks with a graceful fallback.\n\nWebview panels now render correctly on first paint, status bar text updates dynamically, DAP debug sessions receive response correlation, extension task cancellation works end to end, and pre-migration extension directories are discovered on clean installs.",
-			"SHA": "285ddc3a49aaf06e7d41b02eba8b9cab74c580eb"
 		}
 	],
-	"TimeStamp": 1780934927040
+	"TimeStamp": 1781048761792
 }

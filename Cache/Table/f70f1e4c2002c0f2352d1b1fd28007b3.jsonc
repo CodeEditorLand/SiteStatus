@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T08:33:20Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				26,
+				1
+			],
+			"Message": "feat(Mountain): Gate asset deployment strategy behind $TierSchemeAssets env var\n\nAdvance the Mountain submodule with a build-time gating mechanism that selects between two asset deployment modes: Embedded (default, assets Brotli-compressed into the binary) and FileSystem (full disk layout in Contents/Resources/ served via the localhost plugin static_root fallback).\n\nbuild.rs reads $TierSchemeAssets (defaults to \"Embedded\") and mutates tauri.conf.json at build time accordingly — Embedded sets frontendDist=\"../Sky/Target\" with minimal bundle.resources (bootstrap, extensions, nls, node_modules, product.json), while FileSystem sets frontendDist=null and maps the full Sky/Target tree. LocalhostPlugin.rs wraps the static_root disk-fallback code in #[cfg(feature = \"TierSchemeAssetsFileSystem\")] so it compiles only when FileSystem mode is active. The feature flag is added to IsDeclaredTierFeature rather than being a silent default.\n\nThis completes the foundation laid by the Static/Application/ prefix refactoring, making the deployment mode selectable at build time via a single environment variable rather than manual tauri.conf.json editing.",
+			"SHA": "0211d129196ffef2b812a8e3c1ab1d58211d703b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T08:22:36Z",
+			"File": [
+				"⣿⠀⠀⠀⠀",
+				26,
+				5
+			],
+			"Message": "refactor(Project): Advance 5 Element submodules with Mountain bundle consolidation and style normalisation across configs\n\nAdvance five Land/Element submodules in a coordinated update that restructures Mountain's Tauri bundle layout and normalises indentation conventions across the remaining four.\n\n**Mountain** consolidates bundle resources under a `Static/Application/` prefix, unifying the flat bundle layout (Contents/Resources/extensions) with the monorepo dev layout (Sky/Target/Static/Application/extensions) under a single source of truth. `tauri.conf.json` remaps all resource entries to `Static/Application/...`, sets `frontendDist` to null so the dev server delegates to the localhost plugin's disk fallback, and adds `static_root` resolution in LocalhostPlugin.rs that probes both production and dev paths. ScanPathConfigure.rs registers the new canonical extensions path before legacy flat paths, which are retained as fallback for existing development environments.\n\n**Cocoon, Output, Wind, and Worker** align their ESBuild configuration files and compiled artifacts to the project-wide tab-based indentation convention (reversing the 2-space style from a prior pass), with trailing commas, import-before-declaration ordering, and consolidated export blocks applied across all config modules. Output additionally hoists static imports above helper shim declarations for a consistent imports-first preamble order.\n\nZero functional changes across Cocoon, Output, Wind, and Worker — build outputs and runtime behaviour are identical. Mountain retains flat-path fallbacks so existing dev runs and CI pipelines continue unbroken during the migration.",
+			"SHA": "9ea797675c2545ab8721abb6954fb4e70661ab16"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-20T06:38:35Z",
 			"File": [
 				"⣿⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Project): Extract Cocoon extension host, wire hierarchy RPC, fix IPC\n\nAdvance Cocoon, Mountain, and Sky submodules in a coordinated round-trip that decomposes the extension host monolith, adds missing IPC endpoints for call/type hierarchy, and fixes data accuracy across the whole pipeline.\n\n**Cocoon** splits the ~1500-line inline extension host handler into three focused modules — VscodeModuleHooks.ts, EnsureVscodeAPI.ts, ActivateExtension.ts — reducing Handler.ts to a thin dispatch layer. Five real-world extension compatibility issues are fixed alongside the refactor: Copilot dist-preflight so missing build artifacts don't crash activation; `context.extension.packageJSON` populated from the real manifest on disk (`@vscode/extension-telemetry` reads `aiKey`); workspace config cache seeded from `contributes.configuration.properties` before `activate()` runs (prevents GitLens TypeError on nested config access); `activate()` return value backfilled into the registry so `vscode.extensions.getExtension(id).exports` resolves; POJO-tolerant `RelativePattern` wrapper added (fixes Shopify.ruby-lsp activation). Six missing VS Code API enums (`LogLevel`, `OverviewRulerLane`, `UIKind`, `TextEditorCursorStyle`, `DebugConfigurationProviderTriggerKind`, `IndentAction`) are now defined — extensions referencing them at module-load time crashed with undefined. `willSaveTextDocument` now batches `waitUntil` thenables into a single `window.applyTextEdits` call matching VS Code's `acceptWillSaveDocument` ordering. Configuration cache supports a `\"*\"` sentinel for full model rebuild on bulk settings writes.\n\n**Mountain** adds language-scoped configuration overrides — `UpdateValue` writes into `\"[<langId>]\"` scoped keys matching the VS Code convention used by prettier-vscode, vscode-eslint, and other per-language formatters. A `OnceLock`-backed static session ID replaces per-call `Uuid::new_v4()`, so extensions comparing `telemetryInfo.sessionId` across initialization calls see a consistent process-lifetime value. `CocoonService` dispatches `$provideCallHierarchyItems`/`prepareCallHierarchy` and `$provideTypeHierarchyItems`/`prepareTypeHierarchy` to the respective providers, unblocking F12 / Go to References / Call Hierarchy in the editor. Three `mountain_*` IPC stubs return real data: `mountain_get_configuration` yields the live merged config, `mountain_get_services_status` reports actual Cocoon connection state, `mountain_get_state` surfaces real workspace folder count and active document URI. SOCKS proxy env-var parsing emits the correct PAC keyword (`SOCKS` for socks URIs, `PROXY` for http/https). Dev-log dedup switches from `lock()` to `try_lock()` so a contended mutex never parks a Tokio worker. Always-on-top toggle moves from a heuristic title-prefix proxy to a `static AtomicBool`, correctly flipping state on each invocation. The `window.didChangeTextEditorSelection` Vine notification now includes `viewColumn` from incoming arguments, so extensions calling `activeTextEditor.viewColumn` see the correct pane number in split-editor layouts. A follow-up formatting commit normalizes brace placement and comment reflow across four files.\n\n**Sky** replaces the hardcoded `viewColumn: 1` in `sky:editor:activeChanged` and `sky:editor:selectionChanged` IPC payloads with a `GetViewColumn()` helper that reads `EditorGroups.activeGroup.index` (0-based) and converts to the 1-based view column the VS Code API expects, safely falling back to 1 when the EditorGroups service isn't yet available.\n\nExtension host reliability and IPC data accuracy are materially improved across all three layers of the round-trip.",
 			"SHA": "3e397f73d617f23b3da7e170f7405fd4af1b8176"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:22:09Z",
-			"File": [
-				"⡏⠀⠀⠀⠀",
-				26,
-				3
-			],
-			"Message": "fix(Project): Advance 3 element submodules with Cocoon live state, Mountain IPC hardening, and Sky bridge decomposition\n\nAdvance Land/Element submodules in a coordinated round-trip spanning the extension host, native backend, and editor UI layer.\n\n**Cocoon** replaces stale/empty state placeholders with live-tracking counterparts that extensions query at runtime. `MakeUriStub` provides a minimal URI when `LazyURI.parse` fails, preventing folders from being silently dropped from the workspace list. `__visibleTextEditors` is now upserted on `didChangeTextEditorSelection` and filtered on `$acceptModelRemoved`, so GitLens/Error Lens/formatters see real open-editor state. `createTerminal` pushes into `__terminals` with proper dispose cleanup. A module-level `_AllDiagnostics` cache mirrors every `DiagnosticCollection.set/delete/clear` call, and `getDiagnostics()` returns real aggregated diagnostics with `diagnostics.didChange` event emission.\n\n**Mountain** delivers three fixesets: (1) file write handlers now update metadata and notify Cocoon of configuration changes via `configuration.change` Vine notification, so extensions' `ConfigCache` invalidates the affected key rather than serving stale data. (2) `StorageWriteDebouncer` race resolved by reordering the flush loop to take the pending item before clearing `FlushScheduled`; the workspace-scoped debouncer is now correctly selected instead of always routing through the global debouncer; low-level IPC noise (`file:open`, `file:close`, `textFile:save`) suppressed via skip list; Cocoon-connect boot latency eliminated by removing the 3-second blocking `WaitForClientConnection` from `languages:getAll`/`languages:getEncodedLanguageId` handlers. (3) Lock contention reduced in `ScanAndPopulateExtensions` by swapping an N-insert loop for a single pointer-swap, and in `DiagnosticProvider` by snapshotting under the lock then aggregating outside it.\n\n**Sky** decomposes ~2500 lines of inline handler registrations in `Bridge.ts` into four dedicated module files via dynamic imports: `InstallWebview.ts` (webview lifecycle, custom editors), `InstallEditorOperations.ts` (decorations, text edits, selections, reveal), `InstallTreeView.ts` (data provider attachment with exponential backoff retry), and `InstallUiRequests.ts` (show-message/input-box/quick-pick dialogs). Each module receives only its required dependencies through a thin injector interface, eliminating global-scope closure capture across unrelated handlers.",
-			"SHA": "21c3681b99864ae1e8b02c4bdd3cf7358015edd5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:10:23Z",
-			"File": [
-				"⡏⠀⠀⠀⠀",
-				26,
-				3
-			],
-			"Message": "feat(Project): Advance 3 element submodules with save notifications, Undo/Redo routing fix, and IPC bridges\n\nAdvance Land/Element submodules in a coordinated update that extends the editor save lifecycle, fixes macOS keyboard routing, and adds three new Sky IPC bridges.\n\n**Mountain** fires `$acceptModelSaved` via Vine after successful disk writes in both `FileWriteNative` and `TextfileWrite`, enabling Cocoon to dispatch `onDidSaveTextDocument` to subscribed extensions (format-on-save, organize-imports, save listeners). The save is fire-and-forget (tokio::spawn) to prevent Vine IPC failures from cascading to the workbench caller. Both handlers gain `dev_log` instrumentation for write latency and byte count. On macOS, removes Undo/Redo from the native Edit submenu via `AppMenu::SetAppMenu` so Cmd+Z and Cmd+Shift+Z reach Monaco's keydown handler instead of being intercepted by AppKit's responder chain. Non-fatal; logs a warning and keeps the default menu if the override fails. No-op on Windows/Linux.\n\n**Sky** adds three bridge implementations: `InstallDiagnostics.ts` routes diagnostics from Mountain to `IMarkerService` for in-editor error visibility; `InstallScm.ts` mirrors SCM state and registers providers against the live workbench service; `InstallSearch.ts` routes file and text search queries to Mountain's handlers.\n\n**Maintain** regenerates rustdoc output against Rust nightly 1.97.0, updating static asset hashes, search index entries, crates.js, and inline source references to match the current toolchain.",
-			"SHA": "c29b18affb77f31c56e100bb5d0e38f49e9126e1"
 		}
 	],
-	"TimeStamp": 1780934931019
+	"TimeStamp": 1781048766086
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T12:17:47Z",
+			"Date": "2026-05-28T12:41:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				10
+				1732,
+				16
 			],
-			"Message": "refactor(Mountain): Update Air type delegations to reference AirLibrary crate\n\nFollowing the delegation of Air-related types to external crates, the crate alias in the Mountain backend has been renamed from `Air` to `AirLibrary`. Update all type definitions in `Source/Air/AirClient/` to point to the new `::AirLibrary` namespace.\n\nThis aligns the type aliases for metrics, status, download streams, and file metadata with the updated crate naming convention, ensuring correct module resolution during the build process.",
-			"SHA": "74498135db36b1ab25ad374aa0c5ec94775b6c9e"
+			"Message": "refactor(Mountain): Prune redundant Cache delegation modules\n\nFollowing the migration of caching logic to the central Cache crate, remove the intermediate module files for AssetMemoryMap and PathCanon that no longer have direct callers within the Mountain element.\n\nOnly the primary entry points—LoadOrInsert for asset mapping and Canonicalize for path security—are retained as local compatibility shims. This cleanup reduces the internal code surface of the Mountain element and enforces the use of the canonical ::Cache namespace for all other caching operations, such as statistics and cache invalidation.",
+			"SHA": "159d9faaaed88c1b964443837baefdb822b6cb9a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T10:47:25Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1746,
-				26
-			],
-			"Message": "refactor(Mountain): delegate Air and Vine types to the Air and Vine crates\n\nThis commit refactors the codebase to delegate struct definitions for Air and Vine types to their respective crates, ensuring better separation of concerns and reducing duplication. Shared definitions for Air and Vine components are now centralized in their respective modules, with the editor crate now referencing ::Air::Client::AirClient and ::Vine::Client by default. This change reduces the public interface surface and improves maintainability by modularizing the core logic for Air and Vine gRPC interactions.",
-			"SHA": "544fc6e4bb4bc6b642b87f8c5a04abd360c44ce6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T09:49:15Z",
+			"Date": "2026-05-28T12:40:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1746,
-				1
+				7
 			],
-			"Message": "fix(Mountain): Add missing window management capabilities to schema\n\nThe `gen/schemas/capabilities.json` was out of sync with `capabilities/default.json`, which already declared window management permissions (`start-dragging`, `internal-toggle-maximize`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`). The generated schema still held the stale subset without these entries, causing Tauri runtime validation to reject IPC calls that drive native window chrome operations from the Sky titlebar.\n\nRegenerate `capabilities.json` from the current source-of-truth default manifest so the capability digest matches the declared permissions. This unblocks the interactive titlebar (drag, maximize, close) and any programmatic `Window` API calls that were being denied by the capability guard.",
-			"SHA": "ab9ea343be1b531180726eaed576f194395e2218"
+			"Message": "refactor(Mountain): Delegate PathCanon cache logic to Cache crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local path canonicalization cache implementation with delegations to the dedicated `Cache` crate. The modules in `Source/Cache/PathCanon/` are converted into thin shims or type aliases pointing to the `::Cache::PathCanon` namespace.\n\nThis refactor covers `CacheStats`, `Canonicalize`, `CanonicalizeUncached`, `Clear`, `Invalidate`, `SpawnDiagnosticLogger`, and `Stats`. By delegating to the central `Cache` crate, the backend ensures consistent path handling—preserving the use of `dunce` for UNC prefix avoidance—while reducing the code surface within the Mountain element.",
+			"SHA": "729d0b481a342fd9fd2810ec79799168db32fd6e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T18:19:19Z",
+			"Date": "2026-05-28T12:35:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1746,
-				5
+				6
 			],
-			"Message": "fix(Mountain): Reconstruct full URI from vscode.Uri POJO fields\n\nCocoon may forward a raw URI string, a serialised `vscode.Uri` POJO\n(`{scheme, authority, path, query, fragment}`), or the legacy\n`{external, path}` shape from older rendering paths. The previous code\nonly extracted `external` or bare `path` from objects, which silently\ndropped the scheme on non-file URIs —\n`rust-analyzer-diagnostics-view:/diag/foo` became `/diag/foo` and Sky\nrendered either a 404 or `[object Object]` in the editor tab.\n\nReconstruct the full URI by fallback priority: `external` →\n`scheme+authority+path+query+fragment` → `fsPath` (prefixed with\n`file://` for absolute paths) → bare `path` → empty string. Every\nknown vscode.Uri shape now resolves to a valid wire string the Sky\nworkbench can open.\n\nAlso:\n\n- **TreeView timeouts**: Bump `$provideTreeChildren` from 5 s to 15 s\non both Wind and Cocoon IPC paths. Cold scans on multi-repo workspaces\n(`npm` walking every package.json, `gitlens` enumerating submodules)\ncan exceed 5 s on first expansion, causing the panel to render empty\nuntil manual refresh.\n\n- **PTY binary input**: Route `localPty:processBinary` through\n`TerminalSendText` instead of falling through to the `null` no-op.\nSystem clipboard paste and Cmd+Shift keyboard escape sequences were\nsilently swallowed.\n\n- **Output channel hide**: Forward Cocoon's `outputChannel.hide`\nnotification to Sky as `sky://output/show { visible: false, channel }`\ninstead of logging a no-op. Extensions calling `OutputChannel.hide()`\nnow see the panel dismiss the channel.",
-			"SHA": "e1d82f3455e42b168108fe76935d015713f083e4"
+			"Message": "refactor(Mountain): Delegate AssetMemoryMap logic to Cache crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local AssetMemoryMap implementation with delegations to a dedicated `Cache` crate. The modules in `Source/Cache/AssetMemoryMap/` are converted into thin shims or type aliases pointing to the `::Cache` namespace.\n\nThis refactor covers `CacheStats`, `Clear`, `Entry`, `Invalidate`, `LoadOrInsert`, and `Stats`, ensuring that asset caching logic is centralized while preserving the existing internal API surface. This aligns with recent extractions of Air and Vine logic into specialized crates.",
+			"SHA": "2789d41a0836c5fb4af7b8c25ae457bdc0c5e505"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T17:57:31Z",
+			"Date": "2026-05-28T12:22:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1746,
-				2
+				9
 			],
-			"Message": "fix(Mountain): Realign SCM DTO import path and enable native window capabilities\n\nFix the `SourceControlManagementResourceDTO` import in `UpdateScmGroup` to use the reorganized `DTO` submodule path under `CommonLibrary::SourceControlManagement`, correcting the module resolution after Common's struct rehoming.\n\nAdd window management capability permissions (`start-dragging`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`, `internal-toggle-maximize`) to `capabilities/default.json`, enabling the Sky UI to drive native window chrome operations — dragging the titlebar, maximizing/minimizing/closing — through Tauri's IPC permission layer.\n\nWithout these capabilities, the editor's custom titlebar was non-interactive and the workbench window could not be controlled programmatically from the frontend.",
-			"SHA": "4a6097c8945fea0e487dc49487de53a47983988f"
+			"Message": "refactor(Mountain): Update AirClient method calls to PascalCase\n\nUpdate all Air gRPC client method invocations within the `WindAirCommands` module to use PascalCase naming. This change aligns the Mountain backend's IPC layer with the CodeEditorLand project-wide PascalCase standard for all functions and methods.\n\nThe refactor covers `ApplyUpdate`, `Authenticate`, `CheckForUpdates`, `DownloadFile`, `DownloadUpdate`, `GetMetrics`, `GetStatus`, `HealthCheck`, `IndexFiles`, and `SearchFiles` calls, ensuring compatibility with the latest trait definitions in the `AirLibrary` crate.",
+			"SHA": "11449b3877739f376184271629e2c4117e2d80ce"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T12:21:26Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				3
+			],
+			"Message": "refactor(Mountain): Delegate AirClient and AirServiceProvider logic to AirLibrary crate\n\nFollowing the migration of the Air gRPC client and service provider logic to the dedicated `AirLibrary` crate, replace the Mountain-side implementations with thin compatibility shims. `AirClient` and `AirServiceProvider` are now type aliases to their canonical definitions in the `::AirLibrary::Client` namespace.\n\nIntroduce `MapAirError` in `AirClient.rs` to handle the translation between `::AirLibrary::AirError` and `CommonError`, ensuring that existing Mountain call sites can preserve their `Result<_, CommonError>` signatures. The `GenerateRequestID` helper is also updated to delegate to the new crate namespace.\n\nThis restructuring completes the extraction of Air-related logic into its own element, reducing code duplication and decoupling the daemon communication surface from the Mountain backend.",
+			"SHA": "e3fadf040df9bd1cef2e59e6db7a41b974d6e510"
 		}
 	],
-	"TimeStamp": 1780934929005
+	"TimeStamp": 1781048764545
 }

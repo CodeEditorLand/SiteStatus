@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T05:36:58Z",
+			"File": [
+				"⣿⡿⠀⠀⠀",
+				26,
+				10
+			],
+			"Message": "feat(Project): Wire extension host bridge, workbench services, and boot cache\n\nAdvance all 10 Land/Element submodules in a coordinated update spanning extension host features, workbench service integration, boot-time optimisation, and formatting normalisation.\n\n**Extension host bridge (Cocoon, Mountain, Common):**\n- Cocoon replaces stubs with real implementations across 388 gRPC methods: extension secrets/storage round-trips via Mountain AES-256-GCM; extension activation gains recursive dependency ordering (depth-guarded, max 20); language provider handlers add $provideFileDecoration, $resolveCodeAction, $resolveCodeLens, $resolveCompletionItem, $resolveHover, $resolveInlayHint, $resolveDocumentLink, $resolveWorkspaceSymbol; virtual document model in $acceptModelChanged gains correct range-aware getText(), lineAt(), and getWordRangeAtPosition(); VSCode API namespaces wired for authentication, debug, languages (setLanguageConfiguration forward), tasks, status bar (reactive getters), window (live showInformationMessage, createQuickPick, createInputBox, showTextDocument with full TextEditor shim), workspace/providers (onDidChange for TextDocumentContentProvider), workspace/text/document (untitled documents, scheme-based provider dispatch, SaveAll, applyEdit). Terminal lifecycle, webview message forwarding, and content provider routing through registered __textDocumentContentProvider:{scheme}.\n- Mountain implements the gRPC server side: InlineCompletionItem/InlineCompletionContext Vine.proto messages with $provideInlineCompletionItems dispatch; DecorationsGet falls back to ProvideFileDecoration via Cocoon gRPC; TerminalProvider emits $acceptTerminalOpened/$acceptTerminalClosed; Messaging forwards acquireVsCodeApi().postMessage() as webview.message notifications; Extension manifest cache (B7.P08, reduces boot scan from ~1200ms to <50 ms via pre-baked extensions.manifest.json read); WKWebView NSUndoManager suppression via capture-phase Cmd+Z/Y preventDefault; INativeWindowConfiguration.profiles section added to fix TypeError crash on workbench init.\n- Common extends LanguageFeatureProviderRegistry with ProvideFileDecoration and ProvideInlineCompletionItems abstract methods.\n\n**Workbench service integration (Sky, Output):**\n- Sky implements workspace edits via IBulkEditService or direct Monaco text model operations, normalises extHostTypes.WorkspaceEdit serialization, adds save/saveAll/saveAs round-trip handlers, wires INotificationService for action-button toasts, IQuickInputService for native input boxes and quick-pick widgets with fuzzy matching, SCM provider retry logic, and Monaco setLanguageConfiguration for bracket-matching.\n- Output exposes IQuickInputService through the CEL ExposeAccessor map, enabling Cocoon/Wind to invoke quick-pick dialogs via standard service accessor.\n\n**Codegen and stubs (Wind):**\n- Wind regenerates all codegen output: CommandCatalog 545→550 (5 browser.emulationToolbar.* commands), ServiceCatalog 495→500 (5 new stubs: IAgentHostCheckpointService, IGitHubUploadService, IRecordingService, IScreenshotService, IWindowsMxcTerminalSandboxRuntime); IClaudeAgentSdkService expands 1→8 members (full SDK passthrough); ILanguageModelsService 15→19 (rename, updateApiKey, addModel, openSettings); IIssueFormService 6→7 (submitIssue); ISandboxHelperService 2→4 (Windows MXC sandbox); IProcessService.getPerformanceInfo gains optional options parameter.\n\n**Style normalisation (7 submodules):**\n- Cocoon: Config JS tabs, trailing commas, import reordering\n- Mountain: Extract deeply-nested JSON sub-objects (nls, productConfiguration, os, profiles) into separate json!() calls to avoid macro recursion limit — no behavioural change\n- Output: Normalize esbuild compiled output with imports-first shim ordering, 2-space indent, trailing commas\n- SideCar: Add missing trailing newline to Cache.json\n- Wind: ESBuild config tabs reformat\n- Worker: ESBuild config tabs reformat\n\n**Merge-only advances (2 submodules):**\n- Echo, Maintain: Advance to tip with no semantic changes\n\nZero runtime behaviour regressions — all formatting passes produce semantically identical build output.",
+			"SHA": "7a67305fdb49ddf409405ad53c38ddfdb554f15c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T01:50:11Z",
+			"File": [
+				"⣿⡟⠀⠀⠀",
+				26,
+				9
+			],
+			"Message": "chore(Project): Advance 9 Element submodules with dependency bumps and SideCar Node version update\n\nAdvance nine Land/Element submodules in a coordinated update spanning dependabot-managed version bumps and a SideCar runtime version upgrade.\n\n**Dependency bumps (5 submodules):**\n- Common: @cloudflare/workers-types 4.20260520.1→4.20260521.1\n- Echo: miniflare 4.20260518.0→4.20260520.0, wrangler 4.93.0→4.93.1\n- Output: semver 7.8.0→7.8.1\n- Sky: astro 6.3.5→6.3.7, vite 8.0.13→8.0.14, @astrojs/compiler-rs 0.2.0→0.2.1\n- Wind: @effect/language-service 0.86.1→0.86.2\n\n**Runtime update (1 submodule):**\n- SideCar: Node.js version bumped to v24.16.0 for both aarch64 and x86_64 platforms\n\n**Merge commits only (3 submodules):**\n- Cocoon, Rest, Worker: Advance to tip with no semantic changes\n\nZero runtime behaviour changes across all submodules — all bumps are semver-compatible patches.",
+			"SHA": "3f441642c15f7791e4986f5472c3615e6cfd4d48"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-22T00:54:04Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Mountain): Read TierSchemeAssets from .env.Land env file fallback\n\nAdvance the Mountain submodule with a build.rs helper that reads the TierSchemeAssets variable from a .env.Land file when the process environment variable is unset.\n\nThe previous commit introduced $TierSchemeAssets gating, but a stale exported env var from a prior build tier could cause the build.rs tauri.conf.json mutation to disagree with the cfg-gated Rust code. ReadTierValueFromEnvFile walks up to 5 ancestor directories from CARGO_MANIFEST_DIR looking for .env.Land or .env.Land.Sample, applying the same file-reading logic as PropagateTierGating in the Rust tier system. Resolution priority is: process env var > env file key > hard-coded default \"Embedded\". A found env file with a missing key returns None immediately rather than falling through to a parent directory, preventing accidental cross-project key leakage.\n\nBuild-time consistency between build.rs and the cfg-gated tier system is maintained even when a shell carries a stale $TierSchemeAssets export.",
 			"SHA": "2a5399abce8caadf47b586362f6d568764d205ee"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:33:20Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				26,
-				1
-			],
-			"Message": "feat(Mountain): Gate asset deployment strategy behind $TierSchemeAssets env var\n\nAdvance the Mountain submodule with a build-time gating mechanism that selects between two asset deployment modes: Embedded (default, assets Brotli-compressed into the binary) and FileSystem (full disk layout in Contents/Resources/ served via the localhost plugin static_root fallback).\n\nbuild.rs reads $TierSchemeAssets (defaults to \"Embedded\") and mutates tauri.conf.json at build time accordingly — Embedded sets frontendDist=\"../Sky/Target\" with minimal bundle.resources (bootstrap, extensions, nls, node_modules, product.json), while FileSystem sets frontendDist=null and maps the full Sky/Target tree. LocalhostPlugin.rs wraps the static_root disk-fallback code in #[cfg(feature = \"TierSchemeAssetsFileSystem\")] so it compiles only when FileSystem mode is active. The feature flag is added to IsDeclaredTierFeature rather than being a silent default.\n\nThis completes the foundation laid by the Static/Application/ prefix refactoring, making the deployment mode selectable at build time via a single environment variable rather than manual tauri.conf.json editing.",
-			"SHA": "0211d129196ffef2b812a8e3c1ab1d58211d703b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:22:36Z",
-			"File": [
-				"⣿⠀⠀⠀⠀",
-				26,
-				5
-			],
-			"Message": "refactor(Project): Advance 5 Element submodules with Mountain bundle consolidation and style normalisation across configs\n\nAdvance five Land/Element submodules in a coordinated update that restructures Mountain's Tauri bundle layout and normalises indentation conventions across the remaining four.\n\n**Mountain** consolidates bundle resources under a `Static/Application/` prefix, unifying the flat bundle layout (Contents/Resources/extensions) with the monorepo dev layout (Sky/Target/Static/Application/extensions) under a single source of truth. `tauri.conf.json` remaps all resource entries to `Static/Application/...`, sets `frontendDist` to null so the dev server delegates to the localhost plugin's disk fallback, and adds `static_root` resolution in LocalhostPlugin.rs that probes both production and dev paths. ScanPathConfigure.rs registers the new canonical extensions path before legacy flat paths, which are retained as fallback for existing development environments.\n\n**Cocoon, Output, Wind, and Worker** align their ESBuild configuration files and compiled artifacts to the project-wide tab-based indentation convention (reversing the 2-space style from a prior pass), with trailing commas, import-before-declaration ordering, and consolidated export blocks applied across all config modules. Output additionally hoists static imports above helper shim declarations for a consistent imports-first preamble order.\n\nZero functional changes across Cocoon, Output, Wind, and Worker — build outputs and runtime behaviour are identical. Mountain retains flat-path fallbacks so existing dev runs and CI pipelines continue unbroken during the migration.",
-			"SHA": "9ea797675c2545ab8721abb6954fb4e70661ab16"
 		}
 	],
-	"TimeStamp": 1780934930761
+	"TimeStamp": 1781048765802
 }

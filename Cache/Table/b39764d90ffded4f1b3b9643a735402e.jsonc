@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:22:09Z",
+			"File": [
+				"⡏⠀⠀⠀⠀",
+				26,
+				3
+			],
+			"Message": "fix(Project): Advance 3 element submodules with Cocoon live state, Mountain IPC hardening, and Sky bridge decomposition\n\nAdvance Land/Element submodules in a coordinated round-trip spanning the extension host, native backend, and editor UI layer.\n\n**Cocoon** replaces stale/empty state placeholders with live-tracking counterparts that extensions query at runtime. `MakeUriStub` provides a minimal URI when `LazyURI.parse` fails, preventing folders from being silently dropped from the workspace list. `__visibleTextEditors` is now upserted on `didChangeTextEditorSelection` and filtered on `$acceptModelRemoved`, so GitLens/Error Lens/formatters see real open-editor state. `createTerminal` pushes into `__terminals` with proper dispose cleanup. A module-level `_AllDiagnostics` cache mirrors every `DiagnosticCollection.set/delete/clear` call, and `getDiagnostics()` returns real aggregated diagnostics with `diagnostics.didChange` event emission.\n\n**Mountain** delivers three fixesets: (1) file write handlers now update metadata and notify Cocoon of configuration changes via `configuration.change` Vine notification, so extensions' `ConfigCache` invalidates the affected key rather than serving stale data. (2) `StorageWriteDebouncer` race resolved by reordering the flush loop to take the pending item before clearing `FlushScheduled`; the workspace-scoped debouncer is now correctly selected instead of always routing through the global debouncer; low-level IPC noise (`file:open`, `file:close`, `textFile:save`) suppressed via skip list; Cocoon-connect boot latency eliminated by removing the 3-second blocking `WaitForClientConnection` from `languages:getAll`/`languages:getEncodedLanguageId` handlers. (3) Lock contention reduced in `ScanAndPopulateExtensions` by swapping an N-insert loop for a single pointer-swap, and in `DiagnosticProvider` by snapshotting under the lock then aggregating outside it.\n\n**Sky** decomposes ~2500 lines of inline handler registrations in `Bridge.ts` into four dedicated module files via dynamic imports: `InstallWebview.ts` (webview lifecycle, custom editors), `InstallEditorOperations.ts` (decorations, text edits, selections, reveal), `InstallTreeView.ts` (data provider attachment with exponential backoff retry), and `InstallUiRequests.ts` (show-message/input-box/quick-pick dialogs). Each module receives only its required dependencies through a thin injector interface, eliminating global-scope closure capture across unrelated handlers.",
+			"SHA": "21c3681b99864ae1e8b02c4bdd3cf7358015edd5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:10:23Z",
+			"File": [
+				"⡏⠀⠀⠀⠀",
+				26,
+				3
+			],
+			"Message": "feat(Project): Advance 3 element submodules with save notifications, Undo/Redo routing fix, and IPC bridges\n\nAdvance Land/Element submodules in a coordinated update that extends the editor save lifecycle, fixes macOS keyboard routing, and adds three new Sky IPC bridges.\n\n**Mountain** fires `$acceptModelSaved` via Vine after successful disk writes in both `FileWriteNative` and `TextfileWrite`, enabling Cocoon to dispatch `onDidSaveTextDocument` to subscribed extensions (format-on-save, organize-imports, save listeners). The save is fire-and-forget (tokio::spawn) to prevent Vine IPC failures from cascading to the workbench caller. Both handlers gain `dev_log` instrumentation for write latency and byte count. On macOS, removes Undo/Redo from the native Edit submenu via `AppMenu::SetAppMenu` so Cmd+Z and Cmd+Shift+Z reach Monaco's keydown handler instead of being intercepted by AppKit's responder chain. Non-fatal; logs a warning and keeps the default menu if the override fails. No-op on Windows/Linux.\n\n**Sky** adds three bridge implementations: `InstallDiagnostics.ts` routes diagnostics from Mountain to `IMarkerService` for in-editor error visibility; `InstallScm.ts` mirrors SCM state and registers providers against the live workbench service; `InstallSearch.ts` routes file and text search queries to Mountain's handlers.\n\n**Maintain** regenerates rustdoc output against Rust nightly 1.97.0, updating static asset hashes, search index entries, crates.js, and inline source references to match the current toolchain.",
+			"SHA": "c29b18affb77f31c56e100bb5d0e38f49e9126e1"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-20T04:50:41Z",
 			"File": [
 				"⣿⣿⡟⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Project): Wire full editor IPC pipeline for decorations, text edits, selections, and hierarchy\n\nAdvance 8 element submodules in a coordinated update that completes the editor IPC round-trip from extension host to native backend to editor UI, enabling real-world extensions to manipulate text editors, decorations, and call/type hierarchy panels.\n\n**Cocoon** backfills critical VS Code API shims discovered through integration testing: extension exports resolution (`getExtension(id).exports`), call/type hierarchy prepare entry points, live `workspace.textDocuments` tracking via `$acceptModelAdded`/`$acceptModelRemoved`, `document.willSave` listener dispatch with edit collection, and a robust `activeTextEditor` stub supporting `setDecorations`, `edit`, `insertSnippet`, `revealRange`, and live selection tracking.\n\n**Common** extends the IPC event surface in SkyEvent.rs with five new URIs (`DecorationSetRanges`, `EditorApplyTextEdits`, `EditorSelectionChanged`, `EditorActiveChanged`, `EditorRevealRange`) and adds `PrepareCallHierarchy`/`PrepareTypeHierarchy` to the LanguageFeatureProviderRegistry trait, completing the hierarchy provider lifecycle defined by the VS Code LanguageFeatureRequest contract.\n\n**Mountain** implements the full gRPC+LSP pipeline for hierarchy prepare in new `PerformCallHierarchy`/`PerformTypeHierarchy` provider modules, bridges `window.setTextEditorDecorations` via a channel-drain batching mechanism (16 ms frame-aligned aggregation), and wires `window.applyTextEdits`/`window.revealRange` through to Sky events. A new `document.willSave` fire event grants extension listeners a 1.5-second grace window before disk write. Two new `mountain_ipc_invoke` handlers (`sky:editor:selectionChanged`, `sky:editor:activeChanged`) forward editor state changes from Sky to Cocoon.\n\n**Sky** registers four IPC bridge handlers matching editors by URI or filename segment: decoration range application via `ICodeEditorService`, text edit execution with dual-range-format normalization, reveal range delegation with the five standard strategies, and active editor/selection change subscription pushing state up to Mountain.\n\n**Wind** adds the five new Sky IPC event constants to `Source/IPC/SkyEvent.ts` while purging over 400 zero-byte generated stub files (`I*Upstream.ts`, `CommandCatalog.ts`, `ServiceCatalog.ts`, `*BridgeShapeGenerated.ts`).\n\n**Air** applies consistent import ordering and single-expression formatting across 4 subsystems. **Output** removes 160+ stale zero-byte build artifacts. **Grove** syncs the Rust documentation submodule. **Echo** advances to a clean commit.\n\nThis completes the editor IPC round-trip for text editor manipulation and call/type hierarchy, enabling extensions that depend on `window.activeTextEditor`, `editor.edit()`, `setDecorations`, `revealRange`, hierarchy providers, and format-on-save listeners to function correctly.",
 			"SHA": "aa1796249422795c35dd98c3dce3199cc7aed124"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:37:19Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				26,
-				2
-			],
-			"Message": "chore(Project): Update Cocoon and Wind submodules with IPC contracts\n\nAdvance `Cocoon` to bf9d9ffa to introduce `Types.ts` under `Source/Services/Mountain/gRPC`. This formalizes the contract between the extension host and native backend by defining Option DTOs (e.g., `ShowTextDocumentOptions`, `TextEdit`) and the `IMountainGRPCClientService` interface. These changes enable strong typing for native operations without importing the full Effect-TS runtime, improving modularity.\n\nAdvance `Wind` to a25a3c5b to add `MountainCommands.ts` and `Converters.ts`. These modules centralize file-system IPC method strings (e.g., `file:stat`, `file:readdir`) and implement pure conversion logic between VS Code URI shapes and Mountain's raw JSON responses. This isolates protocol mapping from core services, facilitating unit testing and ensuring synchronization with native handlers.\n\nThese updates align the UI service layer and extension host with the native backend's evolving IPC architecture, ensuring type safety and separation of concerns across the editor stack.",
-			"SHA": "77ab17dd24a00312f6547195315c304358afcf65"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:33:33Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				26,
-				2
-			],
-			"Message": "chore(Project): Update Cocoon and Mountain submodules\n\nAdvance `Cocoon` to 8c25ad5a to refine code style in the `UriKey` utility by formatting the `fsPath` conditional return statement for improved readability without altering logic.\n\nAdvance `Mountain` to e4c272b2 to introduce `DashboardHelpers` under the `PerformanceDashboard` IPC module. This adds stub utilities for process memory, CPU usage, and UUID generation, alongside a helper to map metric types to display strings, establishing the foundational layer for performance monitoring while maintaining pure function architecture.\n\nThese updates align the extension host and native backend with current coding standards and prepare the IPC layer for future performance metrics integration.",
-			"SHA": "e56eef10595c5b6ed53e39aacc7a77a6cfef7b23"
 		}
 	],
-	"TimeStamp": 1780934931327
+	"TimeStamp": 1781048766390
 }

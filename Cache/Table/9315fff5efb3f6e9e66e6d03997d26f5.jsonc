@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T22:41:52Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "feat(Project): Eliminate startup visual flash across Mountain, Sky, and Wind\n\nCoordinate startup sequence improvements across three submodules to eliminate the \"purple/dark flash\" and panel-pop flicker observed on cold boot:\n\n- **Mountain (993a69a7):** Implement hidden-until-ready window pattern using WebviewWindowBuilder.visible(false), reveal only when Sky reports phase 3 (Restored). Add 3s safety timer to force-reveal if Sky crashes before phase 3 (prevents invisible-window lockup).\n\n- **Sky (0cf2e4da):** Add missing SkyBridge initialization to Electron Layout to subscribe to cel:* Tauri events (tree-view, SCM, debug, extensions). Previously, panels painted empty on first frame then re-rendered with data, causing \"tree-views flash empty then pop\".\n\n- **Wind (bb3b6fc3):** Add PostHogDefines to TargetConfig.ts mapping LAND_POSTHOG_* environment variables to esbuild define directives. Completes the hardcoded-key removal work, enabling PostHog config driven entirely by environment variables.\n\nImpact: Eliminates four-repaint startup cascade (native chrome → #1e1e1e → VS Code theme → workbench DOM). All panels now render with data on first paint.",
+			"SHA": "3ff9bbf02757290f4128143f97cfbaecfd01c5ec"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T21:18:38Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				28,
+				5
+			],
+			"Message": "refactor(Project): Remove hardcoded PostHog keys and decompose Utilities\n\nCoordinate submodule updates across Mountain, Sky, and Wind to remove hardcoded credentials and improve module organization:\n\n- **Mountain (8cba79c0):** Decompose monolithic Utilities.rs into 7 domain-specific modules (ApplicationRoot, ChannelPriority, JsonValueHelpers, MetadataEncoding, PathExtraction, RecentlyOpened, UserdataDir). Update all call sites to use explicit reverse-hierarchical paths (e.g., `Utilities::PathExtraction::extract_path_from_arg`).\n\n- **Mountain (5140a389):** Simplify binary/library names from verbose development format back to 'Mountain' in Cargo.toml and tauri.conf.json. Remove PostHog API key from build.rs and bootstrap-fork.js. Clean up tauri.conf.json identifier to 'land.editor.binary'.\n\n- **Sky (9b67e2e6):** Remove hardcoded PostHog API key from PostHogBridge.ts and astro.config.ts, requiring LAND_POSTHOG_KEY environment variable.\n\n- **Wind (a0e09d67):** Remove hardcoded PostHog API key from Configuration.ts.\n\nImpact: Security hardening by eliminating hardcoded credentials across 3 submodules. Improved code organization with explicit module dependencies following CLAUDE.md requirements.",
+			"SHA": "b03e5a60d3d19957ab41a059dc5e5d8150bb2842"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T20:54:32Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "",
 			"SHA": "b9aba51b638679d3b95e7d7bb14f1aac0c703b2a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:52:37Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "refactor(Mountain): Migrate notification handlers to Batch 15-16 atoms\n\nConsolidate inline notification handler bodies in MountainVinegRPCService into delegations to atom functions in Vine::Server::Notification::*. Batch 15 migrates 8 handlers (ExtensionHostMessage, ExtensionActivated/ExtensionDeactivated, WebviewReady, ProgressStart/ProgressReport/ProgressEnd, LanguagesSetDocumentLanguage, WorkspaceApplyEdit, WindowShowTextDocument). Batch 16 adds 10 new handlers (WebviewLifecycle, WindowCreateTerminal, TerminalLifecycle covering 4 wire methods, DecorationTypeLifecycle, DebugLifecycle, StatusBarLifecycle covering 2 methods, StatusBarMessage, WindowShowMessage, RegisterCommand, UnregisterCommand).\n\nThis removes dead handler bodies at the bottom of match arms that were unreachable after Rust selected the first matching arm, keeping MountainVinegRPCService thin with one-line delegations. TerminalLifecycle and StatusBarLifecycle are group atoms covering methods sharing sky:// relay and provider-side drive.\n\nImpact: Consistent atom-layer dispatch pattern across all 26+ notification types.",
-			"SHA": "f98c216d220c60e19149360cd179b8e67a4b4363"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:47:16Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				28,
-				4
-			],
-			"Message": "feat(Project): Add notification atom handlers and stub disposition tracking\n\nCoordinate submodule updates across Mountain, Output, and Wind to complete VS Code notification IPC and improve stub diagnostics:\n\n- **Mountain (27652fa6):** Add 25 new notification atom handlers in `Vine::Server::Notification` covering output channel lifecycle (create, append, appendLine, clear, dispose, replace, show), status bar text updates, progress lifecycle, webview reverse messaging, provider unregistration, and misc handlers (openExternal, security.incident, set_language_configuration). Also add `ExtractDevTag` module to parse Cocoon stdout `[DEV:<TAG>]` prefixes and re-emit under Mountain's matching tag for bootstrap-stage, ext-activate, config-prime, breaker filtering.\n\n- **Mountain (c8bfb37b):** Refactor consolidating singular `WindServiceHandler` into plural `WindServiceHandlers` atoms - delete 24 dead duplicate files, re-implement 3 live handlers as atoms (extensions:install, extensions:uninstall, nativeHost.showOpenDialog). Add 9 new notification atoms: ExtensionActivated, ExtensionDeactivated, ExtensionHostMessage, LanguagesSetDocumentLanguage, ProgressStart, ProgressReport, ProgressEnd, WebviewReady, WorkspaceApplyEdit.\n\n- **Output (b7dc4a72):** Add `__initialize` stub for PlaywrightChannelClient constructor protocol version negotiation. Replace binary present=true/false stub-hit logging with three-state disposition: `value` (real payload), `noop` (intentionally undefined), `drift` (stub key missing - sync issue). Add explicit `setExtensionGalleryManifest` stub.\n\n- **Wind (5e66b9dc):** Add IPC stub for `extensionGalleryManifest` channel and `__initialize` to playwright stub. Enhance stub-hit logging with three-state disposition tracking using `hasOwnProperty` for reliable checking.\n\nImpact: Extension output channels, status bar, progress, and webview messaging now flow through Mountain. Cocoon bootstrap logs are tag-filterable. Stub drift detection helps developers distinguish sync issues from intentional undefined returns.",
-			"SHA": "42e7481d6b25f3be78474382d883159376fede9c"
 		}
 	],
-	"TimeStamp": 1780934942837
+	"TimeStamp": 1781048777917
 }

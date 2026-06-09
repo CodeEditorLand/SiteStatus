@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:34:52Z",
+			"Date": "2026-05-25T20:50:55Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1181,
 				1
 			],
-			"Message": "feat(Cocoon): Route $prepare* language provider methods through gRPC\n\nExtend the method routing in GRPCServerService to match `$prepareCallHierarchyItems`, `$prepareTypeHierarchyItems`, and similar `$prepare*` language feature invocations alongside the existing `$provide*` and `$resolve*` patterns.\n\nMountain calls these when Sky's Monaco editor requests call/type hierarchy intelligence. Previously, the regex gate at Line 796 would drop these requests before they reached InvokeLanguageProvider, causing hierarchy features to silently fail in the extension host.\n\nHierarchy provider requests now route correctly through the language provider invocation pipeline.",
-			"SHA": "32219605d70b0c4c3b3e2033b6c63fc4636c7337"
+			"Message": "fix(Cocoon): Treat unknown method errors as benign for circuit breaker logic\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "2137e2897e49758edd4d338f2cf2c002ff748576"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:26:25Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1181,
-				1
-			],
-			"Message": "",
-			"SHA": "2112239e466aa0f2cdedf9d000d5ab79274550c1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:26:25Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1181,
-				3
-			],
-			"Message": "feat(Cocoon): Implement terminal shell integration event handling\n\nAdd handlers for `$acceptTerminalShellIntegrationActivated` and `$acceptTerminalCwdChange` notifications from Sky Bridge, enabling extensions to observe terminal shell integration state via `onDidChangeTerminalShellIntegration`.\n\nThe `$acceptTerminalShellIntegrationActivated` handler sets a minimal `shellIntegration` stub on the matching terminal when OSC 633 ; A is first seen, firing the event so extension subscriptions resolve. The `$acceptTerminalCwdChange` handler parses OSC 633 P;cwd= sequences and builds a URI-like object (with `scheme`, `path`, `fsPath`, `toString()`) matching VS Code's `vscode.Uri` shape, so extensions can read `.shellIntegration.cwd.fsPath` without special-casing.\n\nThe terminal stub in HandleSpecificNotification now initializes `shellIntegration: undefined` so extensions can guard with `?.` before access. Additionally, `setLanguageConfiguration` in the API factory now forwards the full `config` payload to Mountain instead of discarding it.\n\nExtensions such as openai.chatgpt can now observe terminal shell integration state in Cocoon.",
-			"SHA": "1d20cadee215f6638f143dd3fb7d6809a9e0dd1e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T07:31:16Z",
+			"Date": "2026-05-25T20:45:52Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				1181,
 				34
 			],
-			"Message": "",
-			"SHA": "018cd8a5d708a4709fa0f93c9e67a5751ba52742"
+			"Message": "fix(Cocoon): Correct storage cache priming RPC method name to Storage.GetItems\n\nThe storage cache priming introduced in the extension-host API fidelity pass sent gRPC requests to \"storage:getItems\" with an object argument, but Mountain's RPC dispatcher expects PascalCase method names (\"Storage.GetItems\") and an empty array for parameterless calls.\n\nUpdate the method string and argument shape in ActivateExtension so the pre-activation storage round-trip actually reaches Mountain's handler and returns the cached workspace/global state to extensions. Without this fix, extensions that read storage synchronously during activate() (Roo Code, Copilot, GitLens) received only defaults, causing UI state regressions after reload.\n\nAlso update the RouteManifest generation timestamp to reflect the rebuild.",
+			"SHA": "02a66416b989ea7a86289637c0382be3f07b8fe8"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T06:49:39Z",
+			"Date": "2026-05-25T19:32:06Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⡇⠀⠀⠀⠀",
 				1181,
-				33
+				105
 			],
-			"Message": "build(Cocoon): regenerate build artifacts and update timestamp\n\nRegenerate all build artifacts in the `Target/` directory. The build artifacts include the main Cocoon bootstrap sequence and all the handlers. The timestamp has been updated to reflect the latest source adjustments in the extension host service layer. This commit captures binary output changes from source code adjustments, and ensures the Main. js bootstrap and all service representatives remain in sync with the most recent source state.",
-			"SHA": "d988917b594b76ff7c43a85edb18733d08e416cd"
+			"Message": "chore(Cocoon): Rebuild extension-host artifacts with consolidated bootstrap\n\nRebuild all compiled JavaScript output to pick up the latest source changes from the extension-host API fidelity work. The build emits significantly larger bundles as twelve VS Code API subsystem implementations are now compiled into the output.\n\nSeveral files in Target/Effect/ and Target/Service/ are removed, with their contents folded into a single consolidated bootstrap pipeline routed through Target/Effect/RPCServer.js. The RouteManifest generation timestamp is updated to reflect the current build time.\n\nNo source changes — only build artifact regeneration.",
+			"SHA": "9df0bb3d7840a6aa63c4bc1bb8b1a06a5ba8fefb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T19:11:07Z",
+			"File": [
+				"⡏⠀⠀⠀⠀",
+				1176,
+				147
+			],
+			"Message": "feat(Cocoon): Drive extension-host API fidelity across twelve subsystems\n\nReplace no-op stubs and plain-object placeholders with real implementations across twelve VS Code API subsystems, closing gaps that silently broke extensions relying on standard `vscode` namespace contracts:\n\n- **EnvironmentVariableCollection** (`ActivateExtension`): Replace the previous no-op stub with a mutation-tracking implementation that forwards `replace`, `append`, `prepend`, `delete`, `clear` operations to Mountain via `terminal.envCollection.*` notifications. Cross-session persistence is delegated to Mountain's global memento. Extensions (Copilot, GitHub PR, Pyright) that inject PATH/auth tokens into terminal environments now see their vars applied.\n\n- **Storage cache priming** (`ActivateExtension`): Pre-populate `workspaceState` and `globalState` caches BEFORE `activate()` runs via a single `Storage.GetItems` round-trip, partitioned by extension-prefixed keys. Synchronous reads inside activate (Roo Code's `taskHistory`, Copilot's `signInDismissed`, GitLens welcome state) return real values instead of defaults, preventing UI state regressions after reload.\n\n- **Extension descriptor fidelity** (`ActivateExtension`): Use `MakeUri()` for `extension.extensionUri` so `.with()` / `.toString()` work (Roo Code, Continue, Claude all resolve bundled assets this way); add real `activate()` returning a resolving promise; set `extensionKind: 1` (UI).\n\n- **Text editor commands** (`Commands/Namespace`): `registerTextEditorCommand` now drives the callback inside `editor.edit()` so the real TextEditorEdit buffer applies atomically. Refactor, sort-lines, and Cmd+I previously collected edits into a no-op builder.\n\n- **Language provider metadata** (`Languages/Namespace`): Forward `documentSelector` (full array), `triggerCharacters`, `providedCodeActionKinds`, `firstTriggerCharacter`/`moreTriggerCharacter` to Mountain so Monaco invokes providers at the correct moments — completions on `.`, signature-help on `(`, on-type formatting on `;`, ESLint quick-fixes under the right menu. Handle both varargs and metadata-object overloads for `registerSignatureHelpProvider`. Update `Document.languageId` in-place in `setTextDocumentLanguage`.\n\n- **Task executions** (`Tasks/Namespace`): `executeTask` now returns a real `{ task, terminate() }` object. `taskExecutions` is a live getter reflecting the current active execution set, driven by `task.didStart` / `task.didEnd` notifications from Mountain.\n\n- **LogOutputChannel** (`Window/CreateOutputChannel`): Full `LogOutputChannel` implementation with ISO-8601 timestamped level-prefixed output, log-level filtering (`trace`/`debug`/`info`/`warn`/`error`), `onDidChangeLogLevel` listener support, proper `show(preserveFocus)` overload, atomic `replace()`, and dispose-time listener cleanup.\n\n- **Status bar items** (`Window/CreateStatusBarItem`): Support `createStatusBarItem(id, alignment?, priority?)` overload (1.74+), proper command object normalisation, accessibility information forwarding, idempotent `dispose()` guard, and change-deduplication.\n\n- **Terminal state** (`Window/CreateTerminal`): Track `state.isInteractedWith` from Mountain notifications, expose `exitStatus` getter, default `addNewLine` to true in `sendText` (appending `\\r`) so typed commands auto-execute.\n\n- **Webview panel** (`Window/CreateWebviewPanel`): Complete rewrite with proper getter/setter pattern, live `viewColumn`/`active`/`visible` via per-handle `webview.viewState` bridge, idempotent `DisposeInternal()` with emitter cleanup, `onDidDispose`/`onDidChangeViewState` listener arrays, iconPath forwarding, and forward-reference pattern to break TDZ cycles.\n\n- **Tree data providers** (`Window/Namespace`): Subscribe to `onDidChangeTreeData` on both `createTreeView` and `registerTreeDataProvider` so Mountain/Sky refresh on extension-driven tree mutations. Proper disposal cleanup on `TreeView.dispose()` and the returned disposable.\n\n- **WebviewView provider** (`Window/Namespace`): Forward `retainContextWhenHidden` option to Mountain so Roo/Continue/Claude sidebar views preserve React state across panels.\n\n- **Status bar messages** (`Window/Namespace`): `setStatusBarMessage` now supports all three upstream overloads — persist-until-disposed, timed auto-hide via `setTimeout`, and thenable-resolved hide. Returns a `dispose()` function that actually clears.\n\n- **Filesystem write encoding** (`Workspace/File/System/Namespace`): Send binary content as a `Uint8Array` → `number[]` instead of UTF-8 decoded text, preventing corruption of PNG, zip, and BOM-prefixed writes from image-processing and archive extensions.\n\n- **applyEdit return value** (`Workspace/Text/Document`): Return Mountain's actual success boolean instead of always `true`, so format-on-save / organize-imports / rename-refactor can retry or surface errors on failure.\n\n- **Per-subsystem routing tiers** (`Bootstrap/Main`, `Utility/Tier`): Add `__LandTier_*` esbuild defines and `__LandTiers` registration for 15 subsystems (Terminal, SCM, Debug, LanguageFeatures, Search, OutputChannel, NativeHost, TreeView, Storage, Model, Tasks, Auth, Encryption, ExtensionHost, WebSocket) with type definitions and defaults matching `.env.Land` profiles.\n\n- **Route manifest** (`Generated/RouteManifest`): Add generated three-tier route hierarchy (`MountainMethods`, `StockLiftExports`, `BespokeCocoonMethods`) with summary banner for boot-time diagnostics.\n\nTogether these changes resolve roughly a dozen classes of silent extension breakage across AI assistants, language tooling, source control, and debugger integrations.",
+			"SHA": "88c414abbc3bb78e44007b45ff5410a898b587dc"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T13:50:12Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1178,
+				7
+			],
+			"Message": "feat(Cocoon): Inline DAP adapters and webview panel persistence\n\nImplement three extension-host fidelity improvements that close gaps between Cocoon and VS Code's extension API surface:\n\n- **Inline DAP adapters (`DebugAdapterInlineImplementation`)**: Track `debug.didStartSession`/`didTerminateSession` events from Mountain to instantiate per-session adapters in-process. Wire `onDidSendMessage` back to Mountain via `debug.dap-response` and dispatch incoming DAP frames from the `ExtHostDebug$sendDAPRequest` gRPC handler. Adapter factories are stashed in `ExtensionRegistry` by debug type for reverse-RPC lookup.\n\n- **Webview panel serialization**: Implement `registerWebviewPanelSerializer` to register serializers via `ExtensionRegistry`. Handle `ExtHostWebviewPanels$serializeAllWebviewPanels` and `$deserializeWebviewPanel` gRPC methods so extension panels (Live Preview, AI chat, custom editors) survive `nativeHost:reload`.\n\n- **Document state tracking**: Update `version` and `isDirty` on `$acceptDocumentChanged` and after document-save notifications in HandleSpecificNotification so extensions reading `document.version` and `document.isDirty` see correct values.\n\nAlso fix `BuildGetConfiguration` to return the caller's `DefaultValue` when Mountain signals \"no override\" (null), matching VS Code's configuration model where null means \"use default\".\n\nRemove stale `Source/Generated/RouteManifest.*` artifacts.",
+			"SHA": "3f6d788763197e17a379582d325c7449754b615f"
 		}
 	],
-	"TimeStamp": 1780934927084
+	"TimeStamp": 1781048760297
 }

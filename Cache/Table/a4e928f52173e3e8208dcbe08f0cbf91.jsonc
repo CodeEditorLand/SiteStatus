@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:24:57Z",
+			"Date": "2026-05-02T09:40:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1225,
-				1
-			],
-			"Message": "fix(ProcessManagement): Enhance AppRoot resolution for Tauri launches with improved fallback handling\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "b4cf3afab7fe6d7f7a504e9b9af74ef518556bd6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1225,
-				5
-			],
-			"Message": "feat(Mountain): Introduce URI parsing and normalization utilities for IPC\n\nAdd a new `UriComponents` module to handle the serialization and deserialization of URIs between the Mountain backend and the Tauri/Cocoon frontends. This implementation aligns with VS Code's `URI` IPC protocol, specifically addressing the requirements of `_transformIncomingURIs` in the renderer.\n\nThe new module includes:\n- `MID_URI`: Defines the `$mid: 1` constant used as a flag for the URI reviver.\n- `StampMidUri`: A utility to inject the `$mid` marker into JSON objects, ensuring VS Code's deserializer recognizes them as valid URI instances.\n- `FromFilePath`: Constructs `file://` URI objects from absolute paths without percent-encoding, matching VS Code's `URI.file()` expectations.\n- `FromUrl`: Parses generic URL strings (including non-file schemes) into component objects, with a fallback to `file://` for invalid inputs.\n- `Normalize`: A robust handler that accepts strings, objects, or nulls, standardizing all inputs into the tagged URI component format required by extension metadata.\n\nThese utilities ensure that extension locations and other URI-bearing payloads are correctly structured for transport over gRPC and Tauri events, preventing deserialization errors in the `Wind` and `Cocoon` layers.",
-			"SHA": "30f30fde1c2dd64aca45fe06e144fb1d4eddba6f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:28Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1219,
+				1251,
 				2
 			],
-			"Message": "fix(Mountain): Ensure workspace auto-seed defaults to HOME on GUI launch\n\nAddress a boot-time regression where releasing Mountain via Finder (macOS `.app` launch) resulted in an empty workspace because `current_dir` defaults to `/`. The previous debug-only autoload logic left release builds with no folder, causing tree views and SCM panels to remain empty.\n\nRefactor `Source/Binary/Initialize/CliParse.rs` to:\n- Unconditionally attempt CWD autoload (overridable via `Walk=0`).\n- Skip CWD if it is the filesystem root `/` (safety check against full-disk scans).\n- Add a final fallback to the user's `$HOME` directory when no workspace is detected, ensuring a visible directory tree on first launch.\n\nAdditionally, restructure `Source/Binary/Initialize/RuntimeBuild.rs` to align with the project's modular naming conventions. The file now serves as an index exporting submodules (`SchedulerConfig`, `Build`, `BuildDebug`, etc.) for the Echo scheduler configuration, as the primary usage has moved inline to `Binary::Main`.\n\nThis change guarantees a consistent user experience across debug and release profiles regardless of the launch method (CLI vs. GUI).",
-			"SHA": "c9ba82bedba46712b6b4b21def8272290ce7087a"
+			"Message": "fix(Mountain): Enhance AppLifecycle resolution and inject shell environment on boot\n\nThe `AppLifecycle` module previously relied solely on Tauri's `resource_dir` for resolving the `Sky/Target` path. This caused raw release binary launches (outside the `.app` bundle) to fail resolving the frontend root, resulting in 404s for extension-contributed icons (e.g., GitLens, Roo) and empty view containers.\n\nRefactor `AppLifecycleSetup` to implement a multi-tier fallback strategy: first check the standard `.app` bundle layout (`Contents/Resources`), then the monorepo relative path (`../../../Sky/Target`), and finally an executable-relative fallback. This ensures the `STATIC_APPLICATION_ROOT` is correctly set regardless of the launch context.\n\nAdditionally, inject the user's interactive shell environment (loading `PATH`, `NVM_DIR`, `HOMEBREW_PREFIX`) in `Entry` before spawning child processes. This resolves issues where GUI-launched applications (Finder/Dock) lack necessary CLI tools (Homebrew, Git, Node/NVM), causing extension host failures. Update command handler registrations to strictly adhere to PascalCase naming conventions (e.g., `Initialize::Fn`, `MountainProvideHover::MountainProvideHover`).\n\nImpact: Fixes icon rendering in production builds, ensures extension host stability in GUI launches, and standardizes binary entry point naming.",
+			"SHA": "72f7a764914ca9ec250a6f3a3da8481723b892cd"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:22Z",
+			"Date": "2026-05-02T09:39:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1219,
-				5
+				1251,
+				4
 			],
-			"Message": "feat(Mountain): Expose keybinding management commands to Tauri frontend\n\nAdd the initial Tauri command layer for the keybinding subsystem to enable communication between the `Wind` service and the `Mountain` backend. Implement five new command handlers in `Source/Command/Keybinding/` to support the Keyboard Shortcuts UI:\n\n- `CheckKeybindingConflicts`: Detect chord-sequence overlaps (stub implementation).\n- `GetResolvedKeybindings`: Fetch the weighted aggregation of defaults and user overrides.\n- `GetUserKeybindings`: Return user-defined overrides (stub pending persistence).\n- `RegisterExtensionKeybindings`: Accept contribution payloads from the extension host.\n- `UnregisterExtensionKeybindings`: Remove bindings contributed by a specific extension.\n\nEach command retrieves the `KeybindingProvider` from the shared `ApplicationRunTime` state via the `Requires` trait, establishing the contract for future logic implementation. While most handlers currently return stub JSON responses or pass-through errors, this commit completes the IPC interface required for the frontend to manage and visualize keybinding states.",
-			"SHA": "c0b7bc5676e38b05ef0199ea3d46838fff4cde32"
+			"Message": "feat(Mountain): Expand extension root discovery and modularize telemetry/hover units\n\nExtend the LocalhostPlugin to resolve built-in extensions from multiple distribution paths (`Contents/Resources/extensions`, `Contents/Resources/app/extensions`) and the development monorepo layout. This ensures icon stylesheets for the 93 bundled extensions render correctly in packaged `.app` builds and prevents empty boxes in the extension view.\n\nApply the established distributed architecture pattern to the PostHog analytics and Hover command subsystems. Refactor `PostHogPlugin` and `Command/Hover` into distinct unit files (e.g., `Initialize::Fn`, `Position::Struct`, `HoverContent::Enum`), enforcing PascalCase naming and separating DTO definitions from logic. This aligns with recent telemetry refactors and prepares the codebase for stricter IPC type safety.\n\nImpact: Fixes extension icon rendering in production builds and standardizes the module structure for observability and LSP features.",
+			"SHA": "0bb57d42016d8ab3ea6bc79312fdbcb8681e2657"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:13:04Z",
+			"Date": "2026-05-02T09:30:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1213,
-				2
+				1251,
+				13
 			],
-			"Message": "feat(Mountain): Inject user shell environment for GUI launches\n\nImplement a boot-time utility in `Source/Environment/Utility/EnhanceShellEnvironment` to resolve the minimal environment problem inherent in macOS/Linux GUI app launches (e.g., Finder, Dock, Spotlight).\n\nWhen launched non-interactively, the app receives a bare `PATH` missing user customizations like `NVM_DIR`, `HOMEBREW_PREFIX`, and `JAVA_HOME`. This previously caused child processes (Cocoon's Node, language servers, Git extensions) to fail or use outdated system binaries.\n\nThe solution spawns the user's login shell with `-ilc env` to capture their full runtime environment, then safely merges new variables into the parent process environment. It includes:\n- A 2-second timeout to prevent boot hangs from misbehaving `.rc` files.\n- A check to skip injection if already running from a TTY.\n- A safety filter (`IsPortableEnvName`) to reject non-standard variable names.\n- A strict policy to preserve existing environment variables unless they are unset, ensuring no overwrites of deliberate user overrides.\n\nThis ensures Mountain and its sidecars (Cocoon, Air) operate with the same environment context as a user's terminal session.",
-			"SHA": "240102ddfe032c28ba28bd65c16ce7412642abf1"
+			"Message": "refactor(Mountain): Modularize telemetry gate subsystem into distinct units\n\nRestructure the `Source/Telemetry/Gates` module to align with CodeEditorLand's PascalCase naming conventions and the established distributed architecture pattern.\n\nKey modifications include:\n- Extract compile-time predicates (`IsDebugBuild`, `IsDevelopmentBuild`, `IsTelemetryEnabled`, `IsMetricsEnabled`, `IsDistributedTracingEnabled`, `IsFeatureFlagsEnabled`) into dedicated `Fn` unit files using `cfg!` macros.\n- Isolate runtime gate management (`RuntimeGates`, `GetRuntimeGates`, `RuntimeGateEnabled`, `ListEnabledGates`, `ValidateRequiredGates`) into separate units sharing a private `GATES` singleton.\n- Convert `EnableRuntimeGate` into a no-op `Fn` shim with documentation noting the required migration from `OnceLock<HashSet>` to `RwLock` for mutable state.\n- Update `mod.rs` to export the new flat structure, removing the previous monolithic implementation.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the gate system for runtime configuration injection and IPC integration.\n\nRefs #Telemetry",
+			"SHA": "2a691e34b07b06fa7cc73d6c99d68b16635230a0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:30:11Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1239,
+				6
+			],
+			"Message": "refactor(Mountain): Modularize tracing subsystem into distinct utility units\n\nRestructure the `Source/Telemetry/Tracing` module to align with CodeEditorLand's PascalCase naming conventions and modular design principles. Replace the previous monolithic implementation with a distributed architecture where each concept resides in its own file.\n\nKey modifications include:\n- Extract `CreateSpan::Fn`, `InitializeTracing::Fn`, `InstrumentRPC::Fn`, `InstrumentCommand::Fn`, and `MeasureTime` macro into dedicated unit files.\n- Enforce feature-gated compilation so the `Telemetry` flag completely toggles the system on/off with zero overhead in release builds.\n- Standardize function names to `Fn` and maintain strict separation between span creation, RPC wrapping, command instrumentation, and inline timing macros.\n- Update `mod.rs` to export the new structure and simplify the public API surface.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the observability layer for future integration into the IPC hot paths and binary entry point.\n\nRefs #Telemetry",
+			"SHA": "ceb085c32354e6cfeb53302f933fe3d527606057"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:26:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1234,
+				10
+			],
+			"Message": "feat(Mountain): Refactor metrics subsystem into modular singleton architecture\n\nRestructure the `Source/Telemetry/Metrics` module to align with CodeEditorLand's PascalCase naming conventions and modular design principles. Replace the previous single-file implementation with a distributed architecture where each concept resides in its own file.\n\nKey modifications include:\n- Extract `Metric::Struct` and `MetricValue::Enum` into dedicated type definitions.\n- Isolate the `MetricsRegistry::Struct` (bounded ring buffer) and `GlobalRegistry::REGISTRY` singleton into separate units.\n- Introduce `Timer::Struct` for RAII-style histogram recording with label support.\n- Create convenience accessors `RecordCounter::Fn`, `RecordGauge::Fn`, and `GetAllMetrics::Fn` that operate against the global singleton.\n- Update `mod.rs` to export the new structure and add `Initialize::Fn` for feature-gated bootstrapping.\n\nThis reorganization ensures strict adherence to the project's naming standards (e.g., `Fn`, `Struct`, `REGISTRY`) and prepares the telemetry layer for future integration with the IPC fast paths and binary main entry point.",
+			"SHA": "adbf0e3f64efb9475766d21b6c343e9f24a608d2"
 		}
 	],
-	"TimeStamp": 1780934948907
+	"TimeStamp": 1781048784802
 }

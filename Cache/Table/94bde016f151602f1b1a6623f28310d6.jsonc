@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-21T21:38:06Z",
+			"Date": "2026-05-22T05:35:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1580,
-				7
+				1582,
+				2
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "8dfc504e19e9a61a39b323f526dd0973c033fb9d"
+			"Message": "refactor(Mountain): Extract inline JSON blocks to avoid macro recursion limit\n\nThe `ConstructSandboxConfiguration` function builds the entire `ISandboxConfiguration` payload in a single deeply-nested `json!()` macro invocation. As the `profiles` and `productConfiguration` sections grew, the macro expansion exceeded Rust's recursion limit, causing compilation failures on certain toolchain versions.\n\nExtract the `nls`, `productConfiguration`, `os`, and `profiles` sub-objects into separate `json!()` calls bound to local variables (`NlsSection`, `ProductConfig`, `OsSection`, `ProfilesSection`), then reference them by name in the outer `json!()` invocation. This breaks the single deep expansion into multiple shallow ones, staying well within the recursion limit without changing any emitted values.\n\nNo behavioral change — all pre-built variables produce identical JSON to the previously inlined blocks.",
+			"SHA": "78820a9ee66e89a88169dab5bf7acb7b986c1eb3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-21T21:38:06Z",
+			"Date": "2026-05-22T05:35:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1580,
-				1
+				1582,
+				19
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "4ba5959b2906a1c8d0e844ccb331521b376b80b8"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-21T21:28:09Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				1580,
-				113
-			],
-			"Message": "style(Mountain): Enforce consistent vertical spacing, harden shell/encryption paths\n\nApply blank-line-after-declaration formatting uniformly across ~260 Rust source files, removing discretionary spacing variations that accumulated during iterative development. The change is purely cosmetic in the large majority of files — no logic, control flow, or semantics are altered.\n\nThree functional changes are bundled in this pass:\n\n- Key.rs: `DeriveKey` now returns `Result<[u8; 32], String>` and `ReadMachineId` returns `Option<String>`, removing the fallback to executable-path hash when no hardware-bound machine ID is available. This eliminates a path where ciphertext could be encrypted with a predictable seed on headless or restricted systems. Callers in Encrypt.rs/Decrypt.rs propagate the `Err` upward.\n- InstallShellCommand.rs, MoveItemToTrash.rs, UninstallShellCommand.rs: Replace string-interpolated AppleScript/PowerShell arguments with environment-variable-passed paths using `quoted form of` / `$env:` patterns, preventing shell injection via crafted file paths.\n- Info.plist: Switch `TierSchemeAssets` from `Embedded` to `FileSystem`, selecting the disk-layout asset deployment mode at the daemon config level rather than relying solely on build-time env vars.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "4dcdc190d8f11e7fb102b0b16c38872367979fbf"
+			"Message": "feat(Mountain): Complete Cocoon extension host bridge across providers, boot, and keyboard\n\nImplement the gRPC and provider-infrastructure layer for four extension-host features that Mountain forwards to Cocoon, three complementary improvements, and one build-config update.\n\n**Extension provider features:**\n\n- **Inline completion items** (GitHub Copilot, Roo Code, Continue): New `InlineCompletionItem` / `InlineCompletionContext` messages in Vine.proto, gRPC handler in `ProvideInlineCompletionItems.rs`, and `$provideInlineCompletionItems` dispatch from `FeatureMethods.rs` to Cocoon's registered provider. Registration flows through the generic notification dispatcher via `register_inline_completion_item_provider`.\n\n- **File decorations from extensions**: `DecorationsGet` in `Decoration.rs` falls back to `ProvideFileDecoration` via Cocoon gRPC when the in-memory store has no entry, populating git-status badges, error markers, and other extension-contributed decorations on demand.\n\n- **Terminal lifecycle sync**: `TerminalProvider.rs` emits `$acceptTerminalOpened` / `$acceptTerminalClosed` notifications to Cocoon so `vscode.window.terminals` stays current for terminals created from the UI (not just via the extension API).\n\n- **Webview message forwarding**: `Messaging.rs` implements the forward path for `acquireVsCodeApi().postMessage()` calls from extension iframes, sending them as `webview.message` notifications to Cocoon so the extension host's `onDidReceiveMessage` subscriber fires. `remove_webview_message_listener_impl` is now a logging stub rather than a no-op.\n\n**Boot performance and crash fixes:**\n\n- **Extension manifest cache (B7.P08)**: New `LoadFromCache.rs` reads a pre-baked `extensions.manifest.json` blob in a single `fs::read`, reducing extension-scan boot time from ~1200 ms to <50 ms. Falls back gracefully to the live `ScanAndPopulateExtensions` path on cache miss, staleness (>10 min), or corruption. The cache file is produced by `Maintain/Build/Manifest/PreBake.ts` during `beforeBundleCommand`.\n\n- **WKWebView NSUndoManager suppression**: `TauriBuild.rs` disables the macOS default menu (which pre-installs Edit > Undo/Redo). `WindowBuild.rs` injects a capture-phase keydown listener that `preventDefault()`s Cmd+Z/Cmd+Y before the webview's internal responder chain dispatches undo:/redo:, preventing WKWebView's NSUndoManager from competing with Monaco's undo stack.\n\n- **Profiles configuration**: `InitializationData.rs` adds the `INativeWindowConfiguration.profiles` section with all required URI fields (`languageModelsResource`, `agentPluginsHome`, `cacheHome`, etc.) to prevent the `TypeError: undefined is not an object (evaluating 'M.revive(o.languageModelsResource).with')` crash during workbench initialisation. Also adds `sqmId`, `devDeviceId`, and `isPortable` as defensive non-optional fields.\n\n**Build:** `tauri.conf.json` adds `node Maintain/Build/Manifest/PreBake.ts` to the `beforeBundleCommand` pipeline.\n\nCloses the Mountain side of the inline-completion provider circuit and addresses the workbench profile crash (VS Code desktop-mode init).",
+			"SHA": "8db51dd0dc8da12799836d25faaf61658c445a52"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-05-21T02:52:57Z",
+			"Date": "2026-05-22T02:53:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1580,
 				1
 			],
 			"Message": "",
-			"SHA": "b702320d74f87a6d04c892b6dfd073fc8c00bd17"
+			"SHA": "138352332e04a0046c07228f1b171bb588a3f421"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:38:25Z",
+			"Date": "2026-05-22T00:51:32Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1580,
-				1
+				3
 			],
-			"Message": "feat(Mountain): Read TierSchemeAssets from .env.Land as env fallback\n\nAdd the helper function `ReadTierValueFromEnvFile` to build.rs that walks up the directory tree from `CARGO_MANIFEST_DIR` (up to 5 ancestors) looking for `.env.Land` or `.env.Land.Sample` to resolve the `TierSchemeAssets` key. The resolution priority is: process environment variable first, then the env file, then the hard-coded default of `\"Embedded\"`.\n\nThis mirrors the file-reading logic already used by `PropagateTierGating` in the Rust tier system, ensuring the tauri.conf.json mutation in build.rs agrees with the cfg-gated Rust code even when a shell has a stale exported `$TierSchemeAssets` from a previous build tier. If the env file is found but the key is absent, the function returns `None` immediately rather than falling through to a parent directory — preventing accidental cross-project key leakage.",
-			"SHA": "4ba376b9241d0f9cc58e68f6cb1be03affa8000c"
+			"Message": "feat(Mountain): Add TierSchemeAssetsFileSystem cfg feature flag\n\nIntroduce the `TierSchemeAssetsFileSystem` feature flag alongside the existing `TierSchemeAssetsHybrid` gating in Cargo.toml. When enabled (via `TierSchemeAssets=FileSystem` in `.env.Land`), assets are served from disk via the `static_root` fallback path with `frontendDist: null`, rather than being embedded or served in hybrid mode.\n\nAlso removes the unused `fs` import in InitializationData.rs that was left over from prior refactoring.\n\nThe bundled `Target/debug/Mountain/index.html` changes are incidental rebuild artifacts — asset content-hash and timestamp updates from the build process, no semantic change.\n\nRefs the tier-configuration scheme introduced in 4ba376b9.",
+			"SHA": "1e601e16bea86ac97efd00dd27b98ff5499d55b0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-21T21:56:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1580,
+				0
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "c29ead747a6543b2aa61957457ddf3f728b06893"
 		}
 	],
-	"TimeStamp": 1780934933736
+	"TimeStamp": 1781048770075
 }
