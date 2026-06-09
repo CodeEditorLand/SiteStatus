@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:29:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				224,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "842a79df562bc93fdaa122204343e99fa39933e9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:29:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				224,
-				1
-			],
-			"Message": "feat(Output): Expose URI class to SkyBridge search provider\n\nAdd the `URI` class from vscode-uri to the workbench accessor exports so Sky-side bridges can construct real URI instances that the workbench accepts directly.\n\nThe workbench's SearchService deduplicates results by calling `getComparisonKey(uri)` which invokes `uri.with(...)`. Returning raw URIComponents POJOs causes \"uri.with is not a function\" errors. The exposed URI class has the full prototype chain (`.with()`, `.fsPath`, `.toString()`) needed by SkyBridge's search provider result rows.",
-			"SHA": "7b179e1a9caddb1f048473c766f7437cadffc35c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:00:12Z",
-			"File": [
-				"⣿⣿⠇⠀⠀",
-				224,
-				104
-			],
-			"Message": "",
-			"SHA": "6b389ee08b3b3d3833c484dfc1e6916ef5f13c84"
-		},
-		{
 			"Author": "Auto",
-			"Date": "2026-04-26T03:33:22Z",
+			"Date": "2026-04-29T03:39:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				172,
+				267,
 				1
 			],
 			"Message": "",
-			"SHA": "ab41e62bdffaf301fab60ca52b40cc3d29880f70"
+			"SHA": "c7eef6cacab62664fa2fd8f62cd83b84fcfc397a"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-04-25T02:54:41Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T02:08:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				172,
-				1
+				267,
+				3
 			],
-			"Message": "",
-			"SHA": "c2d3422523eb8dc1a8dc08ad0575ac7cc5aa8605"
+			"Message": "fix(Output): Fix ExposeWorkbenchAccessor import markers and add service error isolation\n\nTwo fixes to the ExposeWorkbenchAccessor transform that were causing SkyBridge bridges to silently fail:\n\n1. Import marker quote style: The transform was using single-quote import markers that matched stock VS Code source, but esbuild/Land's Output bundler rewrites quotes to double quotes in the post-bundle file. The marker mismatch caused `Source.includes(ImportMarker)` to return false, silently no-opping the entire `__CEL_SERVICES__` patch. All SkyBridge hooks (search registration, SCM, status bar, tree views) were offline because `__CEL_SERVICES__` stayed undefined.\n\n2. Service error isolation: Each `invokeFunction` is now wrapped in its own try-IIFE. Previously, a single failed service lookup (interface decorator missing in this profile, service not yet registered) would throw out of the entire `__CEL_SERVICES__` object literal, leaving the whole facade undefined. Now each service degrades to `null` individually, preserving all other bridges.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNodeModulesPath + expose IMarkerService)",
+			"SHA": "f55a02821a2d7acad85060cf17796f62fda700d9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T01:03:39Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				267,
+				8
+			],
+			"Message": "feat(Output): Add RewritePerfBaselineWorker transform\n\nAdd a new build transform that fixes worker bootstrap crashes in the\nbundled editor's timer service. The transform replaces\n`timerService.js`'s `(function() { ... __name(fib, \"fib\"); ... }).toString()`\nperfBaseline worker source with a literal-string equivalent that omits\nthe cosmetic `__name(...)` decoration.\n\nSame OXC-mangling-truth fix as `RewriteNestedWorkerBootstrap`: when Vite\ninlines `timerService.js` into Sky's `_astro/partsSplash.*.js` chunk,\nthe chunk's `__name` helper gets mangled (e.g., `$4e`). The IIFE captured\nby `.toString()` carries the mangled `$4e` reference; the worker scope\nhas no `$4e` defined and crashes at module-eval with `ReferenceError:\nCan't find variable: $4e`. The literal-string replacement is\nmangler-immune.\n\nAlso update prepublishOnly.sh to gate debug profiles on `Debug=true`\ninstead of `NODE_ENV`. Tauri's `.env` file was silently overriding\nBuild.sh's `NODE_ENV=development` export, forcing `out-build` (mangled)\neven for debug builds that should pull from readable `out/`.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNestedWorkerBootstrap)",
+			"SHA": "14cc0d5941bd561c41c6d5ffd190256cc92eafb9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T23:06:23Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				264,
+				10
+			],
+			"Message": "feat(Output): Add RewriteNodeModulesPath transform and expose IMarkerService\n\nAdd a new build transform and update an existing one:\n\n1. RewriteNodeModulesPath: Patch `vs/base/common/network.js`'s hardcoded paths (`vs/../../node_modules`, `vs/../../extensions`, etc.) to drop one `../` segment. Without this, the dev server resolves to `/Static/node_modules/` instead of `/Static/Application/node_modules/`, returns SPA `index.html` fallback, and all grammar/tokenization (textmate, oniguruma, language-detection) silently breaks across every extension.\n\n2. ExposeWorkbenchAccessor: Expose `IMarkerService` on `__CEL_SERVICES__.Markers` so SkyBridge can push extension diagnostics (rust-analyzer, TypeScript, ESLint) into the workbench. Mountain emits `sky://diagnostics/changed` events; the bridge now calls `Markers.changeOne(owner, uri, markers)` to paint red squiggles and populate the Problems panel.\n\nBoth transforms are idempotent and added to the BuildPipeline after RewriteNestedWorkerBootstrap.",
+			"SHA": "cf8dea549df816cc3b534beb9449f90bf678f69f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-28T21:54:01Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				261,
+				45
+			],
+			"Message": "feat(Output): Fix Monaco worker bootstrap crashes and add polyfill telemetry\n\nAdd two new build transforms that fix worker bootstrap crashes in the bundled editor:\n\n1. InjectWorkerBootstrapShim: Injects `__name`/`__defProp` shim into `webWorkerServiceImpl.js::getWorkerBootstrapUrl` blob factory so Monaco's language workers (TS/CSS/HTML/JSON services, semantic tokens) inherit the helpers in their module scope. Without this, workers crash with `ReferenceError: Can't find variable: $4e` when Vite/OXC mangling renames `__name` to `$4e`.\n\n2. RewriteNestedWorkerBootstrap: Replaces `polyfillNestedWorker.js`'s `(function... ).toString()` pattern with a literal JSON.stringified source that omits the cosmetic `__name(...)` decorations. The `.toString()` approach returns mangled source (`$4e`) which the blob worker can't evaluate since the identifier isn't defined in its scope.\n\n3. RewriteStaticBlockSelfRef: Replace hardcoded 2-file whitelist with auto-detection across all `vs/*.js` files - the whitelist silently failed because VS Code's out-build mangler emits different class names than expected.\n\n4. InstrumentVscodeGit: Add markers F (createModel done) and L (openRepository getRepositoryRoot done) for finer-grained Git extension activation diagnostics.\n\n5. Telemetry: Add global `__LAND_POLYFILL_TELEMETRY__` hook and wire it into ChildProcessPolyfill, IPCRendererShim, ProcessPolyfill, and SharedProcessProxy to route silently-caught failures to PostHog for monitoring.",
+			"SHA": "e0fda068f1befeb3a76f470689b34bd8378fe554"
 		}
 	],
-	"TimeStamp": 1780149362683
+	"TimeStamp": 1780934936372
 }

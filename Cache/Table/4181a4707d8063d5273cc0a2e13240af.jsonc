@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T23:43:06Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				28,
-				4
-			],
-			"Message": "chore(Project): Coordinate Element submodule updates across 4 components\n\nSynchronize Common, Mountain, Sky, and Wind submodules with the following changes:\n\n**Features:**\n- Sky: Add LAND_ENABLE_WIND to conditionally skip Wind bootstrap (Atom N2) — introduces environment variable that enables \"Mountain + bare workbench\" integration tests when set to \"false\" at build time. Vite inlines the comparison for tree-shaking, producing the smallest shippable surface where gRPC/Tauri IPC isn't desired. Mirrored into Vite's define config with default \"true\".\n- Wind: Add InstallVsix and Uninstall to ExtensionsService (Atom K5) — implement the contract with methods that accept .vsix path/file:// URI for installation, returning the ILocalExtension envelope from Mountain. Uninstall resolves with true after Mountain removes the install directory and broadcasts the uninstalled event. Refactor all IPC invokes to use the Channel registry instead of free-text string literals for compile-time validation. Prior implementation was a no-op stub returning null.\n\n**Updates:**\n- Common: Minor update\n- Mountain: Minor update\n\nThese changes deliver conditional Wind bootstrapping for minimal builds and enable functional VSIX extension management in the editor.",
-			"SHA": "2ab3a64ceb14da69d1557cea9ce17c9c56416411"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T23:01:19Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				28,
-				4
-			],
-			"Message": "",
-			"SHA": "4eb5dad7433ecfac221aaa6e744e7bce1e21d98a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T21:48:14Z",
+			"Date": "2026-04-23T00:02:12Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "refactor(Sky): Use static fs imports in StripDanglingSourceMaps\n\nReplace dynamic `await import(\"node:fs/promises\")` calls with top-of-file static bindings in the StripDanglingSourceMaps function. Dynamic imports crash with \"Vite module runner has been closed\" because this runs inside `astro:build:done`, after Vite tears down its ModuleRunner. Also switch to `readdir` with `{ withFileTypes: true }` to get `Dirent[]` instead of `string[]`, enabling type-safe `Entry.name` and `Entry.isDirectory()` checks instead of separate `stat` calls.\n\nThese changes ensure the source map stripping process (Step 11b in CopyVSCode) runs reliably during the build.",
-			"SHA": "cba20cb80d0db2723e57aaf06b75711472349593"
+			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object args ({ path, encoding: \"utf8\" }) and the response was assumed to be a string. Mountain actually returns raw bytes as { buffer: number[] } and ignores the encoding param entirely. When VS Code loaded binary files (WASM, fonts, images), the response body became \"[object Object]\" which corrupted the data. This broke TextMate syntax highlighting with: \"WebAssembly.Module doesn't parse at byte 0: module doesn't start with '\\0asm'\".\n\nFix by: 1) Invoking file:read with positional array args [path] as expected by MountainIPCInvoke 2) Adding UnwrapReadResult() to unwrap { buffer: number[] } into Uint8Array for binary-safe Response bodies 3) Updating content type to Uint8Array | string | Blob | null. All three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler, FileHandler) now use the binary-safe pattern.\n\nThis restores TextMate grammar loading and binary asset handling.",
+			"SHA": "5864c4e9c32ce3903e9f1ec3efae89b372751099"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T20:58:58Z",
+			"Date": "2026-04-22T23:44:51Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				28,
 				2
 			],
-			"Message": "chore(Project): Coordinate Element submodule updates across 2 components\n\nSynchronize Cocoon and Sky submodules with the following changes:\n\n**Features:**\n- Sky: Add vscode-file and vscode-webview-resource URI schemes to Content Security Policy across all editor entry points (Browser, BrowserProxy, Electron, Mountain, index). These schemes are required to load resources from VS Code platform code copied during the build.\n- Sky: Implement Step 11b in CopyVSCode build process to strip dangling `//# sourceMappingURL=…` comments from copied JS files without sibling .map files. Without this, Safari fetches missing maps, receives 404 HTML, and surfaces a SyntaxError for every such file on page load.\n\nThis coordinated update ensures the editor can properly load VS Code platform resources and eliminates Safari build warnings.",
-			"SHA": "85d88e98d7b537625274033a6865d50fdab1fe96"
+			"Message": "build(Project): Coordinate Element submodule updates across 2 components\n\nSynchronize Mountain and Output submodules with the following changes:\n- **Mountain:** Expand v2.1 changelog with April 17–22 commits (documentation-only update).\n- **Output:** Add CatchOutputFolderRejection transform plugin — Step 15 in the build pipeline catches an unhandled promise rejection from VS Code's outputServices.createFolder(). In Land, the VFS-IPC stat call rejects with FileNotFound before fileService can swallow it, causing the rejection to propagate past the .then(() => undefined) handler and surface as telemetry noise in PostHog. The plugin uses regex match against outputServices.js to append .catch(() => undefined) to the createFolder chain, silencing the harmless rejection since the output folder is created lazily on first channel write.\n\nThis coordinated update delivers documentation refresh and telemetry noise reduction while maintaining identical runtime behavior.",
+			"SHA": "0ecb3ed18924a00c4ab770e021efb0da418d50b7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T18:58:09Z",
+			"Date": "2026-04-22T23:44:18Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "fix(Project): Distinguish user vs built-in extensions, add IPC stubs\n\nCoordinate fix across Mountain, Output, and Wind submodules:\n\n- **Mountain:** Add `IsUserExtensionScanPath()` helper to detect whether a scan directory represents the user-writable `~/.land/extensions` root versus bundled paths like `Resources/extensions` and VS Code's submodule. Previously every extension was marked `IsBuiltin = true` regardless of source, causing user-installed VSIXes to appear under \"Built-in\" in the Extensions sidebar and leaving `@installed` (which filters for User-scope) empty.\n\n- **Output/Wind:** Add missing stub handlers in TauriMainProcessService to prevent renderer crashes when VS Code code calls unimplemented services: extension tips (empty arrays), MCP management (empty arrays), user data sync (status tuple), and language detection (empty extensions). These stubs return safe empty values matching the absence of corresponding backends in Land.\n\nImpact: User VSIX extensions now appear correctly under \"Installed\" (not \"Built-in\") and VS Code workbench code gracefully handles the lack of sync/tips/MCP/language detection backends without crashing.",
+			"SHA": "2af35a6c2d381bb04045e0d3344f14f1fe92a056"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T22:55:15Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "fix(Mountain): Inject security.workspace.trust.enabled=false by default\n\nAtom I7: Add logic to AppLifecycle to ensure the VS Code workspace trust system is disabled in User/settings.json. Without this, opening the Land repo as a workspace triggers VS Code's trust gate which marks built-in extensions as `DisabledByTrustRequirement` because they ship under `Element/Sky/Target/Static/Application/extensions/` — inside the repo.\n\nThis writes `\"security.workspace.trust.enabled\": false` only if the key isn't already present. Users can opt back in by editing their User/settings.json.\n\nThis ensures built-in extensions load reliably regardless of which folder the user picks as their workspace.",
-			"SHA": "4da3261d6c115399b48925f7767f23efeb291678"
+			"Message": "fix(Mountain): Ensure extension manifest fields and type filtering work correctly\n\nTwo related fixes address extension loading failures and missing activation:\n\n1. **Manifest field serialization** (`Extensions.rs`, DTOs): Remove `skip_serializing_if = \"String::is_empty\"` from `Name`, `Version`, `Publisher` fields. VS Code's trusted-publishers migration calls `manifest.publisher.toLowerCase()` at boot—if the key is omitted, the renderer crashes with `TypeError: undefined is not an object`. Add IPC handler hardening to inject explicit fallback values (\"unknown\") when fields are missing.\n\n2. **Extension type filtering** (`Extensions.rs`, `mod.rs`): Respect the `ExtensionType` filter passed to `getInstalled(type?)`. Previously all calls returned the full list as `type: 0, isBuiltin: true`. Now System extensions (type=0) and User extensions (type=1, including VSIX) are properly distinguished. Forward filters from `scanSystemExtensions` and `scanUserExtensions` handlers.\n\n3. **Post-install activation** (`Extension.rs`): Fire `onStartupFinished` activation events after `$deltaExtensions` adds an extension. Without this, extensions like `Anthropic.claude-code` register but never activate—sidebar contributions silently no-op until restart.\n\n4. **Log file eager init** (`Entry.rs`, `DevLog.rs`): Call `InitEager()` at binary startup to preserve logs before any panic. Fix `BinarySignature()` PascalCase splitting. Expand benign ENOENT ignore list.\n\nImpact: VSIX extensions now show under \"Installed\" with Uninstall, activate immediately after install without reload, and the Extensions sidebar refresh works correctly.",
+			"SHA": "75cf03921a7c58ba540974f2d06ac58bfc3f3235"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T22:17:39Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				28,
+				1
+			],
+			"Message": "fix(Mountain): Add shutdown guard and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings.\n\nExtend static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader resolves asset URLs relative to the current document, which strips the leading slash before reaching the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.\n\nThis prevents spurious shutdown warnings, fixes TextMate grammar loading, and reduces log noise.",
+			"SHA": "8adf5bfc83b8f1bb64be9883facf6d0933a64315"
 		}
 	],
-	"TimeStamp": 1780149369473
+	"TimeStamp": 1780934943724
 }

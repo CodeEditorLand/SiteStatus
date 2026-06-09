@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:20:51Z",
+			"Date": "2026-04-24T15:37:49Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
 				28,
 				3
 			],
-			"Message": "fix(Project): Coordinate extension scanning and file URI handling fixes\n\nThree related fixes improve extension host integration:\n\n- **Mountain:** Add `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes from URIs before creating PathBuf. Applies to all 8 FileSystem operations (ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, Copy). This fixes redhat.java extension activation failure with \"Resource not found: file:///...\" errors.\n\n- **Output:** Separate system and user extension scanning in ExtensionScannerIPC. Now calls `extensions:scanSystemExtensions` for ForceBuiltin=true and `extensions:scanUserExtensions` for ForceBuiltin=false. Previously all extensions were hardcoded as builtin, causing user VSIXes to appear under @builtin in the sidebar. Also implements the stubbed `scanUserExtensions()` method.\n\n- **Cocoon:** Minor submodule sync.\n\nImpact: User-installed extensions now appear under \"Installed\" (not \"Built-in\") and file operations correctly resolve paths from gRPC FileSystem calls.",
-			"SHA": "3b8390aef4f7de9ea413273d2829f52b1a8bc17c"
+			"Message": "feat(Project): Add land-native search provider and expose ISearchService\n\nCross-cutting search integration across Sky, Output, and Mountain:\n\n- **Sky (b4358aa9):** Add search result provider routing VS Code's Search viewlet queries through Mountain's `search:findFiles` / `search:findInFiles` handlers. The stock web's `RemoteSearchService` relies on File System Access API which returns `undefined` for Mountain-based filesystem, causing silent zero-result returns. New provider registers for both `file` (0) and `text` (1) search types, translating Mountain hits into `IFileMatch` shape. Also add global exception cap to PostHogBridge to prevent CDN limit flooding (configurable via `LAND_POSTHOG_SKY_EXCEPTION_GLOBAL_LIMIT`, defaults to 7).\n\n- **Output (f651b48f):** Extend ExposeWorkbenchAccessor ESBuild transform to expose ISearchService alongside existing Statusbar, Commands, and CommandRegistry services. Adds require for `vs/workbench/services/search/common/search` and includes `Search` entry in `__CEL_SERVICES__` global, enabling Sky-side bridge code to access search service without re-entering AMD loader.\n\n- **Cocoon (5bc55a9f):** Submodule sync.\n\nImpact: Search functionality now works in the Land editor with Mountain-based filesystem. PostHog exception telemetry respects CDN rate limits.",
+			"SHA": "b0c61117bc38976c071b8690baa6017a75eec5c4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:40:14Z",
+			"Date": "2026-04-24T15:08:08Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				28,
 				2
 			],
-			"Message": "fix(Wind): Align FileSystemProviderError names with VS Code's token format\n\nWind's FileSystemErrorCode uses key-like values ('FileNotFound', 'FileExists'), but VS Code's toFileSystemProviderErrorCode extracts the token from error.name and switches on 'EntryNotFound', 'EntryExists', etc. Add a mapping function VsCodeErrorCodeToken to translate between the two formats. Also set this.name to the '<code> (FileSystemError)' pattern that VS Code's markAsFileSystemProviderError() expects. Remove individual name assignments from subclasses since the base class now handles naming.\n\nWithout this fix, mkdirp and validateWriteFile treat missing-file/dir errors as unknown and rethrow, surfacing as unhandled rejections like 'Unable to write file .../tasks.log (Error: Failed to stat file ...)'.\n\nThis is a coordinated update with Cocoon (submodule sync).",
-			"SHA": "1a7667bfc7b1461b709cc31a642cd76a71431b93"
+			"Message": "feat(Mountain): Add trusted system paths bypass and idempotent VSIX installs\n\nUpdate Mountain submodule with two related extension-management improvements:\n1. **Trusted system paths** (`PathSecurity.rs`): Add `IsTrustedSystemPath` that defines directories Land owns (`.land/`, Application Support, bundled extension roots, TMPDIR) which bypass the workspace-folder sandbox check. Enables the extension scanner to read `~/.land/extensions` for user-installed VSIXes.\n2. **Idempotent VSIX reinstalls** (`VsixInstaller.rs`): Remove `AlreadyInstalled` error and treat re-installs as no-op when target already exists with a readable manifest. Matches VS Code semantics and prevents renderer crash from null result dereference. Corrupt/partial installs are wiped and re-extracted.\n\nBoth changes unblock the extension loading pipeline, allowing user-installed extensions to appear in the Extensions sidebar.",
+			"SHA": "dffce14837d3c5824a7fff68ae59a46f40915955"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:28:58Z",
+			"Date": "2026-04-24T14:49:36Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
+				"⣿⠁⠀⠀⠀",
 				28,
-				4
+				6
 			],
-			"Message": "fix(Project): Coordinate extension compatibility and IPC channel fixes\n\nFour related fixes improve extension host integration and IPC routing:\n\n- **Cocoon:** Add missing TextEditorCursorStyle (.Line, .Block, etc.) and UIKind (.Desktop, .Web) enums that extensions like vscodevim and gitlens depend on at activation. Also add stub terminal shell-integration event handlers to prevent crashes.\n\n- **Mountain:** Return correct Cocoon PID via GetCocoonPid() instead of Mountain's own PID. The renderer needs this to correlate extension-host debug adapters with the actual Node.js process. Also register walkthrough commands as no-ops for claude-code extension.\n\n- **Output:** Fix CatchOutputFolderRejection regex to match both `() => undefined` and minified `() => void 0`. Correct userDataSync channel names: `userDataSyncService` → `userDataSync`, `userDataSync` → `userDataSyncAccount` per VS Code source.\n\n- **Wind:** Sync userDataSync IPC channel names to match Output and VS Code registration.\n\nImpact: Extensions with cursor styling and UI detection now activate without crashes, debug adapters attach to the correct process, and user data sync IPC routes correctly.",
-			"SHA": "93496cae35dfe1651b356c15770bbe7ae25f0dd5"
+			"Message": "feat(Project): Wire status bar and command bridges, enhance dev diagnostics\n\nCross-cutting integration across Output, Sky, and Mountain submodules:\n\n- **Output (354c448c):** Enhance ExposeWorkbenchAccessor transform to pre-resolve concrete service instances (IStatusbarService, ICommandService, CommandRegistry) into globalThis.__CEL_SERVICES__ during workbench startup. Allows Sky-side bridge code to call methods directly without re-entering the AMD loader.\n\n- **Sky (ea2932ae):** Wire status bar and command bridges into workbench services. Extension-contributed status bar items (from `vscode.window.createStatusBarItem()`) now route through `IStatusbarService.addEntry()`. Add command bridge layer: `sky://command/execute` invokes `ICommandService.executeCommand`, `sky://command/register` registers into CommandsRegistry with fan-out back to Cocoon, `sky://command/unregister` disposes.\n\n- **Mountain (f1de83d5):** Add payload preview (160 bytes max) to notification-drop logging for diagnostic clarity. Register benign ENOENT paths: MCP config files, user snippets/keybindings, AI workspace storage, git config for non-repos.\n\n- **Common + Maintain:** Dependency bumps for pozil/auto-assign-issue (2.2.0→3.0.0) and @cloudflare/workers-types.\n\nImpact: Extension status bar items now render in native VS Code DOM. Extension commands execute against the workbench with proper bidirectional binding.",
+			"SHA": "c8d8c6d920b73f5f434c53c659ab2ebb01f4ed74"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:02:12Z",
+			"Date": "2026-04-24T12:36:23Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				28,
 				1
 			],
-			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object args ({ path, encoding: \"utf8\" }) and the response was assumed to be a string. Mountain actually returns raw bytes as { buffer: number[] } and ignores the encoding param entirely. When VS Code loaded binary files (WASM, fonts, images), the response body became \"[object Object]\" which corrupted the data. This broke TextMate syntax highlighting with: \"WebAssembly.Module doesn't parse at byte 0: module doesn't start with '\\0asm'\".\n\nFix by: 1) Invoking file:read with positional array args [path] as expected by MountainIPCInvoke 2) Adding UnwrapReadResult() to unwrap { buffer: number[] } into Uint8Array for binary-safe Response bodies 3) Updating content type to Uint8Array | string | Blob | null. All three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler, FileHandler) now use the binary-safe pattern.\n\nThis restores TextMate grammar loading and binary asset handling.",
-			"SHA": "5864c4e9c32ce3903e9f1ec3efae89b372751099"
+			"Message": "",
+			"SHA": "d91cefa8472012d220ca9106e73e3be470108e40"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:44:51Z",
+			"Date": "2026-04-24T12:28:33Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
+				"⣿⣿⠁⠀⠀",
 				28,
-				2
+				12
 			],
-			"Message": "build(Project): Coordinate Element submodule updates across 2 components\n\nSynchronize Mountain and Output submodules with the following changes:\n- **Mountain:** Expand v2.1 changelog with April 17–22 commits (documentation-only update).\n- **Output:** Add CatchOutputFolderRejection transform plugin — Step 15 in the build pipeline catches an unhandled promise rejection from VS Code's outputServices.createFolder(). In Land, the VFS-IPC stat call rejects with FileNotFound before fileService can swallow it, causing the rejection to propagate past the .then(() => undefined) handler and surface as telemetry noise in PostHog. The plugin uses regex match against outputServices.js to append .catch(() => undefined) to the createFolder chain, silencing the harmless rejection since the output folder is created lazily on first channel write.\n\nThis coordinated update delivers documentation refresh and telemetry noise reduction while maintaining identical runtime behavior.",
-			"SHA": "0ecb3ed18924a00c4ab770e021efb0da418d50b7"
+			"Message": "",
+			"SHA": "468d49f05b4c032a8d2f91a713d29a582f90aec5"
 		}
 	],
-	"TimeStamp": 1780149368083
+	"TimeStamp": 1780934942264
 }

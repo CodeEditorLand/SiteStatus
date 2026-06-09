@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:45:46Z",
+			"Date": "2026-05-22T05:37:50Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				129,
-				1
+				"⠁⠀⠀⠀⠀",
+				138,
+				2
 			],
-			"Message": "chore(Project): Synchronize Element submodule for language provider dispatch and handler deduplication\n\nAdvance the Element submodule from ba4e373c to b0d4545a, pulling in Cocoon language provider wiring, Mountain notification handler consolidation, and Output script formatting fixes.\n\nKey modifications across components:\n- **Cocoon**: Wire six new `$provide*` dispatch methods into the InvokeLanguageProvider handler table — `$provideInlineCompletion`, `$provideInlineEdit`, `$provideMultiDocumentHighlight`, `$provideMappedEdits`, `$provideDocumentPasteEdit`, and `$provideDocumentDropEdit`. This extends coverage from 17 to 23 handled `$provide` methods, closing the round-trip for all 6 Mountain RPC language provider registrations added upstream.\n- **Mountain**: Collapse 16 near-duplicate Cocoon-to-Mountain notification handlers into 2 shared helpers under a new `Support/` submodule — `RelayToSky` (generic Tauri sky:// event emitter, replaces 11 handlers) and `UnregisterByHandle` (generic provider handle deregistration, replaces 6 handlers). Reduces net code by 164 lines with zero behavioural change.\n- **Output**: Normalize case-statement indentation in `Run.sh` and `prepublishOnly.sh` from mixed tabs/spaces to consistent 0-tab indent. Whitespace only, no functional change.\n\nAlso includes an empty marker commit (b0d4545a) with no file changes or message.",
-			"SHA": "3e22c74b3fb1135156ebb7206b17a947110ea4e0"
+			"Message": "feat(Project): Advance Element; drop redundant PreBake from Build.sh\n\nThe Element submodule now bakes the extension manifest cache during Mountain's own build process, making the temporary Maintain/Build/Manifest/PreBake.ts invocation from Build.sh redundant. Remove the outsourced PreBake call site.\n\nElement (7a67305f) wires the extension host bridge across Cocoon, Mountain, and Common (388 gRPC methods for secrets, storage, activation, language providers, VSCode API namespaces); implements workbench services in Sky (bulk edits, notifications, quick pick, SCM); regenerates Wind/Output/Worker codegen stubs; and normalises formatting across 7 submodules. Mountain's boot-time extension scan is now definitively reduced from ~1200 ms to <50 ms via the pre-baked cache read, baked at Mountain build time rather than at Land build time.",
+			"SHA": "59a4b0c11519c796206df431346aacc5617a4199"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:42:57Z",
+			"Date": "2026-05-22T05:37:11Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				138,
+				3
+			],
+			"Message": "feat(Maintain): Pre-bake extension manifest cache for Mountain startup\n\nMountain's live scan of every extension directory's package.json at boot costs approximately 1200 ms on cold start. Replace that sequential disk walk with an mmap'd pre-baked cache written at build time.\n\nIntroduce Maintain/Build/Manifest/PreBake.ts — a standalone Node script that walks the same extension roots Mountain's ScanPathConfigure.rs enumerates (Sky's bundled extensions, .land, .fiddee, and .vscode), parses each package.json, and writes a single compact JSON blob to Element/Mountain/Target/debug/extensions.manifest.json. The script is idempotent: it skips the write when every scanned package.json is older than the cached blob, keeping rebuild times minimal.\n\nWire the pre-bake into Maintain/Debug/Build.sh after the Brotli step, with a graceful fallback to the live scan when tsx is unavailable.\n\nAlso fix .prettierignore: the existing Element/*/Configuration/ entry (trailing slash) skips directories but does not match individual file-path checks performed by the prettier ignore package. Add Element/*/Configuration/** as a complementary pattern so both policy layers are covered.\n\nCold boot extension scanning drops from ~1200 ms to <50 ms.",
+			"SHA": "54f10ca2e635f403e693db750cde65ce78c4d5de"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T03:17:36Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				136,
+				24
+			],
+			"Message": "style(Maintain): Normalize remaining shell script formatting edge cases\n\nFollow up the initial c38f6b59 shell style pass with comprehensive edge-case normalization across all files under Maintain/.\n\nshfmt-consistent case branch indentation applied to the top-level dispatch in Profile.sh, SmokeProfiles.sh, and TelemetryTreeShake.sh that was missed in the first pass. Pipe chain continuation syntax standardised in GenerateRouteManifest.sh and TelemetryTreeShake.sh (break after `|`, no leading pipe).\n\nRedirect operator spacing normalised to the `> /dev/null` convention for:\n  - File write redirects (`cat > \"$File\"`, `printf \"...\" >> \"$File\"`)\n  - Stderr suppression redirects (`2> /dev/null`)\n  - stdout+stderr combined (`> /dev/null 2>&1`)\n  - Inline conditions (`command -v node > /dev/null 2>&1`, `plutil -lint > /dev/null 2>&1`)\n  - Background calls (`\"$BINARY\" > /tmp/smoke_... 2>&1 &`)\n\nAdded `# shellcheck disable=SC2164` directives to AbsorbGitDirs.sh, CommitGraph.sh, GarbageCollect.sh, PruneRemote.sh, and Sync.sh where `cd \"$Root\"` lacks error handling — the ShellCheck lint was introduced as part of the style pass.\n\nZero runtime behaviour changes.",
+			"SHA": "6e171a0fa1bba28177f644365af116392279a44d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T03:16:25Z",
+			"File": [
+				"⣿⠀⠀⠀⠀",
+				136,
+				26
+			],
+			"Message": "style(Maintain): Normalize shell script indentation and redirects\n\nReformat all shell scripts under Maintain/ to consistent tab-based indentation for case statements (single tab per branch level) and no-space redirect operator syntax (`>/dev/null 2>&1`). Pipe chains restructured to break after `|` consistently. Python formatters receive minor quote-style and line-wrap lint corrections for internal consistency.\n\nNew Maintain/Repository/ pipeline added — Repository.sh orchestrates five health stages: Sync.sh (propagate .gitmodules URLs into local .git/config), AbsorbGitDirs.sh (move embedded submodule .git/ into .git/modules/ tree), GarbageCollect.sh (pack loose objects, prune unreachable across root + submodules), CommitGraph.sh (write commit-graph with --changed-paths for 10-100x ancestry speedup), and PruneRemote.sh (remove stale remote-tracking refs).\n\nZero runtime behaviour changes in existing build scripts — purely cosmetic and structural cleanup.",
+			"SHA": "38f6b59f05ab6cd8c63253e8b61f2b4b8ca8c574"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T03:08:18Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				129,
 				3
 			],
-			"Message": "chore(Project): Bump devDependencies and synchronize both submodules\n\nUpdate Land's root package.json devDependencies and advance the Dependency and Element submodules to their latest commits, pulling in tooling refinements and the expanded IPC surface.\n\n**package.json:** Bump prettier-plugin-java to 2.9.2 and turbo to 2.9.14.\n\n**Dependency submodule (Maintain):** Refactor all shell scripts with explicit backslash-prefixed command names to prevent alias shadowing. Add `Maintain/Pull/Dependency.sh` and `Maintain/Pull/Tauri.sh` to automate upstream merge workflows for dependency forks and Tauri ecosystem sub-dependencies. Fix escape sequence in Dependency.sh for consistency.\n\n**Element submodule (all 8 components):**\n- **Mountain** — Complete terminal state serialization/revival cycle (`SerializeTerminalState`, `ReviveTerminalProcesses`) for workbench reload persistence. Wire six new language provider registrations (inline completion, inline edit, multi-document highlight, mapped edits, document paste, document drop) targeting VS Code >=1.87 API. Implement `configuration:inspect`, `configuration:lookup`, `themes:getColorTheme` IPC handlers and unwrap `ShowOpenDialog`/`ShowSaveDialog` envelope shapes. Convert sandbox config paths from `file://` URL to OS-native form to prevent double-encoding. Stub `log:registerLogger`/`log:createLogger` to avoid boot-time crashes and register terminal show/hide gRPC handlers.\n- **Common** — Add five IPC channel definitions (`ConfigurationInspect`, `ConfigurationLookup`, `ExtensionsGetManifest`, `ExtensionsResetPinnedState`, `ThemesGetColorTheme`) via `DefineChannels!`.\n- **Cocoon** — Rebuild all 40 ESBuild bundles against refreshed RouteManifest now tracking 130 Mountain RPC methods (up from 120).\n- **Wind** — Regenerate upstream stubs and add the five new IPC channels to the Mountain-Wind boundary catalog.\n- **Air, Maintain, Rest, Sky** — Replace Unicode typographic dashes with ASCII hyphens throughout rustdoc, Mermaid diagrams, and inline comments for cross-platform rendering consistency.",
-			"SHA": "0d0837cc3445bf1a9691354ff5d16561b9fa7350"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T04:45:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				129,
-				1
-			],
-			"Message": "chore(Project): Synchronize Element submodule for sandbox config fix and doc refresh\n\nUpdate the Element submodule from 08ff6e0f to b3e613ba, pulling in a critical fix for extension host startup and build system documentation improvements.\n\nKey modifications across components:\n- **Mountain**: Supply eight missing non-optional `INativeWindowConfiguration` fields (`perfMarks`, `loggers`, `colorScheme`, `mainPid`, `os`, `dataFolderName`, `sharedDataFolderName`, `version`) in `ConstructSandboxConfiguration`. Omitting these caused `TypeError` crashes during extension host initialization and workbench service construction.\n- **Maintain**: Rewrite the Mermaid architecture diagram in README.md with internal module subgraphs (Build CLI, Rhai scripting, Run logic), shell entrypoints, and build artifact classDefs. Fix a literal tab character in PlistEdit.rs replacing it with the escaped `\\t` byte.\n- **Cocoon**: Rebuild Target artifacts and synchronize RouteManifest timestamps — confirming build pipeline consistency with no source-level changes.\n\nThese changes prevent extension host startup crashes, improve build system documentation, and keep compiled artifacts aligned with source revisions.",
-			"SHA": "9f3d23ed920cd1f1713ec94b1d134d28e44aec15"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T04:22:26Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				129,
-				1
-			],
-			"Message": "chore(Project): Integrate Mountain gRPC across Cocoon and synchronize Element submodules\n\nUpdate the Element submodule from ec5306a2 to 08ff6e0f, pulling in two layers of integration work: architecture detection optimization in Cocoon and the native file descriptor API in Mountain, followed by the complete wiring of Mountain gRPC across Cocoon's command synchronization, extension registry, storage persistence, and command execution event surfaces.\n\nKey modifications across components:\n- **Cocoon**: Wire MountainGRPCClientService for bidirectional command sync, merge ILocalExtension manifests from Mountain into ExtensionRegistry, replace Memento stubs with Mountain-backed persistence, and subscribe to onDidExecuteCommand events. Optimize DetectWebArchitecture with a direct synchronous process.arch check. Purge stale Target/ build artifacts.\n- **Mountain**: Implement file:open/file:close IPC backed by a process-global HashMap<u32, File>, refine Tauri window handlers (setDocumentEdited, setMinimumSize, positionWindow), eliminate polling in is_alive, reduce terminal startup latency from 120ms to 20ms and command registration yield from 50ms to 20ms. Add CustomEditorProvider registry, route watch_file/resize_terminal to real FSEvents/inotify and PTY SIGWINCH, add extensions:activate handler, introduce StorageWriteDebouncer with 100ms coalescing, strip osascript from getCursorScreenPoint, and fix logsPath in ISandboxConfiguration.\n- **Common**: Add ExtensionsActivate IPC channel mapping to complete the extension activation signal chain.\n- **Output**: Register five new channel bridges for VFS file changes, configuration updates, workspace folder changes, and lifecycle phase transitions — establishing a locked IPC contract with Wind's service layer.\n- **Wind**: Remove mock Effect.sleep(10) from MountainSyncHelper and prune hundreds of stale generated stubs and bridge shapes.\n- **Echo**: Advance to the latest development state.\n- **Documentation**: Redraw architecture diagrams across all components with detailed Mermaid subgraphs and accurate IPC flow annotations.\n\nThese changes close the last integration stubs between Cocoon and Mountain, optimize extension activation and command dispatch latency, eliminate polling overhead throughout the native backend, and align architectural documentation with the actual codebase.",
-			"SHA": "10870eb4ab3de674417e08d349946806d81d0516"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:43:57Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				129,
-				1
-			],
-			"Message": "chore(Land): Update Tauri and related plugin versions\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "9bcc4816106e27c5c852ab4e218de1d00ec4deff"
+			"Message": "chore(Land): Advance Element and Dependency submodules, bump prettier plugins\n\nAdvance the Element submodule to 3f441642, pulling in coordinated dependency bumps across nine submodules (Common, Echo, Output, Sky, Wind, SideCar, Cocoon, Rest, Worker) — including Cloudflare Workers types, Wrangler/Miniflare, semver, Astro/Vite, Effect Language Service, and a SideCar Node.js runtime upgrade to v24.16.0 for both platforms.\n\nAdvance the Dependency submodule to ff6a6bc2, syncing the Microsoft VS Code Editor fork to upstream Phase 10 & 10.5 with Claude agent session lifecycle consolidation, in-process MCP server for workbench tools, checkpoint service git integration, BYOK air-gapped support, and git-subdir marketplace plugin source kind.\n\nBump prettier-plugin-java 2.9.2→2.9.4 and prettier-plugin-svelte 3.5.2→4.0.1 in package.json to stay current with dev tooling releases.\n\nAll bumps are semver-compatible patches with zero runtime behaviour changes in the editor.",
+			"SHA": "7ed9bc4d2a988038f89a5d34b5ac3012e5a85850"
 		}
 	],
-	"TimeStamp": 1780149357314
+	"TimeStamp": 1780934932851
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:20:46Z",
+			"Date": "2026-05-22T05:35:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
+				1582,
+				2
+			],
+			"Message": "refactor(Mountain): Extract inline JSON blocks to avoid macro recursion limit\n\nThe `ConstructSandboxConfiguration` function builds the entire `ISandboxConfiguration` payload in a single deeply-nested `json!()` macro invocation. As the `profiles` and `productConfiguration` sections grew, the macro expansion exceeded Rust's recursion limit, causing compilation failures on certain toolchain versions.\n\nExtract the `nls`, `productConfiguration`, `os`, and `profiles` sub-objects into separate `json!()` calls bound to local variables (`NlsSection`, `ProductConfig`, `OsSection`, `ProfilesSection`), then reference them by name in the outer `json!()` invocation. This breaks the single deep expansion into multiple shallow ones, staying well within the recursion limit without changing any emitted values.\n\nNo behavioral change — all pre-built variables produce identical JSON to the previously inlined blocks.",
+			"SHA": "78820a9ee66e89a88169dab5bf7acb7b986c1eb3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T05:35:25Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1582,
+				19
+			],
+			"Message": "feat(Mountain): Complete Cocoon extension host bridge across providers, boot, and keyboard\n\nImplement the gRPC and provider-infrastructure layer for four extension-host features that Mountain forwards to Cocoon, three complementary improvements, and one build-config update.\n\n**Extension provider features:**\n\n- **Inline completion items** (GitHub Copilot, Roo Code, Continue): New `InlineCompletionItem` / `InlineCompletionContext` messages in Vine.proto, gRPC handler in `ProvideInlineCompletionItems.rs`, and `$provideInlineCompletionItems` dispatch from `FeatureMethods.rs` to Cocoon's registered provider. Registration flows through the generic notification dispatcher via `register_inline_completion_item_provider`.\n\n- **File decorations from extensions**: `DecorationsGet` in `Decoration.rs` falls back to `ProvideFileDecoration` via Cocoon gRPC when the in-memory store has no entry, populating git-status badges, error markers, and other extension-contributed decorations on demand.\n\n- **Terminal lifecycle sync**: `TerminalProvider.rs` emits `$acceptTerminalOpened` / `$acceptTerminalClosed` notifications to Cocoon so `vscode.window.terminals` stays current for terminals created from the UI (not just via the extension API).\n\n- **Webview message forwarding**: `Messaging.rs` implements the forward path for `acquireVsCodeApi().postMessage()` calls from extension iframes, sending them as `webview.message` notifications to Cocoon so the extension host's `onDidReceiveMessage` subscriber fires. `remove_webview_message_listener_impl` is now a logging stub rather than a no-op.\n\n**Boot performance and crash fixes:**\n\n- **Extension manifest cache (B7.P08)**: New `LoadFromCache.rs` reads a pre-baked `extensions.manifest.json` blob in a single `fs::read`, reducing extension-scan boot time from ~1200 ms to <50 ms. Falls back gracefully to the live `ScanAndPopulateExtensions` path on cache miss, staleness (>10 min), or corruption. The cache file is produced by `Maintain/Build/Manifest/PreBake.ts` during `beforeBundleCommand`.\n\n- **WKWebView NSUndoManager suppression**: `TauriBuild.rs` disables the macOS default menu (which pre-installs Edit > Undo/Redo). `WindowBuild.rs` injects a capture-phase keydown listener that `preventDefault()`s Cmd+Z/Cmd+Y before the webview's internal responder chain dispatches undo:/redo:, preventing WKWebView's NSUndoManager from competing with Monaco's undo stack.\n\n- **Profiles configuration**: `InitializationData.rs` adds the `INativeWindowConfiguration.profiles` section with all required URI fields (`languageModelsResource`, `agentPluginsHome`, `cacheHome`, etc.) to prevent the `TypeError: undefined is not an object (evaluating 'M.revive(o.languageModelsResource).with')` crash during workbench initialisation. Also adds `sqmId`, `devDeviceId`, and `isPortable` as defensive non-optional fields.\n\n**Build:** `tauri.conf.json` adds `node Maintain/Build/Manifest/PreBake.ts` to the `beforeBundleCommand` pipeline.\n\nCloses the Mountain side of the inline-completion provider circuit and addresses the workbench profile crash (VS Code desktop-mode init).",
+			"SHA": "8db51dd0dc8da12799836d25faaf61658c445a52"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-22T02:53:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1580,
+				1
+			],
+			"Message": "",
+			"SHA": "138352332e04a0046c07228f1b171bb588a3f421"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T00:51:32Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1580,
 				3
 			],
-			"Message": "",
-			"SHA": "af45c696979f36bc068823417654b96805b2d491"
+			"Message": "feat(Mountain): Add TierSchemeAssetsFileSystem cfg feature flag\n\nIntroduce the `TierSchemeAssetsFileSystem` feature flag alongside the existing `TierSchemeAssetsHybrid` gating in Cargo.toml. When enabled (via `TierSchemeAssets=FileSystem` in `.env.Land`), assets are served from disk via the `static_root` fallback path with `frontendDist: null`, rather than being embedded or served in hybrid mode.\n\nAlso removes the unused `fs` import in InitializationData.rs that was left over from prior refactoring.\n\nThe bundled `Target/debug/Mountain/index.html` changes are incidental rebuild artifacts — asset content-hash and timestamp updates from the build process, no semantic change.\n\nRefs the tier-configuration scheme introduced in 4ba376b9.",
+			"SHA": "1e601e16bea86ac97efd00dd27b98ff5499d55b0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:20:44Z",
+			"Date": "2026-05-21T21:56:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
-				7
+				1580,
+				0
 			],
-			"Message": "feat(Mountain): Implement native file descriptor API and refine Tauri window handlers\n\nComplete the implementation of the `nativeHost` IPC surface by adding `file:open` and `file:close` handlers. These functions establish a process-global file descriptor table (backed by `HashMap<u32, File>` and `AtomicU32`) to support VS Code's `DiskFileSystemProvider` for large binary I/O, replacing previous full-read/write fallbacks.\n\nRefine window management handlers: implement `setDocumentEdited` for the macOS dirty-dot indicator, `setMinimumSize` to prevent workbench collapse, and `positionWindow` for multi-window restoration. Update `setRepresentedFilename` to display the filename component in the title bar. Re-evaluate `is_alive` connection logic to remove artificial sleep delays.\n\nOptimize `tree-view/create` event emission in `EnqueueTreeViewEmit` by migrating from per-call `tokio::spawn` to a persistent mpsc channel with a 16ms frame-aligned batcher. This eliminates task overhead during boot. Additionally, reduce the terminal startup delay from 120ms to 20ms, matching M-series hardware capabilities, and improve `LifecyclePhaseState` formatting.",
-			"SHA": "8cde99c082f32ec6c8726e947e7a696d2c3ccf7e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:12:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1508,
-				1
-			],
-			"Message": "",
-			"SHA": "6d6a91d70b16bd92b1e029b42f68b7a60810df75"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:12:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1508,
-				8
-			],
-			"Message": "feat(Mountain): Implement native AES-256-GCM encryption and async lifecycle synchronization\n\nIntroduce a complete encryption subsystem for the Wind service handlers to support VS Code's `IEncryptionService`. Implement `encryption:encrypt` and `encryption:decrypt` using AES-256-GCM via the `ring` crate. The 256-bit key is derived from the host machine's hardware UUID (macOS `IOPlatformUUID`, Linux `/etc/machine-id`, Windows `MachineGuid`), ensuring stored secrets survive process restarts but remain unreadable on other machines, matching native editor semantics.\n\nRefactor the application lifecycle state to eliminate 100ms polling loops. Replace `LifecycleWhenPhase` busy-wait logic with `tokio::sync::Notify` primitives in `LifecyclePhaseState`. Handlers now await specific phase transitions immediately, reducing boot latency and CPU usage during startup.\n\nUpdate `DecorationTypeLifecycle` notification handling to use a single batched emit operation per channel, reducing IPC overhead during high-frequency UI updates.",
-			"SHA": "eafc4a40a6dc02017466152643d736c8eccced92"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:07:52Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1503,
-				1
-			],
-			"Message": "",
-			"SHA": "b0efb2cbc7f5e481b38f8b4190c511a99c41388e"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "c29ead747a6543b2aa61957457ddf3f728b06893"
 		}
 	],
-	"TimeStamp": 1780149359006
+	"TimeStamp": 1780934933469
 }

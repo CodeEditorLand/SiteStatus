@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T18:03:18Z",
+			"Date": "2026-05-20T05:21:19Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1498,
-				1
+				1574,
+				6
 			],
-			"Message": "docs(Mountain): Standardize emoji spacing and escape special characters in README\n\nReformat all instances of the Mountain emoji (⛰️) and Land emoji (🏞️) to use the standard non-breaking space HTML entity (`&#x2001;`) instead of varied spacing or direct adjacency. This ensures consistent rendering across different Markdown viewers and aligns with the project's strict formatting guidelines.\n\nAdditionally, escape the ampersand in the 'Funding & Acknowledgements' header to prevent HTML parsing issues in stricter Markdown renderers.\n\nThe Mermaid diagram labels are also updated to move emojis to the end of text strings with consistent spacing, improving readability in generated diagrams while maintaining the original semantic content.",
-			"SHA": "46e0d4dfd7cc35683abc48bf789e35eda895828f"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-15T02:45:01Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				1
-			],
-			"Message": "",
-			"SHA": "35e511df0aed26c7b256d265871d28498ed18ed1"
+			"Message": "fix(Mountain): Reduce lock contention; notify Cocoon on config change\n\n**Lock contention fixes** — In `ScanAndPopulateExtensions`, replace the N-insert\nloop under `ScannedExtensions` lock with a single pointer-swap (`*Guard = All.clone()`),\nreducing lock hold time from 100–500 ms to a clone duration. In `DiagnosticProvider`,\nsnapshot the `DiagnosticsMap` under the lock then aggregate outside it, so concurrent\n`SetDiagnostics`/`ClearDiagnostics` calls are not blocked during serialization.\n\n**Cocoon config notification** — After a successful configuration value write in\n`UpdateValue`, fire a `configuration.change` Vine notification to `cocoon-main` so\nextensions' `ConfigCache` invalidates the affected key and re-primes on next access.\nWithout this, `workspace.getConfiguration().get(key)` returns stale cached data until\nthe next full re-merge notification.\n\n**Cleanup** — Group `SkyEvent` import into existing block in `UpdateValue`; collapse\n`TextfileSave` import paths; fix `AppMenu` and `FileWriteNative` formatting.",
+			"SHA": "7018ff29e26f00125ebe80f2482765bbdb842202"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T21:17:00Z",
+			"Date": "2026-05-20T05:20:43Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1498,
-				5
+				1574,
+				2
 			],
-			"Message": "refactor(Mountain): Decouple console log capture from debug server\n\nSeparate the JavaScript console log interception logic into `WindowBuild.rs` and remove it from `WebkitServer.rs`. The window builder now injects a script on page load to populate `window.__MOUNTAIN_DEBUG_CONSOLE` when `DEBUG_SERVER=1` is set, ensuring logs are captured before the TCP server initializes.\n\nRefactor `WebkitServer.rs` to rely on the injected JavaScript buffer instead of the Tauri `ConsoleEvent` listener. This eliminates the dependency on the internal Tauri console event API for log retrieval, allowing the HTTP server to simply query the DOM via `eval`.\n\nUpdate the request handling to support a new GET `/eval` endpoint for arbitrary script execution, replacing the removed `/dom` endpoint. Consolidate error handling and improve type safety using `once_cell::sync::Lazy` for global window storage and `BufReader` for HTTP parsing.",
-			"SHA": "fd6648d17f6c0f7846eb45b9080b999506e186dc"
+			"Message": "fix(Mountain): Fix StorageProvider race and Cocoon-connect boot latency\n\n**StorageWriteDebouncer race** — Reorder the flush loop to take the pending\nitem before clearing `FlushScheduled`, so a concurrent `Queue()` call\ncannot observe the flag as `false` and the slot as empty, scheduling a\nno-op flush.\n\n**Scope-correct debouncer** — Select `GetWorkspaceDebouncer` for workspace\nscopes instead of always routing through the global debouncer, preventing\na workspace bulk-save and global bulk-save from sharing the same pending\nslot.\n\n**Dev-log noise suppression** — Add `file:open`, `file:close`, and\n`textFile:save` to the low-level noise skip list. These fire once per file\nduring project-open cascades and once/second per dirty file for auto-save\nintent, polluting IPC logs without diagnostic value.\n\n**Cocoon-connect boot latency** — Remove the 3-second blocking\n`WaitForClientConnection` from `languages:getAll` and\n`languages:getEncodedLanguageId` handlers. Tokenizer calls\n`getEncodedLanguageId` synchronously on first editor open. With the old\nwait, the worker stalls for up to 3 s before Cocoon is available. Return an\nempty fallback array immediately when Cocoon isn't connected; the workbench\nretries on next keystroke.",
+			"SHA": "920f9dc6bbda677a2de6d3018582afbb14de5b26"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T21:16:54Z",
+			"Date": "2026-05-20T05:13:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1491,
+				1574,
 				3
 			],
-			"Message": "feat(Mountain): Introduce HTTP debug server for WKWebView inspection\n\nImplement a native debug server in `Source/Binary/Debug/WebkitServer.rs` to facilitate automated inspection of the native WKWebView instance on macOS. This component runs a lightweight HTTP server on `127.0.0.1:9933` (configurable) when `DEBUG_SERVER=1` is set, exposing endpoints for JavaScript evaluation, DOM querying, iframe enumeration, and console log retrieval.\n\nThe implementation installs a console event listener on the Tauri `WebviewWindow` to capture logs and spawns a background thread to handle incoming TCP connections. New routes include `GET /console`, `GET /dom`, `GET /iframes`, and `POST /execute`, allowing external tools or scripts to interact with the editor's runtime state.\n\nIntegrate the module into `Source/Binary/Debug/mod.rs` and invoke `WebkitServer::install` within `Source/Binary/Main/AppLifecycle.rs` after window creation. This complements the existing conditional devtools flag by providing programmatic access to the WebView for advanced debugging scenarios.",
-			"SHA": "f14f21a072eaf20ed73ec9d69cb6da22c75fe3a0"
+			"Message": "fix(IPC): Enhance file write and save handlers to update metadata and notify configuration changes\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "37d18e0da89ec21186531428f1ddec68815699df"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T18:38:50Z",
+			"Date": "2026-05-20T05:06:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				1574,
+				5
 			],
-			"Message": "feat(Mountain): Enable conditional WKWebView inspection in debug builds\n\nAdd a conditional check in `Source/Binary/Build/WindowBuild.rs` to enable the `devtools` flag for the Tauri `WindowBuilder` when running in `debug_assertions` mode and the `Inspect` environment variable is set to a non-empty, non-zero value.\n\nThis modification allows external inspection tools (such as Safari Web Inspector or MCP) to attach to the native WKWebView instance on macOS during development, facilitating deep debugging of the editor's UI layer. The change preserves the existing behavior of disabling decorations on non-macOS platforms while introducing a gated mechanism for developer tooling on macOS.\n\nThe implementation leverages Wry's underlying `devtools` configuration to expose the native inspection interface only when explicitly requested.",
-			"SHA": "6e51ac8b9e213cd70f7a379fd3d3ba091f41e54f"
+			"Message": "feat(Mountain): Fire $acceptModelSaved after disk writes; strip Undo/Redo from native Edit menu\n\n**T1.4 save notification** — `FileWriteNative` and `TextfileWrite` now fire `$acceptModelSaved` via Vine after a successful disk write, so Cocoon can dispatch `onDidSaveTextDocument` to subscribed extensions (format-on-save, organize-imports, save listeners). The save is fire-and-forget (tokio::spawn) so a Vine failure never cascades back to the workbench IPC caller. Both handlers also gain `dev_log` instrumentation for write latency and byte count.\n\n**Cmd+Z routing fix** — On macOS, Tauri's default `Builder::default()` installs an Edit submenu with native Undo/Redo items that intercept Cmd+Z at the AppKit responder-chain level before the WKWebView's keydown handler fires, preventing VS Code's Monaco editor from seeing `meta+z`. The new `AppMenu::SetAppMenu` builds a custom Edit submenu containing only Cut/Copy/Paste/SelectAll, removing Undo/Redo so Cmd+Z and Cmd+Shift+Z reach the JS layer. Called from `AppLifecycleSetup` immediately after window creation. Non-fatal; logs a warning and keeps the default menu if the override fails. No-op on Windows/Linux.",
+			"SHA": "f79990166465444bbe3a00ca968af7527b0bea13"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T04:39:32Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1573,
+				10
+			],
+			"Message": "fix(Mountain): Fix shell PATH, git cache, build constraints, and import paths\n\n**EnhanceShellEnvironment** — Allow shell PATH to override the Finder/Dock\nminimal default (`/usr/bin:/bin:/usr/sbin:/sbin`) when `IsTty()` is false,\nso git, Node, and language servers resolve correctly after launchd/Dock\nlaunches.\n\n**HandleIsAvailable** — Cache only a `true` result. A transient `false`\nfrom the first git probe (fired before EnhanceShellEnvironment extends\nPATH) must not permanently disable the SCM UI.\n\n**CocoonService/mod.rs** — Remove `prepare_call_hierarchy` and\n`prepare_type_hierarchy` gRPC handlers that were prematurely introduced\nin the previous commit. Rename `GenericNotification` and `GenericRequest`\nimports with `Msg` aliases to avoid name clashes with sibling modules.\n\n**Import path fixes** — Qualify `MountainVinegRPCService` path in\nRegisterLanguageProvider and call `RunTime()` as a method; fix `MetricType`\nimport alias in DashboardHelpers; add missing `CommandExecutor` import in\nGenericNotification and GenericRequest commands.\n\n**build.rs** — Gate `tauri_build::build()` behind an absent\n`CARGO_BUILDING_DOCS` var so `cargo doc` succeeds without Sky Astro assets.\n\n**tauri.conf.json** — Add Brotli pre-bake as `beforeBundleCommand`.\n\nBump `Record` to 1 in Info.plist.",
+			"SHA": "36c8655681c646f7f1119aac1cbca04346b69d91"
 		}
 	],
-	"TimeStamp": 1780149361504
+	"TimeStamp": 1780934934690
 }

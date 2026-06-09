@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T12:17:47Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				10
-			],
-			"Message": "refactor(Mountain): Update Air type delegations to reference AirLibrary crate\n\nFollowing the delegation of Air-related types to external crates, the crate alias in the Mountain backend has been renamed from `Air` to `AirLibrary`. Update all type definitions in `Source/Air/AirClient/` to point to the new `::AirLibrary` namespace.\n\nThis aligns the type aliases for metrics, status, download streams, and file metadata with the updated crate naming convention, ensuring correct module resolution during the build process.",
-			"SHA": "74498135db36b1ab25ad374aa0c5ec94775b6c9e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T10:47:25Z",
+			"Date": "2026-06-04T19:14:01Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				1746,
-				26
+				1731,
+				25
 			],
-			"Message": "refactor(Mountain): delegate Air and Vine types to the Air and Vine crates\n\nThis commit refactors the codebase to delegate struct definitions for Air and Vine types to their respective crates, ensuring better separation of concerns and reducing duplication. Shared definitions for Air and Vine components are now centralized in their respective modules, with the editor crate now referencing ::Air::Client::AirClient and ::Vine::Client by default. This change reduces the public interface surface and improves maintainability by modularizing the core logic for Air and Vine gRPC interactions.",
-			"SHA": "544fc6e4bb4bc6b642b87f8c5a04abd360c44ce6"
+			"Message": "refactor(Mountain): Simplify CreateEffectForRequest string matching\n\nReplace macro-generated match expressions and identifier constants with explicit string literal comparisons and `starts_with`/`ends_with` predicates across all CreateEffectForRequest modules. Static method names now use direct string matching (\"Authentication.GetSession\" | \"Authentication.GetAccounts\") instead of inferred identifier constants. Dynamic command patterns collapse into concise boolean expressions — `$gitExec` and `$terminal:` families use `MethodName.starts_with(...)`, `register_*_provider` uses a start+end check, and `$scm:`, `$statusBar:`, `$webview:`, and `tree.` prefixes follow the same pattern.\n\nThis removes macro coupling from the dispatch predicates, makes accepted method names immediately visible in each file, and eliminates stale `std::sync::Arc` imports left over from macro expansion. The central dispatcher now routes through cleaner pre-filters that operate on concrete strings rather than generated tokens.",
+			"SHA": "cafbc510d7e2b33f142fd0badacefb43068381ff"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T09:49:15Z",
+			"Date": "2026-06-04T19:09:50Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1731,
+				28
+			],
+			"Message": "refactor(Mountain): Add Matches pre-filter and borrow Parameters in CreateEffectForRequest\n\nIntroduce a `Matches(MethodName: &str) -> bool` predicate on every CreateEffectForRequest module so the central dispatcher can reject non-matching method names before invoking the full constructor. This eliminates unnecessary work and aligns with the ActionEffect dispatch pattern used elsewhere.\n\nChange `CreateEffect` signatures across all modules from `Parameters: Value` to `Parameters: &Value`, removing the unconditional `Parameters.clone()` call from the hot dispatch path and deferring cloning into the individual effect macro invocations only when needed.\n\nReorder the module chain in `Source/Track/Effect/CreateEffectForRequest/mod.rs` — moving `FileSystem`, `Commands`, `Terminal`, and `TreeView` into a new sequence — and wrap each `Try!` invocation with the `Matches` guard.",
+			"SHA": "be9aaf5b1cc0156d3236573d11a617984e0da2ef"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-04T19:06:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
+				1731,
 				1
 			],
-			"Message": "fix(Mountain): Add missing window management capabilities to schema\n\nThe `gen/schemas/capabilities.json` was out of sync with `capabilities/default.json`, which already declared window management permissions (`start-dragging`, `internal-toggle-maximize`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`). The generated schema still held the stale subset without these entries, causing Tauri runtime validation to reject IPC calls that drive native window chrome operations from the Sky titlebar.\n\nRegenerate `capabilities.json` from the current source-of-truth default manifest so the capability digest matches the declared permissions. This unblocks the interactive titlebar (drag, maximize, close) and any programmatic `Window` API calls that were being denied by the capability guard.",
-			"SHA": "ab9ea343be1b531180726eaed576f194395e2218"
+			"Message": "fix(Mountain): Clean up ActiveOperations registry on RPC cancellation\n\nImmediately remove the cancelled operation from the ActiveOperations write lock after triggering its cancellation token, preventing a leaked CancellationToken per RPC that accumulated when operations did not reach their own UnregisterOperation call site.\n\nRemove the redundant client-side method name format check that rejected paths containing \"../\" or \"::\" separators from the request validation path.",
+			"SHA": "28bf3528fd4eb3af543c2ef45b1a37c622cd6088"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T18:19:19Z",
+			"Date": "2026-06-04T19:03:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				5
+				1731,
+				4
 			],
-			"Message": "fix(Mountain): Reconstruct full URI from vscode.Uri POJO fields\n\nCocoon may forward a raw URI string, a serialised `vscode.Uri` POJO\n(`{scheme, authority, path, query, fragment}`), or the legacy\n`{external, path}` shape from older rendering paths. The previous code\nonly extracted `external` or bare `path` from objects, which silently\ndropped the scheme on non-file URIs —\n`rust-analyzer-diagnostics-view:/diag/foo` became `/diag/foo` and Sky\nrendered either a 404 or `[object Object]` in the editor tab.\n\nReconstruct the full URI by fallback priority: `external` →\n`scheme+authority+path+query+fragment` → `fsPath` (prefixed with\n`file://` for absolute paths) → bare `path` → empty string. Every\nknown vscode.Uri shape now resolves to a valid wire string the Sky\nworkbench can open.\n\nAlso:\n\n- **TreeView timeouts**: Bump `$provideTreeChildren` from 5 s to 15 s\non both Wind and Cocoon IPC paths. Cold scans on multi-repo workspaces\n(`npm` walking every package.json, `gitlens` enumerating submodules)\ncan exceed 5 s on first expansion, causing the panel to render empty\nuntil manual refresh.\n\n- **PTY binary input**: Route `localPty:processBinary` through\n`TerminalSendText` instead of falling through to the `null` no-op.\nSystem clipboard paste and Cmd+Shift keyboard escape sequences were\nsilently swallowed.\n\n- **Output channel hide**: Forward Cocoon's `outputChannel.hide`\nnotification to Sky as `sky://output/show { visible: false, channel }`\ninstead of logging a no-op. Extensions calling `OutputChannel.hide()`\nnow see the panel dismiss the channel.",
-			"SHA": "e1d82f3455e42b168108fe76935d015713f083e4"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "8efe02eff66da4e11cf592aca92f3fe82ea1f394"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T17:57:31Z",
+			"Date": "2026-06-04T19:03:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				2
+				1731,
+				1
 			],
-			"Message": "fix(Mountain): Realign SCM DTO import path and enable native window capabilities\n\nFix the `SourceControlManagementResourceDTO` import in `UpdateScmGroup` to use the reorganized `DTO` submodule path under `CommonLibrary::SourceControlManagement`, correcting the module resolution after Common's struct rehoming.\n\nAdd window management capability permissions (`start-dragging`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`, `internal-toggle-maximize`) to `capabilities/default.json`, enabling the Sky UI to drive native window chrome operations — dragging the titlebar, maximizing/minimizing/closing — through Tauri's IPC permission layer.\n\nWithout these capabilities, the editor's custom titlebar was non-interactive and the workbench window could not be controlled programmatically from the frontend.",
-			"SHA": "4a6097c8945fea0e487dc49487de53a47983988f"
+			"Message": "refactor(Mountain): Update sidecar dispatching docs and parameter types\n\nReplace the TODO section with a FUTURE section in DispatchSideCarRequest, removing the obsolete implementation items (timeout handling, cancellation, metrics, auth) and replacing them with a note that SideCarIdentifier is retained for planned multi-sidecar routing.\n\nAlso narrow SideCarIdentifier from String to &str to avoid unnecessary ownership transfer, and update the dev_log category from \"ipc\" to \"grpc\" to reflect that this path matches the gRPC-based sidecar communication layer.",
+			"SHA": "69b249e027cd897d7e053ebb1063a2a7d1b149d7"
 		}
 	],
-	"TimeStamp": 1780149345939
+	"TimeStamp": 1780934925723
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T15:49:11Z",
+			"Date": "2026-05-26T08:11:59Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
+				"⡏⠀⠀⠀⠀",
 				26,
-				1
+				3
 			],
-			"Message": "refactor(Mountain): Expand parameter extraction utilities for IPC dispatch\n\nExtend the `Utilities::Params` module with typed helpers (`i64_at`, `u64_at_or`, `obj_str`, `obj_val`, etc.) to handle both positional arrays and JSON object payloads without inline boilerplate. Introduce `obj_*` variants specifically for named-key extraction used by UI service providers.\n\nApply these new utilities across the `CreateEffectForRequest` tree (Debug, LanguageFeatures, SCM, Secrets, StatusBar, Terminal, TreeView, UserInterface, Webview) to replace verbose `get().and_then().unwrap_or()` chains. This unifies parameter parsing logic, reduces code duplication, and ensures consistent default handling for handles, strings, numbers, and boolean flags across all IPC request handlers.",
-			"SHA": "c3502e8e72ddeeae430be9c7966678f2a26dc22f"
+			"Message": "feat(Land): Advance Element submodules — diff information, view column, and terminal state event bridge\n\nAdvance Cocoon, Mountain, and Sky submodules to complete the Mountain-to-Cocoon notification relay for three extension API surfaces plus extension activation routing and auth session subscriptions.\n\nSky adds three snapshot-style bridge subscriptions in the workbench integration layer: diff editor `onDidUpdateDiff` line-changes relayed as `sky:editor:diffInformationChanged`, per-group `onDidMoveEditor` tab moves relayed as `sky:editor:viewColumnChanged`, and OSC 633 B (command-input-begins) terminal interaction detection relayed via `localPty:setInteracted`. All three are guarded with try/catch so render failures never disrupt the UI pipeline.\n\nMountain fans three new IPC notifications through WindServiceHandlers: `$acceptTextEditorDiffInformationChanged`, `$acceptTextEditorViewColumnChanged`, and `$acceptTerminalStateChanged`. Also introduces `TierCommandEventBroadcast` (default Off) — when enabled, Mountain dual-emits `$acceptCommandExecuted` over Vine after gRPC `Command.Execute` from Cocoon, ensuring `onDidExecuteCommand` fires for non-locally-registered extension host commands.\n\nCocoon registers four Notification/Handler.ts cases: `$activateByEvent` defers to `ExtensionHostHandler.HandleActivateByEvent` via `setImmediate` so extension activation actually runs instead of hitting the unknown-notification fallback; `$acceptTextEditorDiffInformationChanged` emits `didChangeTextEditorDiffInformation` with a minimal TextEditor stub keyed on `modifiedUri`; `$acceptTextEditorViewColumnChanged` fires `didChangeTextEditorViewColumn` with URI and viewColumn matching VS Code's event shape; `$acceptTerminalStateChanged` updates the cached terminal's `isInteractedWith` flag and emits `didChangeTerminalState`. Additionally, the Auth namespace subscribes to each `AuthenticationProvider.onDidChangeSessions` on registration, fanning `{ added, removed, changed }` to the `auth.didChangeSessions` Emitter channel with proper disposal on provider unregister to prevent listener leaks.\n\nExtensions consuming `onDidChangeTextEditorDiffInformation`, `onDidChangeTextEditorViewColumn`, `onDidChangeTerminalState`, `onDidChangeActiveEditor`, and authentication session change events via `MakeEventSubscriber` now receive live workbench signals through the complete Mountain→Cocoon bridge.",
+			"SHA": "0de337107b70105ea7304cd80362fdffcac734a8"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T15:42:48Z",
+			"Date": "2026-05-25T22:16:53Z",
+			"File": [
+				"⡏⠀⠀⠀⠀",
+				26,
+				3
+			],
+			"Message": "feat(Land): Advance Element submodules — terminal shell execution event relay\n\nComplete the end-to-end bridge for VS Code terminal shell execution lifecycle events by advancing Cocoon, Mountain, and Sky submodules.\n\nSky parses OSC 633 sequences beyond the existing cwd handler — adding OscEndPattern (;D[;<exitCode>]) and OscCmdLinePattern (;E;<commandLine>) regex parsers plus a per-terminal InflightExecution Map. On OSC 633 ; C (output begins), Sky fires `localPty:shellExecutionStart` via Mountain IPC; on ; D (command finished), it fires `localPty:shellExecutionEnd` with exitCode, clearing the cached commandLine for the next execution.\n\nMountain adds two WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, fanning the former as `$acceptTerminalShellExecutionStart` to Cocoon and the latter as two Vine notifications: `$acceptTerminalShellExecutionEnd` and a derived `$acceptExecutedTerminalCommand` so extension subscribers observe executed commands without an additional Sky-side detection pass.\n\nCocoon registers three Notification/Handler.ts cases — `$acceptTerminalShellExecutionStart`, `$acceptTerminalShellExecutionEnd`, and `$acceptExecutedTerminalCommand` — each resolving the matching terminal from the `__terminals` context cache and assembling the VS Code event shape with the required terminal, shellIntegration, and execution sub-objects including the `{ value, isTrusted }` commandLine contract.\n\nExtension subscribers hooked via `window.didStartTerminalShellExecution`, `window.didEndTerminalShellExecution`, and `window.didExecuteTerminalCommand` now receive live notifications from OSC 633 sequence parsing in the Sky terminal layer.",
+			"SHA": "d43cffe192cbca49b8b0e6aec62bc3923437449d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:09:37Z",
+			"File": [
+				"⡏⠀⠀⠀⠀",
+				26,
+				3
+			],
+			"Message": "fix(Land): Advance Element submodules — bridged editor state, diagnostics, theme, and breakpoint event pipeline\n\nAdvance Cocoon, Mountain, and Sky submodules to complete the Mountain-to-Cocoon notification relay for six extension API surfaces that were previously renderer-only.\n\nCocoon adds Notification/Handler.ts cases for `$acceptDiagnosticsChanged`, `$acceptVisibleEditorsChanged`, `$acceptTabsChanged`, `$acceptVisibleRangesChanged`, `$acceptTextEditorOptionsChanged`, and `$acceptActiveColorTheme` — each pumping the Mountain notification through the matching Emitter channel consumed by extension subscribers. The `$acceptTabsChanged` handler caches tab-group snapshots on `__tabGroups` so synchronous `window.tabGroups.all` getters reflect current state.\n\nMountain fans five notification types back to Cocoon: `$acceptActiveColorTheme` in ThemesSet.rs on theme switch, `$acceptVisibleEditorsChanged`/`$acceptTabsChanged`/`$acceptVisibleRangesChanged`/`$acceptTextEditorOptionsChanged` in WindServiceHandlers/mod.rs forwarding Sky payloads, `$acceptDiagnosticsChanged` in Diagnostics.rs after Set/Clear calls, and `$onDidChangeBreakpoints` in DebugLifecycle.rs for breakpoint mutations.\n\nSky bridges four Monaco/workbench event streams through the IPC layer: `onDidScrollChange` (debounced to ~16 fps) emits visible ranges, `onDidChangeConfiguration` emits options changes, `onDidVisibleEditorsChange` emits the URI list of visible editors, and `onDidChangeActiveGroup`/`onDidAddGroup`/`onDidRemoveGroup` emit tab-group snapshots. All IPC calls are wrapped in try/catch so render failures never interrupt the UI pipeline.\n\nVS Code API subscribers inside Cocoon — `languages.onDidChangeDiagnostics`, `window.onDidChangeVisibleTextEditors`, `window.tabGroups.onDidChangeTabs`, `window.onDidChangeTextEditorVisibleRanges`, `window.onDidChangeTextEditorOptions`, `window.onDidChangeActiveColorTheme`, and `debug.onDidChangeBreakpoints` — now fire correctly for all extensions.",
+			"SHA": "c378308300e06748e4f3c0b7662a01626242c877"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T21:54:15Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
 				26,
 				2
 			],
-			"Message": "chore(Project): Sync Cocoon and Mountain submodules for build refresh and IPC standardization\n\nUpdate the Cocoon and Mountain element submodules to align with recent refactorings in the native backend IPC layer and extension host build pipeline.\n\n**Cocoon:** Regenerate all ESBuild output artifacts in `Target/` and update `Source/Generated/RouteManifest.ts` with the current compilation timestamp. This ensures the extension host bootstrap and RPC method handlers are synchronized with the latest source state following upstream service layer changes.\n\n**Mountain:** Refactor `WindowUI` and `Workspace` IPC handlers to utilize new centralized utility functions (`array_unwrap`, `uri_from_params`, `ensure_array`) from the `Utilities::Params` module. Replace inline conditional logic for unwrapping JSON arrays and normalizing URI parameters, eliminating duplicated type checks and ensuring consistent argument normalization across Tauri event handlers.\n\n**Impact:** These changes maintain binary artifact consistency for the extension host and further reduce boilerplate in the native backend dispatch layer, reinforcing the project's Effect-based architectural principles.",
-			"SHA": "b20c14839d0ecbd28de8cff661e8e3e99ec8e054"
+			"Message": "fix(Land): Advance Element submodules — command execution notification relay\n\nRelay executed command notifications from Mountain to Cocoon so that `vscode.commands.onDidExecuteCommand` callbacks fire inside Node.js extensions.\n\nCocoon replaces the dead `@tauri-apps/api/event`.listen call (which never fires without `window.__TAURI__`) with a subscription to the `commands.executed` Emitter channel, fed by two sources: the `$acceptCommandExecuted` Vine notification from Mountain and local command routes in Commands/Namespace.ts for extension-to-extension `executeCommand` calls. Also extends the `viewId` dual-key resolution strategy (established for `setHtml`/`postMessage`) to five more webview mutators — `dispose`, `setTitle`, `setIconPath`, `setOptions`, `reveal` — so panel mutations arriving before the workbench mounts the IOverlayWebview still reach their target.\n\nMountain dual-emits `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, alongside the existing Tauri event that reaches the renderer. The Vine notification is fire-and-forget — failure is non-fatal since renderer-side observers are already notified. Adds the `tauri::Emitter` trait import in CreateEffectForRequest/Commands.rs to satisfy the compiler.\n\nExtension `onDidExecuteCommand` hooks now fire correctly, webview panel mutations during mount race conditions resolve via the viewId fallback, and Cocoon's Terminal/Service.ts is marked deprecated pending vertical-split cleanup.",
+			"SHA": "69826df910f62df0c9a34707500640a4dfddc7fc"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T15:34:46Z",
+			"Date": "2026-05-25T21:39:06Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
+				"⠇⠀⠀⠀⠀",
 				26,
-				1
+				2
 			],
-			"Message": "chore(Mountain): Update submodule to fix macro formatting\n\nUpdate the Mountain submodule from 56cd4ccb to 5366ce11 to remove a trailing blank line following the `forward_to_cocoon!` macro definition in `WindServiceHandlers/mod.rs`.\n\nThis minor style adjustment ensures consistent formatting within the IPC dispatch module following recent refactorings that localized dispatch macros.",
-			"SHA": "07cf20257ccdf05290dfe6b8e692f57cdc13da9b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T15:34:04Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				26,
-				6
-			],
-			"Message": "chore(Project): Sync all element submodules to latest functional and build revisions\n\nUpdate all primary Land element submodules to align with recent architectural refactors and build pipeline updates:\n\n**Mountain:** Localize the `call!` macro within the IPC dispatcher to enforce closure hygiene and strict scope. Enhance the `proxy_cocoon` utility for error mapping and implement immediate `$acceptModelSaved` notifications to the Cocoon extension host upon UI-initiated Sky saves, ensuring `onDidSaveTextDocument` triggers correctly.\n\n**Wind:** Refresh the codegen pipeline to synchronize TypeScript service contracts with upstream VS Code changes, adding `browser.chatActionsSubmenu` and updating the `CommandCatalog` to 551 entries. Enable project references in `tsconfig.json` for incremental builds.\n\n**Output:** Expand `browserViewGroup` IPC stubs to include `updateKeybindings`, `openDevTools`, and other UI channels, aligning the compiled artifact with Sky component requirements.\n\n**Cocoon & Rest:** Regenerate build artifacts and update the bundled Rust/OXC binary to incorporate recent linting changes and ensure strict PascalCase compliance.\n\n**Impact:** These synchronizations ensure the IPC contract, build artifacts, and extension host visibility are consistent across the native backend, UI services, and extension runtime layers.",
-			"SHA": "40a70b79c723df34e700eec756ae55c6aab86534"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T11:13:15Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				26,
-				1
-			],
-			"Message": "chore(Mountain): Sync submodule to centralize Cocoon IPC and URI sanitization\n\nUpdate the Mountain submodule to revision a430e1c4 to continue the standardization of the native backend IPC layer.\n\n**Key Changes:**\n- Introduce the `proxy_cocoon` helper in `Utilities::Proxy` to replace verbose inline `SendRequestToSideCar` logic in `CustomEditorProvider`, `StatusBarProvider`, `TestProvider`, `Authentication`, `Task`, and `FileSystem` handlers. This abstracts `ApplicationRunTime` retrieval and method string construction.\n- Consolidate URI sanitization by extracting `StripFileUriScheme` into `Utilities::Params` as `strip_file_uri`. Apply this to all `FileSystem` operations (ReadFile, WriteFile, Stat, etc.) to normalize `file://` URI variants consistently.\n\nThese changes reduce boilerplate in the extension host communication layer and ensure robust, unified path handling across the IPC surface.",
-			"SHA": "6b92b99db0ac3e58b59bba147bba049ec482773e"
+			"Message": "fix(Land): Advance Element submodules — webview first-paint race, unhandled IPC notifications\n\nAdvance Cocoon and Mountain submodules to fix a webview panel first-paint race condition and add four IPC notification handlers that were missing from the Mountain dispatch table.\n\nCocoon sends `viewId: ViewType` alongside `handle` in the `webview.setHtml` and `webview.postMessage` request payloads. During first-paint, the `webview.create` acknowledgement can arrive before the workbench's `IOverlayWebview` instantiation has bound the handle to a WebviewInput, causing the initial `setHtml` to land in `ParkedHtml` and `postMessage` to miss its target. Sending both identifiers provides a fallback viewType-keyed lookup in Sky's `InstallWebview.ts` resolution. Also deprecates the `MountainGRPCClientLayer` Effect-TS service tag with documentation pointing consumers to canonical wire-method names.\n\nMountain forwards four previously unhandled IPC notification types: `ScanPathConfigure` to scan `~/.land/extensions` alongside the FIDDEE user directory for pre-migration extension discovery; `debug.dap-response` from Cocoon inline-implementation adapters to the workbench via `sky://debug/dap-message`, enabling the RawDebugSession sequencer to correlate DAP responses by `request_seq`; `setStatusBarText` mutations from extension StatusBarItem `text()` setters, which previously froze status bar text after initial create; and `terminate_task`/`Task.Terminate` to the extension host task service, allowing `vscode.tasks.executeTask().terminate()` to stop running tasks with a graceful fallback.\n\nWebview panels now render correctly on first paint, status bar text updates dynamically, DAP debug sessions receive response correlation, extension task cancellation works end to end, and pre-migration extension directories are discovered on clean installs.",
+			"SHA": "285ddc3a49aaf06e7d41b02eba8b9cab74c580eb"
 		}
 	],
-	"TimeStamp": 1780149348485
+	"TimeStamp": 1780934927040
 }

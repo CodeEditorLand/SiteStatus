@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:01:32Z",
+			"Date": "2026-05-20T04:36:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				142,
 				1
 			],
-			"Message": "refactor(Sky): Introduce manualChunks for non-bundled profile\n\nSplit the massive `partsSplash` chunk in non-bundled build profiles (e.g., debug-electron) into parallel-fetchable segments. The previous configuration kept the entire Effect-TS runtime, Wind service layer, and telemetry stack in a single file, hindering V8 parsing and browser preloading.\n\nImplement a conditional `manualChunks` strategy that isolates:\n- `effect-rt`: The Effect-TS runtime (~800 KB)\n- `wind-effect-gen`: Stable, large codegen layer\n- `sky-telemetry`: PostHog/OTLP bridges (off critical path)\n- `sky-debug`: Diagnostic harnesses\n\nCrucially, this strategy is skipped for the bundled profile. Merging chunks there would break the strict initialization order between `workbench.js` and `workbench.desktop.main.js`, causing the FS provider chain to fail due to incorrect `isElectron` mode detection.\n\nThis change optimizes load times for debug profiles while preserving the critical runtime contract required for the bundled distribution.",
-			"SHA": "f11f53d5ba2325fc6e56d64ec48f2f9f0bf08920"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T00:57:01Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				142,
-				1
-			],
-			"Message": "feat(Sky): Implement vscode.diff round-trip channel for SCM\n\nAdd the `sky://editor/diff` channel handler to bridge Mountain's `$scm:openDiff` events with the VS Code workbench. This enables the editor to render diffs when users click staged or unstaged files in the Source Control Management sidebar.\n\nThe implementation parses the positional arguments `[leftUri, rightUri, title?, options?]` serialised by Mountain. It invokes `vscode.diff` in the Wind workbench service layer with the appropriate `viewColumn` and `preview` flags. Crucially, it resolves the UI request promise upon completion to prevent the `vscode.git` extension from hanging on awaited promises for 300 seconds.\n\nThis completes the round-trip IPC contract for the diff operation, ensuring seamless integration between the SCM UI and the extension host.",
-			"SHA": "615baba012d83f77853ed189aaa83120c4bed308"
+			"Message": "chore(Sky): Update license to CC0-1.0 in product metadata\n\nChange the `licenseName` and `licenseUrl` fields in `Public/product.json` from MIT to CC0-1.0 (Creative Commons Zero / Public Domain Dedication), and bump the date stamp to 2026-05-20.\n\nThis reflects the organization's transition to a public-domain-equivalent license for the editor metadata artifact, aligning with the broader open-source positioning under NLnet NGI0 Commons Fund stewardship.",
+			"SHA": "686b80d9aef4de5d81942cca7093e4e1efe80804"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-05-18T02:54:57Z",
+			"Date": "2026-05-20T02:52:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				142,
 				1
 			],
 			"Message": "",
-			"SHA": "dbf47342dadf8c294f64759215be1a525992465e"
+			"SHA": "73d524a3aad12fc029b5ad7373806cb4e05fcfa9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-18T00:28:56Z",
+			"Date": "2026-05-20T02:17:03Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				142,
+				1
+			],
+			"Message": "feat(Sky): Add IPC bridge handlers for decorations, text edits, selections, and reveal range\n\nRegister four new IPC handlers in the Sky Bridge to support extension-originated editor operations that originate in Cocoon and route through Mountain:\n\n- `sky://decoration/set-ranges`: Look up the Monaco editor matching a document URI, then apply the decoration key and ranges emitted when an extension calls `editor.setDecorations(type, ranges)`.\n- `sky://editor/apply-text-edits`: Convert extension-originated text edit payloads into Monaco `executeEdits` operations, normalizing both 0-based and 1-based range formats used by different extension code paths.\n- `sky:editor:activeChanged` / `sky:editor:selectionChanged`: Subscribe to `ICodeEditorService.onDidChangeActiveCodeEditor` and `onDidChangeCursorSelection` to push the currently active editor URI and selection state up to Mountain (and through it to Cocoon), enabling extension queries of active text editor state without polling.\n- `sky://editor/revealRange`: Accept a Monaco-1-based range and reveal type enum from Mountain and delegate to the target editor's `revealRange` API, supporting the five standard reveal strategies (Simple, Center, CenterIfOutsideViewport, NearTop, NearTopIfOutsideViewport).\n\nEach handler matches editors by full URI string or by trailing filename segment, tolerating minor URI discrepancies between extension and workbench representations. All errors are silently caught to avoid disrupting the bridge lifecycle.\n\nThis closes the gap for extensions that depend on `window.activeTextEditor` state synchronization and programmatic editor manipulation.",
+			"SHA": "5db5404eb8211bf496347be688e58b5a172c0c68"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T01:17:44Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
 				142,
 				6
 			],
-			"Message": "feat(Sky): Rebrand application identity to FIDDEE\n\nUpdate all application metadata and telemetry identifiers to reflect the new \"FIDDEE\" branding across the Sky component layer. Modify `Public/Manifest.json` and `Public/product.json` to replace \"Land\" with \"FIDDEE\" in display names, bundle identifiers, data folder names, and URL protocols. Align `Source/Workbench/Electron/OTELBridge.ts` and `Source/Workbench/Electron/Post/Hog/Bridge.ts` to use \"fiddee\" for service names and PostHog `$app` keys. Update `astro.config.ts` to emit FIDDEE-specific build events and distinct IDs. Correct minor whitespace inconsistency in `README.md` headers.\n\nThis ensures the editor runtime, telemetry streams, and browser manifest consistently identify the application as FIDDEE rather than the legacy Land branding.",
-			"SHA": "d175e932ae25fe38888ab9c080dca9a3340a5b09"
+			"Message": "style(Sky): Standardize diagnostic IPC invocation formatting in Bridge\n\nRefactor all `MountainIPCInvoke` calls within the Sky Bridge initialization modules to use consistent, multi-line object formatting for the `params` array. This change affects `InstallCommands`, `InstallDeadChannelListeners`, `InstallEditorAndOutput`, `InstallFanOut`, `InstallStatusbar`, and `ProbeServices`.\n\nThis modification aligns the code style with the recent commit (caa7e63) that routed all diagnostic logs through the native IPC mechanism. By expanding the parameter objects, the error context (context ID, error objects, and specific failure messages) becomes visually distinct and easier to review, ensuring maintainability as the bridge handles increasingly complex error states.",
+			"SHA": "8c98c0afaa787a8ca49f1b86f5dc1f28221929bc"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-17T15:36:07Z",
+			"Date": "2026-05-20T00:37:37Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⠃⠀⠀⠀⠀",
 				142,
-				2
+				7
 			],
-			"Message": "chore(Sky): Update branding URLs to PlayForm.Cloud instance\n\nMigrate all project references from the legacy `editor.land` and `Editor.Land` domains to the temporary hosting provider `land.playform.cloud`. Update `Public/product.json` to point the documentation URL to the new instance. Revise `README.md` to reflect the new base URL for the logo, project title, documentation links, architecture resources, and maintainer contact email.\n\nThis ensures all public-facing links, badges, and metadata correctly route to the current deployment environment for the Sky component documentation and assets.",
-			"SHA": "212a61e8a843137e2511aed120ae747d3e876747"
+			"Message": "refactor(Sky): Route all diagnostic logs through MountainIPCInvoke instead of console\n\nReplaced all `console.info`, `console.log`, and `console.warn` calls within the Sky Bridge initialization and runtime error handlers with explicit IPC invocations to `MountainIPCInvoke` (method: `diagnostic:log`). This includes error handling for command execution, editor/SCM operations, statusbar updates, file/text searches, and event dispatch failures.\n\nPreviously, these logs were either printed to the browser console or suppressed with empty `try/catch` blocks if the console object was unavailable or replaced. This led to a loss of critical diagnostic data during runtime errors, especially in environments where the standard console is not accessible or is redacted.\n\nBy routing these messages through the `diagnostic:log` IPC method, errors and status updates are now consistently captured by the native `Mountain` host environment. This ensures full visibility into bridge lifecycle issues, race conditions, and handler failures, facilitating better debugging and telemetry collection. Specific logging contexts (e.g., 'sky-bridge') and structured error messages (including stack traces or error descriptions where available) are preserved in the native log stream.\n\nNon-error informational logs (e.g., bridge disable status or registration completion) are now explicitly routed to `process.stdout` where available to ensure they are still captured by the Cocoon stdout parser, maintaining parity with previous behavior while standardizing the core logging path.",
+			"SHA": "caa7e639da81bc96073ad13523fa9c9fb1b735f9"
 		}
 	],
-	"TimeStamp": 1780149351267
+	"TimeStamp": 1780934928707
 }

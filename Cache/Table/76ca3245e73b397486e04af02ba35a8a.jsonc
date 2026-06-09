@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-05-01T02:40:30Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T06:31:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
-				1
-			],
-			"Message": "",
-			"SHA": "51d4bddbf442268c76e36e70ef9e176c98fe2c3b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:32:25Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				868,
-				55
-			],
-			"Message": "refactor(Mountain): Rename IPC handler functions to follow PascalCase convention\n\nRename all `handle_*` IPC handler functions in WindServiceHandlers, ConfigurationBridge, TauriIPCServer, and related modules to match the PascalCase naming convention specified in CLAUDE.md. Functions like `handle_commands_execute` → `CommandsExecute`, `handle_configuration_get` → `ConfigurationGet`, `handle_incoming_message` → `IncomingMessage`, etc. The new names align with the command/channel names they service (e.g., `commands:execute` → `CommandsExecute`), improving code clarity and consistency across the Mountain IPC layer.\n\nThis is a pure refactor with no functional changes.",
-			"SHA": "9134f4bf64e3333b62d9591a5c58b4764b8d5b47"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:17:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				868,
+				1003,
 				2
 			],
-			"Message": "perf(Mountain): Batch command registration emits to reduce IPC saturation\n\nDuring extension boot, 1000+ `registerCommand` notifications fire in a tight burst (113 extensions × ~10 commands each). Each notification was emitting a separate Tauri event, saturating the shared WKWebView IPC channel that also carries keystroke delivery. Users could type for a split second before the burst hit, then nothing.\n\nAdd a `CommandEmitBatch` struct that buffers commands and flushes after 16ms (one frame), reducing 1000+ individual emits to a single batched `{ commands: [...] }` emit. SkyBridge's listener already accepts both shapes (single `{ id, commandId, kind }` or batch `{ commands: [...] }`), so no Sky changes required.\n\nThis keeps the IPC channel free for keystrokes during extension boot when the renderer is most busy.",
-			"SHA": "f304bd408f391d1848c357b909b09e5f5906ae99"
+			"Message": "refactor(Mountain): Canonicalize path resolution in ConfigurationProvider\n\nUpdate the import structure in `ConfigurationProvider/Loading.rs` and `ConfigurationProvider/UpdateValue.rs` to use the explicit nested path resolution for `ApplicationRunTime`. Replace the deprecated `RuntimeStruct::ApplicationRunTime` with the flattened canonical path `ApplicationRunTime::ApplicationRunTime`, aligning with the recent module flattening strategy applied to `ExtensionState` and `ConfigurationState`.\n\nAdditionally, correct the type signature in `collect_default_configurations` to reference the fully qualified canonical path `ApplicationState::State::ApplicationState::ApplicationState`. This ensures consistent symbol resolution across the `Mountain` backend and adheres to the project's strict PascalCase naming conventions for module hierarchies.",
+			"SHA": "429aa1f742bb34e1554c3f3d4416c7f196ade0ad"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T00:15:58Z",
+			"Date": "2026-05-02T06:31:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
+				1003,
 				1
 			],
-			"Message": "perf(Mountain): Gate sync/performance emits behind env vars and add subscriber fast-path\n\nTwo optimizations to reduce IPC channel contention:\n\n1. **Env var gating**: The `mountain_sync_status_update` and `mountain_performance_update` events were emitting on every tick even though Sky has no subscriber. Every emit now waits behind keystrokes on the shared Tauri IPC pipe. Gate both behind `LAND_SYNC_STATUS_EMIT=1` and `LAND_PERF_EMIT=1` respectively for debugging or future Sky consumers.\n\n2. **Subscriber fast-path**: The 100ms real-time updates tick was acquiring the lock and draining pending updates even with zero subscribers. Add an early check to skip the entire lock-and-drain path when `Subscribers.is_empty()`, making the tick a true no-op until a subscriber registers.\n\nTogether these keep the shared IPC channel free for keystrokes during extension boot when the renderer is most busy.",
-			"SHA": "75d2f1dbe4d77d92e1f679c84aa4885ce355a12d"
+			"Message": "refactor(Mountain): Canonicalize path resolution in PickFolder handler\n\nUpdate the import structure in `Source/IPC/WindServiceHandlers/NativeHost/PickFolder.rs` to use explicit nested path resolution for `ApplicationState` and `UpdateWorkspaceFoldersAndBroadcast`. Replace the wildcard-style direct imports with the fully qualified path under `State::`.\n\nThis change aligns `PickFolder` with the recent module flattening strategy applied to `ConfigurationState`, `ExtensionState`, and `Keybindings`, ensuring consistent symbol resolution and adherence to the project's strict PascalCase naming conventions for module hierarchies.",
+			"SHA": "fd18b0640561c1048b8f272dd0ec346cdac4bd43"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:34:46Z",
+			"Date": "2026-05-02T06:31:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				868,
+				1003,
+				1
+			],
+			"Message": "fix(Mountain): Correct method invocation on Client::SendNotification\n\nChange the invocation of `Client::SendNotification` from direct function call syntax to explicit trait method resolution (`::Fn`). The previous syntax failed to resolve correctly in the current compilation context, causing a build error when dispatching workspace folder deltas to the Cocoon extension host.\n\nThis ensures the notification `$deltaWorkspaceFolders` is successfully sent to the \"cocoon-main\" client upon workspace changes, adhering to the strict trait-based interaction patterns used in the Mountain backend.",
+			"SHA": "5ae45559141de37b2e1ee90ac139df85a2e3412c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T06:30:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1003,
 				2
 			],
-			"Message": "feat(Mountain): Add Disable env var and fix first-click focus issue\n\nTwo unrelated but complementary fixes:\n\n1. **accept_first_mouse(true)**: Fix the \"I clicked, I'm typing, nothing's happening\" bug where WKWebView swallows the first click on an unfocused window as a \"make me key\" no-op. The user had to click twice - first to focus the NSWindow, second to focus the Monaco textarea. This change flips the responder chain so the first click already reaches WKWebView's content.\n\n2. **Disable environment variable**: Add master \"disable Land customisations\" gate via `Disable=true` env var. When enabled, Mountain skips: WindowEvent::CloseRequested intercept (Cmd+W routes natively), Cocoon/Air sidecar spawn, and Wind/SkyBridge registration. This is useful for bisecting whether typing-input regressions originate in the extension host or upstream/Tauri/WKWebView. Also rename DevTools auto-open from LAND_OPEN_DEVTOOLS to `Inspect=1` to follow Land's PascalCase env var convention.",
-			"SHA": "14b86efb22e841a2d2fa91ea12ba33c37b6cec33"
+			"Message": "refactor(Mountain): Flatten ExtensionState module structure\n\nRemove the wildcard re-export pattern and extensive header documentation in `ExtensionState/mod.rs`. Retain only the module declarations for `ExtensionRegistry`, `ProviderRegistration`, `ScannedExtensions`, and `State`, and add `#![allow(non_snake_case)]` to align with the canonical symbol resolution path `ExtensionState::State::State`.\n\nUpdate the `State` struct in `State.rs` to reference the full canonical paths for its nested fields (`ExtensionRegistry::ExtensionRegistry::Registry`, `ProviderRegistration::ProviderRegistration::Registration`, and `ScannedExtensions::ScannedExtensions::ScannedExtensionCollection`).\n\nThis continues the ongoing decomposition of `ApplicationState` into file-per-struct PascalCase modules, ensuring consistency with the recent flattening of `ConfigurationState`, `Keybindings`, `Decorations`, and `LifecyclePhase`.",
+			"SHA": "3c93cebd36baa58fd1c4714394e2414898482cfa"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T06:30:31Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1003,
+				1
+			],
+			"Message": "refactor(Mountain): Flatten ConfigurationState module structure\n\nRemove the wildcard re-export pattern and extensive header documentation in `ConfigurationState/mod.rs`. Retain only the module declaration for `ConfigurationState` and add `#![allow(non_snake_case)]` to align with the canonical symbol resolution path `ConfigurationState::ConfigurationState::State`.\n\nThis continues the ongoing decomposition of `ApplicationState` into file-per-struct PascalCase modules, ensuring consistency with the recent flattening of `LifecyclePhase`, `ScannedExtensions`, `ExtensionRegistry`, `Decorations`, and `Keybindings`.\n\nThe main struct now resides in its own canonical file, simplifying symbol resolution and adhering to the project's strict naming conventions.",
+			"SHA": "32708523a69c6f4be56b25bbb180d46c4513dc9f"
 		}
 	],
-	"TimeStamp": 1780149402579
+	"TimeStamp": 1780934953069
 }

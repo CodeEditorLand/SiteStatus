@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:42:39Z",
+			"Date": "2026-05-25T22:10:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				133,
+				136,
 				1
 			],
-			"Message": "chore(Land): Sync Element submodule for standardized Wind service argument handling\n\nUpdate the Element git submodule from 8c65e3c to ec2fef2 to integrate the refactoring of IPC argument extraction in Mountain.\n\n**Mountain:** Introduce the `JsonValueHelpers` utility module to provide type-safe, default-aware extraction functions (`arg_string`, `arg_u64`, `arg_bool`, etc.). Replace fragmented `Arguments.get(n).and_then(...).unwrap_or(...)` patterns across 40+ IPC handler modules with calls to these centralized helpers.\n\nThis change affects the entire `WindServiceHandlers` tree, covering Cocoon, Git, Terminal, UI, and NativeHost namespaces. The `mod.rs` exports and the main `mountain_ipc_invoke` dispatcher are updated to utilize the new utilities, ensuring consistent default value handling, reducing boilerplate, and improving type safety across the Mountain backend's IPC surface.",
-			"SHA": "656f32c6ffe1632608db17eb92e42f0cce84ef2a"
+			"Message": "fix(Land): Advance Element submodule — bridged editor state, diagnostics, theme, and breakpoint event pipeline\n\nAdvance the Element submodule pointer to c3783083, integrating Cocoon notification handlers and Mountain-to-Cocoon fan-out for six extension API surfaces that were previously renderer-only.\n\nCocoon adds Notification/Handler.ts cases for $acceptDiagnosticsChanged, $acceptVisibleEditorsChanged, $acceptTabsChanged, $acceptVisibleRangesChanged, $acceptTextEditorOptionsChanged, and $acceptActiveColorTheme — each pumping the Mountain notification through the matching Emitter channel. The $acceptTabsChanged handler caches tab-group snapshots on __tabGroups so synchronous window.tabGroups.all getters reflect current state.\n\nMountain fans five notification types back to Cocoon: $acceptActiveColorTheme in ThemesSet.rs on theme switch, $acceptVisibleEditorsChanged/$acceptTabsChanged/$acceptVisibleRangesChanged/$acceptTextEditorOptionsChanged in WindServiceHandlers/mod.rs forwarding Sky payloads, $acceptDiagnosticsChanged in Diagnostics.rs after Set/Clear calls, and $onDidChangeBreakpoints in DebugLifecycle.rs for breakpoint mutations.\n\nSky bridges four Monaco/workbench event streams through the IPC layer: onDidScrollChange (debounced to ~16 fps) emits visible ranges, onDidChangeConfiguration emits options changes, onDidVisibleEditorsChange emits the URI list of visible editors, and onDidChangeActiveGroup/onDidAddGroup/onDidRemoveGroup emit tab-group snapshots. All IPC calls are wrapped in try/catch so render failures never interrupt the UI pipeline.\n\nVS Code API subscribers inside Cocoon — languages.onDidChangeDiagnostics, window.onDidChangeVisibleTextEditors, window.tabGroups.onDidChangeTabs, window.onDidChangeTextEditorVisibleRanges, window.onDidChangeTextEditorOptions, window.onDidChangeActiveColorTheme, and debug.onDidChangeBreakpoints — now fire correctly for all extensions.",
+			"SHA": "4f239fbb7f63ad88216d43f491062f299efeba4d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:33:27Z",
+			"Date": "2026-05-25T21:54:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				133,
+				136,
 				1
 			],
-			"Message": "refactor(Mountain): Consolidate Cocoon forwarding logic via macro\n\nEliminate the fragmented `Source/IPC/WindServiceHandlers` directory structure containing repetitive boilerplate for forwarding IPC commands to the Cocoon extension host. Introduce a centralized `forward_to_cocoon` macro and `cocoon_payload` helper in `mod.rs` to unify payload serialization and gRPC invocation.\n\nThis refactoring consolidates the handling logic for SCM, Debug, Tasks, and Authentication namespaces within the main IPC dispatcher. The new macro standardizes argument normalization and manages the connection lifecycle, significantly reducing code duplication while preserving the functional bridge to the VS Code runtime.",
-			"SHA": "f62307d656582ee216c55a5bed8ebb0fb298ec14"
+			"Message": "fix(Land): Advance Element submodule — command execution notification relay\n\nAdvance the Element submodule pointer to 69826df9, integrating fixes that relay executed command notifications from Mountain to Cocoon so that `vscode.commands.onDidExecuteCommand` callbacks fire inside Node.js extensions.\n\nCocoon replaces the dead `@tauri-apps/api/event`.listen call (which never fires without `window.__TAURI__`) with a subscription to the `commands.executed` Emitter channel, fed by the `$acceptCommandExecuted` Vine notification from Mountain and local command routes in Commands/Namespace.ts for extension-to-extension `executeCommand` calls. The `viewId` dual-key resolution strategy (established for `setHtml`/`postMessage`) is extended to five more webview mutators — `dispose`, `setTitle`, `setIconPath`, `setOptions`, `reveal` — so panel mutations arriving before the workbench mounts the `IOverlayWebview` still reach their target.\n\nMountain dual-emits `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, alongside the existing Tauri event that reaches the renderer. The Vine notification is fire-and-forget — failure is non-fatal since renderer-side observers are already notified. The `tauri::Emitter` trait import is added in CreateEffectForRequest/Commands.rs to satisfy the compiler.\n\nExtension `onDidExecuteCommand` hooks now fire correctly, webview panel mutations during mount race conditions resolve via the viewId fallback, and Cocoon's Terminal/Service.ts is marked deprecated pending vertical-split cleanup.",
+			"SHA": "dd6c26982b5825f174d7c7b2e1f06477c198093b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:13:51Z",
+			"Date": "2026-05-25T21:39:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				133,
+				136,
 				1
 			],
-			"Message": "chore(Land): Sync Element submodule for IPC standardization and webview lifecycle\n\nUpdate the Element git submodule from 6e6a6c5 to 2a9e60e to synchronize revisions for Mountain, Output, and Sky.\n\n**Mountain:** Correct the `postMessage` Tauri event suffix to PascalCase (`postMessage`) to comply with project-wide naming standards. Refactor `SetLanguageConfiguration` to emit the full parameter object, aligning with generic notification patterns.\n\n**Output:** Expand `browserViewGroup` channel stubs in `TauriMainProcessService` to include `updateKeybindings`, `updateTheme`, `updateConfiguration`, `getBrowserViews`, and dev tools commands, pre-emptively aligning bundled artifacts with upcoming Wind and Sky requirements.\n\n**Sky:** Implement bridge listeners for `setTitle`, `setIconPath`, and `reveal` in the `InstallWebview` layer to manage DOM synchronization, native method invocation, and view focus logic. Restore `dispose` registration to ensure proper cleanup of webview panels.\n\nThese changes enforce strict PascalCase conventions, eliminate IPC naming inconsistencies, and complete the runtime control surface for the webview component layer.",
-			"SHA": "5623db3af452a2703f6eaa8e734f698f60168847"
+			"Message": "fix(Land): Advance Element submodule — webview first-paint race, unhandled IPC notifications\n\nAdvance the Element submodule pointer to 285ddc3a, integrating fixes for a webview panel first-paint race condition and four IPC notification handlers missing from the Mountain dispatch table.\n\nCocoon now sends `viewId: ViewType` alongside `handle` in `webview.setHtml` and `webview.postMessage` payloads. The `webview.create` acknowledgement could arrive before `IOverlayWebview` bound the handle to a WebviewInput, causing the initial `setHtml` to park in `ParkedHtml` and `postMessage` to miss its target. The viewType fallback key in Sky's `InstallWebview.ts` resolves the race.\n\nMountain forwards four previously unhandled IPC notifications: `ScanPathConfigure` to scan `~/.land/extensions` for pre-migration extension discovery; `debug.dap-response` from Cocoon inline-implementation adapters to the workbench via `sky://debug/dap-message`, enabling RawDebugSession DAP response correlation by `request_seq`; `setStatusBarText` mutations from extension `StatusBarItem.text()` setters, which previously froze the status bar text after initial create; and `terminate_task`/`Task.Terminate` to the extension host task service, enabling `vscode.tasks.executeTask().terminate()` to stop running tasks with a graceful fallback.\n\nWebview panels now render correctly on first paint, status bar text updates dynamically, DAP debug sessions receive response correlation, extension task cancellation works end to end, and pre-migration extension directories are discovered on clean installs.",
+			"SHA": "5400f2c7573668d80c766593a270221f3aacd6bd"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:03:07Z",
+			"Date": "2026-05-25T21:29:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				133,
+				136,
 				1
 			],
-			"Message": "chore(Land): Sync Element submodule for native dialog interactivity\n\nUpdate the Element git submodule from 70e79155 to 6e6a6c5 to synchronize the latest revisions for Cocoon and Mountain on the Current branch.\n\n**Cocoon:** Consolidate fragmented window message handling into a single `Window.ShowMessage` gRPC method, delegating action button rendering to Mountain. Enhance URI resolution to explicitly validate `scheme`, `authority`, and `path` properties to prevent broken icon paths.\n\n**Mountain:** Standardize Tauri event naming to PascalCase (e.g., `postMessage`) and refactor `Window.ShowMessage` to use atomic sequence counters. This enables blocking behavior that renders action buttons in the native UI and awaits user selection.\n\nThese changes ensure consistent event naming, prevent illegal event crashes, and restore full interactivity for notification actions across the extension host IPC layer.",
-			"SHA": "059ed59eab25c6f01cef5659514630c910180c20"
+			"Message": "fix(Land): Advance Element submodule — breaker skips failure count when Open\n\nAdvance the Element submodule pointer to e799e065, integrating a Cocoon circuit breaker fix that prevents in-flight gRPC completions from accumulating failure counts after the breaker has already tripped Open.\n\nCocoon's CheckCircuitBreaker was incrementing the failure counter unconditionally on every error completion, even when the breaker state was already Open. In-flight requests arriving after the trip could push the counter well beyond the intended threshold (observed at N≥19) and produce noisy \"transition from=OPEN to=Open failures=N\" debug-log lines on every additional error.\n\nThe fix returns early when the state is Open, logging the post-trip completion at debug level without counting it. Recovery remains driven by the existing timeout-based transition to HalfOpen, unchanged.\n\nThis eliminates dev-log chatter and keeps the failure counter accurate within the Closed and HalfOpen observation windows that actually drive breaker state transitions.",
+			"SHA": "3a783a02027449085b4eb76da4d7c269c7862b31"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:40:14Z",
+			"Date": "2026-05-25T20:55:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				133,
+				136,
 				1
 			],
-			"Message": "chore(Land): Sync Element submodule for URI lifecycle and browser view preparation\n\nUpdate the Element git submodule from 4b0d889a to 70e79155 to synchronize the latest revisions for Mountain and Wind on the Current branch.\n\n**Mountain:** Implement gRPC notification handlers for `UnregisterExternalUriOpener` and `UnregisterRemoteAuthorityResolver` within the Vine protocol. These handlers leverage existing `UnregisterByHandle` utilities to ensure consistent lifecycle management for remote authority and URI opener extensions.\n\n**Wind:** Expand the `StubChannels` registry in `TauriMainProcessService` to include definitions for the `browserViewGroup` service. Add stubs for `updateKeybindings`, `updateTheme`, `updateConfiguration`, `getBrowserViews`, and dev tools commands to establish the contract for upcoming native browser view operations.\n\nThese changes ensure full lifecycle support for extension URI handlers and lay the groundwork for advanced view management in the Workbench service layer.",
-			"SHA": "c4db0cd318e34bd96e288b5ebc3e0322026b03e7"
+			"Message": "fix(Land): Advance Element submodule — circuit breaker tolerates unknown gRPC methods\n\nAdvance the Element submodule pointer to 119b4c70, integrating a Cocoon fix for false circuit breaker trips caused by unknown-method probe responses.\n\nCocoon's GRPCServerService dispatcher was counting unrecognized gRPC method names as failure events in the circuit breaker health counter. When Mountain probes for methods routed to subsystems outside Cocoon's handler registry, or when method sets evolve independently across the gRPC boundary, these expected unknown-method responses could trip the circuit breaker open, disrupting legitimate extension host requests.\n\nThe fix filters unknown-method errors from the circuit breaker's failure accounting while still returning a proper error response to the caller. Only genuine transport or handler errors now trigger breaker state transitions, ensuring stable operation during cross-subsystem method probes and asymmetric method set evolution.",
+			"SHA": "8bcc9f55bf3de0b17590061062b70b95ad42f43c"
 		}
 	],
-	"TimeStamp": 1780149350620
+	"TimeStamp": 1780934928375
 }

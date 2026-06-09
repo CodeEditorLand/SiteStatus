@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-05T13:39:04Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "feat(Project): Add terminal IPC handlers and TerminalService interface\n\nAdd coordinated terminal functionality across Mountain and Wind submodules:\n\n**Mountain:**\n- Add Wind IPC handlers for terminal operations (create, sendText, dispose, show, hide) delegating to TerminalProvider\n- Add output channel handlers (create, append, appendLine, clear, show) emitting Tauri events to Sky\n- Add textFile handlers (read, write, save) using tokio::fs for disk I/O\n\n**Wind:**\n- Add TerminalService interface for Effect-TS based service layer\n- Implement methods: CreateTerminal, SendText, Dispose, Show, Hide\n- Add TerminalProblem discriminated union for typed error handling\n\nThis completes the terminal IPC bridge between Wind's service layer and Mountain's native backend, enabling the full terminal lifecycle from the editor UI.",
-			"SHA": "79e3cf008128b1f7b5998113db458baf7c8d8a74"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-05T13:36:22Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "feat(Mountain): implement generic request router in process_mountain_request\n\nImplement the generic request handler that routes fs.* and commands.execute methods from Cocoon's FileSystemService. The previous implementation returned \"Method not found\" errors for all requests. Now properly handles: fs.readFile/file:read, fs.writeFile/file:write, fs.stat/file:stat, fs.listDir/fs.readdir/file:readdir, fs.createDir/file:mkdir, fs.delete/file:delete, fs.rename/file:move, and commands.execute. Each method delegates to the appropriate handler or returns a JSON-RPC compatible response.\n\nThis enables Cocoon's generic ProcessCocoonRequest RPC to work with the same operations available via typed gRPC methods, completing the gRPC service contract between Mountain and Cocoon.\n\nRefs: bd2d00daeba4658e3f694681daf253c64403a113, 2d0d95417c08c3a53f30ed7cc029f2723eb7ec17",
-			"SHA": "701c7302626eb6767bf8b5d523e610b705d2dc80"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-05T13:34:04Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "feat(Mountain): implement terminal I/O, secret storage, and UI dialogs in CocoonService\n\nReplace unimplemented stubs with working implementations:\n- Terminal I/O: terminal_input sends bytes to PTY stdin via SendTextToTerminal, close_terminal disposes PTY via DisposeTerminal\n- Secret Storage: get_secret/store_secret/delete_secret delegate to OS keychain via SecretProvider (GetSecret, StoreSecret, DeleteSecret)\n- UI Dialogs: show_quick_pick presents selection list via ShowQuickPick, show_input_box presents text entry via ShowInputBox\n- Terminal Resize: emits Tauri event 'sky://terminal/resize' to Sky for xterm.js canvas resizing\n\nAll operations now properly call their corresponding MountainEnvironment providers instead of returning Status::unimplemented, completing the gRPC service contract between Mountain and Cocoon.",
-			"SHA": "bd2d00daeba4658e3f694681daf253c64403a113"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-05T13:30:32Z",
+			"Date": "2026-04-08T16:15:06Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
 				28,
 				4
 			],
-			"Message": "feat(Project): Implement language provider registration and gRPC service layers\n\nUpdate Grove, Mountain, and Wind submodules with coordinated feature implementations:\n\n**Grove (VS Code API Facade):**\n- Add ProviderStore with atomic handle allocation for tracking active language provider registrations\n- Refactor Disposable to support callback invocation (FnOnce on dispose) for proper lifecycle management\n- Implement all 18 register_*_provider methods with actual registration instead of no-op Disposables\n- Add set_language_configuration registration support\n- Add active_registration_count() for debugging\n\n**Mountain (Rust Backend):**\n- Implement all CocoonService gRPC stubs with working functionality\n- File system operations: read_file, write_file, stat, readdir, delete_file, rename_file, copy_file, create_directory using tokio::fs\n- find_files with glob pattern matching via globset crate\n- git_exec spawning native git process with stdout/stderr capture\n- open_terminal wired to MountainEnvironment TerminalProvider\n- Command registration/unregistration wired to CommandExecutor\n- All 15+ language feature provider registration methods store metadata in ApplicationState\n- Workspace folders initialization from init payload\n- Extension queries via ExtensionManagementService\n\n**Wind (TypeScript Service Layer):**\n- Implement Live service layers for Commands, Editor, Extensions, Files, and Language\n- CommandsService: Local handler registry with IPC delegation to Mountain\n- EditorService: Editor state via Ref subscriptions with Monaco command delegation\n- ExtensionsService: Extension discovery and activation via Mountain IPC\n- FilesService: Full filesystem operations with URI → path normalization\n- LanguageService: In-memory provider registration with local disposal\n- All services use Effect-TS patterns with proper error modeling\n\n**Maintain:** Submodule updates for CI/CD improvements\n\nThis completes the gRPC service contract between Mountain and Cocoon, enabling full language provider support and filesystem operations from the extension host.",
-			"SHA": "2d0d95417c08c3a53f30ed7cc029f2723eb7ec17"
+			"Message": "",
+			"SHA": "ffb3d10f9c3e40f061ea9501a49f28b3fae8b52d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-05T12:51:15Z",
+			"Date": "2026-04-08T13:03:21Z",
+			"File": [
+				"⣿⣿⠀⠀⠀",
+				28,
+				11
+			],
+			"Message": "feat(Project): Replace Electron IPC with Tauri IPC across Sky and Wind\n\nCoordinate eight Land submodules to replace Electron's ipcMain protocol with native Tauri invoke:\n\n- **Sky**: Add Step 7 build hook in astro.config.ts that replaces VS Code's ElectronIPCMainProcessService with TauriMainProcessService at build time. Routes all IPC channel.call() invocations through Tauri invoke to Mountain's WindServiceHandlers.\n\n- **Wind**: Implement two parallel IPC pathways: (1) IPCRendererShim binary protocol loopback - re-implements VS Code's binary IPC serialization for vscode:message events with loopback responses, with stub handlers to prevent workbench hangs; (2) TauriMainProcessService - drop-in replacement routing through Tauri invoke, eliminating binary protocol overhead.\n\n- **Wind**: Extend ResolveConfiguration with full INativeWindowConfiguration including profiles, colorScheme, accessibilitySupport, and other DesktopMain fields. Fix appRoot to strip origin and set VSCODE_DEV: \"true\" for relative imports.\n\n- **Echo**: Bump miniflare (4.20260401.0 → 4.20260405.0), @cloudflare/workers-types (4.20260405.1 → 4.20260408.1), wrangler (4.80.0 → 4.81.0).\n\n- **Sky**: Bump vite (8.0.5 → 8.0.7), @playform/compress (0.2.2 → 0.2.3).\n\n- **Cocoon**: Bump vitest (4.1.2 → 4.1.3), @vitest/coverage-v8 (4.1.2 → 4.1.3); style ESBuild config formatting.\n\nThis completes the Electron→Tauri migration enabling VS Code workbench to initialize in Tauri's WKWebView.",
+			"SHA": "eb26f83991506ff10c8ba79a30a4197983b27bef"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-07T19:00:12Z",
+			"File": [
+				"⣿⠇⠀⠀⠀",
+				28,
+				8
+			],
+			"Message": "build(Project): Coordinate Electron workbench integration across Land submodules\n\nSynchronize eight Land submodules to enable VS Code Electron workbench to run in Tauri:\n\n- **Air**: Style cleanup - remove obsolete TODOs and improve code formatting\n- **Common**: Update author metadata to CodeEditorLand branding and fix TypeScript rootDir\n- **Mountain**: Add vscode-file:// protocol handler to serve embedded frontend assets; update Tauri schema with new fs permissions and event IPC\n- **Output**: Add Electron environment variable for build targeting with three scenarios (Electron/Browser/neither)\n- **Rest**: Rebuild binary artifact following style standardization\n- **Sky**: Refactor workbench loading with Effect.runPromise patterns; enable runtime relative imports via _VSCODE_USE_RELATIVE_IMPORTS flag to bypass vscode-file:// URI scheme limitations in WKWebView\n- **Wind**: Add complete INativeWindowConfiguration to ResolveConfiguration including appRoot, profiles, product metadata; set VSCODE_DEV=true to enable relative imports and fix hrtimeStart null reference\n- **Worker**: Reformat ESBuild configuration indentation\n\nThis resolves the core incompatibility where WKWebView (macOS) cannot use custom URL schemes with dynamic imports, enabling the VS Code workbench to render in Tauri's webview by switching to http://localhost relative imports.",
+			"SHA": "e08ce22743c83f3f6399c83319f47505d34bc275"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-07T05:52:10Z",
+			"File": [
+				"⣿⡟⠀⠀⠀",
+				28,
+				10
+			],
+			"Message": "",
+			"SHA": "3ee88d93ec6a0d6df16403b6a3332ff45845f9c0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-06T10:56:06Z",
 			"File": [
 				"⡇⠀⠀⠀⠀",
 				28,
 				3
 			],
-			"Message": "",
-			"SHA": "5046c9198ab6b0bb3500c22eca05198ee787fdd9"
+			"Message": "build(Project): Coordinate Sky workbench URL paths and Worker target rebuilds\n\nSynchronize three Land submodules with build configuration and target updates:\n\n- **Sky**: Standardize VS Code workbench loading by replacing @codeeditorland/output package specifiers with runtime /vs/ URL paths. Apply is:inline to bypass Vite/Rollup bundling, use variable assignment for truly dynamic imports, add try/catch error handling, and update astro.config.ts external resolver for /vs/ prefix.\n\n- **Worker**: Rebuild all target files (Worker.js, CSS/Load.js, Policy.js, Register.js) following ESBuild configuration changes. No functional changes, target files regenerated with current configuration.\n\n- **Mountain**: Submodule pointer update.\n\nThis resolves Rollup's inability to resolve package specifiers at build time while maintaining dynamic loading at runtime.",
+			"SHA": "5b04b8ffe42664ac65bb799574d7ebf13048e997"
 		}
 	],
-	"TimeStamp": 1780149373482
+	"TimeStamp": 1780934947930
 }

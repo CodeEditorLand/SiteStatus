@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T15:14:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1733,
-				6
-			],
-			"Message": "refactor(Mountain): Remove dead Git::Shared::Generated wrapper and eliminate unused Library re-exports\n\nDelete the `Generated` module from `Source/IPC/WindServiceHandlers/Git/Shared/` which was a thin wrapper around `uuid::Uuid::new_v4()`. Replace all calls to `Generated()` with direct `uuid::Uuid::new_v4().to_string()` in HandleExec, HandleRevListCount, and HandleRevParse.\n\nRemove unused `Air` and `Cache` module re-exports from `Source/Library.rs` and the `Client` module re-export from `Source/Vine/mod.rs`, continuing the absolute-path migration to eliminate local indirection layers.\n\nThis cleanup removes dead code and aligns the Git service handlers with the project's direct-delegation pattern.",
-			"SHA": "4e294f6bc5e9e09de72c85d3447306313f1bead1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T15:03:12Z",
+			"Date": "2026-06-05T10:35:01Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				1733,
-				24
+				1731,
+				35
 			],
-			"Message": "refactor(Mountain): Normalize Vine import separation in GenericRequest handlers\n\nSplit combined import statements in 24 CocoonService generic request handlers to separate local `crate::` bindings from absolute `::Vine::Generated` path imports. Apply consistent two-line import pattern across Commands, Secrets, and WindowDialogs service handlers, plus InitialHandshake and MountainVinegRPCService.\n\nThis continues the absolute-path migration ensuring all gRPC types delegate exclusively to the canonical Vine library crate without local indirection or malformed combined imports.",
-			"SHA": "32dbaa04b415ba7e1ad51be359f98f9a41c7b912"
+			"Message": "refactor(Mountain): Complete parking_lot migration for ApplicationState and command modules\n\nMigrate the remaining std::sync::Mutex and tokio::sync::RwLock usage in Mountain's ApplicationState hierarchy to parking_lot equivalents. This completes the migration started in the previous commit, covering all feature state modules (Debug, Decorations, Diagnostics, Documents, Keybindings, LifecyclePhase, Markers, NavigationHistory, OutputChannels, TreeViews, Webviews, WorkingCopy), UI state, workspace state, configuration state, and extension registry.\n\nKey changes:\n- Replace Arc<StandardMutex<>> and Arc<tokio::sync::RwLock<>> with Arc<parking_lot::Mutex<>> and Arc<parking_lot::RwLock<>> across 20+ state modules\n- Remove MapLockError/MapLockErrorWithRecovery helpers and StateOperationResult — parking_lot panics on poison instead of returning Result, eliminating poison-error boilerplate\n- Simplify lock acquisition from guard.ok().and_then(|g| g.clone()) to direct .lock().clone() patterns\n- Update command handlers (Bootstrap, SCM commands), document save operations, extension scanner, file explorer, and shutdown logic to use the new locking API\n- Remove ErrorMapping crate's PoisonError mapping functions (now replaced by WithParkingLotMutex helper)\n- Fix VineHostImpl.UpdateScmGroupMarkers lock handling\n\nImpact: Consistent parking_lot usage across Mountain's entire state management layer, reduced lock contention overhead, and cleaner error handling paths without .ok().and_then() chains.",
+			"SHA": "6a285173d703deccb702306a329811b0b9e0f448"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T15:00:48Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				1733,
-				162
-			],
-			"Message": "refactor(Mountain): Eliminate final local Vine module re-exports and normalize absolute imports\n\nRemove the deprecated `Generated` and `Client` module re-exports from `Source/Vine/mod.rs`, completing the migration to absolute-path delegation for the gRPC protocol layer. Update `Source/Vine/Server/Initialize.rs` and `MountainVinegRPCService.rs` to import `::Vine::Generated` types directly.\n\nRefactor 90+ `Source/RPC/CocoonService` handler files to replace `crate::Vine::Generated::{...}` with `::Vine::Generated::{...}`, applying the same pattern across Auth, Command, FileSystem, Provider, Window, Workspac, and Terminal service handlers. Consolidate `Source/RPC/CocoonService/mod.rs` import order for clarity.\n\nThis finalizes the multi-commit absolute-path migration, ensuring all Mountain IPC and service logic delegates exclusively to the canonical Vine library crate with zero local indirection.",
-			"SHA": "aad9d23407d82fee46e930670324c68ec6c57c64"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T15:00:22Z",
+			"Date": "2026-06-05T08:40:06Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1733,
-				8
+				1731,
+				11
 			],
-			"Message": "refactor(Mountain): Remove final local re-exports from Air, Cache, and Vine modules\n\nDelete the remaining wrapper modules in Source/Air/mod.rs, Source/Cache/mod.rs, Source/Vine/Client.rs, Source/Vine/mod.rs, and Source/Vine/Server/Notification/Support/mod.rs that re-exported canonical implementations. Update Source/IPC/WindAirCommands/AirClientWrapper.rs and GetOrCreateAirClient.rs to import `::AirLibrary::Client::AirClient::AirClient` directly instead of via `crate::Air::AirClient`.\n\nAdjust Source/Vine/Server/Initialize.rs to use absolute paths for `::Vine::Error::VineError` and `::Vine::Generated` types. Remove the deprecated `Error` and `Multiplexer` module declarations from Source/Vine/mod.rs.\n\nThis completes the absolute-path migration, ensuring all Air, Cache, and Vine usage delegates to the canonical library crates with zero local re-export indirection.",
-			"SHA": "57f1f8373af07c53b739ba56480a7adbfe1b8a95"
+			"Message": "refactor(Mountain): Migrate std::sync::Mutex to parking_lot::Mutex and modernize lazy static initialization\n\nReplace standard library mutexes with parking_lot::Mutex across terminal state management, IPC connection pools, secure message channels, performance dashboard, and Cocoon process management. The parking_lot implementation provides faster lock acquisition and doesn't return Result from lock() (panics on poison instead), simplifying error handling throughout the codebase.\n\nSimultaneously replace lazy_static macros with once_cell::sync::Lazy for global registry initialization (feature flags, metrics, Cocoon state), adopting the more modern and maintenance-friendly pattern.\n\nKey changes:\n- TerminalState and TerminalStateDTO: Arc<Mutex<>> replaces Arc<StandardMutex<>> for PTY handles and terminal collections\n- TerminalProvider: Output buffer and terminal map locks simplified; removed MapLockErrorToCommonError mappings\n- ErrorMapping: Added WithParkingLotMutex helper for the new locking pattern\n- IPC Enhanced modules: ConnectionPool, MessageCompressor, PerformanceDashboard, SecureMessageChannel all updated\n- CocoonManagement: lazy_static replaced with once_cell::Lazy for COCOON_STATE and COCOON_HEALTH\n- Telemetry registries: FeatureFlags and Metrics global registries migrated to once_cell::Lazy\n- Vine client/server notification shims: Minor formatting normalization\n\nImpact: Reduced lock contention overhead, cleaner error handling paths (no more .ok().and_then() chains for mutex access), and modernized static initialization across Mountain's core subsystems.",
+			"SHA": "3b0c95e2986ddeebe6dfa24f4e7a1652a0d5d670"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T14:40:28Z",
+			"Date": "2026-06-05T07:50:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1733,
-				3
+				1731,
+				1
 			],
-			"Message": "refactor(Mountain): Eliminate Air module wrappers and inline address constant\n\nRemove the remaining local re-export surface in Source/Air/ by deleting the dead AirServiceTypesStub module and consolidating AirClient.rs to only the MapAirError translation function and type alias. The DEFAULT_AIR_SERVER_ADDRESS constant is now referenced directly from ::AirLibrary::Client::AirClient in GetAirAddress.rs rather than via the local wrapper.\n\nThis completes the migration to absolute-path delegation for the Air integration layer, ensuring Mountain references the canonical Air library definitions without local indirection. The AirClient module now contains only the error translation boundary logic needed for CommonError propagation.",
-			"SHA": "068d7a507dae086e5725e6ebfd815d18f1a8d020"
+			"Message": "feat(Cargo): Add experimental tier flags for enhanced functionality\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "a4784b825cc0dd0995ae3023a3f5d22a112f50cb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-05T07:39:34Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1731,
+				6
+			],
+			"Message": "style(Mountain): Clean up formatting and whitespace across core modules\n\nApply consistent formatting improvements across Mountain's application state, extension registry, file system effects, and gRPC service:\n\n- ExtensionRegistry: Condense WithCommands/GetCommands implementations, inline dev_log calls, remove excess whitespace\n- FeatureState: Move std::sync imports to module top, fix Default implementation formatting\n- Entry: Fix type annotation spacing for AppStateArcForClosure\n- FileSystem: Reformat base64 decode error handling, align comment wrapping\n- CreateEffectForRequest: Expand Try! macro arms for readability, wrap long comment lines\n- MountainVinegRPCService: Reflow cancellation warning comment, inline CreateErrorResponse call\n\nNo functional changes — purely mechanical formatting cleanup for consistency.",
+			"SHA": "153056369679d7c3dd6ecdbba393c7a08321c40a"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-06-05T02:57:32Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1731,
+				1
+			],
+			"Message": "",
+			"SHA": "5ac30cf1b3d71a461473c8a2f5e9f8b1fad83d4a"
 		}
 	],
-	"TimeStamp": 1780149344244
+	"TimeStamp": 1780934924223
 }

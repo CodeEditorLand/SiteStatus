@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:13:28Z",
+			"Date": "2026-05-23T11:13:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1578,
-				7
+				1735,
+				8
 			],
-			"Message": "style(Mountain): Normalize dispatcher indentation; update Cargo/tauri build identifiers\n\nRe-indent the extracted GenericNotification/Dispatcher and GenericRequest/Dispatcher files to remove the spurious extra block indentation level that was carried over from their original inline positions in CocoonService/mod.rs. Reorder imports (std before third-party) and collapse import brace formatting. No logic changes in either dispatcher.\n\nUpdate Cargo.toml binary/lib/package names and tauri.conf.json identifier/productName to the verbose build configuration string for the development/debug Electron profile, distinguishing this build artifact from production Mountain releases. Preserve originals as .Backup copies.\n\nOutcome: dispatcher code now matches project style conventions, and the development build artifact is correctly labelled for toolchain identification.",
-			"SHA": "e78bf315d71ba4a49c4200d7f7002d24f6058255"
+			"Message": "refactor(Mountain): Centralize Cocoon IPC calls and unify URI sanitization\n\nReplace verbose inline `SendRequestToSideCar` logic in `CustomEditorProvider`, `StatusBarProvider`, `TestProvider`, `Authentication`, `Task`, and `FileSystem` handlers with the new centralized `proxy_cocoon` helper in `Utilities::Proxy`. This helper abstracts the retrieval of `ApplicationRunTime`, `IPCProvider`, and method string construction, reducing boilerplate across the `CreateEffectForRequest` tree.\n\nConcurrently, extract the `StripFileUriScheme` logic from `FileSystem.rs` into the shared `Utilities::Params` module as `strip_file_uri`. Update all `FileSystem` operations (ReadFile, WriteFile, ReadDirectory, Stat, CreateDirectory, Delete, Rename, Copy) to utilize this unified utility for normalizing `file://` URIs, ensuring consistent path handling for the extension host.\n\nThis consolidation enforces a single source of truth for IPC dispatch and file path normalization, aligning with the project's architectural standardization efforts.",
+			"SHA": "a430e1c403378f8fa7723f9842f1cfc23ba04b56"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T06:13:01Z",
+			"Date": "2026-05-23T11:02:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1576,
-				9
-			],
-			"Message": "refactor(Mountain): Extract CocoonService dispatchers; fix Send-ness in InitData; retry AppDataPrefix\n\nThe 1400+ line `process_mountain_request` and 600+ line `send_mountain_notification` handlers were inlined in `CocoonService/mod.rs`, making the file unwieldy and obscuring the gRPC service boundary. Extract both match blocks into dedicated `GenericRequest::Dispatcher` and `GenericNotification::Dispatcher` modules, reducing `mod.rs` by ~1900 lines.\n\nIn `InitializationData.rs`, the `MutexGuard` on `WorkspaceFolders` was held across an `.await` call, making the future non-`Send` and breaking `tauri::async_runtime::spawn`. Scope the guard to a block so it is dropped before any await point; extract logging scalars before moving `FoldersWire` into `WorkspaceDTO`.\n\nIn `AppDataPrefix.rs`, replace the `OnceLock<Option<String>>` that caches `None` forever (routing all dev logs to `/tmp` after the first failed resolution) with a two-phase system: `RESOLVED: OnceLock<String>` for the permanent prefix, and `RETRY: Mutex<bool>` that stays `true` on first failure so subsequent writes retry after Tauri has created the app-data directory.\n\nIn `WindServiceHandlers/mod.rs`, the previous boot-latency fix used a bare `return Ok(...)` inside a match arm, which exits the enclosing async block (not just the arm), changing the block's inferred return type from `()` to `Result<Value, _>` and breaking `Scheduler::Submit`'s `Output = ()` bound. Replace with an `if/else` expression that evaluates to `Ok(...)` in both branches.\n\nAlso fix a minor clippy-nit in `AliasPath.rs` by removing the redundant `.as_str()` call.",
-			"SHA": "47a603158ca0d368b2ae744ef8fd7edcf5ed7410"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:37:16Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1574,
-				4
-			],
-			"Message": "style(Mountain): Reflow long lines and brace placement across four files\n\nNormalize formatting in `UpdateValue.rs`, `WindServiceHandlers/mod.rs`, `InitializationData.rs`, and `CocoonService/mod.rs` to align with Rust style conventions. Changes are limited to comment reflow, static declaration compaction, method body compression, and brace positioning — no logic is altered.\n\nCleans up artifacts from prior commits where formatter passes were missed, keeping the codebase consistent.",
-			"SHA": "65f1cf26cfa85fc1639f84d0458df61276bfa44a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:37:05Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1574,
-				6
-			],
-			"Message": "feat(Mountain): Add lang-scoped config override, stable session ID\n\n**Language-scoped configuration overrides** — `UpdateValue` now writes into\n`\"[<langId>]\": { key: value }` when the `ConfigurationOverridesDTO` carries a\nnon-empty `OverrideIdentifier`, matching the VS Code convention used by\nprettier-vscode, vscode-eslint, and other per-language formatters. The scope\nkey is cleaned up when its last entry is removed.\n\n**Stable session ID** — `ConstructSandboxConfiguration` and\n`ConstructExtensionHostInitializationData` now share a `OnceLock`-backed\nstatic `SESSION_ID` instead of generating a fresh `Uuid::new_v4()` per call.\nExtensions comparing `telemetryInfo.sessionId` across initialization calls now\nsee a consistent value for the process lifetime.\n\n**Call/Type hierarchy RPC handlers** — `CocoonService` now dispatches\n`$provideCallHierarchyItems`/`prepareCallHierarchy` and\n`$provideTypeHierarchyItems`/`prepareTypeHierarchy` generic requests to\n`Environment::PrepareCallHierarchy` and `PrepareTypeHierarchy` respectively,\nunblocking F12 / Go to References / Call Hierarchy in the editor.\n\n**Real IPC stubs** — `mountain_get_configuration` returns the live merged\nconfig object; `mountain_get_services_status` reports actual Cocoon connection\nstate; `mountain_get_state` surfaces real workspace folder count and active\ndocument URI. Eliminates hardcoded mock data.\n\n**SOCKS proxy support** — Proxy env-var parsing now emits the correct PAC\nkeyword (`SOCKS` for socks/socks4/socks5 URIs, `PROXY` for http/https),\nso extensions using the `proxy` setting work behind SOCKS proxies.\n\n**Dev-log lock contention** — `FlushDedup::Fn` switches from `lock()` to\n`try_lock()` so a contended dedup mutex never parks a Tokio worker thread.\nThe dedup line is cosmetic; missing one flush costs nothing.\n\n**Atomic always-on-top toggle** — Replaces the heuristic title-prefix proxy\nwith a `static AtomicBool` so `nativeHost:toggleWindowAlwaysOnTop` correctly\nflips and sets the opposite state on each invocation.\n\n**ViewColumn forwarding** — The `window.didChangeTextEditorSelection`\nVine notification now includes `viewColumn` from the incoming arguments,\nso extensions calling `activeTextEditor.viewColumn` see the correct pane\nnumber in split-editor layouts.",
-			"SHA": "5c627091d0aecbc4b96f536dde7bdf12242cc6f7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:21:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1574,
+				1734,
 				1
 			],
 			"Message": "",
-			"SHA": "07bd1cd0f25a8de5e7c19ec3eb0eab1bfabc8eca"
+			"SHA": "4887af8adcc9f23acf62ee12d8474bed97501b8f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T11:02:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1734,
+				3
+			],
+			"Message": "refactor(Mountain): Centralize URI sanitization and expand IPC macro overloads\n\nExtend the `call!` macro in `WindServiceHandlers` with a new overload for handlers accepting no arguments (app, tag, msg, Fn), replacing verbose inline logging and `RunTime.clone()` boilerplate across Extensions, Decorations, WorkingCopy, Keybinding, and Lifecycle dispatchers in `mountain_ipc_invoke`.\n\nConcurrently extract the `StripFileUriScheme` logic from `FileReadAlias.rs` into the centralized `Utilities::Params` module as `strip_file_uri`. Update `FileReadAlias.rs` to import this helper, unifying file URI normalization (handling `file://`, `file:///`, and `file://localhost` forms) across the request tracking layer and aligning with the project's utility standardization efforts.\n\nThis reduces code duplication in the IPC dispatcher and ensures consistent path handling for file system operations initiated by the extension host.",
+			"SHA": "baf9f001ea4633c739cd2e8851ff05900f5a8107"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T11:00:05Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1734,
+				1
+			],
+			"Message": "",
+			"SHA": "aef9a3497996616e1874edd7a900624cb43f18b0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T11:00:04Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1734,
+				32
+			],
+			"Message": "refactor(Mountain): Standardize IPC handlers with centralized effect macro and parameter helpers\n\nIntroduce the `effect!` macro in `MappedEffectType` to eliminate verbose boilerplate for wrapping async logic into `MappedEffect` closures. Concurrently add the `Utilities::Params` module providing type-safe, default-aware argument extractors (`string_at`, `val_at`, `u64_at`, etc.) for handling `serde_json::Value` payloads.\n\nApply these utilities across the entire `Track/Effect/CreateEffectForRequest` tree, including `Authentication`, `FileSystem`, `Terminal`, `WindowUI`, and `Workspace` handlers. Refactor `WindServiceHandlers/mod.rs` to introduce the `call!` macro, replacing repetitive `dev_log!` and closure invocation patterns with a unified dispatch mechanism for Tauri IPC commands.\n\nThis consolidation reduces code duplication, enforces consistent parameter extraction and logging behavior, and aligns the native backend with the project's Effect-TS driven architectural principles.",
+			"SHA": "b791a1cad20c4554117feae7059bbdbed43939fe"
 		}
 	],
-	"TimeStamp": 1780149356680
+	"TimeStamp": 1780934931021
 }

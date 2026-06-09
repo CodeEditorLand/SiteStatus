@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:32:14Z",
+			"Date": "2026-05-04T11:24:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				105,
+				106,
 				1
 			],
-			"Message": "feat(Sky): Install Wind workbench bridge after services ready\n\nAdd an event-driven installation path for Wind's LandWorkbench bridge that listens for the `cel:services-ready` event dispatched by Output's `ExposeWorkbenchAccessor` transform. Once services are available, `InstallLandWorkbench()` is dynamically imported and executed, which in turn dispatches `cel:wind-ready` for downstream subscribers (SkyBridge, Astro components, in-page Wind tasks).\n\nThis change ensures proper sequencing: services DI container populated → install Wind bridge → notify subscribers. The entire block is guarded by `if (!LandDisabled)` so bisect mode (`Disable=true`) keeps the workbench probe-free as intended in the recent Disable=true feature.\n\nRefs: IT-01 from `.claude/workflow/05-Open-Threads.md`",
-			"SHA": "8c65df03c7c282ed629ec43a2a29947d3f08334d"
+			"Message": "feat(Sky): Add diagnostic tracing for WebviewView registration lifecycle\n\nIntroduce unconditional logging hooks in SkyBridge to expose the full lifecycle of the `webview/registerView` IPC event and the subsequent workbench `resolveWebviewView` callback. Add a one-time diagnostic emit on the first registration to verify payload shape, `ViewId` resolution, and `__CEL_SERVICES__` availability. Embed an entry trace at the start of the resolver callback to distinguish between workbench invocation failures and internal logic errors. Mirror all registration outcomes (including duplicate-guarded cases) to `Mountain.dev.log` via the diagnostic IPC to ensure visibility into the gRPC bridge chain even when the browser console is unavailable.\n\nThis change addresses opaque failures during extension host hot-reloads and startup by providing a deterministic file-sink trail for triaging WebviewView service registration issues, ensuring the bridge state is observable before the resolver logic executes.",
+			"SHA": "3c05f5e84ed083ab55d698c358b1fda29d7123f8"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:17:14Z",
+			"Author": "Auto",
+			"Date": "2026-05-04T02:33:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				105,
+				106,
 				1
 			],
-			"Message": "perf(Sky): Batch command registration to reduce IPC channel saturation\n\nThe `sky://command/register` handler now accepts either a single command object (legacy shape) or a batch `{ commands: [...] }` object. Mountain's extension boot path registers 100+ extensions, each with ~10 commands = 1000+ individual emit events. This saturated Tauri's shared WKWebView IPC channel, queuing keystrokes behind thousands of register events.\n\nThe new batch format processes all commands in a single IPC round-trip via the new `RegisterOneCommand` helper, dramatically reducing channel traffic and restoring keystroke responsiveness during extension boot.",
-			"SHA": "06fd1942a6b149f4e55cf0c0eca1ad4894d709b5"
+			"Message": "",
+			"SHA": "e36fd2aa9c9b8a8e2c4e57d62d23a5499f476091"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T00:15:36Z",
+			"Date": "2026-05-03T09:56:40Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				105,
+				106,
 				1
 			],
-			"Message": "perf(Sky): Reduce IPC channel saturation by making diagnostic logging opt-in\n\nRemove per-fire diagnostic traces and replace with failure-only logging or opt-in flags. The original RenderDevLog calls for textSearch, fileSearch, and TreeView attach fired on every invocation (50-100/s during extension boot), doubling traffic on Tauri's single serialized WKWebView channel and starving keystroke delivery.\n\n_CelDispatchLog now requires globalThis.__LAND_TRACE_CEL_DISPATCH__=true. Diagnostic bridges for markers-bridge and webview-bridge now only log when pushable=false or hasRegister=false, capturing the triage value without saturating the channel on the success path.\n\nKeystroke delivery should be more responsive during extension boot.",
-			"SHA": "131245270726f95b174ac9a9ac9c98a9e50583ce"
+			"Message": "fix(package): pin @vscode/vscode-languagedetection version to 1.0.23\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "69036c26608e01da1e129d08530aee55ac1d0f69"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:44:34Z",
+			"Date": "2026-05-03T07:48:59Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				105,
-				2
+				"⠀⠀⠀⠀⠀",
+				106,
+				1
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "83a7b8975aa291f68d89c3e212b4a8e13ff21ddf"
+			"Message": "feat(TraceparentBridge): implement W3C traceparent extraction and payload handling for Tauri events\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "260c44b3b6a8a23efda054309bee297dc7ae25df"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:34:10Z",
+			"Date": "2026-05-03T06:21:44Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
+				"⡿⠀⠀⠀⠀",
 				105,
-				7
+				19
 			],
-			"Message": "feat(Sky): Add Disable=true master kill-switch for bisecting regressions\n\nIntroduce a build-time and runtime gate that strips all Land customizations so the workbench loads as close to upstream VS Code on Tauri as possible:\n\n1. **Disable=true gate** (`import.meta.env.Disable`): When set, SkyBridge short-circuits without registering any of the ~100 `sky://*` Tauri event listeners. The layout script skips Bootstrap (Wind's Effect-TS layer), TelemetryBridge, and InstallSkyBridge entirely. The smoke test harness is replaced with AutoDiagnoseInput.\n\n2. **AutoDiagnoseInput diagnostic**: New hands-off probe that runs only under Disable=true. Reports to console which editor instance has focus, classifies it (chat input / file editor / search / settings), and tells the user whether typing SHOULD work. The most common \"typing doesn't work\" issue is the user typing into VS Code's chat panel which silently drops keystrokes when Cocoon is unavailable.\n\n3. **Remove eager focus restore**: The previous phaseChanged handler that forced focus to Monaco on every phase >= 3 caused regressions - it fired twice (phase 3 and phase 4 ~15s later), yanking focus away from search boxes after the user typed one character. Mountain's MainWindow.show() + set_focus() already lands first-responder correctly at phase 3, so the redundant Sky-side re-focus is dropped.\n\n4. **Flag naming**: Rename `LAND_SMOKE_TEST` / `land-smoke` to `Smoke` (PascalCase, matching Land's env-var convention in `.env.Land.Diagnostics`).\n\nUseful for bisecting whether a regression lives in our customizations (still broken under Disable) or upstream/Tauri/WKWebView (still broken even with Disable=true).",
-			"SHA": "e5259308f3d0ea7101cf657928984c778d418286"
+			"Message": "feat(Sky): Enforce telemetry kill-switch and bridge event replay for bundled profiles\n\nExtend the Sky bridge and bundled workbench entry points to honor the master `Capture` and `Report` environment variables, ensuring PostHog and OTLP telemetry can be globally disabled alongside the `Disable` polyfill kill-switch. Update `OTELBridge.ts` and `PostHogBridge.ts` to gate initialization on these flags and suppress built-in unhandled error capture to avoid duplicate null-property events.\n\nAdd the `sky:replay-events` invocation at the end of `InstallSkyBridge` for bundled profiles to drain pending Mountain events (tree-view registrations, SCM providers, terminal buffers) that occur during the Cocoon activation cascade, preventing event loss when listeners attach late. Update `SkyBridge.ts` to correctly handle `TauriChannel` method interception and search-result mapping shapes. Apply consistent PascalCase formatting and multiline brace styles across entry scripts, smoke tests, and Astro layouts to align with project standards.\n\nThis ensures robust event delivery during startup, accurate diagnostics via telemetry gates, and formatting consistency across the bundled editor profiles.",
+			"SHA": "c636f0e8dc34b688a612a38dd4380ac7ec94189e"
 		}
 	],
-	"TimeStamp": 1780149360429
+	"TimeStamp": 1780934934411
 }

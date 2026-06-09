@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T21:44:51Z",
+			"Date": "2026-05-20T05:08:53Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				126,
-				1
+				"⠃⠀⠀⠀⠀",
+				129,
+				8
 			],
-			"Message": "chore(Element): Synchronize 10 submodules for performance optimization and IPC efficiency\n\nUpdate the `Element` submodule to `a934a1ae` to integrate a coordinated suite of performance enhancements and build optimizations across the Land Editor ecosystem.\n\n**Cocoon**: Enable production tree shaking and conditionally disable debug logging, reducing the `Main.js` bundle by ~10% (1.49MB → 1.33MB). Refactor the performance monitoring service to a zero-overhead shim, replace array reductions with O(1) Exponential Moving Average for latency tracking, and update the bootstrap watchdog polling to 5s with `unref` intervals.\n\n**Mountain**: Enable full diagnostic tracing and implement robust TTY detection to skip shell enhancements in interactive terminals. Introduce a high-frequency command filter in `WindServiceHandlers` to bypass OTLP spans and Echo submission for silent commands (e.g., `logger:*`, `storage`), significantly reducing CPU overhead during boot.\n\n**Wind**: Consolidate Layer composition using `Layer.mergeAll` to reduce intermediate object allocations from O(n) to O(1). Streamline Tauri IPC argument serialization and standardize production builds to strip console statements.\n\nUpdates to **Common**, **Echo**, **Output**, **Rest**, **SideCar**, **Sky**, and **Worker** align with build hygiene and architectural consistency. These changes enhance runtime efficiency and prepare the stack for intensive testing.",
-			"SHA": "0a7c37e349089a03f8b635a56aad3c7937cd37c9"
+			"Message": "refactor(Land): Move Brotli pre-bake to beforeBundleCommand and add user env override support\n\nRelocate the Brotli compression step from the Debug/Release Build.sh scripts into Mountain's Tauri beforeBundleCommand hook, where it runs automatically during the native build rather than requiring an explicit post-build invocation. The PreBake.ts script receives cleaner logging — per-file progress lines are removed in favour of a single summary showing write/skip counts, total bytes, and compression percentage — reducing noise in CI output.\n\nTierEnvironment.sh gains a user-environment-override mechanism: any Tier*, Product*, Network* prefix variables, plus known runtime keys (Disable, Trace, Record, etc.), exported by the caller before sourcing the script are now snapshotted and reapplied after every .env.Land overlay is sourced. This makes `export TierIPC=Node` (or any runtime switch) reliably take final precedence without editing .env files, enabling ad-hoc testing across build tiers without config file mutation.\n\nThe `Disable` master kill-switch is added to `.env.Land.Sample` under a new Build/debug switches section, and a duplicated comment block in `.env.Land.Diagnostics.Sample` is removed. Both Element and Documentation/Rust submodules advance, bringing in Mountain's beforeBundleCommand integration and 14-element ecosystem maintenance.",
+			"SHA": "4927578d08df7eb15dbfc5beaa19252679635a44"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T01:10:11Z",
+			"Date": "2026-05-20T02:19:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				126,
+				129,
 				1
 			],
-			"Message": "chore(Element): Synchronize Cocoon and Sky for build refresh and IPC diagnostics\n\nUpdate the `Element` submodule to the latest revision to integrate targeted enhancements in the extension host pipeline and UI component layer.\n\n**Cocoon**: Regenerate all TypeScript compilation outputs in the `Target/` directory and update the `RouteManifest` timestamp. This synchronizes JavaScript bundles, source maps, and gRPC service definitions for the extension host sidecar.\n\n**Sky**: Instrument the `Bridge.ts` webview postMessage handler with diagnostic logging via `MountainIPCInvoke`. Capture lifecycle events including entry receipt, registry lookup state, dispatch attempts, and execution errors. Logs include ViewId and message metadata to facilitate debugging of IPC flows between the Astro UI and VS Code workbench webviews.\n\nThese changes ensure the extension host is ready for the upcoming testing phase while providing granular visibility into the UI-to-backend communication bridge without altering core dispatch logic.",
-			"SHA": "66f1c648eae630d6456cc3e65543d43dde0a432b"
+			"Message": "feat(Project): Wire full editor IPC pipeline for decorations, text edits, selections, and hierarchy\n\nAdvance 8 element submodules in a coordinated update that completes the editor IPC round-trip from extension host to native backend to editor UI, enabling real-world extensions to manipulate text editors, decorations, and call/type hierarchy panels.\n\n**Cocoon** backfills critical VS Code API shims discovered through integration testing: extension exports resolution (`getExtension(id).exports`), call/type hierarchy prepare entry points, live `workspace.textDocuments` tracking via `$acceptModelAdded`/`$acceptModelRemoved`, `document.willSave` listener dispatch with edit collection, and a robust `activeTextEditor` stub supporting `setDecorations`, `edit`, `insertSnippet`, `revealRange`, and live selection tracking.\n\n**Common** extends the IPC event surface in SkyEvent.rs with five new URIs (`DecorationSetRanges`, `EditorApplyTextEdits`, `EditorSelectionChanged`, `EditorActiveChanged`, `EditorRevealRange`) and adds `PrepareCallHierarchy`/`PrepareTypeHierarchy` to the LanguageFeatureProviderRegistry trait, completing the hierarchy provider lifecycle defined by the VS Code LanguageFeatureRequest contract.\n\n**Mountain** implements the full gRPC+LSP pipeline for hierarchy prepare in new `PerformCallHierarchy`/`PerformTypeHierarchy` provider modules, bridges `window.setTextEditorDecorations` via a channel-drain batching mechanism (16 ms frame-aligned aggregation), and wires `window.applyTextEdits`/`window.revealRange` through to Sky events. A new `document.willSave` fire event grants extension listeners a 1.5-second grace window before disk write. Two new `mountain_ipc_invoke` handlers (`sky:editor:selectionChanged`, `sky:editor:activeChanged`) forward editor state changes from Sky to Cocoon.\n\n**Sky** registers four IPC bridge handlers matching editors by URI or filename segment: decoration range application via `ICodeEditorService`, text edit execution with dual-range-format normalization, reveal range delegation with the five standard strategies, and active editor/selection change subscription pushing state up to Mountain.\n\n**Wind** adds the five new Sky IPC event constants to `Source/IPC/SkyEvent.ts` while purging over 400 zero-byte generated stub files (`I*Upstream.ts`, `CommandCatalog.ts`, `ServiceCatalog.ts`, `*BridgeShapeGenerated.ts`).\n\n**Air** applies consistent import ordering and single-expression formatting across 4 subsystems. **Output** removes 160+ stale zero-byte build artifacts. **Grove** syncs the Rust documentation submodule. **Echo** advances to a clean commit.\n\nThis completes the editor IPC round-trip for text editor manipulation and call/type hierarchy, enabling extensions that depend on `window.activeTextEditor`, `editor.edit()`, `setDecorations`, `revealRange`, hierarchy providers, and format-on-save listeners to function correctly.",
+			"SHA": "6f099a0735770518cac2a3476158965f14b899dd"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T00:37:46Z",
+			"Date": "2026-05-20T02:19:21Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				126,
-				1
+				"⠁⠀⠀⠀⠀",
+				129,
+				2
 			],
-			"Message": "chore(Element): Synchronize Cocoon build artifacts and RouteManifest\n\nUpdate the `Element` submodule to the latest revision `e5d00f5d`, specifically targeting the `Cocoon` component. Regenerate all TypeScript compilation outputs in the `Target/` directory and refresh the `RouteManifest` timestamp to align the extension host sidecar with the most recent source modifications.\n\nThis ensures that generated JavaScript bundles, source maps, and gRPC service definitions are fully synchronized, maintaining a consistent state for the upcoming testing phase of the extension host pipeline.",
-			"SHA": "cae1951c50aa2db7d5e1d96ccc01e545044e2893"
+			"Message": "build(Maintain): Add Brotli pre-bake step to Debug and Release build scripts\n\nInsert a Brotli compression step for Sky bundle assets after the Tauri build in both `Debug/Build.sh` and `Release/Build.sh`. The step invokes `Maintain/Build/Brotli/PreBake.ts` at quality 11 targeting the populated `Target/` tree.\n\nScheme.rs already serves `.br` sibling files when the client sends `Accept-Encoding: br`; the pre-bake ensures those compressed variants exist at deploy time without adding runtime overhead. The script is idempotent — it skips files whose `.br` sibling is newer — and silently skips when `node` is unavailable for minimal CI runners.\n\nReduces release bundle from ~25 MB to ~3.5 MB, improving Sky bundle parse and execute time by an estimated 30-40% in the bundled-electron profile.",
+			"SHA": "ba4fe28313dada58e9c5052487dea8d4683849f5"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T00:20:57Z",
+			"Date": "2026-05-20T01:37:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				126,
+				129,
 				1
 			],
-			"Message": "chore(Element): Synchronize 3 core submodules for diagnostics and build refresh\n\nUpdate the `Element` submodule to integrate targeted enhancements in the extension host pipeline and service layer.\n\n**Cocoon**: Regenerate TypeScript compilation outputs and update the `RouteManifest` timestamp to align the extension host sidecar with the latest source modifications.\n**Output**: Enhance the `RuntimeDiagnosticsInner` transform to explicitly invoke `acquireVsCodeApi` at runtime, validating method signatures (`postMessage`, `getState`, `setState`) and reporting results via `VSCODE_API_TEST` to address WKWebView structural issues.\n**Wind**: Refresh auto-generated command and service catalogs to match the latest upstream VS Code workbench definitions (546 commands, 490 services).\n\nThese changes ensure robust extension host connectivity diagnostics and consistent service layer contracts across the multi-process architecture.",
-			"SHA": "7839bf622a2ed6870b6370457e5fd4ba13b89dde"
+			"Message": "chore(Element): Advance with Cocoon and Wind IPC contract updates\n\nUpdate the Element submodule to commit 77ab17dd, incorporating critical architectural refinements from the Cocoon and Wind submodules to strengthen the gRPC and Tauri IPC boundaries.\n\nThe Cocoon update (bf9d9ffa) introduces `Types.ts` under `Source/Services/Mountain/gRPC` to formalize the contract between the extension host and native backend. It defines strict DTOs (e.g., `ShowTextDocumentOptions`, `TextEdit`) and the `IMountainGRPCClientService` interface, enabling strong typing for native operations without importing the full Effect-TS runtime.\n\nThe Wind update (a25a3c5b) adds `MountainCommands.ts` and `Converters.ts` to centralize file-system IPC method strings (e.g., `file:stat`, `file:readdir`) and implement pure conversion logic between VS Code URI shapes and Mountain's raw JSON responses. This isolates protocol mapping from core services, facilitating unit testing and ensuring synchronization with native handlers.\n\nThese changes enforce separation of concerns and type safety across the editor stack as the IPC architecture matures.",
+			"SHA": "6c3de8c28bf007f6c0bcbb420dec0c6f3423c44e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T00:03:30Z",
+			"Date": "2026-05-20T01:34:19Z",
 			"File": [
-				"⠇⠀⠀⠀⠀",
-				126,
-				11
+				"⠀⠀⠀⠀⠀",
+				129,
+				1
 			],
-			"Message": "docs(Project): Create master documentation index and standardize Element links\n\nIntroduce `Documentation/GitHub/README.md` as the central navigation hub for all Land architecture, build, workflow, and per-element documentation. The new index catalogs every technical reference with line counts and topic summaries, establishing a unified entry point for the distributed documentation ecosystem.\n\nCorrect cross-repository links in `Workflow/ApplicationStartupAndHandshake.md` and `Workflow/TierGatedImplementationSelection.md` to point to component-specific GitHub repositories (e.g., `CodeEditorLand/Mountain`, `CodeEditorLand/Cocoon`) instead of the monolithic `Land` repository. Align formatting in `Workflow/TierGatedImplementationSelection.md` tables for consistent column widths.\n\nSynchronize the `Element` submodule to integrate these standardized documentation updates and critical runtime patches. The submodule update resolves webview rendering failures by injecting CSS font fallbacks in `Output` and forwarding webview options in `Cocoon`, while standardizing whitespace characters in `Architecture.md` files across all 14 core elements to ensure visual consistency.\n\nThese changes ensure the technical reference accurately reflects the decentralized repository structure and resolves extension compatibility issues in the Tauri webview runtime.",
-			"SHA": "0054afb8d2bb548e962b004d3daa66c8fdd5b61a"
+			"Message": "chore(Element): Advance Cocoon formatting and Mountain dashboard helpers\n\nUpdate the Element submodule to commit e56eef10, incorporating refinements from the Cocoon and Mountain submodules.\n\nThe Cocoon update (8c25ad5a) standardizes the `UriKey` utility by formatting the `fsPath` conditional return statement, improving code consistency without altering logic. The Mountain update (e4c272b2) introduces `DashboardHelpers` under the `PerformanceDashboard` IPC module, adding stub utilities for process memory, CPU usage, and UUID generation, alongside a helper to map metric types to display strings.\n\nThese changes align the extension host and native backend with project coding standards and establish the foundational layer for future performance monitoring integration.\n\nRefs e56eef10595c5b6ed53e39aacc7a77a6cfef7b23",
+			"SHA": "d9c579f246e0a633391f00fcd4d3f785271bec6f"
 		}
 	],
-	"TimeStamp": 1780149358816
+	"TimeStamp": 1780934933751
 }

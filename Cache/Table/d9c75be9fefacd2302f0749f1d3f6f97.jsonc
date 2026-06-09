@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T12:58:42Z",
+			"Date": "2026-05-11T12:48:03Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1492,
+				1505,
 				1
 			],
-			"Message": "feat(Mountain): Add 'dmg' target to build configuration\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "30954bf81f05b911de06aaf872dd2adde90285ab"
+			"Message": "fix(CFGUP): add error logging parity to config.update side effects",
+			"SHA": "f6582f474950ae3fae0ff657dc47887ae9489045"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T12:52:17Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1492,
-				55
-			],
-			"Message": "Update icon assets with new versions for various resolutions and formats\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "036f46f35d277d1d2cdf9e07cc5d8f4d637ba675"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T09:33:49Z",
+			"Date": "2026-05-11T12:27:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1492,
-				4
+				1505,
+				1
+			],
+			"Message": "Merge pull request #45 from CodeEditorLand/fix/FSSRV-uri-stat-readdir-empty-path\n\nfix(FSSRV): empty-path guards on WriteFile + ReadDirectory; URI strip on ReadDirectory",
+			"SHA": "135530358d390a87bc31554d454953b2c046b98b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-11T12:25:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
+			],
+			"Message": "Merge pull request #47 from CodeEditorLand/fix/WVIEW-resolv-editor-fallback-uri\n\nfix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with early error returns",
+			"SHA": "f3718d8a9e63c7bb170f17f09db2ef77ba3d3916"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-11T02:44:31Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
 			],
 			"Message": "",
-			"SHA": "4adc11c20880e9dd5228437993a3e9e2424fa8f6"
+			"SHA": "48d8f0a267819c656ffb6700f5f6b256da744f18"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T09:33:44Z",
+			"Date": "2026-05-10T20:59:03Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1492,
-				4
+				1505,
+				1
 			],
-			"Message": "refactor(Mountain): Generalize hardcoded volume paths in comments\n\nReplace literal `/Volumes/CORSAIR/...` and `/Users/nikola/...` references with abstract placeholders (`<vol>`, `<home>`) across build, utility, and effect modules.\n\nUpdate comments in `Scheme.rs`, `WindowBuild.rs`, `PathSecurity.rs`, and `FileSystem.rs` to reflect generic path structures rather than local development environment specifics. This ensures documentation accuracy regardless of the developer's mount points or home directory structure, aligning with the project's requirement for portable, environment-agnostic logging and comments.\n\nNo functional code changes were introduced; only documentation strings were updated to prevent confusion during future maintenance or code review.",
-			"SHA": "4dd712f4d78aad6976cb327b861e369409817a36"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:35:34Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1492,
-				5
-			],
-			"Message": "chore(Mountain): Update documentation and telemetry configuration for v2.2\n\nSync CHANGELOG.md and README.md to reflect the v2.2 correctness pass, detailing the reduction of Cocoon circuit-breaker rejections to zero via the new `-32004` JSON-RPC error code for benign 404s. Expand documentation on the `sky:replay-events` handler, terminal ring buffers, and the modularization of the IPC layer.\n\nIn `build.rs`, propagate new OTLP telemetry environment variables (`OTLPEndpoint`, `OTLPEnabled`, `Capture`, `Trace`) to the compilation target, enabling granular trace filtering and endpoint configuration. Update `scripts/cocoon/bootstrap-fork.js` to emit structured OTLP spans for bootstrap milestones, aligning the extension host instrumentation with the new backend tracing capabilities. Minor formatting adjustments applied to `capabilities/default.json`.",
-			"SHA": "5bca3dde328711d9c6f263697f20d507a847c0cf"
+			"Message": "fix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with an early error return\n\nThe `$resolveCustomEditor` arm contained:\n\n    let resource_uri = Url::parse(resource_uri_str)\n        .unwrap_or_else(|_| Url::parse(\"file:///tmp/test.txt\").unwrap());\n\nThe `unwrap_or_else` silently swallowed a malformed or missing URI and\nsubstituted the hardcoded test path `file:///tmp/test.txt`. Two\nconsequences:\n\n  1. A caller that passes an empty or invalid URI (e.g., an extension\n     registering a custom editor for a virtual scheme that Mountain\n     does not yet translate) receives a resolved result for\n     `/tmp/test.txt` instead of an error. The provider's\n     `ResolveCustomEditor` then opens or creates that file, which:\n     - Leaks a sentinel file to the OS tmp directory on every\n       such call.\n     - Returns success to Cocoon, which treats the editor as\n       resolved. The extension's `openCustomDocument` never fires\n       for the real resource, and the editor panel stays empty.\n\n  2. The fallback URI makes the log completely undiagnosable: every\n     failed resolve shows `resource=file:///tmp/test.txt` regardless\n     of what the caller sent, masking the real resource path.\n\nFix: return an `Err` immediately when the URI is empty or fails to\nparse. The error string is deliberately plain (no `resource not\nfound` suffix) because a malformed URI is a caller contract violation,\nnot a benign 404 probe - it should surface at error level in the\n`grpc` log and NOT be swallowed by `LooksLike404`.",
+			"SHA": "8b3f1a90730370b689d1269d924f04f906624966"
 		}
 	],
-	"TimeStamp": 1780149372584
+	"TimeStamp": 1780934942034
 }
