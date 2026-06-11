@@ -1,1 +1,0 @@
-import{a}from"./index.CLa68seL.js";a();
