@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:37:56Z",
+			"Date": "2026-04-24T23:39:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				5214,
 				1
 			],
-			"Message": "feat(Project): Wire extension tree views and reduce Mountain log noise\n\nCross-cutting sync across four submodules:\n\n1. **Mountain (refactor):** Reduce high-frequency log noise in default mode by moving per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants muted in `short` mode. Expand IPC skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme. Reduces default log volume from ~14k+ lines per session to ~500 while preserving error visibility.\n\n2. **Output (feat):** Expose IViewsService and TreeViewByViewId in workbench accessor ESBuild transform. Enables Sky to resolve ITreeView instances from ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\n3. **Sky (feat):** Wire extension tree views into workbench rendering pipeline. Attach data providers to tree views that call `tree:getChildren` via MountainIPCInvoke, converting Cocoon wire shape into workbench ITreeItem. Add retry logic (5 attempts, 150ms spacing) for async workbench init. Implement `cel:tree-view:refresh` and `cel:tree-view:dispose` handlers.\n\n4. **Cocoon (sync):** Submodule update.\n\nImpact: Extension-registered tree views (from extensions like GitLens, Debugger) now render in the workbench pane. Default logs are actionable rather than noisy.",
-			"SHA": "c26be973866e6bcb67c7da99093ef59e06ba2d0a"
+			"Message": "refactor(Project): Wire state handlers to trait implementations\n\nCross-cutting submodule sync wiring Mountain handlers to proper trait implementations for state persistence:\n1. Mountain: Replace direct Sky event emissions with trait methods - SCM handlers use SourceControlManagementProvider to materialize state in ApplicationState::SourceControl, StatusBar handlers use StatusBarProvider::SetStatusBarEntry for ActiveStatusBarItems, Webview handlers use WebviewProvider trait for ApplicationState::WebviewState, Search handlers delegate to WorkspaceProvider::FindFilesInWorkspace and SearchProvider::TextSearch\n2. Output: Remove Configuration directory (ESBuild, Plugin, Polyfill, Service configs and tsconfig)\n3. Cocoon: Submodule sync to cbaf44f1\n\nImpact: SCM providers, status bar items, and webview panels now properly persist in Mountain's ApplicationState. File and text search use ignore-aware implementations.",
+			"SHA": "ef6da240b1d22fe8249f99b2f3955b7bed1a154d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:35:03Z",
+			"Date": "2026-04-24T23:16:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				5214,
 				1
 			],
-			"Message": "VS Code API Coverage Matrix\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "e9ca317693c51acb95c66c8df11556c35b625ab0"
+			"Message": "feat(Project): Add regex and multiline search to TextSearchQuery\n\nSync Mountain and Cocoon submodules with new search capabilities:\n- Mountain: Add `isRegExp` and `isMultiline` fields mirroring VS Code's ITextSearchQuery\n- Escape plain-text search patterns via regex::escape() to prevent crashes on metacharacters like `.`, `(`, `[`, `*`, `?`\n- Add .multi_line() support for multiline regex searches\n- Fixes Search view plain-text mode broken for queries containing `obj.method(` or `file[1].txt`\n- Cocoon: Update to d4763554\n\nImpact: Plain-text search now works correctly for queries containing regex metacharacters without crashing the regex compiler.",
+			"SHA": "955a8545bf99cedb0b1db11ad25ed773a5c4d2b3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T17:08:49Z",
+			"Date": "2026-04-24T23:05:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				5214,
 				1
 			],
-			"Message": "chore(Land): Sync Element submodule to e792634e04de\n\nUpdate Element from 991e3b3 to e792634e, pulling in upstream Cocoon extension host runtime improvements.\n\nThis sync brings the latest Cocoon submodule state (cb1a388) into the Land build, ensuring the extension host has access to recent runtime changes.",
-			"SHA": "83083f528b4c94eb04130b730863979183254a87"
+			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to properly-implemented trait methods on MountainEnvironment:\n- handle_search_find_in_files → SearchProvider::TextSearch (grep-searcher + ignore::WalkBuilder with parallel walking)\n- handle_search_find_files → WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive starts_with('.') hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus format!(\"file://{}\") URI constructor, and single-threaded walkers. The trait implementations were reachable only through Environment.Require<dyn SearchProvider>() calls and no IPC handler ever issued those.\n\nAlso change FileReaddirNative.rs log level from vfs-verbose to vfs since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.\n\nImpact: File search and find-files now use proper ignore rules, parallel walking, and regex support instead of naive single-threaded implementations.",
+			"SHA": "ab81979739d237da5c6179b32dcdf7437a7a83ae"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T16:46:17Z",
+			"Date": "2026-04-24T22:56:21Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				5214,
 				1
 			],
-			"Message": "feat(Mountain): Expand trusted paths and add executable magic-number detection\n\nSubmodule sync bringing three complementary improvements for extension runtime reliability:\n1. **Extended trusted paths** (`PathSecurity.rs`): Add `/tmp`, `/private/tmp`, `/var/tmp` for language servers (ruby-lsp, pyright, etc.), third-party tool state (`~/.gitkraken`, `~/.copilot`, `~/.config/git`), and read-only POSIX OS files.\n2. **Magic-number executable detection** (`VsixInstaller.rs`): Probe file headers for ELF, Mach-O fat/thin, and shebang. Detect bin paths (`bin/`, `server/`, `tools/`, `omnisharp`, `adapter`, `native`) and promote 0o644 → 0o755 for detected executables, fixing EACCES on spawn. Add `HealExecutableBits()` for retroactive fixes.\n3. **Boot-time exec-bit heal** (`Scanner.rs`): Walk user extensions (`~/.land/extensions/`) at scan time to recover extensions installed before the fix.\n\nImpact: Extension binaries (rust-analyzer, GitLens, Copilot) that were failing with EACCES due to missing exec bits now run correctly.",
-			"SHA": "6df08625901c15474baf39bc8680dd4bc9ae9dd6"
+			"Message": "feat(Project): Add DisableUnusedServices transform and sync dependencies across submodules\n\nCross-cutting Element submodule sync with functional improvements and dependency updates:\n\n1. Output: Add DisableUnusedServices ESBuild transform - Replaces upstream VS Code contribution barrels for features Land doesn't back (auto-update, issue reporter, MS account/sync, process explorer) with inert stubs. Removes broken UI surfaces and silences \"service not registered\" warnings, shortening boot time.\n\n2. Output: Fix ExtensionScannerIPC path matching - Now matches BOTH electron-browser AND browser variants of extensionsScannerService.js. Previously only matched electron-browser, but desktop.main.js loads the browser variant.\n\n3. Sky: Sync dependency updates - @xterm/xterm: 6.1.0-beta.202 → 6.1.0-beta.203, @astrojs/compiler-rs: 0.1.9 → 0.1.10, pozil/auto-assign-issue: 2.2.0 → 3.0.0\n\nImpact: Extension scanning now works correctly for desktop profile. Unused VS Code services are stubbed out, reducing boot noise and improving startup time.",
+			"SHA": "4c908a36d5a2b16ff9ab9e0e5dbc8c6964566d17"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T15:38:40Z",
+			"Date": "2026-04-24T22:36:12Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				5214,
-				4
+				1
 			],
-			"Message": "feat(Land): Enable native file watcher and add VS Code API coverage matrix\n\nSynchronize Element submodule to pull in Mountain-native search provider integration and PostHog exception cap. This commit also introduces comprehensive VS Code API documentation and enables Layer4 file watching.\n\nChanges:\n- **Search Provider (Element):** New land-native ISearchService implementation in Sky and Output that routes Search viewlet queries to Mountain's `search:findFiles` / `search:findInFiles` handlers. Resolves silent zero-result returns when filesystem is Mountain-based.\n- **PostHog Cap:** Add `LAND_POSTHOG_SKY_EXCEPTION_GLOBAL_LIMIT` (default 7) to respect CDN's ~10/10s ceiling and prevent rate-limit warnings during boot flurries.\n- **File Watcher:** Change `TierFileWatcher` from `Stub` to `Layer4`, enabling Mountain's native notify-crate backend (FSEvents/inotify/ReadDirectoryChangesW). This unblocks LSP-driven extensions from receiving disk mutation events.\n- **Documentation:** Add VSCode-API-Coverage-Matrix.md - a 419-line authoritative map of every `vscode.*` namespace, implementation track (Stock-Node/Rust-native), status, and planned migrations.\n\nImpact: Search now works with Mountain filesystem. Extension file watchers (ESLint, TypeScript, Tailwind) can now receive filesystem change events. Comprehensive API tracking document enables systematic dual-track implementation.",
-			"SHA": "fc2622c3a692b211f0334ca5348ec5d09accd546"
+			"Message": "refactor(Output): Replace runtime require() with static ES imports in workbench accessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of both web.main.js and desktop.main.js instead of using runtime require() calls. This eliminates AMD require() resolution that could fail in the WKWebView context.\n\nChanges include:\n- Anchor on stable import markers ('mark' from performance.js for web, 'localize' from nls.js for desktop)\n- Add IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports\n- Extract shared imports into SharedImportLines to avoid duplication\n- Add cel:services-ready DOM event dispatch on successful population\n- Add Mountain diagnostic logging for success/failure tracking\n- Add guard check for import marker to avoid matching unrelated files\n\nImpact: __CEL_SERVICES__ is now populated synchronously before the microtask queue drains, ensuring services are available for both web and Electron/Desktop profiles at runtime.",
+			"SHA": "96667ac6d621541665452df55118710d737719da"
 		}
 	],
-	"TimeStamp": 1781048779580
+	"TimeStamp": 1781194544715
 }

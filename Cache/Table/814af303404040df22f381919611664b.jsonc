@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-05-01T02:43:27Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-04T17:26:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				105,
+				106,
+				1
+			],
+			"Message": "style(Sky): Normalize spacing in conditional block for openView call\n\nReformat the multi-line condition check and function invocation for `Services.Views.openView` in SkyBridge. Align the closing brace of the `if` condition with the opening keyword and place the `catch` handler on a single line to match the project's consistent formatting style.\n\nThis change affects only whitespace and line breaks within the `Source/Function/SkyBridge.ts` file. It does not alter the logic, execution flow, or behavior of the view reopening mechanism, but ensures visual consistency with the surrounding codebase.",
+			"SHA": "bf7d69c858bc72a49df69ed4317bb51de94b979c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-04T15:09:31Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				106,
+				1
+			],
+			"Message": "feat(Sky): Integrate real WebviewInput and implement pending HTML replay for race conditions\n\nReplace the static placeholder implementation in SkyBridge with a conditional path that attempts to instantiate a real workbench `WebviewInput` via `IWebviewWorkbenchService.openWebview`. This enables actual iframe rendering and message-port plumbing, falling back to the placeholder only if the service chain is unavailable.\n\nAddress race conditions where extension code sets `view.webview.html` synchronously during `resolveWebviewView` before the resolver is fully registered or the panel becomes visible. Implement a global pending HTML cache (`__CEL_WEBVIEW_PENDING_HTML__`) keyed by ViewId and Handle. Upon successful resolver registration, replay any cached HTML using the correct `setHtml` method signature preferred by the workbench, rather than relying on property assignment which previously no-opped on real workbench objects.\n\nAdd a defensive `openView` trigger to force re-evaluation of the WebviewViewPane's visibility state if a resolver registers after the pane has already activated, ensuring the `onDidChangeBodyVisibility` event fires and the new resolver is utilized. Update diagnostic logging to report whether HTML was applied via method, setter, or replayed from cache.",
+			"SHA": "8f72913202b7d54bdffca1adaa514083dbd7c4bd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-04T11:34:15Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				106,
+				1
+			],
+			"Message": "feat(Sky): Add post-registration probe for WebviewView resolver map integrity\n\nInsert a diagnostic probe immediately after `register` call to verify the workbench's `_resolvers` map actually contains the new `ViewId`. This addresses a specific failure mode where registration completes silently but the `resolve` callback never fires, indicating the `WebviewViews` service instance used by SkyBridge is disjoint from the instance used by `WebviewViewPane` due to a dependency injection scope mismatch.\n\nThe probe checks both `_resolvers` and `_awaitingRevival` maps, emitting a structured diagnostic log to Mountain via the IPC channel. This confirms whether the bridge is talking to the correct service instance or if a DI scope issue is preventing view revival. Logs include map sizes and resolution status to differentiate between registration failure and resolver isolation.\n\nThis complements the existing entry-trace logging by validating the internal state of the workbench immediately after registration, providing a deterministic signal to triage 'register-success-but-no-resolve' bugs during extension host hot-reloads.",
+			"SHA": "7fd7402cea849b697ef12e0ba0c6cedf8229a2d1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-04T11:24:13Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				106,
+				1
+			],
+			"Message": "feat(Sky): Add diagnostic tracing for WebviewView registration lifecycle\n\nIntroduce unconditional logging hooks in SkyBridge to expose the full lifecycle of the `webview/registerView` IPC event and the subsequent workbench `resolveWebviewView` callback. Add a one-time diagnostic emit on the first registration to verify payload shape, `ViewId` resolution, and `__CEL_SERVICES__` availability. Embed an entry trace at the start of the resolver callback to distinguish between workbench invocation failures and internal logic errors. Mirror all registration outcomes (including duplicate-guarded cases) to `Mountain.dev.log` via the diagnostic IPC to ensure visibility into the gRPC bridge chain even when the browser console is unavailable.\n\nThis change addresses opaque failures during extension host hot-reloads and startup by providing a deterministic file-sink trail for triaging WebviewView service registration issues, ensuring the bridge state is observable before the resolver logic executes.",
+			"SHA": "3c05f5e84ed083ab55d698c358b1fda29d7123f8"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-04T02:33:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				106,
 				1
 			],
 			"Message": "",
-			"SHA": "56808c6f0d7aa1ebe2895eee1cf37d105d110196"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:32:14Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				105,
-				1
-			],
-			"Message": "feat(Sky): Install Wind workbench bridge after services ready\n\nAdd an event-driven installation path for Wind's LandWorkbench bridge that listens for the `cel:services-ready` event dispatched by Output's `ExposeWorkbenchAccessor` transform. Once services are available, `InstallLandWorkbench()` is dynamically imported and executed, which in turn dispatches `cel:wind-ready` for downstream subscribers (SkyBridge, Astro components, in-page Wind tasks).\n\nThis change ensures proper sequencing: services DI container populated → install Wind bridge → notify subscribers. The entire block is guarded by `if (!LandDisabled)` so bisect mode (`Disable=true`) keeps the workbench probe-free as intended in the recent Disable=true feature.\n\nRefs: IT-01 from `.claude/workflow/05-Open-Threads.md`",
-			"SHA": "8c65df03c7c282ed629ec43a2a29947d3f08334d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:17:14Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				105,
-				1
-			],
-			"Message": "perf(Sky): Batch command registration to reduce IPC channel saturation\n\nThe `sky://command/register` handler now accepts either a single command object (legacy shape) or a batch `{ commands: [...] }` object. Mountain's extension boot path registers 100+ extensions, each with ~10 commands = 1000+ individual emit events. This saturated Tauri's shared WKWebView IPC channel, queuing keystrokes behind thousands of register events.\n\nThe new batch format processes all commands in a single IPC round-trip via the new `RegisterOneCommand` helper, dramatically reducing channel traffic and restoring keystroke responsiveness during extension boot.",
-			"SHA": "06fd1942a6b149f4e55cf0c0eca1ad4894d709b5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T00:15:36Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				105,
-				1
-			],
-			"Message": "perf(Sky): Reduce IPC channel saturation by making diagnostic logging opt-in\n\nRemove per-fire diagnostic traces and replace with failure-only logging or opt-in flags. The original RenderDevLog calls for textSearch, fileSearch, and TreeView attach fired on every invocation (50-100/s during extension boot), doubling traffic on Tauri's single serialized WKWebView channel and starving keystroke delivery.\n\n_CelDispatchLog now requires globalThis.__LAND_TRACE_CEL_DISPATCH__=true. Diagnostic bridges for markers-bridge and webview-bridge now only log when pushable=false or hasRegister=false, capturing the triage value without saturating the channel on the success path.\n\nKeystroke delivery should be more responsive during extension boot.",
-			"SHA": "131245270726f95b174ac9a9ac9c98a9e50583ce"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:44:34Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				105,
-				2
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "83a7b8975aa291f68d89c3e212b4a8e13ff21ddf"
+			"SHA": "e36fd2aa9c9b8a8e2c4e57d62d23a5499f476091"
 		}
 	],
-	"TimeStamp": 1781048771264
+	"TimeStamp": 1781194534226
 }

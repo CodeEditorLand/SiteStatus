@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-06-08T03:33:16Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-11T02:22:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1765,
+				1768,
+				6
+			],
+			"Message": "feat(Mountain): Seed Cocoon with existing terminals and expand IPC method handlers\n\nCocoon's gRPC channel opens after the workbench restores terminals, leaving `vscode.window.terminals` empty for extensions that read it synchronously in `activate()`. After the sidecar connects, iterate `ApplicationState.Feature.Terminals` and resend each open terminal via the `$acceptTerminalOpened` notification so the terminal list is populated before extensions activate.\n\nAlso extend the Effect request routing matchers:\n- FileWatcher: add `Register` and `Unregister` methods\n- Storage: add `GetItems` method\n- Task: add `terminate_task` and `Task.Terminate` methods\n- Workspace: add `RequestResourceTrust`, `IsResourceTrusted`, `Save`, `SaveAs`, `saveAll`, `SaveAll` methods\n\nFix minor shell integration syntax: `2> /dev/null` → `2>/dev/null`.\n\nImpact: Extensions no longer see an empty terminal list on startup, and the Mountain backend now handles the full surface of FileWatcher, Storage, Task, and Workspace IPC requests from Cocoon.",
+			"SHA": "ec51929472623ef48d7a09a541edc668f24c0f6b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-10T20:22:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1768,
 				1
 			],
-			"Message": "",
-			"SHA": "93980d1c46309aa8cb5e91cf4c2f24c8faf509cb"
+			"Message": "refactor(Mountain): Move Cocoon restart loop to dedicated thread with LocalSet\n\nThe Cocoon sidecar restart logic was running via `tokio::task::spawn_local` on Tauri's single-threaded runtime, but `LaunchAndManageCocoonSideCar` is `!Send` because it holds `parking_lot` guards across `.await` points. This created a soundness risk on the shared executor.\n\nReplace with a dedicated OS thread (`cocoon-restart`) that owns a `current_thread` Tokio runtime wrapped in a `LocalSet`. The restart receiver, `AppHandle`, and `Arc<MountainEnvironment>` are all `Send` and cross the thread boundary safely. The `LocalSet` enables `spawn_local` for the async restart loop without requiring the future to be `Send`.\n\nImpact: Eliminates the `!Send` future on the main Tauri runtime, maintains exponential backoff restart semantics, and isolates Cocoon lifecycle management on its own executor.",
+			"SHA": "38160a1a67b1803a20b230914efc91e76bb31a2c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-07T18:05:01Z",
+			"Date": "2026-06-10T20:21:36Z",
 			"File": [
-				"⡿⠀⠀⠀⠀",
-				1765,
-				300
+				"⠀⠀⠀⠀⠀",
+				1768,
+				16
 			],
-			"Message": "style(Mountain): Apply consistent formatting across command handlers, IPC dispatchers, and environment providers\n\nStandardize whitespace and formatting across Mountain's command registration, language feature providers, SCM integration, tree view handlers, document provider, file watcher, keybinding commands, native host dialogs, and WindServiceHandlers dispatcher modules:\n\n- Remove extraneous blank lines after function signatures, struct definitions, impl blocks, and match arms across 200+ files\n- Normalize import organization: group use declarations, remove trailing blank lines\n- Condense single-statement methods and lock acquisition patterns to single-line format\n- Standardize dev_log! macro argument alignment and line breaks across provider handlers\n- Fix struct field spacing in DTOs and response types\n- Introduce UICommandDispatcher for decorations, commands, and extensions command routing\n- Refactor dispatcher modules to use consistent match expression formatting with inline arms\n\nNo functional changes — purely mechanical formatting cleanup for consistency across Mountain's command layer, IPC dispatchers, environment providers, and service handlers.",
-			"SHA": "f474716d305aedce20510fc893e59e4770458879"
+			"Message": "fix(Mountain): Correct Send/Sync impls, fix Vine typo, simplify storage flush, and harden Cocoon spawn\n\nAdd `unsafe impl Send + Sync` for `MountainEnvironment` to satisfy trait bounds across async boundaries. Fix `cratecrate` typo in `MountainVinegRPCService` that broke gRPC request/notification forwarding. Simplify storage flush logic in `StorageDispatcher` and `mod.rs` by removing redundant `.ok().map()` chains and unwrapping locks directly. Correct debug session registration to use `RunTime.Environment.ApplicationState` path consistently.\n\nReplace `tokio::spawn` with `tauri::async_runtime::spawn` for Cocoon activation events and use `tokio::task::spawn_local` with safety comment for restart loop, since `LaunchAndManageCocoonSideCar` holds `parking_lot` guards across `.await` points and runs on Tauri's single-threaded runtime. Add `IsVisible:false` to sidecar and tree view provider registrations. Drop `path_resolver` early in Cocoon launch to avoid holding it across awaits. Clean up import paths across all WindServiceHandlers dispatchers and add missing `tauri::Emitter` where events are emitted.\n\nImpact: Resolves thread-safety violations, fixes gRPC client calls, eliminates lock-unwrap panics, and ensures Cocoon sidecar management runs on the correct executor.",
+			"SHA": "00ea3ea3348955d7ee80e8e98e59b5cbe397ddc3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-07T17:04:19Z",
+			"Date": "2026-06-10T14:37:24Z",
 			"File": [
-				"⡿⠀⠀⠀⠀",
-				1764,
-				300
+				"⠃⠀⠀⠀⠀",
+				1768,
+				103
 			],
-			"Message": "style(Mountain): Apply consistent formatting across Air client, application state, providers, and RPC services\n\nStandardize whitespace and formatting across Mountain's Air integration layer, application state DTOs and internal modules, environment provider implementations, IPC command handlers, extension management, and Cocoon gRPC service handlers:\n\n- Remove extraneous blank lines after struct field definitions, impl blocks, and function signatures across 150+ files\n- Normalize import organization: group use declarations, remove trailing blank lines\n- Condense single-statement methods and lock acquisition patterns to single-line format\n- Standardize dev_log! macro argument alignment and line breaks across provider handlers\n- Fix struct field spacing in AirServiceTypesStub DTOs and ApplicationState DTOs\n- Add WorkingCopyDispatcher and WorkspaceDispatcher for WindServiceHandlers command routing\n- Remove unused allow attributes from Library.rs (non_snake_case, non_camel_case_types, etc.)\n\nNo functional changes — purely mechanical formatting cleanup for consistency across Mountain's Air client, application state persistence, extension scanner, memento loader, recovery utilities, serialization, text processing, command registration, provider traits, IPC handlers, and Cocoon gRPC service layer.",
-			"SHA": "ab55eef46fbe796248c0b1748ae09aa3d5e063c8"
+			"Message": "Refactor: Clean up code by removing unnecessary whitespace and comments\n\n- Removed redundant whitespace in multiple files to improve code readability.\n- Consolidated comments for clarity and consistency.\n- Streamlined the handling of parameters and responses in various functions.\n- Enhanced the overall structure of the codebase for better maintainability.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "5c10b95f63323c3da8a410c3c75d1c15d750be6a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-07T16:57:36Z",
+			"Date": "2026-06-10T13:04:24Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1762,
-				36
+				"⠀⠀⠀⠀⠀",
+				1768,
+				1
 			],
-			"Message": "style(Mountain): Apply consistent formatting across RPC providers and service modules\n\nStandardize whitespace and formatting across Mountain's gRPC service layer, CocoonService providers, SCM, terminal, tree view, and telemetry modules:\n\n- Remove extraneous blank lines around imports, function bodies, and dev_log! macro invocations\n- Condense single-statement methods and lock acquisition patterns to single-line format\n- Normalize import organization: group use declarations, remove trailing blank lines\n- Standardize dev_log! argument alignment and line breaks across 30+ provider handlers\n- Fix struct field spacing in AirServiceTypesStub, ServiceMetrics, TraceSpan\n- Add new UrlDispatcher stub for URL command routing in WindServiceHandlers\n\nNo functional changes — purely mechanical formatting cleanup for consistency across Mountain's RPC layer, provider registry, SCM integration, terminal management, tree view coordination, and telemetry structures.",
-			"SHA": "b30988ec21f717b36a9fcf5449ebe76edf1399db"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-07T16:57:03Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				1761,
-				300
-			],
-			"Message": "style(Mountain): Apply consistent formatting across Mountain codebase\n\nStandardize whitespace and formatting across 300+ files in Mountain's source tree:\n\n- Normalize import organization: add blank lines after `use` declarations and before struct/impl blocks across DTOs, state modules, command handlers, and provider implementations\n- Standardize dev_log! macro invocations: consistent argument alignment and line breaks\n- Fix Binary/README.md: replace raw em-space with HTML entity `&#x2001;` for reliable rendering\n- Add missing newlines at end of files where absent\n- Introduce domain dispatchers in `IPC/WindServiceHandlers/Dispatcher/` for configuration, encryption, extensions, filesystem, git, IPC status, keybindings, language features, lifecycle, logging, menubar, model, navigation, native host, notifications, output, process, progress, quick input, search, sky, storage, terminal, text files, themes, tree views, updates, URLs, working copy, and workspace commands\n- Condense single-statement methods to single-line format where appropriate\n- Normalize lock acquisition patterns and guard binding across state modules\n\nNo functional changes — purely mechanical formatting cleanup for consistency across Mountain's application state, IPC layer, command registry, provider traits, and service handlers.",
-			"SHA": "4afc33b007321144b23d3935301f4eee40efb772"
+			"Message": "fix(tests): Update hostnames in test_multiple_server_certificates function\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "ea7158242a4bc680d4828177eb55995f86f20513"
 		}
 	],
-	"TimeStamp": 1781048757941
+	"TimeStamp": 1781194514702
 }

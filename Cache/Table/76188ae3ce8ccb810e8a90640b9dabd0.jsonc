@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-05T10:35:01Z",
+			"Date": "2026-06-10T01:28:15Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1731,
-				35
+				"⠃⠀⠀⠀⠀",
+				1768,
+				94
 			],
-			"Message": "refactor(Mountain): Complete parking_lot migration for ApplicationState and command modules\n\nMigrate the remaining std::sync::Mutex and tokio::sync::RwLock usage in Mountain's ApplicationState hierarchy to parking_lot equivalents. This completes the migration started in the previous commit, covering all feature state modules (Debug, Decorations, Diagnostics, Documents, Keybindings, LifecyclePhase, Markers, NavigationHistory, OutputChannels, TreeViews, Webviews, WorkingCopy), UI state, workspace state, configuration state, and extension registry.\n\nKey changes:\n- Replace Arc<StandardMutex<>> and Arc<tokio::sync::RwLock<>> with Arc<parking_lot::Mutex<>> and Arc<parking_lot::RwLock<>> across 20+ state modules\n- Remove MapLockError/MapLockErrorWithRecovery helpers and StateOperationResult — parking_lot panics on poison instead of returning Result, eliminating poison-error boilerplate\n- Simplify lock acquisition from guard.ok().and_then(|g| g.clone()) to direct .lock().clone() patterns\n- Update command handlers (Bootstrap, SCM commands), document save operations, extension scanner, file explorer, and shutdown logic to use the new locking API\n- Remove ErrorMapping crate's PoisonError mapping functions (now replaced by WithParkingLotMutex helper)\n- Fix VineHostImpl.UpdateScmGroupMarkers lock handling\n\nImpact: Consistent parking_lot usage across Mountain's entire state management layer, reduced lock contention overhead, and cleaner error handling paths without .ok().and_then() chains.",
-			"SHA": "6a285173d703deccb702306a329811b0b9e0f448"
+			"Message": "refactor(Mountain): Migrate domain from land.playform.cloud to editor.land and simplify lock handling across providers\n\nThis commit encompasses three major refactoring efforts across the Mountain codebase:\n\n1. Domain Migration: Replace all occurrences of `land.playform.cloud` with `editor.land` across documentation, configuration, DNS, TLS, scheme handlers, service registry, and test fixtures. This includes:\n   - README.md, Binary/README.md, and GitHub documentation files\n   - CertificateManager examples and documentation\n   - DNS zone records, forward allowlist, and resolution logic\n   - land:// scheme handler CORS origins and service registration\n   - ServiceRegistry examples and TLS_README.md\n   - Tauri CSP connect-src and homepage\n   - Entry point service registration (code.editor.land, api.editor.land)\n   - Certificate and service registry tests\n\n2. Lock Handling Simplification: Remove verbose `.map_err(CommonError::StateLockPoisoned)` error mapping from mutex/lock operations across 40+ provider files. The pattern:\n   ```rust\n   .lock().map_err(|e| CommonError::StateLockPoisoned { Context: e.to_string() })?\n   ```\n   is simplified to `.lock()` or `.lock().unwrap()` since lock poisoning is treated as a fatal invariant violation rather than a recoverable error. Affected providers include CommandProvider, ConfigurationProvider, DiagnosticProvider, DocumentProvider, FileWatcherProvider, KeybindingProvider, LanguageFeatureProvider, OutputProvider, SearchProvider, SCMProvider, StatusBarProvider, StorageProvider, TreeViewProvider, UserInterfaceProvider, WebviewProvider, WorkspaceProvider, and PathSecurity utility.\n\n3. WindServiceHandlers Dispatcher Refactor: Restructure IPC command dispatchers with:\n   - Updated import paths from `crate::Module` to `crate::IPC::WindServiceHandlers::Module`\n   - Runtime parameter changed from `&ApplicationRunTime` to `Arc<ApplicationRunTime>` for shared ownership\n   - New UICommandDispatcher.rs consolidating commands, extensions, and decorations handling\n   - Merge conflict resolution in ConfigurationDispatcher, LanguageDispatcher, SearchDispatcher, SkyDispatcher, TerminalDispatcher, WorkspaceDispatcher, and ReplayEvents\n\nAdditionally implements VineHost trait on MountainVinegRPCService with IPC provider, renderer emitter, command registry, SCM registration, language provider registration, and terminal management bridges.\n\nImpact: Unified domain branding, reduced boilerplate in state access patterns, and improved IPC dispatcher architecture for Effect-TS frontend integration.",
+			"SHA": "bdf82d1cf0879fd098fc74f9f7ddeb17ba08f356"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-05T08:40:06Z",
+			"Date": "2026-06-10T00:17:32Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1731,
-				11
-			],
-			"Message": "refactor(Mountain): Migrate std::sync::Mutex to parking_lot::Mutex and modernize lazy static initialization\n\nReplace standard library mutexes with parking_lot::Mutex across terminal state management, IPC connection pools, secure message channels, performance dashboard, and Cocoon process management. The parking_lot implementation provides faster lock acquisition and doesn't return Result from lock() (panics on poison instead), simplifying error handling throughout the codebase.\n\nSimultaneously replace lazy_static macros with once_cell::sync::Lazy for global registry initialization (feature flags, metrics, Cocoon state), adopting the more modern and maintenance-friendly pattern.\n\nKey changes:\n- TerminalState and TerminalStateDTO: Arc<Mutex<>> replaces Arc<StandardMutex<>> for PTY handles and terminal collections\n- TerminalProvider: Output buffer and terminal map locks simplified; removed MapLockErrorToCommonError mappings\n- ErrorMapping: Added WithParkingLotMutex helper for the new locking pattern\n- IPC Enhanced modules: ConnectionPool, MessageCompressor, PerformanceDashboard, SecureMessageChannel all updated\n- CocoonManagement: lazy_static replaced with once_cell::Lazy for COCOON_STATE and COCOON_HEALTH\n- Telemetry registries: FeatureFlags and Metrics global registries migrated to once_cell::Lazy\n- Vine client/server notification shims: Minor formatting normalization\n\nImpact: Reduced lock contention overhead, cleaner error handling paths (no more .ok().and_then() chains for mutex access), and modernized static initialization across Mountain's core subsystems.",
-			"SHA": "3b0c95e2986ddeebe6dfa24f4e7a1652a0d5d670"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-05T07:50:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1731,
-				1
-			],
-			"Message": "feat(Cargo): Add experimental tier flags for enhanced functionality\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "a4784b825cc0dd0995ae3023a3f5d22a112f50cb"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-05T07:39:34Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1731,
-				6
-			],
-			"Message": "style(Mountain): Clean up formatting and whitespace across core modules\n\nApply consistent formatting improvements across Mountain's application state, extension registry, file system effects, and gRPC service:\n\n- ExtensionRegistry: Condense WithCommands/GetCommands implementations, inline dev_log calls, remove excess whitespace\n- FeatureState: Move std::sync imports to module top, fix Default implementation formatting\n- Entry: Fix type annotation spacing for AppStateArcForClosure\n- FileSystem: Reformat base64 decode error handling, align comment wrapping\n- CreateEffectForRequest: Expand Try! macro arms for readability, wrap long comment lines\n- MountainVinegRPCService: Reflow cancellation warning comment, inline CreateErrorResponse call\n\nNo functional changes — purely mechanical formatting cleanup for consistency.",
-			"SHA": "153056369679d7c3dd6ecdbba393c7a08321c40a"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-06-05T02:57:32Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1731,
-				1
+				"⡿⠀⠀⠀⠀",
+				1767,
+				300
 			],
 			"Message": "",
-			"SHA": "5ac30cf1b3d71a461473c8a2f5e9f8b1fad83d4a"
+			"SHA": "4cb130eeb041290ee8f1f2993803dad92cd75f0c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-09T19:49:35Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1765,
+				39
+			],
+			"Message": "",
+			"SHA": "8e05e904fef6242d1b7fe4804dd9ac660dc91867"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-09T17:04:08Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				1765,
+				74
+			],
+			"Message": "",
+			"SHA": "6be4703af82429ac81b16b48f93256632a321bc2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-09T11:45:39Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1765,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "b98bdab5151f8e8b7124c53a7670b6607597fa3f"
 		}
 	],
-	"TimeStamp": 1781048758535
+	"TimeStamp": 1781194515803
 }

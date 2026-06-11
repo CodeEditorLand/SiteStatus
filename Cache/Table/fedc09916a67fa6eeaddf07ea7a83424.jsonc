@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T12:48:03Z",
+			"Date": "2026-05-11T20:16:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "fix(CFGUP): add error logging parity to config.update side effects",
-			"SHA": "f6582f474950ae3fae0ff657dc47887ae9489045"
+			"Message": "fix(LNGA): release scanned_extensions lock before aggregation loop\n\nLanguages.GetAll held the scanned_extensions mutex for the full\nduration of the multi-extension aggregation loop. Any other thread\nthat needed the same lock was blocked until the entire merge\ncompleted.\n\nFix: clone the map out of the lock immediately inside a short scope,\nrelease the lock, then run the aggregation over the owned clone.",
+			"SHA": "1b1b92a350d566202daf453cd1eb35178e664fa5"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T12:27:13Z",
+			"Date": "2026-05-11T20:16:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "Merge pull request #45 from CodeEditorLand/fix/FSSRV-uri-stat-readdir-empty-path\n\nfix(FSSRV): empty-path guards on WriteFile + ReadDirectory; URI strip on ReadDirectory",
-			"SHA": "135530358d390a87bc31554d454953b2c046b98b"
+			"Message": "fix(LNGF): replace hardcoded ProviderType::Hover with per-type match arms\n\nThe single $languageFeatures:registerProvider handler passed\nProviderType::Hover to RegisterProvider for every registration,\nso completion, definition, references, rename, and all other\nproviders were silently registered as Hover providers.\n\nCocoon sends separate notification method names for each provider\ntype (register_hover_provider, register_completion_item_provider,\netc.) with an object payload {language_selector, handle}. Mountain\nmust therefore match on each distinct method name and pass the\ncorresponding ProviderType. The id and selector fields are read\nfrom the object keys that Cocoon actually sends.",
+			"SHA": "5be9c5c061c45d1312a8db96cc2b59a814bda07f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T12:25:35Z",
+			"Date": "2026-05-11T18:20:01Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
-				1
+				12
 			],
-			"Message": "Merge pull request #47 from CodeEditorLand/fix/WVIEW-resolv-editor-fallback-uri\n\nfix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with early error returns",
-			"SHA": "f3718d8a9e63c7bb170f17f09db2ef77ba3d3916"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-11T02:44:31Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				1
-			],
-			"Message": "",
-			"SHA": "48d8f0a267819c656ffb6700f5f6b256da744f18"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "6ae761195ab74b9107b4624b27dfd23af10ed66d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:59:03Z",
+			"Date": "2026-05-11T18:19:58Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				3
+			],
+			"Message": "fix: update keyring usage to keyring-core in CertificateManager and SecretProvider\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "1bb0d7b47c76a9b7ae642aeea5f5485df75e6628"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-11T17:48:46Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "fix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with an early error return\n\nThe `$resolveCustomEditor` arm contained:\n\n    let resource_uri = Url::parse(resource_uri_str)\n        .unwrap_or_else(|_| Url::parse(\"file:///tmp/test.txt\").unwrap());\n\nThe `unwrap_or_else` silently swallowed a malformed or missing URI and\nsubstituted the hardcoded test path `file:///tmp/test.txt`. Two\nconsequences:\n\n  1. A caller that passes an empty or invalid URI (e.g., an extension\n     registering a custom editor for a virtual scheme that Mountain\n     does not yet translate) receives a resolved result for\n     `/tmp/test.txt` instead of an error. The provider's\n     `ResolveCustomEditor` then opens or creates that file, which:\n     - Leaks a sentinel file to the OS tmp directory on every\n       such call.\n     - Returns success to Cocoon, which treats the editor as\n       resolved. The extension's `openCustomDocument` never fires\n       for the real resource, and the editor panel stays empty.\n\n  2. The fallback URI makes the log completely undiagnosable: every\n     failed resolve shows `resource=file:///tmp/test.txt` regardless\n     of what the caller sent, masking the real resource path.\n\nFix: return an `Err` immediately when the URI is empty or fails to\nparse. The error string is deliberately plain (no `resource not\nfound` suffix) because a malformed URI is a caller contract violation,\nnot a benign 404 probe - it should surface at error level in the\n`grpc` log and NOT be swallowed by `LooksLike404`.",
-			"SHA": "8b3f1a90730370b689d1269d924f04f906624966"
+			"Message": "fix(GITEX): wrap git subprocess with a 30s timeout (#55)\n\ntokio::process::Command::new(\"git\").output().await had no\ncancellation boundary. A slow or hanging git operation (large\nrepo, network mount, credential prompt, locked index) would\nhold the effect slot open indefinitely.\n\nWrap with tokio::time::timeout(Duration::from_secs(30), ...).\nOn expiry the child process is abandoned and a descriptive Err\nis returned so the extension host can surface the failure.\n\nThe 30s ceiling is generous enough for legitimate slow clones\nover gRPC but tight enough to prevent indefinite hangs. The\nelapsed dev_log is kept so timing is still observable in logs.",
+			"SHA": "4215c8a141c82a6bd07e3e642eccc2e4b3cade9e"
 		}
 	],
-	"TimeStamp": 1781048777918
+	"TimeStamp": 1781194544663
 }

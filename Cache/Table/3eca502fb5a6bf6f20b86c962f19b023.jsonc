@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T15:16:48Z",
+			"Author": "Auto",
+			"Date": "2026-06-06T03:58:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				765,
 				1
 			],
-			"Message": "fix(Output): Rename Tauri health commands to snake_case for Tauri 2\n\nTauri 2 passes the command name as the literal Rust function name without auto-camel conversion. The PascalCase names (`CocoonExtensionHostHealth`, `CocoonSearchServiceHealth`, `CocoonDebugServiceHealth`, `SharedProcessServiceHealth`) produced `Command not found` errors at runtime.\n\nRename to snake_case in the Shared Process proxy's `healthCheck()` to match the actual handler function names registered in Mountain's health command modules.\n\nAll four per-service health checks now resolve correctly under Tauri 2's strict command-name matching.",
-			"SHA": "c30a934e5ba5ac7fae7a30efecf0924e1ce67385"
+			"Message": "",
+			"SHA": "19bf173663394a40f4e663c64ba5875e6c33e551"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T15:10:01Z",
+			"Date": "2026-06-05T07:39:55Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⠀⠀⠀⠀⠀",
 				765,
-				13
-			],
-			"Message": "refactor(Output): Extract drag selectors at build time\n\nWebKit drops the Chromium-only `-webkit-app-region` declaration at CSS parse time, so runtime inspection of `CSSStyleRule.style.getPropertyValue(\"-webkit-app-region\")` returns `\"\"` for every rule under WKWebView. The runtime stylesheet-walking approach from the prior commit cannot work.\n\nRework InjectTauriDragRegion to scan VS Code's CSS source files on disk at build time, extracting every selector that declares `-webkit-app-region: drag|no-drag` via regex. The collected lists are baked into the workbench bundle as `globalThis.__LAND_DRAG_SELECTORS__` / `__LAND_NO_DRAG_SELECTORS__`. The runtime polyfill switches from walking stylesheets to iterating the prepared lists with `querySelectorAll`, with an early bail when both arrays are empty (transform not run).\n\nCompanion changes:\n- Remove the drag-region CSS inset (`left: 80px`) from MacTitlebarOffsetCSS since the HTML attribute polyfill handles the Tauri hit-test; stock drag-region geometry suffices\n- Add `padding-right: 0` assertion to the titlebar-container to prevent future stock CSS from introducing right-edge drift\n- Improve the fullscreen detector in MacTitlebarOffsetCSS (triple-signal: fullscreen API, matchMedia, window-vs-screen heuristic) and refactor initialisation to install stylesheet + detector together\n- Gate InjectPartZIndexCSS behind DisableUIFixes: the `isolation: isolate` rule can hide the in-window menubar, so operators diagnosing dropdown/clipping can skip it and return parts to stock stacking behaviour\n- Add InjectTauriDragRegion to both the bundle BuildPipeline and the patch ApplyPipeline",
-			"SHA": "905ac54afb0d1ebc6c1342cb5b258fab55b81934"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T14:17:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				757,
-				3
-			],
-			"Message": "refactor(Output): Replace hardcoded drag selectors with stylesheet-driven extraction\n\nRather than maintaining a brittle hardcoded list of titlebar drag and no-drag selectors in the polyfill itself, walk every accessible stylesheet rule at runtime to discover which elements VS Code already declares as `-webkit-app-region: drag` / `no-drag` and stamp the equivalent `data-tauri-drag-region` attribute.\n\n`Walk()` recurses into CSSMediaRule and CSSSupportsRule containers so OS-scoped and feature-gated rules (e.g. `@media (-webkit-min-device-pixel-ratio...)`) are picked up automatically. Selectors are cached after the first full pass and reused across MutationObserver callbacks; a second collection runs on `window.onload` to cover lazy-loaded extension stylesheets. Cross-origin sheets that throw on `cssRules` access are skipped defensively, and selector strings that fail `querySelectorAll` (e.g. `:has()` / `:where()` on older WebKit builds) are caught and skipped per-selector rather than aborting the pass.\n\nThis eliminates the need to manually update the polyfill whenever VS Code upstream changes its titlebar or sidebar drag-region markup — the polyfill now reflects whatever the stylesheets declare.\n\nMinor companion formatting: add blank-line separators in Editor and Terminal GPU layer CSS files for readability consistency with adjacent rule blocks.",
-			"SHA": "510588e3948874783f2e60f2f79ec8559f846e1d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T14:02:02Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				757,
-				5
-			],
-			"Message": "feat(Output): Implement Tauri 2 drag region polyfill and macOS fullscreen detector\n\nTauri 2's overlay-titlebar window-drag hit-test ignores Chromium's `-webkit-app-region: drag` CSS rule used by stock VS Code; it requires the explicit `data-tauri-drag-region` HTML attribute on draggable elements. Without it, dragging the workbench titlebar selects text instead of moving the window.\n\nAdd the `InjectTauriDragRegion` polyfill and transform:\n- Stamps `data-tauri-drag-region` on `.titlebar-drag-region` and related selectors\n- Stamps `data-tauri-drag-region=\"false\"` on interactive children (menubar, command-center, window controls) so click events land correctly\n- Uses a `MutationObserver` on `<body>` to catch late-mounted drag regions (titlebar repaints on profile switch / window-mode toggle)\n- Transform injects the polyfill into `vs/code/electron-browser/workbench/workbench.js`, always active (cross-OS structural fix)\n\nExtend the MacTitlebarOffsetCSS polyfill with a fullscreen detector:\n- Triples-signal detection: HTML5 fullscreen API, `display-mode: fullscreen` media query, window-vs-screen dimension heuristic\n- Toggles `body.land-fullscreen` to reclaim the 80px left padding when macOS native fullscreen hides the traffic-light cluster\n- Asserts `padding-right: 0` explicitly so future stock CSS cannot introduce right-edge drift\n- The fullscreen detector and stylesheet are installed together on DOMContentLoaded\n\nGate `InjectPartZIndexCSS` behind `DisableUIFixes`: the `isolation: isolate` rule this transform emits has been observed to hide the in-window menubar under specific configurations. Operators running with the env var set (e.g. when diagnosing menubar / dropdown clipping) now bypass this transform, returning workbench parts to stock CSS stacking-context behaviour.\n\nAll additions are idempotent (runtime markers prevent re-application). Existing comments updated to reflect always-active vs gated semantics.",
-			"SHA": "9d76c4fb921c8bdc999fdadf8c0aaf48d26eebfd"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T09:05:35Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				751,
 				1
 			],
-			"Message": "chore(Output): Regenerate Service.js.map with updated VLQ mappings\n\nThe embedded TypeScript source in Service.js.map is unchanged, but the VLQ-encoded mappings field has been regenerated — likely from a build-tool version bump or non-deterministic compiler output. File size: 53396 → 53393 bytes.\n\nNo functional change to the TauriMainProcessService runtime behaviour.",
-			"SHA": "fa228dd1379a37242b606ae6150293417ad9c826"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
+			"SHA": "515bece02c68cc9608b86baf8fe6090bb27561ca"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-05T07:39:16Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				765,
+				118
+			],
+			"Message": "docs(Output): Expand architectural comments across pipeline, ESBuild, plugins, and polyfills\n\nThe Output component (bundled JS artifacts for Cocoon runtime) previously had minimal\ninline documentation. This commit adds comprehensive architectural context to every\nmajor configuration module explaining WHY each transform, polyfill, copy operation,\nand exclusion exists — not just WHAT it does.\n\nKey additions:\n- Pipeline.js: Each ServiceCopy entry now documents the source authored location,\n  the reverse-hierarchical split naming convention, and why destination filenames\n  retain legacy compound names to match runtime import strings.\n- ESBuild exclusion modules (Electron, Node, Network, Telemetry, Test, etc.):\n  Comments now distinguish between abstract interfaces (kept) vs Electron/Node\n  implementations (excluded), and explain the Mountain/Cocoon gRPC replacement\n  strategy for each stripped subsystem.\n- Plugin transforms: Every Match/Transform now includes the architectural\n  rationale — e.g., ReplaceElectronIPCService explains the TauriMainProcessService\n  shim, InjectPartZIndexCSS documents the menubar clipping bug it prevents.\n- Polyfills (ChildProcess, FileSystem, IPC, NativeModule, Process, SharedProcess):\n  Comments trace each stubbed Electron API to its Mountain IPC route or explain\n  why a no-op is safe (e.g., telemetryAppender no-op because Land centralizes\n  telemetry via Mountain's PostHog bridge).\n- TauriMainProcessService: ChannelRouteMap now documents every routed channel\n  with the VS Code callsite that depends on it (e.g., extensionManagement\n  routed because Extensions sidebar calls getInstalled via that channel).\n- SharedProcessProxy: Each service proxy's health check and stub shape explained.\n\nNo behavioral changes — only documentation/comment expansion to make the\nElectron→Tauri+Effect-TS architecture self-documenting for future maintainers.",
+			"SHA": "5c892147b3255d966a599dc5bd527cc8da761598"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-06-05T04:15:45Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				765,
+				1
+			],
+			"Message": "",
+			"SHA": "8a4c10dca2ba2a1c4c571abcefd5e12206e8793a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-04T21:30:02Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				765,
+				117
+			],
+			"Message": "style(Output): Remove excess blank lines from configuration modules\n\nNormalize whitespace across Configuration/ and Source/ modules by removing inter-statement blank lines. Imports, declarations, function bodies, array literals, plugin pipelines, and export sections now use compact spacing with no empty lines between adjacent statements or object properties.\n\nNo behavioral changes; only formatting/whitespace normalization.",
+			"SHA": "270d5f258fc886b6bacfa2242cb508d95f325b2e"
 		}
 	],
-	"TimeStamp": 1781048760227
+	"TimeStamp": 1781194517263
 }

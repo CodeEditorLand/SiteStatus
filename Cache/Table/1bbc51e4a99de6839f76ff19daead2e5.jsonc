@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:09:37Z",
+			"File": [
+				"⡏⠀⠀⠀⠀",
+				26,
+				3
+			],
+			"Message": "fix(Land): Advance Element submodules — bridged editor state, diagnostics, theme, and breakpoint event pipeline\n\nAdvance Cocoon, Mountain, and Sky submodules to complete the Mountain-to-Cocoon notification relay for six extension API surfaces that were previously renderer-only.\n\nCocoon adds Notification/Handler.ts cases for `$acceptDiagnosticsChanged`, `$acceptVisibleEditorsChanged`, `$acceptTabsChanged`, `$acceptVisibleRangesChanged`, `$acceptTextEditorOptionsChanged`, and `$acceptActiveColorTheme` — each pumping the Mountain notification through the matching Emitter channel consumed by extension subscribers. The `$acceptTabsChanged` handler caches tab-group snapshots on `__tabGroups` so synchronous `window.tabGroups.all` getters reflect current state.\n\nMountain fans five notification types back to Cocoon: `$acceptActiveColorTheme` in ThemesSet.rs on theme switch, `$acceptVisibleEditorsChanged`/`$acceptTabsChanged`/`$acceptVisibleRangesChanged`/`$acceptTextEditorOptionsChanged` in WindServiceHandlers/mod.rs forwarding Sky payloads, `$acceptDiagnosticsChanged` in Diagnostics.rs after Set/Clear calls, and `$onDidChangeBreakpoints` in DebugLifecycle.rs for breakpoint mutations.\n\nSky bridges four Monaco/workbench event streams through the IPC layer: `onDidScrollChange` (debounced to ~16 fps) emits visible ranges, `onDidChangeConfiguration` emits options changes, `onDidVisibleEditorsChange` emits the URI list of visible editors, and `onDidChangeActiveGroup`/`onDidAddGroup`/`onDidRemoveGroup` emit tab-group snapshots. All IPC calls are wrapped in try/catch so render failures never interrupt the UI pipeline.\n\nVS Code API subscribers inside Cocoon — `languages.onDidChangeDiagnostics`, `window.onDidChangeVisibleTextEditors`, `window.tabGroups.onDidChangeTabs`, `window.onDidChangeTextEditorVisibleRanges`, `window.onDidChangeTextEditorOptions`, `window.onDidChangeActiveColorTheme`, and `debug.onDidChangeBreakpoints` — now fire correctly for all extensions.",
+			"SHA": "c378308300e06748e4f3c0b7662a01626242c877"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-25T21:54:15Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "fix(Cocoon): Treat unknown method errors as benign for circuit breaker logic\n\nAdvance the Cocoon submodule to treat unrecognized gRPC method names as benign conditions rather than hard circuit breaker failures.\n\nCocoon's GRPCServerService method dispatcher previously counted unknown-method responses as failure events in the circuit breaker counter. When Mountain probes for method names across subsystems that route to Node rather than Cocoon's handler registry — or when the method set evolves independently on each side of the gRPC boundary — these probe responses could trip the circuit breaker open, disrupting legitimate requests.\n\nThe fix filters unknown-method errors from the circuit breaker's failure accounting, allowing only genuine transport or handler errors to trigger breaker state transitions. The unknown-method case still returns a proper error response to the caller, but no longer penalizes the breaker health score.",
 			"SHA": "119b4c70e55d325a403ffdbe19fa72efb9076d22"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T20:46:25Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				26,
-				4
-			],
-			"Message": "fix(Land): Advance Element submodules — storage RPC fix, clean identifiers, tier routing\n\nAdvance Cocoon, Mountain, Output, and Wind submodules to fix a storage cache priming regression, restore clean development identifiers, and implement per-subsystem IPC tier routing.\n\nCocoon corrects the RPC method name in the storage cache priming path from `storage:getItems` (kebab-case, object arg) to `Storage.GetItems` (PascalCase, empty array), matching Mountain's RPC dispatcher contract. Without this fix, extensions that read workspace/global state synchronously during `activate()` — Roo Code, Copilot, GitLens — received only defaults after every reload, causing UI state regressions.\n\nMountain restores \"Mountain\" as the crate binary, library, and package name, and the Tauri productName and bundle identifier, replacing the verbose development build descriptors from the prior commit. Gates the Cocoon sidecar launch on both the ExtensionHostCocoon feature flag and the absence of `no_node_host` cfg so the Node vs WebWorker tier is respected at boot. Includes the task type in the task provider Options payload for correct Cocoon task registration, derives Clone on ExtensionCollection for shared terminal env mutation, and adds the zsh shell integration script to the Tauri resource bundle.\n\nOutput introduces per-subsystem tier resolution in the TauriChannel IPC router so channels can route to Mountain (Tauri backend) or Node (Cocoon extension host) independently rather than being governed by the single global `_TierIPC` variable. Routes `tasks` and `auth` to Node by default while keeping most subsystems on Mountain.\n\nWind wires the runtime dispatch layer in TauriMainProcessService that reads per-subsystem tier overrides from env vars and `__LandTiers` globals, routing channels resolved to \"Node\" directly to Cocoon via the `cocoon:request` bridge instead of Mountain. This mirrors the dispatch in Mountain's WindServiceHandlers, completing TIER-SYSTEM Step 4b.\n\nExtension storage now persists correctly across reloads, the development build uses clean identifiers, and the IPC tier routing layer supports per-subsystem routing across the Mountain-Cocoon boundary.",
-			"SHA": "cdef6cceabdd3c790f0ac922156e6ad2a967ddbf"
 		}
 	],
-	"TimeStamp": 1781048762115
+	"TimeStamp": 1781194519708
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:38:30Z",
+			"Date": "2026-05-23T06:03:46Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1585,
-				9
+				1739,
+				1
 			],
-			"Message": "refactor(Mountain): Clean up dead vars and normalize scan paths lexically\n\nReplace the filesystem-backed `Canonicalize` closure in ScanPathConfigure\nwith `Normalize`, which resolves `..` segments lexically for non-existent\npaths - keeping extension scan-path log output clean regardless of path\nviability - while still calling `std::fs::canonicalize` for existing paths\nto resolve symlinks.\n\nDrop the stale `HandleSlot` accumulator in OutputChannelCoalesce (it was\nset but never meaningfully used after the previous refactor) and the\nunused `std::path::PathBuf` import in TryShipped.\n\nAdd stub IPC handlers for `browserView:*` (updateKeybindings, updateTheme,\nupdateConfiguration, openDevTools, closeDevTools -> Null;\ngetBrowserViews -> []), which Wind sends for Electron BrowserView\nmanagement but are no-ops under Tauri's single-webview architecture.\nRoute `extensionHostStarter:waitForExit` to a new async handler that\nresolves immediately with a stub exit-info so callers don't hang.\n\nFormatting-only: line-break Cocoon environment allow list one-per-entry,\ncollapse LocalhostUrl accessors, reflow WebviewWindowBuilder chain.",
-			"SHA": "167dfea1480a374254428bcbbafa11c6113041c5"
+			"Message": "refactor(Mountain): Preserve binary integrity in HTTP response parsing\n\nThe `forward_http_request` helper in `Source/Binary/Build/Scheme.rs` was incorrectly converting HTTP response bodies to UTF-8 strings before parsing. This `String::from_utf8_lossy` operation corrupted binary content (images, WASM modules, etc.) by inserting replacement characters for non-UTF-8 sequences.\n\nUpdate `parse_http_response` to accept a raw byte slice (`&[u8]`) instead of a `&str`. Implement the header/body separation using `windows(4)` to locate the `\\r\\n\\r\\n` separator on raw bytes. Safely decode only the header section to UTF-8 (since HTTP headers are ASCII), while passing the body bytes directly to the result tuple.\n\nThis ensures binary assets proxied through the Mountain build tool remain intact and prevents data corruption during HTTP forwarding.",
+			"SHA": "977f678a3ae277ac8d8f21db1cbe3be48690a369"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:36:57Z",
+			"Date": "2026-05-23T05:34:02Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1585,
-				7
-			],
-			"Message": "fix(Mountain): Serve webview panels via localhost plugin URL\n\nSecondary webview panels (settings, webview extensions, etc.) used `WebviewUrl::App(\"WebviewHost.html\")` which routes through tauri::manager — but Mountain's tauri.conf.json has no `frontendDist`, so Tauri has no bundled assets to serve, leaving those webviews blank.\n\nFix by loading them from the localhost plugin instead (`http://localhost:PORT/Mountain/WebviewHost`). A new `LocalhostUrl` singleton (OnceLock in `IPC/WindServiceHandlers/Utilities/LocalhostUrl.rs`) is populated once during `AppLifecycleSetup` and consumed in `create_webview_panel_impl` to build the external URL. Falls back to port 15536 if the singleton is unset.\n\nAlso extracts the inline Cocoon subprocess environment-building and I/O forwarding into named functions (`BuildCocoonEnvironment`, `SpawnCocoonIoForwarders`) in CocoonManagement.rs — pure refactor with no behavioral change, reducing method complexity from ~200 inline lines to two clear helpers.",
-			"SHA": "88be9db9ea1de55af0b96158021b2b77c7f86f6c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T07:49:35Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1582,
-				8
-			],
-			"Message": "feat(Mountain): Enable .app bundle resource resolution for cache, Cocoon, and Node\n\nThe Mountain binary now resolves pre-baked resources from both the repo/dev\nlayout (binary-sibling files) and the .app bundle layout (Contents/Resources/)\nwhen running as a packaged application. Four systems are updated:\n\n**Extension manifest cache (LoadFromCache.rs):** Probes two locations in\norder — `BinaryDir/extensions.manifest.json` (dev) and\n`BinaryDir/../Resources/extensions.manifest.json` (bundle). Bundled caches\nskip the staleness check (10-minute threshold) since they are built\nalongside the .app and always consistent with its packed extensions. The\nper-manifest field extraction is also refactored with local `str()` and\n`arr()` helper closures to eliminate repeated\n`Manifest.get(k).and_then(Value::as_str)` chains.\n\n**CocoonManagement pre-flight check:** Cocoon's bundle probe now attempts\nTauri's resource resolver first (`Tauri::path::resolve` with\n`BaseDirectory::Resource`), falling back to the repo-layout relative-walk\nfrom `scripts/cocoon/` when the bundle path does not exist.\n\n**NodeResolver TryShipped:** Adds a sidecar resolution path matching\n`externalBin: [\"Binary/node\"]` in tauri.conf.json — the `node` binary sits\nalongside the Mountain executable, not in a `Node/bin/` subdirectory, in\nthe Tauri sidecar layout.\n\n**ScanPathConfigure and PathSecurity:** Extension scan paths now call\n`.canonicalize()` on resolved paths for cleaner log output (showing\n`Contents/Resources/...` instead of `Contents/MacOS/../Resources/...`).\n`IsTrustedSystemPath` adds `../Resources/Static/Application/extensions` to\nthe bundle-root allowlist so the new canonical static extension directory\nbypasses the workspace-folder gate.\n\n**Bootstrap fork (bootstrap-fork.js):** Cocoon entry path resolution\nhandles both bundle (2-level `../../`) and repo (3-level `../../../`)\nlayouts by iterating both URL bases for each candidate entry path.\n\n**tauri.conf.json:** Maps `bootstrap-fork.js`, `extensions.manifest.json`,\nand `Cocoon/Target/Bootstrap/Implementation/Cocoon` into\n`Contents/Resources/` so all three are reachable at runtime via the bundle\nresource resolver.",
-			"SHA": "0fe6cbfa5522594264233b21f4807ab5f184dab4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T06:19:23Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1582,
+				1739,
 				4
 			],
-			"Message": "",
-			"SHA": "1a1ee9b546b80eef444b0dc0ae4da09b291f2ca9"
+			"Message": "feat(Mountain): Extend extension cache lifetime and refine SCM updates\n\nIncrease the maximum cache age for extension descriptors from 10 minutes to 24 hours. The previous window was too tight for local development workflows where the binary and cache are co-located; since builds regenerate the cache, a longer duration prevents unnecessary rescans without staleness risks.\n\nEnhance the `FileWriteNative` handler to suppress false-positive warnings when the Cocoon process is not yet connected during `FileWrite` operations. This prevents noise in the `vfs` log when saving files before the extension host is fully ready.\n\nAlign `UpdateScmGroup` logic to emit `scmId` alongside `providerId` in the payload to `sky://scm/updateGroup`. This ensures the Sky frontend can correctly resolve the SCM shim. Remove the fallback logic that attempted to invoke `UpdateSourceControlGroup` traits, as direct event emission is the reliable path.\n\nAdditionally, add `DebugServer`, `DebugServerPortMountain`, and `DebugServerPortCocoon` to the environment variable whitelist in `CocoonManagement` to support future debugging configurations.",
+			"SHA": "fc1e6daf52356219f8c954cc53b698a688432d94"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T06:19:23Z",
+			"Date": "2026-05-23T05:33:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1584,
-				7
+				1739,
+				2
 			],
-			"Message": "fix(Mountain): Normalize extension location URI from cache to plain string\n\nThe `LoadFromCache` path serialized `ExtensionLocation` as a JSON object\n`{\"value\": url}` — the Identifier wrapper shape — rather than a plain\n`Value::String` URI. The `Normalize.rs` URI parser then failed to match\nagainst the `scheme` key and fell through to `/extensions/unknown`,\nbreaking extension resolution for cached manifests.\n\n- Fix the source: emit `Value::String(LocationUri)` from\n  `LoadFromCache.rs`, matching the format `FromUrl::Fn` expects.\n- Fix the sink: add a backward-compatibility branch in `Normalize.rs`\n  that unwraps `{\"value\": url_string}` when encountered, so legacy\n  cache entries still resolve correctly.\n- Reorder Sky resource globs in `tauri.conf.json` alphabetically for\n  maintainability.\n\nAccompanying build metadata: the Cargo.toml package name, tauri\nidentifier, and productName are expanded to their full environment-keyed\nform (DevelopmentNodeEnvironment…) as part of the CI artifact\nlabelling scheme; backup files preserve the canonical values.",
-			"SHA": "af8fcdd2e74f49cd5943e056f6af38bddb0d7205"
+			"Message": "fix(Mountain): Prevent Tauri build failure on missing Sky manifest\n\nThe Tauri build process fails when running `cargo build` directly because it validates `extensions.manifest.json` referenced in `bundle.resources`, which is normally generated by the Sky frontend build. Update `build.rs` to create a stub file (`[]`) at the expected path if missing, ensuring the build succeeds without a prior Sky build while retaining the live scan fallback in `LoadFromCache.rs`.\n\nAdditionally, disable `beforeBundleCommand` in `tauri.conf.json` to prevent redundant or conflicting manifest generation steps during the Tauri build phase, relying instead on the explicit manifest creation in `build.rs` and the existing Sky build pipeline.",
+			"SHA": "3473a81e819f0b8a80fc02084589693a1fe0d85d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T04:26:15Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1739,
+				1
+			],
+			"Message": "chore(Mountain): Add lint allowances to build script for generated bindings\n\nPreserve build stability by re-allowing standard naming and usage lints (`non_snake_case`, `dead_code`, etc.) within `build.rs`. This compensates for the recent global removal of `#![allow(non_snake_case)]` across the source tree, which inadvertently flagged warnings in build scripts consuming auto-generated protocol bindings or external definitions.\n\nThe change ensures the build process remains clean while the main application source maintains strict PascalCase compliance and active linting. This aligns with the pattern in `Source/Vine/Generated/mod.rs` where specific allowances are retained for non-manual code.",
+			"SHA": "f520c6044f6940106f177b01327ed613e11f7846"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T04:21:08Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				1739,
+				245
+			],
+			"Message": "style(Mountain): Remove pervasive leading empty lines after module doc comments\n\nStrip the redundant single empty line immediately following `//! ...` module doc comments across over 400 files in the Mountain backend. This affects Air integration, Binary entry points, Command handlers, Environment providers, ExtensionManagement, and the full IPC layer (WindServiceHandlers, RPC/CocoonService, Track, Vine).\n\nThe change enforces a tighter file header style where documentation blocks are directly followed by the first code declaration or `use` statement, eliminating stylistic noise while preserving all logic and API contracts. `Source/Library.rs` retain necessary global allowances for generated code, while the rest of the source tree now adheres to a uniform header structure.\n\nRefs #CLAUDE.md",
+			"SHA": "2a4878c8f2eebf57350b1ee6725633c2d3199a53"
 		}
 	],
-	"TimeStamp": 1781048769317
+	"TimeStamp": 1781194529573
 }

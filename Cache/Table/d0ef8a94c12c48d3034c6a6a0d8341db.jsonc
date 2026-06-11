@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:35:54Z",
+			"Date": "2026-05-02T09:04:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1117,
-				5
+				1137,
+				3
 			],
-			"Message": "fix(Mountain): Correct import paths for state types and IPC modules\n\nUpdate import statements across the registration modules in `Source/Binary/Register/` to resolve types via their new granular paths. Specifically, change `ApplicationState` to `ApplicationState::State::ApplicationState::ApplicationState` to align with the recent atomic module refactoring. Additionally, update IPC function imports to reference the new sub-modules (`AdvancedFeatures`, `StatusReporter`, `WindAdvancedSync`) under `IPC` and adjust the IPC server reference to explicitly use the legacy `TauriIPCServer_Old` implementation during the transition.\n\nThese changes ensure the binary registration logic correctly resolves all dependencies, preventing compilation failures caused by outdated import paths following the module restructuring.",
-			"SHA": "f5c9c54e3eb34b0908de969b852b449bf47f585c"
+			"Message": "feat(Mountain): Add robust state recovery primitives with backoff and timeout\n\nExtract core recovery logic into dedicated PascalCase modules under `RecoverState` to enforce the project's `Struct::Struct` naming convention and isolate failure handling for `ApplicationState`.\n\nIntroduce three new utilities:\n1. `RecoverStateWithBackoff`: Implements exponential backoff (100ms doubling) for async recovery operations, yielding the runtime during wait periods.\n2. `SafeStateOperationWithTimeout`: Executes blocking state operations on a detached thread with a hard timeout to prevent hung repairs from stalling the main event loop.\n3. `ValidateAndCleanState`: Filters state maps in-place using a validator predicate, logging removals for observability.\n\nThese components provide the atomic building blocks required for the `MementoLoader` to handle corrupted `ApplicationState` gracefully, ensuring the editor can degrade to a clean state without crashing during startup or recovery flows.",
+			"SHA": "9b58d4d4e5ff9f5e01e82549344e29bbc6c4b021"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:35:48Z",
+			"Date": "2026-05-02T09:04:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1117,
-				2
+				1133,
+				4
 			],
-			"Message": "fix(Mountain): Correct ApplicationState import paths in Extension module\n\nUpdate the import statements in `Source/Binary/Extension/ExtensionPopulate.rs` and `ScanPathConfigure.rs` to resolve the `ApplicationState` type via the new nested path `ApplicationState::State::ApplicationState::ApplicationState`.\n\nAlign with the recent refactoring of the `ApplicationState` module, which reduced the root module to an atomic placeholder and shifted type definitions to granular sub-modules. This ensures the Extension logic correctly resolves the `ApplicationState` struct and `MapLockError` type, preventing compilation failures caused by the legacy flat import path.",
-			"SHA": "a67458952138f9e4d9c48362e2943e328fafd8e4"
+			"Message": "feat(Mountain): Implement robust memento loading with corruption recovery\n\nExtract memento persistence logic into dedicated PascalCase modules under `MementoLoader` to handle `ApplicationState` initialization safely. Introduce `LoadInitialMementoFromDisk` for best-effort loading that returns an empty map on failure, ensuring the editor never crashes during startup. Add `LoadMementoWithRecovery` for recovery flows requiring explicit error propagation, automatically archiving corrupted JSON to timestamped `.backup` files via `CreateCorruptedBackup` and `AttemptMementoRecovery`.\n\nThis structural change enforces the project's `Struct::Struct` naming convention for function paths (e.g., `LoadInitialMementoFromDisk::Fn`) and guarantees that invalid state files are preserved for debugging while allowing the application to degrade gracefully to a clean state.",
+			"SHA": "53a15341654dd27f1f702944adcfb3f295ea434b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:35:43Z",
+			"Date": "2026-05-02T06:39:56Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1117,
+				1128,
 				1
 			],
-			"Message": "refactor(Mountain): Reduce ApplicationState module to atomic placeholder\n\nStrip the verbose legacy documentation and complex re-export logic from `Source/ApplicationState/mod.rs` to align with the project's shift towards fine-grained, atomic state management.\n\nThe file is now reduced to a concise module header and declarations for `State`, `DTO`, and `Internal` sub-modules, with explicit `pub use` statements removed to enforce full path resolution (`State::ApplicationState::ApplicationState`) as established in recent refactors. The `non_snake_case` attribute is applied to the module file to suppress lints during this transitional period as consumers migrate to the new granular entry points.\n\nThis clears the namespace for the upcoming rewrite of the state layer while preserving the existing sub-module structure for future incremental implementation.",
-			"SHA": "d3996a8d5f2685a41cd420dd134c23e1c186a113"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "3779c85288f1cc45dc58687f2cb814f15537028b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:35:38Z",
+			"Date": "2026-05-02T06:37:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1117,
-				2
+				1128,
+				3
 			],
-			"Message": "fix(Mountain): Correct ApplicationState import and update Vine RPC invocation\n\nUpdate the import path for `ApplicationState` in `Source/ProcessManagement/InitializationData.rs` to correctly resolve the nested `State::ApplicationState::ApplicationState` struct, aligning with the refactored module hierarchy. Additionally, modify all `Vine::Client` gRPC calls in `Source/ProcessManagement/CocoonManagement.rs` to explicitly invoke the `::Fn` associated method for `ConnectToSideCar` and `SendRequest`.\n\nThis ensures proper resolution of the state type for initialization logic and adheres to the updated calling convention for the Vine gRPC client within the Rust codebase, preventing potential compilation errors and ensuring consistent RPC communication with the Cocoon sidecar.",
-			"SHA": "98fbaf4a727f3f93c2f4d64b2d6956e709444157"
+			"Message": "refactor(Mountain): Eliminate IPC re-exports and migrate to legacy server\n\nRemove all `pub use` re-exports from `Source/IPC/mod.rs` to enforce explicit `Struct::Struct` import paths, aligning with the project's strict naming convention and recent entry-point refactoring. Callers must now reference the full nested path (e.g., `IPC::Connection::Manager::ConnectionManager`).\n\nSimultaneously, redirect IPC server instance references in `ConfigurationBridge.rs` and `StatusReporter.rs` from `TauriIPCServer` to `TauriIPCServer_Old`. This ensures compatibility with the current legacy server instance while the new implementation stabilizes. Add documentation to `AdvancedFeatures` noting the plan to atomize the 648-LOC single file into a directory.\n\nThis change reduces module resolution ambiguity and maintains IPC continuity during the ongoing architecture migration.",
+			"SHA": "c85b6b3f4fceb80e8171ca8abe9de66da6baf67b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:35:29Z",
+			"Date": "2026-05-02T06:37:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1117,
-				1
+				1128,
+				3
 			],
-			"Message": "fix(Mountain): Correct ApplicationState import path in StateBuild\n\nUpdate the import statement in `Source/Binary/Initialize/StateBuild.rs` to explicitly reference the nested `State::ApplicationState::ApplicationState` struct. The previous flat import path `ApplicationState::ApplicationState` failed to resolve the type correctly within the current module hierarchy.\n\nThis change ensures the `ApplicationState` type is properly available for state build configuration logic, aligning with the recent refactoring of the application state module structure and preventing potential compilation errors related to missing type definitions.",
-			"SHA": "cad8f0c930e3691d69e2387a8b4a6e2b007d6092"
+			"Message": "refactor(Mountain): Extract Air DTOs into separate PascalCase modules\n\nRemove inline response and stream types from `AirClient.rs` and `AirServiceProvider.rs`, moving them into dedicated sibling modules (`AirMetrics`, `AirStatus`, `DownloadStream`, etc.) to enforce the project's strict `Struct::Struct` naming convention.\n\nUpdate all return types and struct instantiations to use the fully qualified paths (e.g., `UpdateInfo::Struct`, `FileInfo::Struct`). Additionally, migrate the `generate_request_id` helper function to a new `GenerateRequestID` module to align with the explicit `Fn` call path policy documented in recent refactoring commits.\n\nThis structural change eliminates the legacy stub file `AirServiceTypesStub.rs` by consolidating its contents into specific module files, reducing file density and ensuring consistency across the IPC layer.",
+			"SHA": "85e894f4798397c9295b63c5a037829e310b89e0"
 		}
 	],
-	"TimeStamp": 1781048787601
+	"TimeStamp": 1781194559755
 }

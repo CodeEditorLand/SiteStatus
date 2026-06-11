@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:35:53Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				155,
-				2
-			],
-			"Message": "refactor(Sky): Standardize IPC method naming and add webview option bridge\n\nUpdate IPC method identifiers in `InstallEditorAndOutput.ts` to use the new lowercase `file:` namespace (`file:writeFile`, `file:rename`, `file:delete`) instead of the previous `FileSystem.` prefix. This aligns the bridge layer with the updated Mountain backend protocol conventions.\n\nIn `InstallWebview.ts`, implement the `sky://webview/setOptions` bridge listener to handle runtime configuration updates (e.g., `enableScripts`, `localResourceRoots`). The handler resolves the target webview panel from the global registry and invokes the native `setOptions` method, supporting both Cocoon-originated requests and direct notifications.\n\nThese changes streamline the IPC contract and ensure webview lifecycle operations are handled synchronously and deterministically within the Sky component layer.",
-			"SHA": "faa9c2543f6c806b9af5ef86198469a660b4e7d1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:25:50Z",
+			"Author": "dependabot[bot]",
+			"Date": "2026-05-27T02:11:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				155,
 				1
 			],
-			"Message": "fix(Sky): Distinguish custom URI stringification from default Object methods\n\nUpdate the URI reconstruction logic in `InstallScm.ts` to safely parse string representations of URI objects. The previous check `typeof UriField.toString === \"function\"` was insufficient as it returned true for the default `Object.prototype.toString`, causing non-URI objects to be incorrectly passed to `Services.URI.parse`.\n\nAdd an explicit check ensuring `UriField.toString` is not the inherited default method. This prevents false positives during Source Control Manager bridge operations where generic objects might erroneously trigger URI parsing, ensuring only legitimate URI instances with custom stringification are processed.\n\nThis aligns with the recent refactoring of bridge layers to remove retry loops, requiring deterministic and accurate type handling during immediate service execution.",
-			"SHA": "7f22e3facc226ce9809831cf28a73e43ddf703eb"
+			"Message": "build(deps): bump astro from 6.3.7 to 6.3.8\n\nBumps [astro](https://github.com/withastro/astro/tree/HEAD/packages/astro) from 6.3.7 to 6.3.8.\n- [Release notes](https://github.com/withastro/astro/releases)\n- [Changelog](https://github.com/withastro/astro/blob/main/packages/astro/CHANGELOG.md)\n- [Commits](https://github.com/withastro/astro/commits/astro@6.3.8/packages/astro)\n\n---\nupdated-dependencies:\n- dependency-name: astro\n  dependency-version: 6.3.8\n  dependency-type: direct:production\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "6a68dc5f0f3c8b66676d6bfb29c00f91fe9e533b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:19:41Z",
+			"Date": "2026-05-26T18:17:48Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				155,
+				5
+			],
+			"Message": "fix(Sky): Route bridge handlers through live workbench services\n\n**Output channel payload normalisation** — Mountain's coalescer, the legacy per-append path, and Cocoon's forwarding each use different field names (`channel`/`name`/`handle`/`id`, `text`/`value`). `sky://output/create`, `append`, `clear`, `replace`, `show`, and `dispose` now read every field shape so the Output panel populates regardless of producer. `sky://output/show` prefers the live `IOutputService.showChannel()` for channel-targeted reveal before falling back to the generic workbench command.\n\n**Notification service integration** — `sky://notification/show` previously dispatched a CustomEvent only, reaching no visual surface in production. Drive `INotificationService.notify()` directly with proper severity string-to-number mapping so `showInformationMessage`/`showWarningMessage`/`showErrorMessage` actually surface toasts.\n\n**Monaco language switch** — `sky://languages/setDocumentLanguage` now calls `monaco.editor.setModelLanguage()` so highlighting and tokenisation switch in place without re-opening the file.\n\n**SCM shim robustness** — Derive per-repo display labels from `rootUri` basename for multi-repo workspaces (e.g. `Git (Mountain)` instead of duplicate `Git` headers). Replace static zero-value field shims with `IObservable`-shaped facades exposing live derived resource counts. Fire `provider.onDidChange` and `ResourceGroupsEmitter` after populating groups so the viewlet badge and title-bar count reflect real totals.\n\n**Progress service routing** — Route through `IProgressService.withProgress()` when available for native VS Code progress rendering, with a DOM-painted fallback during early boot. Cache pending messages for in-flight starts whose Report handle hasn't yet been captured.\n\n**Replay summary** — Include `scmGroups` and `scmResourceUpdates` fields in event-replay summary logging.",
+			"SHA": "daf83add5db20440ded7f50f2af39e5e3573eee1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T17:20:32Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				155,
+				6
+			],
+			"Message": "fix(Sky): Route output panel through real IOutputService and fix multi-repo SCM registry\n\n**Output panel routing** — the `sky://output/append`, `clear`, and `replace` handlers previously wrote to `__CEL_WORKBENCH__.logger.log()` (the workbench diagnostic console sink), which never painted the Output panel. Re-route through `__CEL_SERVICES__.Output.getChannel().append()` — the real `IOutputService` exposed in `Accessor.ts` — so output channel content actually appears in the panel. The in-memory `OutputChannels` map is retained as a snapshot fallback. A try/catch guard prevents any failing append from crashing the bridge.\n\n**Multi-repo SCM deduplication** — vscode.git's multi-repo workspace (e.g. Land/Dependency/Microsoft submodules) calls `createSourceControl` once per repository, all with `scmId=\"git\"` but unique numeric handles. Keying the `ScmShimRegistry` by bare `scmId` collapsed every repo into a single workbench provider, causing visible group duplication (\"Merge Changes / Untracked / Merge Changes\"). Key by `scmId#handle` so each repository gets its own provider, and update `TryUnregisterScmProvider` and `ResolveScmShim` to use handle-first lookup with a safe `scmId` fallback.\n\n**IPC deduplication** — the `visibleChanged` and `tabsChanged` bridge handlers fire multiple times per user action because the workbench dispatches overlapping internal events (active editor change, group focus, tab reorder). Add snapshot serialization and early-return guards that suppress duplicate payloads before reaching `MountainIPCInvoke`, eliminating redundant `$acceptVisibleEditorsChanged` callbacks and tab/diagnostic listener re-runs in Cocoon.\n\n**Telemetry env var rename** — shorten `OTLPEndpoint`/`OTLPEnabled` to `Pipe`/`Emit` in both `OTELBridge.ts` and `astro.config.ts` Vite defines for cleaner ergonomics.",
+			"SHA": "a90a4516cef82066f9962a908f0e5e199f92bd5c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T15:16:21Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				155,
 				1
 			],
-			"Message": "fix(Sky): Invalidate build cache when manifest count is zero\n\nAdjust the `BakeExtensionManifest` build logic to treat an empty extension cache as a stale state. Previously, the build system relied solely on file modification times, which caused hangs if a cached manifest recorded zero extensions but the binary bundle still existed.\n\nRetrieve the cached manifest content and parse its `count` field. If the count is missing or zero, flag the cache as a stub. Modify the `AnyNewer` check to invalidate the cache when `CacheStub` is true, forcing a regeneration of the manifest rather than using a stale empty record.\n\nThis prevents the build process from incorrectly skipping regeneration when no extensions are present, ensuring the live extension host receives accurate metadata and falls back to runtime scanning as intended.",
-			"SHA": "0d44e5000fc6ce302b3ab76f36d70aeab0dd3b7a"
+			"Message": "feat(Sky): Refresh Extensions view after install/uninstall\n\nAfter Mountain emits `extensions:install` (VsixInstaller success) or `extensions:uninstall`, the Extensions view sidebar stays stale because VS Code's `IExtensionGalleryService` install pipeline does not expose a public hook that fires from outside Cocoon's process boundary.\n\nAdd `Commands.executeCommand` to the `ServicesProbe` structural interface and wire `RefreshExtensionsView` — a guard that invokes `workbench.extensions.action.refreshExtension`, the same command the toolbar \"Refresh\" button triggers. Internally it calls `IExtensionsWorkbenchService.queryLocal()`, which re-reads `IExtensionManagementService.getInstalled()` and rebuilds the view model. Called after both `sky://extensions/installed` and `sky://extensions/uninstalled` handlers, with a try/catch wrapper so a failing command never disrupts the DOM CustomEvent dispatch reserved for Wind orchestration listeners.\n\nThe Extensions sidebar now reflects newly installed or removed extensions live without requiring a workbench reload.",
+			"SHA": "81da5ccf80f101a9b6801c4554d64888dadfa9ba"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T08:17:33Z",
+			"Date": "2026-05-26T08:10:15Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				155,
 				2
 			],
-			"Message": "refactor(Sky): Eliminate retry loops and forced UI state in diagnostics and tree view bridges\n\nRemove aggressive retry mechanisms and forced panel manipulation from `InstallDiagnostics.ts` and `InstallTreeView.ts` to align with the stabilized workbench bootstrap sequence.\n\nIn `InstallDiagnostics`, delete the logic that forced the Problems panel open or cleared the `activeFile` filter upon diagnostic arrival. The bridge now strictly reacts to `IMarkerService` changes without assuming or manipulating visibility, relying on the `MarkersView` to handle state naturally.\n\nIn `InstallTreeView`, strip out the exponential backoff retry logic, pending attach queues, and delayed hook installation. The `AttachDataProvider` now executes synchronously; if the `TreeView` service is unavailable, the registration fails immediately rather than entering a polling loop. This assumes the workbench services are ready when bridge functions are invoked.\n\nThese changes reduce bundle size, eliminate hidden asynchronous delays, and remove complex error-handling paths that previously masked upstream initialization timing issues.\n\nCloses: Aligns with previous simplification of extension bridge layers.",
-			"SHA": "14346f54c84b5c160190b4af3340e78dec9e7601"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T08:12:51Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				155,
-				4
-			],
-			"Message": "refactor(Sky): Remove aggressive retry logic from extension bridge layers\n\nEliminate complex retry mechanisms and polling loops across multiple bridge installation modules that were previously used to compensate for workbench service initialization race conditions. In InstallInlineCompletions, InstallScm, InstallSearch, and InstallTreeView, replace exponential backoff and event-listener rescue paths with direct service acquisition and synchronous execution.\n\nThe previous implementations guarded against early-arriving IPC events by deferring registration or re-attempting connection until specific services (LanguageFeatures, SCM, Search, TreeView) became available. This approach introduced significant code complexity, unbounded execution paths, and potential resource leaks.\n\nThis change assumes the workbench bootstrap sequence has been stabilized elsewhere, allowing the bridge layers to execute registration logic immediately upon invocation. Failed registrations now fail fast and silently rather than entering retry cycles, aligning with the architecture's expectation that service availability is guaranteed by the time bridge installation functions are called.\n\nThe simplification reduces bundle size, removes hidden asynchronous delays in feature activation, and makes the bridge logic strictly deterministic and easier to reason about.",
-			"SHA": "9c424d95afa5fdc1f65032b0835eeb557289f8dd"
+			"Message": "feat(Sky): Relay diff information, view column, and terminal state events to Mountain IPC\n\nAdd three new bridge event relays that close remaining gaps between Sky's workbench integration layer and Cocoon extension event subscriptions:\n\n- **Diff information changes:** Subscribe to `onDidActiveEditorChange` and detect diff editor panes via duck-typing (`onDidUpdateDiff`, `getModifiedEditor`). Forward `getLineChanges()` delta on hook and each recomputation as `sky:editor:diffInformationChanged`, enabling extensions like GitLens and PR reviews to surface diff-relative inline annotations via `vscode.window.onDidChangeTextEditorDiffInformation`.\n\n- **View column changes:** Wire `onDidMoveEditor` per editor group to capture cross-group tab moves (split-view drag-and-drop, move-command). Emit `sky:editor:viewColumnChanged` with the destination group's 1-based index so `vscode.window.onDidChangeTextEditorViewColumn` fires accurately for layout-aware extensions.\n\n- **Terminal interaction state:** Parse OSC 633 ; B (command-input-begins) in the shell integration pipeline and flag the terminal as interacted-with. Notify Mountain once per terminal via `localPty:setInteracted` so `vscode.window.onDidChangeTerminalState` subscribers see `state.isInteractedWith` flip from false to true, matching VS Code's sticky interaction semantics.\n\nAll three channels use snapshot-style one-shot subscriptions at startup with safe teardown on editor switches and guarded try/catch wrappers so the render pipeline is never disrupted by a failing IPC call.",
+			"SHA": "080516fa01c61671f66c171f4dfdd4cb1c782262"
 		}
 	],
-	"TimeStamp": 1781048761157
+	"TimeStamp": 1781194518642
 }

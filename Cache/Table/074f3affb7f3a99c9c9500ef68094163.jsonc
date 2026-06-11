@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:29:16Z",
+			"Date": "2026-04-23T18:52:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				100,
 				1
 			],
-			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, rather than the flat structure the scanner previously expected. This caused all extensions to appear as 'unknown' with empty names/publishers in the sidebar.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures the @builtin/@installed extension split works correctly in the Extensions sidebar.",
-			"SHA": "cf9e5e4553a92c5bb2acc4525ca38669931e5bd5"
+			"Message": "refactor(Mountain): Migrate notification handlers to Batch 15-16 atoms\n\nConsolidate inline notification handler bodies in MountainVinegRPCService into delegations to atom functions in Vine::Server::Notification. Batch 15 migrates 8 handlers (ExtensionHostMessage, ExtensionActivated/ExtensionDeactivated, WebviewReady, ProgressStart/ProgressReport/ProgressEnd, LanguagesSetDocumentLanguage, WorkspaceApplyEdit, WindowShowTextDocument). Batch 16 adds 10 new handlers (WebviewLifecycle, WindowCreateTerminal, TerminalLifecycle covering 4 wire methods, DecorationTypeLifecycle, DebugLifecycle, StatusBarLifecycle covering 2 methods, StatusBarMessage, WindowShowMessage, RegisterCommand, UnregisterCommand).\n\nThis removes dead handler bodies at the bottom of match arms that were unreachable after Rust selected the first matching arm, keeping MountainVinegRPCService thin with one-line delegations. TerminalLifecycle and StatusBarLifecycle are group atoms covering methods sharing sky:// relay and provider-side drive.\n\nImpact: Consistent atom-layer dispatch pattern across all 26+ notification types.",
+			"SHA": "07242d034472307f1b6610234b2c848d8def4c25"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:21:10Z",
+			"Date": "2026-04-23T18:48:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				100,
 				1
 			],
-			"Message": "build(Project): Coordinate extension scanning and file URI handling fixes\n\nThree related fixes improve extension host integration:\n- **Mountain:** Add `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes from URIs before creating PathBuf. Applies to all 8 FileSystem operations (ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, Copy). This fixes redhat.java extension activation failure with \"Resource not found: file:///...\" errors.\n- **Output:** Separate system and user extension scanning in ExtensionScannerIPC. Now calls `extensions:scanSystemExtensions` for ForceBuiltin=true and `extensions:scanUserExtensions` for ForceBuiltin=false. Previously all extensions were hardcoded as builtin, causing user VSIXes to appear under @builtin in the sidebar. Also implements the stubbed `scanUserExtensions()` method.\n- **Cocoon:** Minor submodule sync.\n\nImpact: User-installed extensions now appear under \"Installed\" (not \"Built-in\") and file operations correctly resolve paths from gRPC FileSystem calls.",
-			"SHA": "a672e28212a9effc120c8f7d8074f8043d6cc3a3"
+			"Message": "feat(Project): Add notification atom handlers and stub disposition tracking\n\nCoordinate submodule updates across Mountain, Output, and Wind to complete VS Code notification IPC and improve stub diagnostics:\n\n- **Mountain:** Add 25 new notification atom handlers in Vine::Server::Notification covering output channel lifecycle (create, append, appendLine, clear, dispose, replace, show), status bar text updates, progress lifecycle, webview reverse messaging, provider unregistration, and misc handlers (openExternal, security.incident, set_language_configuration). Add ExtractDevTag module to parse Cocoon stdout [DEV:<TAG>] prefixes and re-emit under Mountain's matching tag for bootstrap-stage, ext-activate, config-prime, breaker filtering.\n\n- **Mountain Refactor:** Consolidate singular WindServiceHandler into plural WindServiceHandlers atoms - delete 24 dead duplicate files, re-implement 3 live handlers as atoms (extensions:install, extensions:uninstall, nativeHost.showOpenDialog). Add 9 new notification atoms: ExtensionActivated, ExtensionDeactivated, ExtensionHostMessage, LanguagesSetDocumentLanguage, ProgressStart, ProgressReport, ProgressEnd, WebviewReady, WorkspaceApplyEdit.\n\n- **Output:** Add __initialize stub for PlaywrightChannelClient constructor protocol version negotiation. Replace binary present=true/false stub-hit logging with three-state disposition: value (real payload), noop (intentionally undefined), drift (stub key missing - sync issue). Add explicit setExtensionGalleryManifest stub.\n\n- **Wind:** Add IPC stub for extensionGalleryManifest channel and __initialize to playwright stub. Enhance stub-hit logging with three-state disposition tracking using hasOwnProperty for reliable checking.\n\nImpact: Extension output channels, status bar, progress, and webview messaging now flow through Mountain. Cocoon bootstrap logs are tag-filterable. Stub drift detection helps developers distinguish sync issues from intentional undefined returns.",
+			"SHA": "e7be1cbc0e4ef27e79a20cc9ada12db5165eecd3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:40:30Z",
+			"Date": "2026-04-23T17:59:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				100,
 				1
 			],
-			"Message": "fix(Wind): Align FileSystemProviderError names with VS Code's token format\n\nWind's FileSystemErrorCode uses key-like values ('FileNotFound', 'FileExists'), but VS Code's toFileSystemProviderErrorCode extracts the token from error.name and switches on 'EntryNotFound', 'EntryExists', etc. Add a mapping function VsCodeErrorCodeToken to translate between the two formats. Also set this.name to the '<code> (FileSystemError)' pattern that VS Code's markAsFileSystemProviderError() expects. Remove individual name assignments from subclasses since the base class now handles naming.\n\nWithout this fix, mkdirp and validateWriteFile treat missing-file/dir errors as unknown and rethrow, surfacing as unhandled rejections like 'Unable to write file .../tasks.log (Error: Failed to stat file ...)'.\n\nThis is a coordinated update with Cocoon (submodule sync).",
-			"SHA": "6682d648fc1c3b599493c5a6d71ef0f66c4d6d40"
+			"Message": "feat(Project): Expand provider type coverage to full VS Code surface\n\nSubmodule sync to a3764731 coordinating Common and Mountain to add 7 new ProviderType enum variants: InlineEdit, MappedEdits, MultiDocumentHighlight, NotebookContent, RemoteAuthorityResolver, ResourceLabelFormatter, and ScmResourceGroup. This expands provider coverage from ~25 to 51 types.\n\nMountainVinegRPCService adds corresponding provider type handlers matching Cocoon's complete VS Code API shim, enabling extensions that register these previously-unhandled providers (e.g., GitLens, live share, remote tunnels) to activate successfully.\n\nRefs: b71ab93f22e526a1a9cc961706c66040fd2a9be6",
+			"SHA": "c5fbb6ce3e814930df7b6d5ee79540c4a3c3a7fa"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:29:07Z",
+			"Date": "2026-04-23T17:25:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				100,
 				1
 			],
-			"Message": "build(Project): Coordinate extension compatibility and IPC channel fixes across 4 components\n\nSynchronize Cocoon, Mountain, Output, and Wind submodules with the following changes:\n- **Cocoon:** Add missing TextEditorCursorStyle (.Line, .Block, etc.) and UIKind (.Desktop, .Web) enums that extensions like vscodevim and gitlens depend on at activation. Also add stub terminal shell-integration event handlers to prevent crashes.\n- **Mountain:** Return correct Cocoon PID via GetCocoonPid() instead of Mountain's own PID. The renderer needs this to correlate extension-host debug adapters with the actual Node.js process. Also register walkthrough commands as no-ops for claude-code extension.\n- **Output:** Fix CatchOutputFolderRejection regex to match both `() => undefined` and minified `() => void 0`. Correct userDataSync channel names: `userDataSyncService` → `userDataSync`, `userDataSync` → `userDataSyncAccount` per VS Code source.\n- **Wind:** Sync userDataSync IPC channel names to match Output and VS Code registration.\n\nImpact: Extensions with cursor styling and UI detection now activate without crashes, debug adapters attach to the correct process, and user data sync IPC routes correctly.",
-			"SHA": "d7fba66f9a270bf7c4e66bf085e305a432b49128"
+			"Message": "feat(Project): Update Element submodule with Git IPC and tree-view round-trip\n\nSubmodule sync to 6f49be5 bringing coordinated changes across Common, Mountain, Output, Sky, and Wind:\n\n- **Git IPC:** Route localGit channel to Mountain's git subprocess handlers, fixing SourceControl panel hang with InvokeMountain(\"undefined:exec\"). Common adds Git IPC definitions (cancel, checkout, clone, exec, fetch, isAvailable, pull, revListCount, revParse).\n\n- **Tree-View:** Add tree:getChildren invoke handler in Mountain to forward to Cocoon's $provideTreeChildren. Sky adds cel:tree-view:create listener that re-dispatches as cel:tree-view:items, completing the F1.1 handoff contract.\n\n- **Diagnostics:** Add ext-scan and scheme-assets diagnostic tags. Add tauri-invoke timing instrumentation to distinguish webview transport latency from Mountain handler slowness.\n\nImpact: Built-in Git extension now functions with native git binaries. Extension tree views (GitLens, SCM, debug, tasks) render with data from providers.",
+			"SHA": "a4feadcddd29b833207b91a5a20820f388483486"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:02:24Z",
+			"Date": "2026-04-23T17:02:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				100,
 				1
 			],
-			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object args ({ path, encoding: \"utf8\" }) and the response was assumed to be a string. Mountain actually returns raw bytes as { buffer: number[] } and ignores the encoding param entirely. When VS Code loaded binary files (WASM, fonts, images), the response body became \"[object Object]\" which corrupted the data.\n\nFix by:\n1) Invoking file:read with positional array args [path] as expected by MountainIPCInvoke\n2) Adding UnwrapReadResult() to unwrap { buffer: number[] } into Uint8Array for binary-safe Response bodies\n3) Updating content type to Uint8Array | string | Blob | null\n\nThis restores TextMate grammar loading and binary asset handling. All three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler, FileHandler) now use the binary-safe pattern.",
-			"SHA": "7ef0dadbc290f5c380e157c18f6df72411d0b840"
+			"Message": "feat(Project): Coordinate performance optimization and diagnostic instrumentation\n\nThree coordinated changes eliminate ~156 unnecessary Tauri IPC round-trips per editor boot and add comprehensive diagnostic capabilities:\n\n- **Performance (Wind/Output):** Add no-op IPC stubs for telemetryAppender (155 calls/boot) and mcpGalleryManifest (1 call/boot). These channels were falling through to Rust invoke with undefined handlers, adding latency to every editor startup. Stubs short-circuit in the TypeScript layer.\n\n- **Diagnostics (Mountain):** Add Git service handlers implementing the full localGit channel (clone, pull, checkout, revParse, fetch, etc.). Add SkyEmit instrumentation logging all Mountain→Wind/Sky emits under the sky-emit tag. Expand provider registration from 8 to 34+ types with scheme extraction.\n\n- **Diagnostics (Sky):** Track cel:* CustomEvent listener registration via document.addEventListener patching. Log consumer-present flag on every dispatch to identify orphan events (Mountain emits but no workbench listener). These are F1.1 indicators where features silently fail.\n\nImpact: Editor startup latency reduced by eliminating ~156 IPC round-trips. Developers can now audit SkyEmit traffic via LAND_DEV_LOG=sky-emit and identify dead event routes via cel-dispatch consumer-present=false.",
+			"SHA": "2d95bc0ae30754abf7c20dabc8b7feb319499429"
 		}
 	],
-	"TimeStamp": 1781048781113
+	"TimeStamp": 1781194546350
 }

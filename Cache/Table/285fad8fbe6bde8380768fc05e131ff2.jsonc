@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T21:27:35Z",
+			"Date": "2026-04-29T01:05:18Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⠃⠀⠀⠀⠀",
 				102,
-				2
+				5
 			],
-			"Message": "feat(Project): Complete webview-view lifecycle, patch terminal backend, stabilize PostHog ID\n\nSubmodule synchronization bringing three major improvements:\n\n1. Webview Notification Channels (Mountain + Sky + Output):\n   - Mountain adds `cocoon:notify` handler for fire-and-forget one-way methods (webview.message, webview.dispose, webview.viewState) bypassing 30s timeout\n   - Extends notification relay to handle `webview.updateView` and `webview.reveal` in addition to setTitle/setIconPath/setHtml\n   - Sky adds `sky://webview/updateView` handler completing full lifecycle: register → resolve → set-html → update-metadata → communicate → dispose\n   - Output exposes IWebviewViewService on globalThis.__CEL_SERVICES__.WebviewViews for extension sidebar/panel webviews\n\n2. Terminal Backend Patch (Output):\n   - Add PatchLocalTerminalBackend transform bypassing Electron's acquirePort that hangs under Tauri/WKWebView\n   - Routes pty operations through existing _localPtyService channel proxy\n   - Fixes terminal createProcess/attachToProcess calls that previously hung forever\n\n3. PostHog Identifier Stability (Sky + Wind):\n   - Sky adds GetOrCreateSkyIdentifier() generating persistent `land-dev-sky-{8-char-random}` stored in localStorage\n   - Wind fixes fallback to use username from USER/USERNAME env vars instead of Date.now()\n   - Ensures consistent device tracking across editor sessions\n\nAlso updates .env.Land.PostHog.Sample to clarify distinct ID configuration for correlating events across Mountain/Cocoon/Wind/Sky tiers.\n\nImpact: Extension webview panels now render correctly, terminal PTYs spawn under Tauri, and telemetry correctly tracks unique users/devices.",
-			"SHA": "738bdc40ae53652ddf407caa28c75fc072e54fb7"
+			"Message": "chore(Land): Refactor env var handling with allow-list and fix errexit bug\n\nMulti-component synchronization and build system improvements:\n\n1. **TierEnvironment**: Switch from regex sweep (`^LAND_*`) to explicit allow-list of PascalCase keys (Pick, Require, Ship, Lodge, Extend, Probe, Skip, Mute, Wire, Install, Authorize, Beam, Report, Throttle, Buffer, Batch, Cap, Replay, Ask, Brand). This prevents unrelated OS/dev environment variables from polluting the diagnostic block. Also fix errexit bug by replacing `&&`-chain with `if [ -n ... ]; then ... fi` form - the `printenv` command exits non-zero for unset variables, which trips `set -e` when captured in command substitution.\n\n2. **turbo.json**: Remove `.env` files from globalDependencies since TierEnvironment.sh now handles env loading with explicit overlay sourcing.\n\n3. **Submodule sync**: Output adds RewritePerfBaselineWorker transform to fix timer service worker bootstrap crashes caused by Vite mangling `__name(...)` decoration in inlined Astro chunks.\n\n4. **Changelog**: Minor wording tweak (\"test suite\" → \"suite\").\n\nImpact: Build diagnostics now display only explicitly-allowlisted runtime variables, debug profiles no longer silently abort under errexit, and timer service worker boots correctly without reference errors.",
+			"SHA": "a72870e9e95eaae2ec835dac7e09af244a6b727a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T21:03:57Z",
+			"Date": "2026-04-28T23:07:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				103,
 				1
 			],
-			"Message": "chore(Project): Sync Element submodule to latest\n\nUpdate Element submodule from 6f11cad3 to 271252d9, bringing webview.setHtml channel alignment fix:\n- Mountain adds suffix mapping to translate VS Code's camelCase `webview.setHtml` to Sky's canonical kebab-case `set-html` channel\n- Sky adds handlers for `sky://webview/set-html` and `sky://webview/postMessage` to complete the webview-view lifecycle\n- This is the final piece of the channel alignment series (following Terminal, Debug, StatusBar, Progress, Output)\n\nImpact: Extensions like GitLens can now properly render their sidebar panels in the Land editor.",
-			"SHA": "7dd86ffca9c561c0edb507a4d4d6af6c39806330"
+			"Message": "chore(Project): Sync Element submodule with diagnostics pipeline and service worker fix\n\nMulti-component synchronization enabling language extension diagnostics to render in the editor UI:\n\n1. **Mountain**: Extend DiagnosticsChanged event with per-URI marker payloads and cap keyring crate logging to Warn level. The new `changedURIs` field enables direct `IMarkerService.changeOne()` calls without extra IPC round-trips.\n\n2. **Output**: Add RewriteNodeModulesPath transform to fix hardcoded `vs/../../node_modules` paths that were causing grammar/tokenization to silently fail (returning SPA fallback). Also expose IMarkerService on `__CEL_SERVICES__.Markers` for SkyBridge to push diagnostics.\n\n3. **Sky**: Add `sky://diagnostics/changed` handler that translates Mountain events into editor markers. Receives `{ owner, changedURIs: [{ uri, markers }] }` and calls `Markers.changeOne()` for each entry - enabling red squiggles and Problems panel population.\n\n4. **Worker**: Remove obsolete precache paths from Service Worker that caused `Failed to fetch` errors on every install (paths moved to Astro chunks).\n\nImpact: Language extension compile errors, lint warnings, and type errors from extensions like rust-analyzer, TypeScript, and ESLint now render as visible markers in the editor.",
+			"SHA": "a630f00bcff2c393d74f5bb16eff01c8a9e73537"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T20:57:00Z",
+			"Date": "2026-04-28T21:54:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				103,
 				1
 			],
-			"Message": "chore(Project): Sync Element submodule to latest\n\nUpdate Element submodule from 4f9670ef to 6f11cad3, bringing Debug Session Tracking, Custom Editor Save Events, Search Service Replacement, and UTF-8 truncation fixes:\n\n- Debug Session Tracking: Mountain implements DebugSessionEntry/DebugSessions map, spawns DAP adapters with stdin/stdout/stderr pipes, emits messages on sky://debug/dap-message\n- Custom Editor Save Events: Common adds CustomEditorSaved IPC event, Mountain implements OnSaveCustomDocument reverse-RPC to Cocoon\n- Search Service Replacement: ReplaceSearchService delegates to Mountain's search:findFiles/findInFiles handlers with .gitignore-aware WalkBuilder\n- UTF-8 Fix: char-aware truncation in WindServiceHandlers and OutputChannelAppend avoids panics on multi-byte codepoints\n\nAlso brings Common dependabot update to @cloudflare/workers-types and Cocoon submodule sync.",
-			"SHA": "2c71fb8b3e9f6afccba0282d4d4a94b68645b1ad"
+			"Message": "chore(Project): Sync Element submodule with Monaco worker fixes and polyfill telemetry\n\nSubmodule synchronization bringing stability improvements across multiple components:\n1. Mountain: Fix 404s for extension webview assets by extending vscode-file URI handling to support arbitrary authorities beyond \"vscode-app\". Also reduce extension-scanner logging noise by capping ignore-related targets to Warn level.\n2. Output: Fix Monaco worker bootstrap crashes with InjectWorkerBootstrapShim (injects __name/__defProp shim into webWorkerServiceImpl.js blob factory) and RewriteNestedWorkerBootstrap (replaces .toString() pattern with JSON.stringified source). Switch RewriteStaticBlockSelfRef from hardcoded whitelist to auto-detection. Add __LAND_POLYFILL_TELEMETRY__ hook.\n3. Sky: Wire polyfill telemetry through PostHog bridge to capture errors via PH.captureException with categorized properties.\n4. Wind: Remove deprecated Electron polyfill shims as functionality moves to Mountain's native Rust implementations.\n\nImpact: Extension webview assets now load correctly, Monaco language workers no longer crash on startup, production polyfill failures are captured for debugging, and obsolete Electron shims are cleaned up.",
+			"SHA": "cf08b5fec5bd1eead24636eadf43c81f8f5b9584"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T20:18:50Z",
+			"Date": "2026-04-28T20:56:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				103,
 				1
 			],
-			"Message": "fix(Output): Add DI decorator metadata to ReplaceSearchService transform\n\nThe ReplaceSearchService transform was missing TypeScript-compiled decorator helpers (__decorate, __param) that VS Code's DI container requires to resolve constructor parameters by their @IService decorator types.\n\nWithout these, IInstantiationService bound parameters positionally with no type knowledge, causing all dependencies to arrive as undefined and crashing on this.uriIdentityService.extUri. This commit adds the __decorate/__param runtime helpers mirrored from VS Code's compiled output, enabling proper service resolution for IModelService, IEditorService, ITelemetryService, ILogService, IExtensionService, IFileService, IInstantiationService, and IUriIdentityService.\n\nThe search panel now properly delegates to Mountain's search:findFiles/search:findInFiles handlers via Tauri IPC.\n\nAlso syncs Common (dependabot update to @cloudflare/workers-types) and Cocoon submodules to latest Current.",
-			"SHA": "5bdb16eb3f4ee41142dbd0925198efc21335df56"
+			"Message": "fix(CHANGELOG): Replace em dashes with en dashes for consistency\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "d090d6d4030dc99ac4a7bdcb46a4aa1389bed063"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-27T19:55:04Z",
+			"Date": "2026-04-28T20:49:02Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				103,
 				1
 			],
-			"Message": "feat(Project): Add debug session tracking, custom editor save events, and .gitignore-aware search\n\nSubmodule synchronization bringing three major features and bug fixes:\n\n1. Debug Session Tracking (Mountain + Common + Sky):\n   - Mountain implements DebugSessionEntry and DebugSessions map for lifecycle management\n   - StartDebugging spawns DAP adapters with stdin/stdout/stderr pipes and parses DAP frames\n   - Messages emitted on `sky://debug/dap-message` and forwarded to DOM events\n   - StopDebugging sends DAP disconnect and unregisters the session\n   - Common adds DebugDapMessage IPC event to support this flow\n\n2. Custom Editor Save Events (Common + Mountain + Sky):\n   - Common adds CustomEditorSaved IPC event for UI notifications\n   - Mountain implements OnSaveCustomDocument to reverse-RPC to Cocoon extension sidecar\n   - Sky adds handler for `sky://customEditor/saved` dispatching cel:customEditor:saved\n\n3. Search Service Replacement (Output + Mountain):\n   - Add ReplaceSearchService transform replacing web-worker RemoteSearchService\n   - Delegates to Mountain's `search:findFiles` / `search:findInFiles` handlers\n   - Makes search .gitignore-aware via Rust's ignore::WalkBuilder\n   - Fixes search panel showing 0 matches and node_modules appearing in results\n\n4. Bug Fixes (Mountain):\n   - Fix char-aware UTF-8 truncation in WindServiceHandlers and OutputChannelAppend\n   - Avoids panics when slicing multi-byte codepoints (e.g., `•` in SCM progress)\n\nImpact: Debugging now works with real DAP adapters, custom editor save callbacks notify observers, file search respects .gitignore rules, and UTF-8 truncation no longer panics on multi-byte characters.",
-			"SHA": "84ac0fa57b583db758d41a5e7ce0a7cf8f468e21"
+			"Message": "chore(Project): Sync Element submodule to latest\n\nSubmodule synchronization bringing critical bundling fixes and initialization order corrections:\n\n1. Output: Add HoistFunctionDeclarations and RewriteStaticBlockSelfRef transforms to fix TDZ errors in bundled VS Code after Rollup concatenation converts function declarations to expressions. Also updates InjectNameShim CSP and RewriteWorkbenchBaseURL for proper module graph tracking.\n\n2. Sky: Fix workbench initialization order by removing static pre-import of desktop.main.js that was breaking Electron service registration. Dynamic import now correctly sets up _VSCode_FILE_ROOT, NLS, and configuration before desktop.main.js module-initializers run.\n\n3. Cocoon: Bump protobufjs from 8.0.1 to 8.0.3.\n\nImpact: Bundled workbench now boots correctly under Tauri/WKWebView with proper initialization order and TDZ-safe transformed code.",
+			"SHA": "94e6e9f950c8e4fa8276c736d41f0d8cfdea1ca8"
 		}
 	],
-	"TimeStamp": 1781048777443
+	"TimeStamp": 1781194542380
 }

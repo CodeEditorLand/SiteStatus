@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:30:50Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				37,
-				2
-			],
-			"Message": "feat(Grove/Protocol): Implement Spine connection driver and messaging layer\n\nThis commit establishes the client-side implementation of the Spine protocol, enabling the `Grove` extension host to communicate with the `Mountain` backend.\n\nThe implementation introduces the `SpineConnection` driver, which manages the full lifecycle of the gRPC link, including connection establishment, state transitions (`Disconnected`, `Connecting`, `Connected`), and resilience mechanisms like automatic reconnection with configurable backoff. It also defines the core messaging contract via `SpineMessage` (supporting Request/Response/Event patterns with correlation IDs) and `MessageType` enums.\n\nKey components added:\n- **`SpineConnection`**: Orchestrates async connectivity using `tokio`, manages connection state, and handles heartbeat loops to maintain liveness with `Mountain`.\n- **`ProtocolConfig` & `SpineConfig`**: Builder-pattern configurations for endpoint details, timeouts, TLS, and auto-reconnect strategies.\n- **`SpineStats`**: Tracks metrics such as messages sent/received, uptime, and reconnection attempts for observability.\n- **`ProtocolError`**: Defines error types for connection, serialization, and protocol violations.\n\n**Impact**: This layer forms the critical `Transport` infrastructure for `Grove`, allowing it to register itself, proxy API calls, and receive events from the Land editor environment.",
-			"SHA": "e8f0d37edd4d6f458f6ef22de98c31fec554f3ba"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:29:54Z",
+			"Date": "2026-02-10T06:42:39Z",
 			"File": [
 				"⡿⠀⠀⠀⠀",
-				34,
-				6
+				59,
+				11
 			],
-			"Message": "feat(Grove/Host): Implement core orchestration, activation, and lifecycle management\n\nThis commit introduces the central nervous system of the Grove extension host, bridging the `WasmRuntime` and `Transport` layers to manage extension execution within the Land ecosystem.\n\n**Why:** To provide a functional runtime environment for WASM extensions that mirrors the capabilities of `Cocoon` but leverages Rust's performance. This implementation orchestrates the discovery of extension artifacts, evaluates activation conditions, and manages state transitions, ensuring extensions are loaded and executed efficiently within the `Grove` architecture.\n\n**What:**\n- **`ExtensionHost`**: The main controller coordinating `ExtensionManager`, `ActivationEngine`, and `WasmRuntime`. Manages global host states (`Created`, `Ready`, `Running`) and handles high-level lifecycle commands (load, activate, shutdown).\n- **`ExtensionManager`**: Handles discovery of extensions in configured paths, parsing `package.json` manifests, and identifying extension types (`Wasm`, `Native`, `JavaScript`). Maintains the registry of loaded extensions, their capabilities, and dependencies.\n- **`Activation`**: Implements the `ActivationEngine` to process VS Code-compatible activation events (`onCommand:`, `onLanguage:`, `*`). Includes logic for wildcard matching and tracks activation history and statistics.\n- **`Lifecycle`**: Defines a finite state machine for individual extensions (`Created` -> `Initializing` -> `Running` -> `Stopped`). Manages state transitions and records event logs for observability.\n- **`APIBridge`**: Establishes the communication infrastructure for the VS Code API surface, defining `APICallRequest/Response` DTOs, `APIContext` for session management, and the registry for API method handlers.\n- **`mod.rs`**: Consolidates the Host modules and defines `HostConfig` for customizable runtime behavior (e.g., discovery paths, activation timeouts).\n\n**Impact:** This completes the core orchestration layer for `Grove`, enabling the host to load artifacts from disk, evaluate activation conditions, and manage the lifecycle of WASM extensions within the Land editor environment.",
-			"SHA": "0804b3652f9218ddfd22e72d15d136c7a53bb855"
+			"Message": "feat(Grove): Implement host function execution and stabilize API surface\n\nCompletes the Wasmtime 20 integration by activating the host function bridge and refining the public API for the `Grove` extension host.\n\n**WASM Runtime & Function Export:**\n- Replaced the `FunctionExport` placeholder with a concrete implementation using `linker.func_wrap` compatible with Wasmtime 20.\n- Implemented synchronous host function wrapping that handles `i32` input/output marshaling, JSON serialization/deserialization, and error-to-trap mapping.\n- Added detailed performance logging for executed host functions and improved error propagation.\n\n**Transport & Module Structure:**\n- Refactored `TransportStrategy` implementations (gRPC, IPC, WASM) to import types from the flattened `Transport` module rather than internal paths, resolving visibility issues introduced by the `Impl` suffix migration.\n- Updated `mod.rs` to re-export `TransportType` and `TransportStats` for public consumption.\n\n**Tooling & CLI:**\n- Updated `main.rs` to utilize the new `RuntimeBuild::build_host_with_defaults` API and the explicit extension ID-based activation flow.\n- Added JSON logging support to `Cargo.toml` for structured telemetry.\n- Relaxed documentation enforcement to a warning and added `allow` directives for non-standard casing to accommodate FFI and generated bindings.\n\n**Spine Protocol:**\n- Enhanced documentation in `SpineActionClient` to clarify the current stub status of the EchoAction listener and heartbeat loop pending the final bidirectional streaming implementation.\n\n**Impact:** The `Grove` host can now successfully execute Rust functions invoked from WASM guests, closing a critical gap in the extension host's capabilities.",
+			"SHA": "46218c83cc1faccacb91e0cb121bc44c6e4b1ea3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:28:51Z",
+			"Date": "2026-02-10T02:12:19Z",
 			"File": [
-				"⡇⠀⠀⠀⠀",
-				27,
-				3
+				"⣿⣿⡏⠀⠀",
+				59,
+				31
 			],
-			"Message": "feat(Grove/API): Implement VS Code API facade and core types\n\nThis commit introduces the foundational API surface for the Grove extension host, defining the contract that WASM extensions will consume to interact with the editor environment.\n\n**Why:** To align Grove's capabilities with the standard VS Code extension API, ensuring compatibility and a familiar development model for extension authors moving from Cocoon or VS Code.\n\n**What:**\n- **`types.rs`**: Implements a comprehensive set of Data Transfer Objects (DTOs) including `Position`, `Range`, `Diagnostic`, `CompletionItem`, `WorkspaceEdit`, and `TextDocumentItem`. These types are fully serializable via `serde` to facilitate communication across the WASM bridge and internal host logic.\n- **`vscode.rs`**: Establishes the `VSCodeAPI` facade struct, exposing core namespaces (`commands`, `window`, `workspace`, `languages`, `extensions`, `env`). Contains placeholder implementations for registration, diagnostics, and window interaction that currently log to `tracing` or return default values, providing the structural skeleton for future implementation.\n- **`mod.rs`**: Configures the API module, defines version compatibility constants (targeting VS Code API 1.85.0), and provides utility functions for `semver` validation and JSON value conversion.\n\n**Impact:** This layer abstracts the complexity of the underlying host, providing a clean, strongly-typed interface for WASM extensions and completing a critical prerequisite for loading and executing user code.",
-			"SHA": "14b552bac17b46061a71994d2ef791b9f3056e33"
+			"Message": "refactor(Grove): Resolve naming collisions and stabilize Wasmtime 20 integration\n\nThis commit addresses compilation errors introduced by recent WASM and Spine upgrades by refactoring the module hierarchy and aligning with Wasmtime 20's API changes. The primary goal is to resolve ambiguous import errors (E0255) and ensure type safety across the extension host.\n\n**Naming Convention & Namespace Hygiene:**\n- Introduced the `Impl` suffix for all concrete struct implementations (e.g., `ExtensionHost` -> `ExtensionHostImpl`, `SpineConnection` -> `SpineConnectionImpl`, `Transport` variants -> `...Impl`). This distinguishes implementation types from their defining modules.\n- Moved internal build modules to `*Mod.rs` and made them private, restricting re-exports in `mod.rs` to prevent namespace pollution.\n- Renamed `gRPCTransport` to `GrpcTransport` to adhere to PascalCase acronym standards.\n\n**Wasmtime 20 Compatibility & Fixes:**\n- Updated `WASMRuntime` configuration to match Wasmtime 20.0.2, handling changes to `WasmBacktraceDetails` and WASI setup.\n- Refactored `FunctionExport` to use `wasmparser` types and temporarily disabled complex async closure wrapping to allow compilation while the correct signature for Wasmtime 20 is determined.\n- Fixed `ModuleLoader` generics to use `StoreLimits` explicitly.\n\n**Logic & Borrowing Corrections:**\n- Fixed borrowing issues in `APIBridge` (`from_json_value` clone), `HostBridge` (wrapping `AsyncCallback` sender in `Arc<Mutex>`), and `Activation` (cloning events before moves).\n- Added `Debug` derives to core transport and host structs for better introspection.\n- Added `#[cfg(feature = \"grpc\")]` guards in `Entry` to allow building the host without gRPC dependencies.\n\n**Impact:** The Grove codebase now compiles cleanly with the updated dependency stack. The `Impl` suffix pattern provides a scalable solution for future module additions without risking naming conflicts.",
+			"SHA": "78ca1c4ae60d6279395f774958c14756905552ce"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:27:51Z",
+			"Date": "2026-02-09T11:07:53Z",
 			"File": [
-				"⡏⠀⠀⠀⠀",
-				23,
-				3
+				"⣿⣿⠀⠀⠀",
+				59,
+				23
 			],
-			"Message": "feat(Grove/Common): Define core error types, shared traits, and utility modules\n\nThis commit establishes the foundational shared layer within the Grove extension host, providing the necessary data structures and contracts for the implementation of the WASM runtime and extension management logic.\n\n- **Error Handling (`error.rs`)**: Implements a comprehensive `GroveError` enum to categorize failures across extension lifecycle (load, activate, deactivate), WASM runtime (compilation, module not found), and transport/connection layers. Includes constructor helpers, error code classification, and checks for recoverable/transient states.\n\n- **Shared Contracts (`traits.rs`)**: Defines essential traits that will govern the behavior of components within Grove, including `ExtensionContext`, `ExtensionMetadata`, `Identifiable`, `Configurable`, `Resettable`, `Disposable`, `Observable`, `Validatable`, `Serializable`, `Versioned`, and `Retryable`.\n\n- **Utilities & Configuration (`mod.rs`)**: Exposes the error and trait modules, sets default configuration constants (timeouts, buffer sizes, heartbeat intervals), and provides utility functions for generating unique IDs, getting Unix timestamps, and async sleeping.\n\nThese modules serve as the internal \"Common\" crate for Grove, decoupling the specific implementation details of the host and runtime from their abstract definitions.",
-			"SHA": "219323e00dfb52e9feb804f0b397a76560ef9859"
+			"Message": "",
+			"SHA": "aa655c4934e6d5dcf9b7960b4d6150c6b083b41a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-02-08T10:26:33Z",
+			"Date": "2026-02-09T10:18:55Z",
 			"File": [
-				"⣿⣿⠁⠀⠀",
-				19,
-				8
+				"⣿⣿⣿⠇⠀",
+				60,
+				40
 			],
-			"Message": "feat(Grove): Implement binary runtime, CLI, and Mountain service registration\n\nThis commit adds the executable logic to operate Grove as a standalone Rust binary or a managed service within the Land ecosystem.\n\n**Why:** To provide a functional entry point that bridges the library scaffold with the system, allowing Grove to start up, configure its WASM runtime, and announce itself to the Land backend.\n\n**What:**\n- **CLI Interface**: Introduces `clap`-based argument parsing in `main.rs` for `standalone`, `service`, `validate`, and `build` modes.\n- **Runtime Construction**: Implements `RuntimeBuild` to construct the `ExtensionHost` with configured `WasmRuntime` (Wasmtime) and `Transport` layers.\n- **Service Integration**: Adds `ServiceRegister` to handle the `Spine` gRPC protocol, registering the host with `Mountain` and maintaining heartbeats.\n- **Lifecycle Logic**: Defines `Entry` to manage the host's lifecycle, including extension loading, activation, and signal-based shutdown.\n\n**Impact:** This establishes Grove as a runnable component capable of executing WASM extensions and communicating with `Mountain` via the `Vine`/`Spine` protocol.",
-			"SHA": "ca02de295b05b0687e3b31689f0b17764ff2bbd0"
+			"Message": "refactor(Grove): Standardize formatting, upgrade dependencies, and introduce Spine action client\n\nThis commit applies `rustfmt` standards across the Grove codebase, upgrades core dependencies, and introduces a dedicated client for Spine/EchoAction protocols.\n\n**Code Formatting & Renaming:**\n- Applied consistent formatting (K&R braces, reduced vertical spacing) across all modules.\n- Renamed `GrpcTransport` and `IpctTransport` to `gRPCTransport` and `IPCTransport` to adhere to naming conventions (acronyms in PascalCase).\n- Standardized method visibility and casing in `SpineConnection` (e.g., `Connect` vs `connect`).\n\n**Dependency Updates:**\n- Upgraded `wasmtime` from `19.0` to `20.0`.\n- Removed `wasmtime-wasi` and `wasi-common` as dependencies.\n- Made `tonic` and `prost` optional features to support builds without gRPC.\n- Added `semver` and `chrono` for protocol and time handling.\n\n**New Features:**\n- **SpineActionClient:** Added `Source/Protocol/SpineActionClient.rs`, a new gRPC client for handling `EchoAction` communication with the Mountain backend. This provides a structured interface for bidirectional actions, host registration, and heartbeat management.\n- **SpineConnection Refactor:** Refactored `SpineConnection` to utilize the new client structure, introducing `HeartbeatConfig`, `ConnectionMetrics`, and simplified state management.\n\n**Impact:** Improves code maintainability and consistency while laying the groundwork for robust, typed communication with the Mountain backend.",
+			"SHA": "07643474e5a54440238b4865acd7ebddbca2f543"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-02-08T21:28:48Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				58,
+				1
+			],
+			"Message": "save\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "b8b369d4a37dde3a28d72fd0a2ef9fff01428769"
 		}
 	],
-	"TimeStamp": 1781048765597
+	"TimeStamp": 1781194523822
 }

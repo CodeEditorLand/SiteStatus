@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T12:17:47Z",
+			"Date": "2026-05-28T14:08:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				10
-			],
-			"Message": "refactor(Mountain): Update Air type delegations to reference AirLibrary crate\n\nFollowing the delegation of Air-related types to external crates, the crate alias in the Mountain backend has been renamed from `Air` to `AirLibrary`. Update all type definitions in `Source/Air/AirClient/` to point to the new `::AirLibrary` namespace.\n\nThis aligns the type aliases for metrics, status, download streams, and file metadata with the updated crate naming convention, ensuring correct module resolution during the build process.",
-			"SHA": "74498135db36b1ab25ad374aa0c5ec94775b6c9e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T10:47:25Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1746,
-				26
-			],
-			"Message": "refactor(Mountain): delegate Air and Vine types to the Air and Vine crates\n\nThis commit refactors the codebase to delegate struct definitions for Air and Vine types to their respective crates, ensuring better separation of concerns and reducing duplication. Shared definitions for Air and Vine components are now centralized in their respective modules, with the editor crate now referencing ::Air::Client::AirClient and ::Vine::Client by default. This change reduces the public interface surface and improves maintainability by modularizing the core logic for Air and Vine gRPC interactions.",
-			"SHA": "544fc6e4bb4bc6b642b87f8c5a04abd360c44ce6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T09:49:15Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
+				1733,
 				1
 			],
-			"Message": "fix(Mountain): Add missing window management capabilities to schema\n\nThe `gen/schemas/capabilities.json` was out of sync with `capabilities/default.json`, which already declared window management permissions (`start-dragging`, `internal-toggle-maximize`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`). The generated schema still held the stale subset without these entries, causing Tauri runtime validation to reject IPC calls that drive native window chrome operations from the Sky titlebar.\n\nRegenerate `capabilities.json` from the current source-of-truth default manifest so the capability digest matches the declared permissions. This unblocks the interactive titlebar (drag, maximize, close) and any programmatic `Window` API calls that were being denied by the capability guard.",
-			"SHA": "ab9ea343be1b531180726eaed576f194395e2218"
+			"Message": "refactor(Mountain): Route remaining provider unregistration atoms to canonical Vine handlers\n\nReplace the specialized `UnregisterFileSystemProvider` and `UnregisterUriHandler` notification handlers with delegations to `::Vine::Server::Notification::Support::UnregisterByHandle`, following the pattern established for task and other provider unregistrations. Add `dev_log!` instrumentation at the dispatch site to capture the scheme identifier for debugging purposes.\n\nThe `unregister_scm_provider` handler retains its dedicated Vine atom due to its additional logic (scmId handle computation and Sky relay). Reformat several decoration and status bar notification invocations for consistent multi-line formatting.\n\nThis completes the migration of provider unregistration logic into the shared Vine library, reducing Mountain's code surface and enforcing consistent IPC handling across all provider types.",
+			"SHA": "a8102299f1da98d3bd3cce625049ffe3ed145ac6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T18:19:19Z",
+			"Date": "2026-05-28T14:08:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				5
-			],
-			"Message": "fix(Mountain): Reconstruct full URI from vscode.Uri POJO fields\n\nCocoon may forward a raw URI string, a serialised `vscode.Uri` POJO\n(`{scheme, authority, path, query, fragment}`), or the legacy\n`{external, path}` shape from older rendering paths. The previous code\nonly extracted `external` or bare `path` from objects, which silently\ndropped the scheme on non-file URIs —\n`rust-analyzer-diagnostics-view:/diag/foo` became `/diag/foo` and Sky\nrendered either a 404 or `[object Object]` in the editor tab.\n\nReconstruct the full URI by fallback priority: `external` →\n`scheme+authority+path+query+fragment` → `fsPath` (prefixed with\n`file://` for absolute paths) → bare `path` → empty string. Every\nknown vscode.Uri shape now resolves to a valid wire string the Sky\nworkbench can open.\n\nAlso:\n\n- **TreeView timeouts**: Bump `$provideTreeChildren` from 5 s to 15 s\non both Wind and Cocoon IPC paths. Cold scans on multi-repo workspaces\n(`npm` walking every package.json, `gitlens` enumerating submodules)\ncan exceed 5 s on first expansion, causing the panel to render empty\nuntil manual refresh.\n\n- **PTY binary input**: Route `localPty:processBinary` through\n`TerminalSendText` instead of falling through to the `null` no-op.\nSystem clipboard paste and Cmd+Shift keyboard escape sequences were\nsilently swallowed.\n\n- **Output channel hide**: Forward Cocoon's `outputChannel.hide`\nnotification to Sky as `sky://output/show { visible: false, channel }`\ninstead of logging a no-op. Extensions calling `OutputChannel.hide()`\nnow see the panel dismiss the channel.",
-			"SHA": "e1d82f3455e42b168108fe76935d015713f083e4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T17:57:31Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
+				1733,
 				2
 			],
-			"Message": "fix(Mountain): Realign SCM DTO import path and enable native window capabilities\n\nFix the `SourceControlManagementResourceDTO` import in `UpdateScmGroup` to use the reorganized `DTO` submodule path under `CommonLibrary::SourceControlManagement`, correcting the module resolution after Common's struct rehoming.\n\nAdd window management capability permissions (`start-dragging`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`, `internal-toggle-maximize`) to `capabilities/default.json`, enabling the Sky UI to drive native window chrome operations — dragging the titlebar, maximizing/minimizing/closing — through Tauri's IPC permission layer.\n\nWithout these capabilities, the editor's custom titlebar was non-interactive and the workbench window could not be controlled programmatically from the frontend.",
-			"SHA": "4a6097c8945fea0e487dc49487de53a47983988f"
+			"Message": "refactor(Mountain): Route all notification atoms to canonical Vine crate\n\nReplace the local `super::Notification::*` dispatch in `MountainVinegRPCService.rs` with direct calls to `::Vine::Server::Notification::*`, collapsing the Mountain-local notification modules in `Source/Vine/Server/Notification/mod.rs` to only the three Mountain-specific utilities: `Support`, `OutputChannelCoalesce`, and `TerminalEnvCollection`.\n\nAll 46+ wired notification handlers — extension lifecycle, progress reporting, output channels, webview/terminal lifecycle, SCM registration, language providers, debug/status-bar/decoration APIs — are now thin pass-throughs that delegate to the canonical implementations in the Vine library crate. This finalizes the extraction of Cocoon→Mountain IPC logic from Mountain into the shared gRPC protocol layer.\n\nMountain's `send_cocoon_notification` dispatcher is reduced to a pure routing table with no inline logic, and the Notification module no longer re-exports the full atom suite, enforcing Vine as the single source of truth for IPC contracts.",
+			"SHA": "d3b63235b1e7a8560b093a2ca8e21096c02f14cd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T14:02:40Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1733,
+				2
+			],
+			"Message": "refactor(Mountain): Consolidate Vine gRPC service trait imports\n\nRedirect the `CocoonService` and `MountainService` trait imports to use the canonical definitions from the `::Vine::Generated` namespace, removing the redundant local re-exports from `Source/Vine/Generated/mod.rs`.\n\nThe imports in `Source/RPC/CocoonService/mod.rs` and `Source/Vine/Server/MountainVinegRPCService.rs` now point directly to `::Vine::Generated::cocoon_service_server::CocoonService` and `::Vine::Generated::mountain_service_server::MountainService` respectively, eliminating the intermediate path through the local `crate::Vine::Generated` module.\n\nThis finalizes the migration to the shared Vine library for gRPC service definitions, ensuring Mountain delegates all RPC interface contracts to the canonical source.",
+			"SHA": "123bf22d7ad191d28dbbedebd3ed3653c58acabe"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T14:02:29Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1733,
+				7
+			],
+			"Message": "refactor(Mountain): Finalize Vine gRPC type forwarding and delegate remaining notification atoms\n\nComplete the extraction of Mountain's gRPC infrastructure into the `Vine` library crate. Replace the local generated code in `Source/Vine/Generated/mod.rs` with type aliases that forward all protobuf message types and service clients/servers to `::Vine::Generated::*`, ensuring the workspace uses a single canonical type definition.\n\nDelegate the remaining notification handler implementations to their Vine counterparts: `UpdateScmGroup`, `WebviewLifecycle`, and `RelayToSky` become thin pass-throughs. Consolidate provider unregistration by routing the simple variants directly to `::Vine::Server::Notification::Support::UnregisterByHandle` from the dispatcher, keeping only the complex cases (file system, SCM, URI handler) as separate modules.\n\nMove the SCM marker persistence logic from `UpdateScmGroup.rs` into `VineHostImpl::UpdateScmGroupMarkers`, decoupling the notification atom from Mountain-specific application state.\n\nThis removes the final locally-implemented gRPC handlers, reducing Mountain to a composition layer that delegates all Cocoon→Mountain IPC to the shared Vine crate.",
+			"SHA": "934aece1767c08e3ce1d5a4d239ee825ba03db85"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T13:42:36Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1733,
+				8
+			],
+			"Message": "refactor(Mountain): Finalize Vine notification system delegation to library crate\n\nConclude the systematic extraction of Mountain's gRPC notification handling into the dedicated `Vine` library by eliminating all remaining local implementations. On the client side, `PublishNotification`, `PublishNotificationFromMux`, and the entire `Shared` module (connection pool, broadcast channel, shutdown flag, metadata tracking) are reduced to empty stubs—Mountain's active code paths now use `::Vine::Client::*` directly. On the server side, the unregistration atoms (`UnregisterRemoteAuthorityResolver`, `UnregisterScmProvider`, `UnregisterTaskProvider`, `UnregisterUriHandler`) and the `RelayToSky` helper become thin delegators to their `::Vine::Server::Notification` counterparts.\n\nThis completes the migration of Cocoon→Mountain notification processing into the library layer, pruning Mountain's internal code surface and enforcing consistent IPC standards across the project.",
+			"SHA": "01ebad1dfa8901cb226f06b4ddd8499e2ecbde57"
 		}
 	],
-	"TimeStamp": 1781048764881
+	"TimeStamp": 1781194521716
 }

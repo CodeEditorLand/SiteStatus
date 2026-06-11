@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T18:03:18Z",
+			"Date": "2026-05-19T02:12:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1498,
-				1
+				1508,
+				8
 			],
-			"Message": "docs(Mountain): Standardize emoji spacing and escape special characters in README\n\nReformat all instances of the Mountain emoji (⛰️) and Land emoji (🏞️) to use the standard non-breaking space HTML entity (`&#x2001;`) instead of varied spacing or direct adjacency. This ensures consistent rendering across different Markdown viewers and aligns with the project's strict formatting guidelines.\n\nAdditionally, escape the ampersand in the 'Funding & Acknowledgements' header to prevent HTML parsing issues in stricter Markdown renderers.\n\nThe Mermaid diagram labels are also updated to move emojis to the end of text strings with consistent spacing, improving readability in generated diagrams while maintaining the original semantic content.",
-			"SHA": "46e0d4dfd7cc35683abc48bf789e35eda895828f"
+			"Message": "feat(Mountain): Implement native AES-256-GCM encryption and async lifecycle synchronization\n\nIntroduce a complete encryption subsystem for the Wind service handlers to support VS Code's `IEncryptionService`. Implement `encryption:encrypt` and `encryption:decrypt` using AES-256-GCM via the `ring` crate. The 256-bit key is derived from the host machine's hardware UUID (macOS `IOPlatformUUID`, Linux `/etc/machine-id`, Windows `MachineGuid`), ensuring stored secrets survive process restarts but remain unreadable on other machines, matching native editor semantics.\n\nRefactor the application lifecycle state to eliminate 100ms polling loops. Replace `LifecycleWhenPhase` busy-wait logic with `tokio::sync::Notify` primitives in `LifecyclePhaseState`. Handlers now await specific phase transitions immediately, reducing boot latency and CPU usage during startup.\n\nUpdate `DecorationTypeLifecycle` notification handling to use a single batched emit operation per channel, reducing IPC overhead during high-frequency UI updates.",
+			"SHA": "eafc4a40a6dc02017466152643d736c8eccced92"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-05-15T02:45:01Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T02:07:52Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1503,
 				1
 			],
 			"Message": "",
-			"SHA": "35e511df0aed26c7b256d265871d28498ed18ed1"
+			"SHA": "b0efb2cbc7f5e481b38f8b4190c511a99c41388e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T21:17:00Z",
+			"Date": "2026-05-19T02:07:52Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1498,
-				5
+				"⠁⠀⠀⠀⠀",
+				1503,
+				26
 			],
-			"Message": "refactor(Mountain): Decouple console log capture from debug server\n\nSeparate the JavaScript console log interception logic into `WindowBuild.rs` and remove it from `WebkitServer.rs`. The window builder now injects a script on page load to populate `window.__MOUNTAIN_DEBUG_CONSOLE` when `DEBUG_SERVER=1` is set, ensuring logs are captured before the TCP server initializes.\n\nRefactor `WebkitServer.rs` to rely on the injected JavaScript buffer instead of the Tauri `ConsoleEvent` listener. This eliminates the dependency on the internal Tauri console event API for log retrieval, allowing the HTTP server to simply query the DOM via `eval`.\n\nUpdate the request handling to support a new GET `/eval` endpoint for arbitrary script execution, replacing the removed `/dom` endpoint. Consolidate error handling and improve type safety using `once_cell::sync::Lazy` for global window storage and `BufReader` for HTTP parsing.",
-			"SHA": "fd6648d17f6c0f7846eb45b9080b999506e186dc"
+			"Message": "feat(Mountain): Replace polling loops with async notifies and wire native IPC handlers\n\nRefactor extension scanning and sidecar connection logic to replace busy-wait polling with `tokio::sync::Notify` synchronization primitives. Introduce `ExtensionState.ScanReady` and per-sidecar connection notifiers to unblock callers (e.g., `extensions:getInstalled`, `WaitForClientConnection`) immediately upon state transition, eliminating 50ms polling intervals and reducing boot latency.\n\nImplement full handlers for the `nativeHost` lifecycle surface (Exit, Quit, Relaunch, Reload, KillProcess, Install/UninstallShellCommand) and filesystem watching (`file:watch`, `file:unwatch`). These replace previous stub acknowledgments, enabling proper process management and native file system event routing to extensions.\n\nOptimize high-frequency gRPC notification paths (`RegisterCommand`, `ProgressReport`, `DecorationTypeLifecycle`) by migrating from per-call task spawning to a single long-lived mpsc-backed batch flusher. This reduces IPC saturation and task overhead during extension boot by coalescing thousands of rapid updates into single frame-aligned events.\n\nUpdate `Entitlements.plist` to use block-style XML formatting and clarify sandbox exemptions for the non-sandboxed editor environment.",
+			"SHA": "41b8029154da51b0556aa59039f99e6a7751c31c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T21:16:54Z",
+			"Date": "2026-05-19T00:58:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1491,
-				3
+				1492,
+				4
 			],
-			"Message": "feat(Mountain): Introduce HTTP debug server for WKWebView inspection\n\nImplement a native debug server in `Source/Binary/Debug/WebkitServer.rs` to facilitate automated inspection of the native WKWebView instance on macOS. This component runs a lightweight HTTP server on `127.0.0.1:9933` (configurable) when `DEBUG_SERVER=1` is set, exposing endpoints for JavaScript evaluation, DOM querying, iframe enumeration, and console log retrieval.\n\nThe implementation installs a console event listener on the Tauri `WebviewWindow` to capture logs and spawns a background thread to handle incoming TCP connections. New routes include `GET /console`, `GET /dom`, `GET /iframes`, and `POST /execute`, allowing external tools or scripts to interact with the editor's runtime state.\n\nIntegrate the module into `Source/Binary/Debug/mod.rs` and invoke `WebkitServer::install` within `Source/Binary/Main/AppLifecycle.rs` after window creation. This complements the existing conditional devtools flag by providing programmatic access to the WebView for advanced debugging scenarios.",
-			"SHA": "f14f21a072eaf20ed73ec9d69cb6da22c75fe3a0"
+			"Message": "feat(Mountain): Implement dual-layer debug server and SCM diff handling\n\nUpgrade the `WebkitServer` debug utility into a configurable dual-layer diagnostics tool supporting independent activation for the Mountain (Rust) and Cocoon (Node.js) layers. Introduce a unified `DebugServer` environment variable to select mode (mountain, cocoon, both, or off) and distinct ports (default 9933/9934). Add new HTTP endpoints for layer discovery (`/health`, `/layers`), iframe inspection, workbench command invocation, and transparent HTTP proxying to the Cocoon extension host.\n\nImplement the `vscode.diff` and `$scm:openDiff` command handlers in `SCM.rs` to bridge the VS Code Git extension with the editor UI. When triggered, these commands now forward the request to the `sky://editor/diff` endpoint via the Effect system, ensuring the native backend correctly resolves the promise and opens the diff editor as expected.\n\nThese changes restore full debuggability across the full stack and enable native Git workflows by correctly handling the canonical diff command invoked by upstream VS Code extensions.",
+			"SHA": "6ae748d57faee496b259c4f513cf2c296f4dc585"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T18:38:50Z",
+			"Author": "Auto",
+			"Date": "2026-05-18T02:52:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1492,
 				1
 			],
-			"Message": "feat(Mountain): Enable conditional WKWebView inspection in debug builds\n\nAdd a conditional check in `Source/Binary/Build/WindowBuild.rs` to enable the `devtools` flag for the Tauri `WindowBuilder` when running in `debug_assertions` mode and the `Inspect` environment variable is set to a non-empty, non-zero value.\n\nThis modification allows external inspection tools (such as Safari Web Inspector or MCP) to attach to the native WKWebView instance on macOS during development, facilitating deep debugging of the editor's UI layer. The change preserves the existing behavior of disabling decorations on non-macOS platforms while introducing a gated mechanism for developer tooling on macOS.\n\nThe implementation leverages Wry's underlying `devtools` configuration to expose the native inspection interface only when explicitly requested.",
-			"SHA": "6e51ac8b9e213cd70f7a379fd3d3ba091f41e54f"
+			"Message": "",
+			"SHA": "7de344c980125a4acd67895fe0730d84681ea75c"
 		}
 	],
-	"TimeStamp": 1781048774595
+	"TimeStamp": 1781194538346
 }

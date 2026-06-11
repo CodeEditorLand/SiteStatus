@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T09:07:51Z",
+			"Date": "2026-05-28T12:43:19Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				3
+				"⠁⠀⠀⠀⠀",
+				1732,
+				32
 			],
-			"Message": "fix(Mountain): Supplement cache-hit extension scan with user paths\n\nWhen the extension scan cache hits, the pre-baked extension map is returned immediately—but it only covers bundled paths (Mountain/Resources/extensions, Sky/Static/Application/extensions, VS Code Dependency extensions). User-writable paths like `~/.fiddee/extensions` and `~/.land/extensions` are never baked, so every VSIX-installed extension was invisible after a cache hit: `extensions:scanUserExtensions` returned 0 and the `@installed` view stayed empty.\n\nAdd a supplementary live-scan phase on cache hits that re-uses `Registry.GetExtensionScanPaths()` filtered through `Scanner::IsUserExtensionScanPath` so the classifier and the scan set stay coherent. Found entries overwrite cache entries with the same identifier—matching stock VS Code semantics where an installed VSIX shadows a built-in of the same ID.\n\nAlso make `IsUserExtensionScanPath` `pub(crate)` and add the legacy `~/.land/extensions` path to its classifier so extensions found at the path `ScanPathConfigure` registers (T3) are tagged as user-scope rather than built-in, fixing the sidebar classification mismatch.\n\nFinally, add the missing `TierCommandEventBroadcast` entry to `Info.plist` that was introduced in the tier-variable build.rs change but not recorded in the plist.",
-			"SHA": "02553de5f8cb49b60be80a8931ae356564abd157"
+			"Message": "refactor(Mountain): Delegate Vine notification logic to Vine crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local gRPC notification handlers in `Source/Vine/Server/Notification/` with thin delegation shims pointing to the dedicated `Vine` crate.\n\nThis refactor extracts the implementation logic for all Cocoon → Mountain notifications—including complex batching and coalescing for `DecorationTypeLifecycle`, `OutputChannel`, and `ProgressReport`—into the `::Vine` library namespace. The Mountain-side modules are converted into thin wrappers that pass the `MountainVinegRPCService` and payload to the library implementation.\n\nThe `OutputChannelCoalesce::TryEnqueue` handler is updated to use the `TauriRendererEmitter` shim, allowing the library's coalescing logic to remain agnostic of the specific Tauri app handle while preserving the existing internal API surface.\n\nThis change enforces consistent IPC handling standards across the project and significantly reduces the code surface within the Mountain element.",
+			"SHA": "452fafa5f558cfa180a348131f92caf25af1e508"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T08:11:08Z",
+			"Date": "2026-05-28T12:42:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				4
+				1732,
+				1
 			],
-			"Message": "feat(Mountain): Add tier-gated command broadcast and IPC notification relays\n\nAdd three missing IPC notification handlers in WindServiceHandlers and an opt-in dual-emit mechanism for command execution events from the extension host.\n\n`localPty:setInteracted` forwards terminal interaction state (OSC 633 B) as `$acceptTerminalStateChanged`, enabling `onDidChangeTerminalState` subscribers in Node-resident extensions. `sky:editor:diffInformationChanged` relays Monaco diff metadata as `$acceptTextEditorDiffInformationChanged`. `sky:editor:viewColumnChanged` forwards editor group movement as `$acceptTextEditorViewColumnChanged`, completing the notification surface for `onDidChangeTextEditorDiffInformation` and `onDidChangeTextEditorViewColumn`.\n\nIntroduce `TierCommandEventBroadcast` (default `Off`) in build.rs. When set to `On`, Mountain dual-emits `$acceptCommandExecuted` over Vine after gRPC `Command.Execute` from Cocoon, ensuring `vscode.commands.onDidExecuteCommand` fires even for commands not locally registered in the extension host. The tier variable is surfaced in LandFixTier runtime diagnostics.",
-			"SHA": "a51086049e21a27597657cfe97db6b996922f356"
+			"Message": "refactor(Mountain): Delegate Vine connection logic to Vine crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local gRPC connection logic for sidecars with a delegation to the dedicated `Vine` crate. The manual implementation in `TryConnectSingle.rs` is converted into a thin compatibility shim.\n\nThe refactor removes local handling of `tonic` channel configuration—including performance tuning for `LAND_TONIC_TUNED` and the optional `LAND_VINE_STREAMING` multiplexer initialization—in favor of the canonical `::Vine::Client::TryConnectSingle::Fn` implementation.\n\nThis ensures consistent gRPC client behavior and lifecycle management across the project while further reducing the internal code surface of the Mountain element.",
+			"SHA": "9841398a265623f4879dfb0a08a1d1b86388d925"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:15:51Z",
+			"Date": "2026-05-28T12:41:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				2
+				1732,
+				16
 			],
-			"Message": "fix(Mountain): Relay terminal shell execution events to Cocoon extension host\n\nAdd two new IPC notification handlers in WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, bridging terminal shell execution events from Sky to the Node.js extension host.\n\n`$acceptTerminalShellExecutionStart` fans to Cocoon so `vscode.window.onDidStartTerminalShellExecution` fires for extension subscribers. `$acceptTerminalShellExecutionEnd` fans two Vine notifications: `$acceptTerminalShellExecutionEnd` (for `onDidEndTerminalShellExecution`) and a derived `$acceptExecutedTerminalCommand` so `vscode.window.onDidExecuteTerminalCommand` subscribers observe the executed command without an additional Sky-side detection pass.\n\nAlso inline a multi-line closure chain in `CreateEffectForRequest/Diagnostics.rs` to a single-line filter_map for consistency with surrounding code style.",
-			"SHA": "275e31a312378afe6b7deb7a8e7f6f579e52b42c"
+			"Message": "refactor(Mountain): Prune redundant Cache delegation modules\n\nFollowing the migration of caching logic to the central Cache crate, remove the intermediate module files for AssetMemoryMap and PathCanon that no longer have direct callers within the Mountain element.\n\nOnly the primary entry points—LoadOrInsert for asset mapping and Canonicalize for path security—are retained as local compatibility shims. This cleanup reduces the internal code surface of the Mountain element and enforces the use of the canonical ::Cache namespace for all other caching operations, such as statistics and cache invalidation.",
+			"SHA": "159d9faaaed88c1b964443837baefdb822b6cb9a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:08:42Z",
+			"Date": "2026-05-28T12:40:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1746,
-				4
+				7
 			],
-			"Message": "fix(Mountain): Forward editor state change notifications to Cocoon extension host\n\nAdd five missing Vine notification relays so VS Code API subscribers inside the Node.js extension host observe changes Mountain already delivers to the renderer:\n\n- **ThemesSet.rs**: Fan `$acceptActiveColorTheme` on theme switch, computing the workbench theme kind (Light/Dark/HighContrast) from the theme id. Without this, `vscode.window.onDidChangeActiveColorTheme` never fires for Node-resident extensions (GitLens, Roo Code, rust-analyzer).\n\n- **WindServiceHandlers/mod.rs**: Relay four Sky-detected editor state changes as Cocoon notifications: `$acceptVisibleEditorsChanged` (`onDidChangeVisibleTextEditors`), `$acceptTabsChanged` (`onDidChangeTabs`/`onDidChangeTabGroups`), `$acceptVisibleRangesChanged` (`onDidChangeTextEditorVisibleRanges`), and `$acceptTextEditorOptionsChanged` (`onDidChangeTextEditorOptions`). Each forwards the Sky-provided payload directly.\n\n- **Diagnostics.rs**: After every `SetDiagnostics`/`ClearDiagnostics` call, fan `$acceptDiagnosticsChanged` back to Cocoon with the owner and affected URIs so `vscode.languages.onDidChangeDiagnostics` subscribers in peer extensions observe the change. For clears, emit an empty URI list — consumers should re-query `getDiagnostics(uri)`.\n\n- **DebugLifecycle.rs**: For `debug.addBreakpoints`/`debug.removeBreakpoints` only, fan `$onDidChangeBreakpoints` with added/removed/changed arrays so `vscode.debug.onDidChangeBreakpoints` fires in all extensions, not just the one that made the mutation.\n\nCompletes the Mountain-to-Cocoon notification pipeline for theme, editor, diagnostics, and debug breakpoint surfaces that were previously renderer-only.",
-			"SHA": "dd925de41e8f4558f960cb99f6d1a78674eba4e7"
+			"Message": "refactor(Mountain): Delegate PathCanon cache logic to Cache crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local path canonicalization cache implementation with delegations to the dedicated `Cache` crate. The modules in `Source/Cache/PathCanon/` are converted into thin shims or type aliases pointing to the `::Cache::PathCanon` namespace.\n\nThis refactor covers `CacheStats`, `Canonicalize`, `CanonicalizeUncached`, `Clear`, `Invalidate`, `SpawnDiagnosticLogger`, and `Stats`. By delegating to the central `Cache` crate, the backend ensures consistent path handling—preserving the use of `dunce` for UNC prefix avoidance—while reducing the code surface within the Mountain element.",
+			"SHA": "729d0b481a342fd9fd2810ec79799168db32fd6e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:53:04Z",
+			"Date": "2026-05-28T12:35:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1746,
-				2
+				6
 			],
-			"Message": "fix(Mountain): Relay executed command notifications to Cocoon extension host\n\nDual-emit `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, so that `vscode.commands.onDidExecuteCommand` callbacks fire inside extensions running in the Node.js extension host. The existing Tauri-emit only reaches the renderer (Sky); Cocoon has no Tauri runtime to subscribe to those events.\n\nCocoon's `Services/Handler/Notification/Handler.ts` maps `$acceptCommandExecuted` to an internal emitter that the `Commands/Namespace.ts` `onDidExecuteCommand` subscriber listens to. The Vine notification is fire-and-forget — failure is non-fatal since the renderer-side observers have already been notified via the Tauri event.\n\nAlso add the `tauri::Emitter` trait import in `CreateEffectForRequest/Commands.rs` to satisfy the compiler for the Tauri event emit.",
-			"SHA": "eeb3d39b739ebe9019b39f18ad4415ad9ad0fcb2"
+			"Message": "refactor(Mountain): Delegate AssetMemoryMap logic to Cache crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local AssetMemoryMap implementation with delegations to a dedicated `Cache` crate. The modules in `Source/Cache/AssetMemoryMap/` are converted into thin shims or type aliases pointing to the `::Cache` namespace.\n\nThis refactor covers `CacheStats`, `Clear`, `Entry`, `Invalidate`, `LoadOrInsert`, and `Stats`, ensuring that asset caching logic is centralized while preserving the existing internal API surface. This aligns with recent extractions of Air and Vine logic into specialized crates.",
+			"SHA": "2789d41a0836c5fb4af7b8c25ae457bdc0c5e505"
 		}
 	],
-	"TimeStamp": 1781048765510
+	"TimeStamp": 1781194522399
 }

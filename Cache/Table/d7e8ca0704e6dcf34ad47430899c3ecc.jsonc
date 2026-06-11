@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T05:26:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				260,
-				1
-			],
-			"Message": "refactor(Output): Exclude StaticToDynamicImport and CSS transforms from ApplyPipeline\n\nRemove CSSStrategy (InlineCSSImport/StripCSSImport) and StaticToDynamicImport from Output's ApplyPipeline. These transforms rewrite static imports into runtime forms (`await import(...)` for JS, `_LOAD_CSS_WORKER(...)` for CSS) which suit the `/Static/Application/` path where files are individually loaded via the Worker SW.\n\nFor Output's bundled tree where Vite walks Target, we WANT static imports so Rollup can follow the module graph and emit a single hashed chunk. CSS is handled by Vite's native pipeline which extracts and hashes CSS assets into `_astro/`, with `cssCodeSplit: false` in astro.config.ts to fold every CSS module into one file.\n\nSky's `astro:build:done` hook still runs the full BuildPipeline (including these transforms) over Sky/Target/Static/Application/, so the existing path maintains its runtime-load behavior. The two output trees diverge intentionally.",
-			"SHA": "5b9e387695fc9812e24274d0b447d42550613243"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:53:25Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				260,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "ae22fae83e8e83ac908e8af3a3159e2340b00435"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:53:22Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				260,
-				46
-			],
-			"Message": "feat: Implement ApplyPipeline for output-side transforms\n\n- Added ApplyPipeline.ts to run transform plugins after building VS Code.\n- Copied TauriMainProcessService.js to Output's Target for correct imports.\n- Introduced new transform plugins: InjectWebViewPolyfills, RewriteWorkerURLs, and RewriteWorkbenchBaseURL.\n- Updated existing plugins to ensure compatibility with new output structure.\n- Adjusted paths in Polyfill and Service modules to point to the new Target structure.\n- Modified prepublishOnly.sh to include the ApplyPipeline execution step.\n- Removed outdated exports and typesVersions from package.json.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "405c62842baa1e3d74c9403c903f299308f6bcb8"
-		},
-		{
 			"Author": "Auto",
-			"Date": "2026-04-28T03:42:58Z",
+			"Date": "2026-04-30T03:40:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				236,
+				341,
 				1
 			],
 			"Message": "",
-			"SHA": "111546dff13aad48b458ee6f709e5b8f31365cd9"
+			"SHA": "1891515604d6bb24012b6d0c0275f78feb0e765a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T00:03:52Z",
+			"Date": "2026-04-30T02:20:26Z",
 			"File": [
-				"⣿⠇⠀⠀⠀",
-				236,
-				62
+				"⣿⠀⠀⠀⠀",
+				341,
+				64
 			],
-			"Message": "Refactor and add InlineCSSImport transform\n\n- Cleaned up code formatting across multiple files for consistency.\n- Introduced a new transform plugin, InlineCSSImport, to inline CSS imports directly into the JS bundle, enhancing build performance and eliminating runtime fetch dependencies.\n- Updated existing transform plugins to improve readability and maintainability.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "0a699cb032ad65438c5f1fd6daa2a961ee14b2af"
+			"Message": "refactor(Output): Extract polyfill bodies to type-checked modules, add service stub transforms\n\nMove the inline polyfill IIFE bodies from Transform/*.ts to new Polyfill/*.ts\nmodules. Each polyfill is now a real TypeScript function that gets compiled\nand recovered via `.toString()` at transform time. This enables compile-time\ntype-checking, tree-shaking, and earlier bug detection - previously typos\nonly surfaced at runtime.\n\nKey changes:\n- Extract 6 polyfills to Source/Plugin/Polyfill/: DisableLazyPaint,\n  EagerExtensionActivation, EagerIdleValue, EagerLifecyclePhase,\n  StripBackgroundPolling, TelemetryConsentOff (moved from Transform),\n  WorkbenchInteractivityCSS (moved from Transform), WorkbenchPaintPrime\n  (moved from Transform)\n- Add 4 new Inject* transforms that import from Polyfill/ and use\n  `.toString()` to recover the prepend body\n- Add 3 new Replace* transforms: ReplaceTelemetryService,\n  ReplaceUpdateService, ReplaceExtensionGalleryService replace VS Code\n  service bodies with no-op stubs so static imports resolve while runtime\n  behavior is neutralized\n- Comment out the ESBuild Exclude/{Telemetry,Network,ChromiumIPC}.js lists:\n  the bundled-Vite walk follows static imports inside workbench.*.main.js;\n  excluding the files breaks the build. Body-rewrite via Replace* transforms\n  achieves the same effect while keeping imports intact.\n- Update prepublishOnly.sh to always use `out/` (unminified) for Microsoft/VSCode\n  instead of `out-build/` (gulp release). This ensures Output's transforms\n  operate on readable identifiers; Vite/Rollup re-mangles for bundled profiles.\n\nNew boot-time behavior:\n- InjectStripBackgroundPolling: stack-trace deny-match strips setInterval\n  timers from telemetry/update/sync services\n- InjectEagerLifecyclePhase: advances ILifecycleService.phase from Starting\n  to Eventually immediately, unblocking extension activations\n- InjectEagerExtensionActivation: fires activateByEvent onStartupFinished/*\n  at workbench-loaded so extension panels populate instantly\n- InjectEagerIdleValue: collapses requestIdleCallback to setTimeout(0) so\n  IdleValue<T> lazy-init resolves eagerly\n- ReplaceTelemetryService: body-rewrite to NullTelemetryService (no-op)\n- ReplaceUpdateService: body-rewrite to NullUpdateService (State.Idle forever)\n- ReplaceExtensionGalleryService: body-rewrite to offline stub (empty queries)",
+			"SHA": "c97cc8b17b24fa5a0afa9aac46d948340a371b32"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T01:23:46Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				294,
+				28
+			],
+			"Message": "feat(Output): Add Network/ChromiumIPC excludes, WKWebView lazy-paint fixes\n\nAdd three ESBuild exclude lists to strip dead code from the bundle:\n- Network.ts excludes external endpoints (update service, marketplace,\n  telemetry appenders, Live Share, experiments, surveys)\n- ChromiumIPC.ts excludes Electron IPC/MessagePort/sandbox modules that\n  never run in our non-Electron environment\n- Telemetry.ts was already present but commented out; now enabled\n\nAdd four new workbench transforms to fix WKWebView rendering issues:\n- InjectDisableLazyPaint: Replace requestAnimationFrame with coalesced\n  setTimeout(0) queue, stub IntersectionObserver to fire-on-observe,\n  strip content-visibility/contain:paint from CSS\n- InjectWorkbenchInteractivityCSS: Force pointer-events:auto, visibility,\n  opacity on workbench parts, zero transition durations\n- InjectWorkbenchPaintPrime: Force compositor layout commit via\n  offsetHeight reads on each workbench part\n- InjectTelemetryConsentOff: Pre-bake telemetry.telemetryLevel=off into\n  workbench bootstrap so even straggler consumers take disabled branches\n\nAlso fix InjectEditorGPULayerCSS and InjectTerminalGPULayerCSS: scope\ncontain:paint to canvas only, not row containers (view-lines, xterm-viewport)\nto prevent glyph clipping from paint boundaries in WKWebView. Adds\nimage-rendering hints for nearest-neighbor rasterization.\n\nBundle size impact: ~25 KB net reduction from Network/ChromiumIPC excludes.\nRuntime impact: Zero network pings, panels render immediately on show.",
+			"SHA": "13d8a561c773f0b047f323594af80a5b06565258"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T22:36:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				276,
+				2
+			],
+			"Message": "fix(Output): Fix GPU layer CSS clipping glyph rows in WKWebView\n\nBoth InjectEditorGPULayerCSS and InjectTerminalGPULayerCSS transforms incorrectly applied `contain: paint` to row containers (view-lines, lines-content, xterm-viewport, xterm-screen). Under macOS WKWebView, this creates a paint boundary at the layer edge; combined with `translateZ(0)` and subpixel row offsets, glyph pixels near the boundary get clipped — users see characters sliced in half.\n\nThe fix scopes GPU promotion (will-change, translateZ(0), backface-visibility) to host elements and canvas only, while restricting `contain: paint` to self-contained pixel grids (canvas elements) that don't have descendant content crossing the boundary. Also adds image-rendering hints (pixelated, crisp-edges) to force nearest-neighbor rasterization so subpixel row edges don't blend across the layer boundary.\n\nThis resolves the reported rendering glitches where editor and terminal text appeared sliced or half-clipped.",
+			"SHA": "24f95fc8e387142666faa67ed464a52020940817"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T22:17:52Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				276,
+				12
+			],
+			"Message": "",
+			"SHA": "087dbf0bcee05c59dcd736eb09ed0c23d52faa60"
 		}
 	],
-	"TimeStamp": 1781048771978
+	"TimeStamp": 1781194538668
 }

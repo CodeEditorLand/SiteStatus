@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:39Z",
+			"Date": "2026-05-02T09:46:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1187,
-				6
+				1251,
+				1
 			],
-			"Message": "feat(Mountain): Implement LSP command stubs for code intelligence\n\nIntroduce a suite of new Tauri commands under `Source/Command/LanguageFeature` to expose core language server protocol capabilities to the Wind service layer. These commands act as the IPC bridge for code actions, completions, go-to-definition, document highlights, hover information, and reference finding.\n\nEach command (`MountainProvideCodeActions`, `MountainProvideCompletions`, `MountainProvideDefinition`, `MountainProvideDocumentHighlights`, `MountainProvideHover`, `MountainProvideReferences`) adheres to the project's PascalCase naming convention and delegates execution to the corresponding concrete implementation within `Command::LanguageFeature::<Feature>::provide_<feature>_impl`. The functions accept document URIs, cursor positions, and context payloads as JSON `Value` types, deferring strict deserialization to the downstream implementation logic to ensure a flexible interface during early development.\n\nThis commit expands the backend's LSP surface area, enabling the frontend to request and render intelligent coding assistance features without blocking the main thread.",
-			"SHA": "17c441b85904b7aac47fecdcfd0150b57ac56ca0"
+			"Message": "fix(Mountain): Disable app sandbox and enable hardened runtime exemptions\n\nConfigure Entitlements.plist to disable the macOS App Sandbox, which is incompatible with a code editor's requirement to access arbitrary file system locations selected by the user. With sandbox enabled, the editor cannot open folders outside its container, breaking standard workflows like 'Open Recent' and drag-and-drop.\n\nSimultaneously, enable specific Hardened Runtime exemptions required by the embedded Node.js sidecar (Cocoon) and Tauri dependencies:\n- `allow-jit` and `allow-unsigned-executable-memory`: Essential for V8 JIT compilation in the extension host.\n- `allow-dyld-environment-variables`: Required for extension hosts spawning helper binaries with custom linker paths.\n- `disable-library-validation`: Necessary to load unsigned native addons (e.g., sharp, esbuild) bundled via npm.\n- `apple-events`: Permits extensions to invoke external system commands via AppleScript (e.g., 'Reveal in Finder').\n\nThis ensures the binary can be signed and notarized while maintaining full functionality for the editor and its extension ecosystem.",
+			"SHA": "8d0dd90346bc8ae1bea2143c155fd332e5abb547"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:25Z",
+			"Date": "2026-05-02T09:40:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1181,
-				5
+				1251,
+				2
 			],
-			"Message": "feat(Mountain): Define hover command data models and DTOs\n\nIntroduce the foundational data structures for the Hover subsystem within `Source/Command/Hover/Interface`. This commit establishes the contract for LSP-compatible hover requests and responses, adhering to the project's strict PascalCase naming conventions.\n\nThe implementation adds:\n- `Position::Struct`: Zero-based line and character offset.\n- `Range::Struct`: Inclusive range bounded by start/end positions.\n- `HoverRequest::Struct`: Inbound DTO capturing document URI and cursor position.\n- `HoverContent::Enum`: Tagged union for plain text, markdown, and markup with language hints.\n- `HoverResponse::Struct`: Outbound DTO containing an ordered list of content items and an optional range.\n\nAll types derive `Serialize` and `Deserialize` to enable JSON transmission over the Tauri IPC event bus. These models prepare the `Wind` service layer to request and render code documentation overlays without blocking the main thread.",
-			"SHA": "8c97e9610fb18bcb7c930ab071089290d80aab28"
+			"Message": "refactor(Mountain): Modularize Environment providers into distributed units\n\nAlign the `Source/Environment` subsystem with CodeEditorLand's distributed architecture and PascalCase naming standards. Previously monolithic files (`TestProvider.rs`, `WebviewProvider.rs`) have been restructured into flat modules where each concept resides in its own unit file.\n\nFor `TestProvider`: Extract `TestControllerState::Struct`, `TestRunStatus::Enum`, `TestResult::Struct`, `TestRun::Struct`, and `TestProviderState::Struct` into dedicated files (`TestControllerState`, `TestRunStatus`, etc.). Refactor the `TestController` trait implementation to use these new types (e.g., `TestRunStatus::Enum::Passed`) and simplify the parent file to handle only logic dispatch.\n\nFor `WebviewProvider`: Extract `WebviewLifecycleState::Enum` and `WebviewMessage::Struct` into `WebviewLifecycleState` and `WebviewMessage` modules. Move implementation details for `Lifecycle`, `Configuration`, and `Messaging` into private submodules accessed via `#[path]` directives, exposing only the necessary DTOs and the main `impl` block in the root file.\n\nThis reorganization reduces file size, enforces the \"one export per file\" pattern, and prepares the environment layer for finer-grained IPC integration and type safety.\n\nRefs #Telemetry",
+			"SHA": "4cd523aea02e5f592326b6412600b2645691656c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:19Z",
+			"Date": "2026-05-02T09:40:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1175,
-				5
+				1251,
+				2
 			],
-			"Message": "feat(Mountain): Introduce test provider state and lifecycle data models\n\nEstablish the foundational data structures for the testing subsystem within the `Source/Environment/TestProvider` module. This commit introduces five new types adhering to project PascalCase conventions:\n\n- `TestControllerState::Struct`: Registration record for extension-provided controllers.\n- `TestProviderState::Struct`: Aggregate state managing controller registries and active run maps.\n- `TestRun::Struct`: Active execution context tracking status, timing, and per-test results.\n- `TestResult::Struct`: Per-test outcome including pass/fail status, duration, and failure diagnostics.\n- `TestRunStatus::Enum`: Lifecycle state machine (Queued, Running, Passed, Failed, Skipped, Errored).\n\nThese types utilize `Serialize`/`Deserialize` traits for IPC readiness and are designed to be held behind `tokio::sync::RwLock` in `ApplicationState` for concurrent access during test execution. This lays the groundwork for the `Wind` service layer to manage test discovery, execution, and reporting without blocking the main thread.",
-			"SHA": "8b4bbfdf16647ae11cc85575c822c7f60d75f7a0"
+			"Message": "fix(Mountain): Enhance AppLifecycle resolution and inject shell environment on boot\n\nThe `AppLifecycle` module previously relied solely on Tauri's `resource_dir` for resolving the `Sky/Target` path. This caused raw release binary launches (outside the `.app` bundle) to fail resolving the frontend root, resulting in 404s for extension-contributed icons (e.g., GitLens, Roo) and empty view containers.\n\nRefactor `AppLifecycleSetup` to implement a multi-tier fallback strategy: first check the standard `.app` bundle layout (`Contents/Resources`), then the monorepo relative path (`../../../Sky/Target`), and finally an executable-relative fallback. This ensures the `STATIC_APPLICATION_ROOT` is correctly set regardless of the launch context.\n\nAdditionally, inject the user's interactive shell environment (loading `PATH`, `NVM_DIR`, `HOMEBREW_PREFIX`) in `Entry` before spawning child processes. This resolves issues where GUI-launched applications (Finder/Dock) lack necessary CLI tools (Homebrew, Git, Node/NVM), causing extension host failures. Update command handler registrations to strictly adhere to PascalCase naming conventions (e.g., `Initialize::Fn`, `MountainProvideHover::MountainProvideHover`).\n\nImpact: Fixes icon rendering in production builds, ensures extension host stability in GUI launches, and standardizes binary entry point naming.",
+			"SHA": "72f7a764914ca9ec250a6f3a3da8481723b892cd"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:06:01Z",
+			"Date": "2026-05-02T09:39:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1169,
+				1251,
 				4
 			],
-			"Message": "feat(Mountain): Introduce stub health probe commands for backend services\n\nAdd a new suite of Tauri commands under `Source/Binary/IPC/HealthCommand` to expose readiness states for internal and sidecar services to the Wind frontend. This includes `cocoon_debug_service_health`, `cocoon_extension_host_health`, and `cocoon_search_service_health` for the extension host subsystem, alongside a generic `shared_process_service_health` dispatcher.\n\nThe implementation follows the project's PascalCase naming conventions for command registration while intentionally retaining snake_case function names to align with the `SharedProcessProxy` invoker in the Wind service layer. `cocoon_search_service_health` and `shared_process_service_health` currently return `true` to signal filesystem readiness or known service availability, whereas DAP and extension host probes return `false` as stubs pending the actual gRPC wire-up with Cocoon.\n\nThis establishes the initial IPC interface for service liveness monitoring, allowing the frontend to conditionally enable features based on backend component status without blocking the main thread.",
-			"SHA": "ba9d963cc9fe42079f53c1ca6177d9ad57ae0ca8"
+			"Message": "feat(Mountain): Expand extension root discovery and modularize telemetry/hover units\n\nExtend the LocalhostPlugin to resolve built-in extensions from multiple distribution paths (`Contents/Resources/extensions`, `Contents/Resources/app/extensions`) and the development monorepo layout. This ensures icon stylesheets for the 93 bundled extensions render correctly in packaged `.app` builds and prevents empty boxes in the extension view.\n\nApply the established distributed architecture pattern to the PostHog analytics and Hover command subsystems. Refactor `PostHogPlugin` and `Command/Hover` into distinct unit files (e.g., `Initialize::Fn`, `Position::Struct`, `HoverContent::Enum`), enforcing PascalCase naming and separating DTO definitions from logic. This aligns with recent telemetry refactors and prepares the codebase for stricter IPC type safety.\n\nImpact: Fixes extension icon rendering in production builds and standardizes the module structure for observability and LSP features.",
+			"SHA": "0bb57d42016d8ab3ea6bc79312fdbcb8681e2657"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:05:50Z",
+			"Date": "2026-05-02T09:30:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1164,
-				6
+				1251,
+				13
 			],
-			"Message": "feat(Mountain): Implement cross-platform process introspection commands\n\nAdd a suite of new Tauri commands within `Binary/IPC/ProcessCommand` to expose essential runtime environment data to the Wind frontend. These commands include `ProcessGetArch`, `ProcessGetPlatform`, `ProcessGetPid`, `ProcessGetExecPath`, `ProcessGetShellEnv`, and `ProcessGetMemoryInfo`.\n\nThe implementation bridges the gap between Rust's native system calls and VS Code's Node-style expectations. `ProcessGetPlatform` normalizes OS names (e.g., mapping `macos` to `darwin`), while `ProcessGetMemoryInfo` executes platform-specific probes (`ps` on macOS, `tasklist` on Windows, `/proc/self/statm` on Linux) to calculate private, shared, and resident set memory in bytes. All commands return results as `Result` types with graceful fallbacks (zeroed values or empty maps) if underlying system queries fail, ensuring the renderer remains stable even during environment anomalies.\n\nThis establishes the foundational IPC layer for the `ProcessPolyfill` service, allowing the editor to correctly identify the host architecture, platform, and resource constraints without relying on external Node.js shims.",
-			"SHA": "e1803d15dcd25dea32c474b7aa749ec60a9954da"
+			"Message": "refactor(Mountain): Modularize telemetry gate subsystem into distinct units\n\nRestructure the `Source/Telemetry/Gates` module to align with CodeEditorLand's PascalCase naming conventions and the established distributed architecture pattern.\n\nKey modifications include:\n- Extract compile-time predicates (`IsDebugBuild`, `IsDevelopmentBuild`, `IsTelemetryEnabled`, `IsMetricsEnabled`, `IsDistributedTracingEnabled`, `IsFeatureFlagsEnabled`) into dedicated `Fn` unit files using `cfg!` macros.\n- Isolate runtime gate management (`RuntimeGates`, `GetRuntimeGates`, `RuntimeGateEnabled`, `ListEnabledGates`, `ValidateRequiredGates`) into separate units sharing a private `GATES` singleton.\n- Convert `EnableRuntimeGate` into a no-op `Fn` shim with documentation noting the required migration from `OnceLock<HashSet>` to `RwLock` for mutable state.\n- Update `mod.rs` to export the new flat structure, removing the previous monolithic implementation.\n\nThis reorganization ensures strict adherence to project naming standards and prepares the gate system for runtime configuration injection and IPC integration.\n\nRefs #Telemetry",
+			"SHA": "2a691e34b07b06fa7cc73d6c99d68b16635230a0"
 		}
 	],
-	"TimeStamp": 1781048785699
+	"TimeStamp": 1781194557973
 }

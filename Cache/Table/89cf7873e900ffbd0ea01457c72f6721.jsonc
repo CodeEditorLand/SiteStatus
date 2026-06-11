@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T00:59:29Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				1692,
-				87
-			],
-			"Message": "",
-			"SHA": "1a2c20eb6537fd77be321ea3e04470b07e3dd4cf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T00:32:33Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				1657,
-				156
-			],
-			"Message": "",
-			"SHA": "8846c77c5f57d9cf8c8b039b1ccfe0d5cb982dff"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:35:58Z",
+			"Date": "2026-05-23T09:19:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1589,
+				1739,
+				3
+			],
+			"Message": "fix(Mountain): Restore ShowMessageBox text composition and multi-select return\n\nThe `ShowMessageBox` handler incorrectly relied on a non-existent `.body()` method, causing the detail text to overwrite the dialog title entirely. Update the implementation to concatenate the message and detail text with a newline separator before passing to the native dialog constructor, preserving the original title.\n\nIn `QuickInputShowQuickPick`, refactor the multi-select logic to extract the `CanPickMany` flag prior to consuming the options struct. This ensures the return value correctly returns the full array of selected labels for multi-select operations instead of silently discarding all but the first selection.\n\nAdditionally, remove the `showTextDocument` effect from `Workspace` IPC routing. This handler is obsolete as the functionality is now covered by the dedicated Sky UI service implementation, preventing redundant or conflicting event dispatching from the extension host.\n\nThese changes restore native dialog usability, fix multi-selection in quick pick inputs, and streamline the IPC effect registry.",
+			"SHA": "a499709153a4b0c357a78ab80630f38989bea10e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T08:01:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1739,
 				1
 			],
-			"Message": "",
-			"SHA": "d54260e4ede053270aba03d438af776baa2e9cbc"
+			"Message": "feat(Mountain): Correct output channel payload structure for Sky integration\n\nThe `CreateOutputChannel` gRPC handler previously emitted an IPC event with a single `{ \"channel\": name }` property. Sky's `InstallEditorAndOutput.ts` component expects the payload to destructure `{ id, name }`. The mismatch caused both fields to resolve as undefined in the frontend map, keyed incorrectly by the string \"undefined\".\n\nUpdate the Tauri event emission to include both `id` and `name` fields set to `Request.name`. This aligns the Mountain backend output with the Sky component's destructuring logic, ensuring new output channels are correctly registered and displayed in the editor UI.",
+			"SHA": "930ce3222f11418b22c721b91133d0b33e55474a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:35:57Z",
+			"Date": "2026-05-23T07:59:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1589,
-				8
+				1739,
+				13
 			],
-			"Message": "refactor(Mountain): Normalize IPC handler exports to Fn convention\n\nRename the three Cocoon IPC handler entry points from descriptive names (CocoonExtensionHostMessage, CocoonNotify, CocoonRequest) to the uniform `Fn` ident, and add the matching `as` aliases in the mod.rs re-exports so downstream callers are unaffected.\n\nAdd four new ExtensionHost IPC handlers also exporting as `Fn`:\n\n- **DebugServiceClose:** Emits `sky://exthost/debug-close` via Tauri's Emitter trait so Sky can react to debug-session teardown.\n- **DebugServiceReload:** Emits `SkyEvent::ExtHostDebugReload` as a typed event, giving Wind a signal to purge caches before Cocoon restarts.\n- **StarterCreate:** Returns a stub extension-host ID (`\"1\"`) to satisfy VS Code's extensionHostStarter:createExtensionHost protocol.\n- **StarterStart:** Returns the real Cocoon PID (via GetCocoonPid) or Mountain's own PID as fallback, enabling external debuggers to attach to the correct Node.js process.\n\nAll handler modules now follow a single convention: each file exposes `pub async fn Fn(...)` and is aliased at the mod.rs boundary. This eliminates naming guesswork when adding new IPC routes and keeps the interface consistent across all WindServiceHandlers.",
-			"SHA": "67e95cb626157a0f6e1a5b4f9d23dc35bebbf124"
+			"Message": "fix(Mountain): Propagate IPC errors and complete gRPC request handlers\n\nShifted all `WindServiceHandlers` to propagate I/O and path resolution errors instead of swallowing them. Updated `FileExistsNative`, `FileWriteNative`, `TextfileSave`, `ModelOpen`, `TextfileSave`, and `GetEnvironmentPaths` to return descriptive error messages. This prevents silent failures where VS Code interprets errors as 'not found' or flips documents into conflict states due to null metadata.\n\nCorrected `ShowMessageBox` to use `.body()` for detail text and fixed `QuickInputShowQuickPick` to return arrays for multi-select operations. Added missing gRPC handlers in `Storage`, `TreeView`, and `Workspace` for `Storage.GetItems`, `tree.reveal`, and `showTextDocument`, ensuring Cocoon can access extension state and UI features via the IPC layer.\n\nFixed a TOCTOU race in `ExtensionsGetInstalled` by subscribing to the `ScanReady` notification before executing the query. Added logic in `LoadFromCache` to treat empty extension lists as cache misses, forcing a live scan if the stub was generated prematurely. Updated `build.rs` to consistently write a valid `CacheBlob` struct for the manifest stub.\n\nThese changes ensure data integrity across the IPC layer, restore functionality for missing extension APIs, and prevent UI glitches caused by suppressed errors.",
+			"SHA": "416e8d7a0ddc284253f0b6080ad550338d89d9c2"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:30:13Z",
+			"Date": "2026-05-23T07:59:22Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1585,
+				1739,
+				1
+			],
+			"Message": "fix(Mountain): Correct stub format for ExtensionsManifest in build script\n\nUpdate the `build.rs` script to write a valid `CacheBlob` JSON structure instead of a bare JSON array when generating the stub `extensions.manifest.json`. The `LoadFromCache` parser expects an object containing `version`, `count`, and `extensions` fields, whereas the previous implementation wrote `[]`, causing potential parsing mismatches or type errors during startup.\n\nThis ensures the Tauri build process generates a structurally correct manifest stub that aligns with the runtime data deserialization expectations, preventing crashes when the Sky-generated manifest is unavailable.",
+			"SHA": "8924f19f5908567bc989f640cbf8626ba937dacf"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T06:28:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1739,
 				4
 			],
-			"Message": "perf(Mountain): Cache getInstalled extension responses per type filter\n\nBuilding the serialized ILocalExtension[] array on every `extensions:getInstalled` IPC call re-serialized ~1.8 MB of extension metadata, visible as a multi-hundred-millisecond stall in the UI on startup. Add a `OnceLock`-backed static cache keyed by the three TypeFilter variants (None, System, User). The first call per type populates the cache; subsequent calls return the cached `Value` clone in <1 ms. Empty responses are not cached so a first-call timeout does not permanently poison the slot.\n\nAlso fix two reliability concerns in the same area:\n- **FileCloneNative:** Create the target parent directory via `tokio::fs::create_dir_all` before `fs::copy`. VS Code's local-history feature creates per-file history directories that may not exist yet, producing an OS-level ENOENT on clone.\n- **CocoonManagement IO forwarders:** Switch from `tokio::spawn` to `tauri::async_runtime::spawn` so the forwarder tasks live on Tauri's runtime handle and continue to be polled while the spawning async task is waiting elsewhere. Restructure the read loops from `while let Ok(Some(…))` to an explicit `loop` + `match` that handles EOF and read errors instead of silently dropping the pipe. Log a warning when a pipe handle is `None` (indicating `Stdio::piped()` was not configured), aiding debug of silent IO loss.\n\n**tauri.conf.json:** Add `Proto/Vine.proto` to the resource bundle so the .proto file is available at runtime from `Contents/Resources/` alongside the other bundled assets.",
-			"SHA": "a83e88eefa539b9b5bc7582822125fb8f7114d58"
+			"Message": "refactor(Mountain): Standardize DTO naming and repair UTF-8 path handling\n\nAlign `ModelVersionIdentifier` to `ModelVersionId` in `MarkerDataDTO` and `DiagnosticProvider` to match existing PascalCase conventions and reduce verbosity.\n\nEnhance the `FileWriteNative` IPC handler to detect and decode base64-encoded buffers received from VS Code serialization paths, falling back to raw bytes if decoding fails. This resolves data corruption when saving files via certain extension workflows.\n\nRewrite `percent_decode` in `PathExtraction` to correctly reconstruct multi-byte UTF-8 sequences from percent-encoded URI components. The previous implementation cast decoded bytes directly to `char`, corrupting non-ASCII paths (e.g., CJK or accented characters) and causing silent ENOENT errors. The new approach accumulates raw bytes and performs a safe `from_utf8` conversion with a lossy fallback.\n\nThese changes ensure robust file operations with international paths and consistent data integrity across the IPC layer.",
+			"SHA": "1ee9d6c0f0082ba72857e78be4316b0abb8af829"
 		}
 	],
-	"TimeStamp": 1781048769034
+	"TimeStamp": 1781194529267
 }
