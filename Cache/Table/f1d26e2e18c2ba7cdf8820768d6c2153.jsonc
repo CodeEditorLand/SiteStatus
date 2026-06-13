@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:41:36Z",
+			"Date": "2026-05-23T07:59:22Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1513,
-				13
-			],
-			"Message": "feat(Mountain): Terminal serialization/revival, fill IPC gaps\n\nComplete the terminal window-reload persistence cycle and close multiple VS Code Workbench IPC compatibility gaps:\n\n**Terminal state persistence (window reload):**\n- Add `SerializeTerminalState` — snapshot all active PTYs to `ISerializedTerminalState[]` with `shellLaunchConfig`, `processDetails`, and replay metadata, called by `localPty:serializeTerminalState` just before reload.\n- Add `ReviveTerminalProcesses` — respawn shells from the snapshot array, forwarding each entry to `TerminalCreate` and emitting `sky://terminal/create` for the xterm panel. Skips entries with an empty executable.\n- Wire `localPty:getRevivedPtyNewId` to `GetNextTerminalIdentifier()` (no longer a no-op) so the workbench pre-allocates collision-free IDs before revival.\n\n**Configuration/Theme IPC completeness:**\n- Alias `configuration:lookup` → `ConfigurationGet` — needed by `IConfigurationService.getValue(key)` in the Workbench singleton.\n- Implement `configuration:inspect` — returns `{value, default, user, workspace, workspaceFolder, memory}` with the current effective value in both `value` and `default`, null for all scope overrides (correct for Land where no user/workspace JSON overrides exist).\n- Alias `themes:getColorTheme` → `ThemesGetActive` — `IThemeService.getColorTheme()` Workbench channel method.\n- Extend `ThemesGetActive` response with numeric `ColorThemeKind` enum (`type`: 1-4) and `semanticHighlighting: false` so tokenization and colour-picker internals have the expected shape.\n\n**Dialog unwrapping for Wind consumption:**\n- `UserInterface.ShowOpenDialog` — unwrap `{canceled, filePaths}` envelope to bare `string[]` so Wind's `Array.isArray(result)` guard finds the paths.\n- `UserInterface.ShowSaveDialog` — unwrap `{canceled, filePath}` envelope to bare path string so Wind's `typeof result === \"string\"` guard succeeds.\n\n**Path format fix in sandbox config:**\n- Convert `appRoot`, `homeDir`, `tmpDir`, `userDataDir`, `backupPath` from `file://` URLs to plain OS filesystem paths. VS Code's `URI.file(path)` receives these via `AbstractNativeEnvironmentService` and double-encodes a `file://` string, producing broken `path.join` bases.\n\n**Provider registration for VS Code ≥1.87 APIs:**\n- Add `register_inline_completion_item_provider`, `register_inline_edit_provider`, `register_multi_document_highlight_provider`, `register_mapped_edits_provider`, `register_document_paste_edit_provider`, `register_document_drop_edit_provider` — each wires through `CreateProviderEffect` into the existing ProviderRegistration map so the Language Feature dispatch layer can proxy `$provideXxx` requests back to Cocoon.\n\n**Terminal show/hide via gRPC provider path:**\n- Wire `$terminal:show`/`$terminal:hide` and `Terminal.Show`/`Terminal.Hide` through `TerminalProvider` — Cocoon's window namespace shim calls these when extensions invoke `terminal.show(preserveFocus)` or `terminal.hide()`, and both call sites now share one implementation.\n\n**Debug configuration provider cleanup:**\n- Add gRPC notification `unregister_debug_configuration_provider` with `UnregisterDebugConfigurationProvider` handler — mirrors `UnregisterDebugAdapter` for the DebugConfiguration slot, invoked when an extension disposes a `vscode.debug.registerDebugConfigurationProvider` registration.\n\n**Stub-ack additions:**\n- Add `log:registerLogger`/`log:createLogger` alongside the existing `logger:*` stubs — VS Code 1.87+ calls both prefixes and was crashing on every boot with \"registered but no dispatch arm\".\n\n13 files changed, 479 insertions, 23 deletions.",
-			"SHA": "7d6b949d24c36559cb084154ef6c4be20b9a716e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T04:43:59Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
+				1739,
 				1
 			],
-			"Message": "fix(Mountain): Supply missing INativeWindowConfiguration fields in sandbox config\n\nAdd eight non-optional fields to the `ConstructSandboxConfiguration` JSON blob that VS Code's `NativeWorkbenchEnvironmentService` and related environment service layers access without null-checks:\n\n- `perfMarks`, `loggers` — empty arrays expected by performance-mark collection and logger initialization pathways.\n- `colorScheme` — default `{ dark: false, highContrast: false }` used early in startup before the real theme is resolved.\n- `mainPid` — the current process ID, consumed by process-tree and crash-reporter logic.\n- `os` — includes `release`, `hostname`, and `arch` derived from `std::env::consts`, required by platform-conditional feature gating in the workbench.\n- `dataFolderName` / `sharedDataFolderName` — set to `.fiddee` (or the `ProductDataFolderName` env var), preventing `URI.joinPath(userHome, undefined, \"extensions\")` from throwing a TypeError in `extensionsPath` and `appSharedDataHome`.\n- `version` — read from `ProductVersion` env var, defaulting to `1.0.0`, used by extension compatibility checks and telemetry reporting.\n\nMissing any of these causes crashes during extension host initialization and workbench service construction. Body uses trailing comma syntax consistently.",
-			"SHA": "0066703567eaf9dd4ae8579009011dbc6b79318a"
+			"Message": "fix(Mountain): Correct stub format for ExtensionsManifest in build script\n\nUpdate the `build.rs` script to write a valid `CacheBlob` JSON structure instead of a bare JSON array when generating the stub `extensions.manifest.json`. The `LoadFromCache` parser expects an object containing `version`, `count`, and `extensions` fields, whereas the previous implementation wrote `[]`, causing potential parsing mismatches or type errors during startup.\n\nThis ensures the Tauri build process generates a structurally correct manifest stub that aligns with the runtime data deserialization expectations, preventing crashes when the Sky-generated manifest is unavailable.",
+			"SHA": "8924f19f5908567bc989f640cbf8626ba937dacf"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T04:19:09Z",
+			"Date": "2026-05-23T06:28:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
-				6
+				1739,
+				4
 			],
-			"Message": "fix(Mountain): Add logsPath to sandbox config, clean up handlers\n\nAdd the required `logsPath` field to `ISandboxConfiguration` to prevent VS Code's `NativeWorkbenchEnvironmentService.logsHome` from resolving to `undefined`, which crashes the extension host with a `TypeError` in `path.join`. The path is derived from `AppDataDir/logs/<session-timestamp>`, created eagerly before constructing the sandbox object.\n\nRemove the `nativeHost:setDocumentEdited` handler body — `NSWindow::setDocumentEdited` is not exposed by Tauri 2.x's `WebviewWindow` API — and strip the unused `ping_timeout` field from `ConnectionHealthChecker` since health checks are now call-path-driven rather than timer-based.\n\nSimplify early-return control flow in `isPortFree` and `getTerminalProcessId` to reduce branch nesting and eliminate dead returns. Fix the `TerminalId` type in `ResizeTerminal` with an explicit `.into()` conversion.\n\nRedraw the README architecture diagram as a structured subsystem hierarchy (Binary/, Track/, RunTime/, IPC/, Vine/, RPC/) with accurate gRPC port annotations for the Cocoon (:50052) and Air (:50053) sidecars.\n\nAdd `MIRIFLAGS=-Zmiri-disable-isolation` to `.cargo/config.toml` to permit `_NSGetExecutablePath` calls during Miri testing.",
-			"SHA": "0644dc0e1c7ea10717d827c6f4bdbde334d3da45"
+			"Message": "refactor(Mountain): Standardize DTO naming and repair UTF-8 path handling\n\nAlign `ModelVersionIdentifier` to `ModelVersionId` in `MarkerDataDTO` and `DiagnosticProvider` to match existing PascalCase conventions and reduce verbosity.\n\nEnhance the `FileWriteNative` IPC handler to detect and decode base64-encoded buffers received from VS Code serialization paths, falling back to raw bytes if decoding fails. This resolves data corruption when saving files via certain extension workflows.\n\nRewrite `percent_decode` in `PathExtraction` to correctly reconstruct multi-byte UTF-8 sequences from percent-encoded URI components. The previous implementation cast decoded bytes directly to `char`, corrupting non-ASCII paths (e.g., CJK or accented characters) and causing silent ENOENT errors. The new approach accumulates raw bytes and performs a safe `from_utf8` conversion with a lossy fallback.\n\nThese changes ensure robust file operations with international paths and consistent data integrity across the IPC layer.",
+			"SHA": "1ee9d6c0f0082ba72857e78be4316b0abb8af829"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T03:01:20Z",
+			"Date": "2026-05-23T06:03:46Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
+				1739,
 				1
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "f05bb15337235ffc6fc2de4ac1988fe3a8d9e19a"
+			"Message": "refactor(Mountain): Preserve binary integrity in HTTP response parsing\n\nThe `forward_http_request` helper in `Source/Binary/Build/Scheme.rs` was incorrectly converting HTTP response bodies to UTF-8 strings before parsing. This `String::from_utf8_lossy` operation corrupted binary content (images, WASM modules, etc.) by inserting replacement characters for non-UTF-8 sequences.\n\nUpdate `parse_http_response` to accept a raw byte slice (`&[u8]`) instead of a `&str`. Implement the header/body separation using `windows(4)` to locate the `\\r\\n\\r\\n` separator on raw bytes. Safely decode only the header section to UTF-8 (since HTTP headers are ASCII), while passing the body bytes directly to the result tuple.\n\nThis ensures binary assets proxied through the Mountain build tool remain intact and prevents data corruption during HTTP forwarding.",
+			"SHA": "977f678a3ae277ac8d8f21db1cbe3be48690a369"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T03:01:18Z",
+			"Date": "2026-05-23T05:34:02Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
-				14
+				1739,
+				4
 			],
-			"Message": "feat(Mountain): Implement custom editor registry, wire file watcher and PTY resize, optimize hot paths\n\nComplete several IPC/RPC stubs with actual implementations:\n- Store ViewType-to-sidecarId mappings in CustomEditorProvider's global\n  once-locked registry, enabling proper cleanup on unregistration\n- Route watch_file gRPC to FileWatcherProvider::RegisterWatcher for real\n  FSEvents/inotify monitoring instead of a no-op stub\n- Route resize_terminal gRPC through TerminalProvider to resize the PTY\n  (delivers SIGWINCH to the shell) alongside the existing Tauri event\n- Add extensions:activate handler sending $activateByEvent to Cocoon so\n  Wind's ExtensionsService triggers activation programmatically\n\nRefine IPC dispatch and sidecar routing:\n- Emit sky://commands/executed after commands:execute dispatch so\n  telemetry collectors and command subscribers observe every command\n- Look up debug configuration provider from ApplicationState.Feature.Debug\n  for correct sidecar routing instead of hardcoding cocoon-main\n\nOptimize high-frequency and hot paths:\n- Add StorageWriteDebouncer with 100ms write coalescing, replacing\n  per-call tokio::spawn disk writes with batched single-writes\n- Strip osascript subprocess from nativeHost:getCursorScreenPoint,\n  returning (0,0) to eliminate ~50ms macOS process spawn per invocation\n- Gate logger info/debug/trace to opt-in vscode-log tag; forward\n  error/warn/critical to dev_log consistently\n- Replace SystemTime-based ID generation with atomic sequence counters\n  in Notification and WindowUI, eliminating syscall overhead\n\nUpdate Tauri ACL manifests with the new tray allow-set-icon-with-as-template\npermission.",
-			"SHA": "e2e1d1e1b9088429512644b8901afcf9dd8d2347"
+			"Message": "feat(Mountain): Extend extension cache lifetime and refine SCM updates\n\nIncrease the maximum cache age for extension descriptors from 10 minutes to 24 hours. The previous window was too tight for local development workflows where the binary and cache are co-located; since builds regenerate the cache, a longer duration prevents unnecessary rescans without staleness risks.\n\nEnhance the `FileWriteNative` handler to suppress false-positive warnings when the Cocoon process is not yet connected during `FileWrite` operations. This prevents noise in the `vfs` log when saving files before the extension host is fully ready.\n\nAlign `UpdateScmGroup` logic to emit `scmId` alongside `providerId` in the payload to `sky://scm/updateGroup`. This ensures the Sky frontend can correctly resolve the SCM shim. Remove the fallback logic that attempted to invoke `UpdateSourceControlGroup` traits, as direct event emission is the reliable path.\n\nAdditionally, add `DebugServer`, `DebugServerPortMountain`, and `DebugServerPortCocoon` to the environment variable whitelist in `CocoonManagement` to support future debugging configurations.",
+			"SHA": "fc1e6daf52356219f8c954cc53b698a688432d94"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T05:33:57Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1739,
+				2
+			],
+			"Message": "fix(Mountain): Prevent Tauri build failure on missing Sky manifest\n\nThe Tauri build process fails when running `cargo build` directly because it validates `extensions.manifest.json` referenced in `bundle.resources`, which is normally generated by the Sky frontend build. Update `build.rs` to create a stub file (`[]`) at the expected path if missing, ensuring the build succeeds without a prior Sky build while retaining the live scan fallback in `LoadFromCache.rs`.\n\nAdditionally, disable `beforeBundleCommand` in `tauri.conf.json` to prevent redundant or conflicting manifest generation steps during the Tauri build phase, relying instead on the explicit manifest creation in `build.rs` and the existing Sky build pipeline.",
+			"SHA": "3473a81e819f0b8a80fc02084589693a1fe0d85d"
 		}
 	],
-	"TimeStamp": 1781194536659
+	"TimeStamp": 1781360187647
 }

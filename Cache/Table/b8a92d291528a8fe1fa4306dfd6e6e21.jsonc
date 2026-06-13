@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:08:42Z",
+			"Date": "2026-06-04T19:51:03Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				4
+				"⡿⠀⠀⠀⠀",
+				1731,
+				292
 			],
-			"Message": "fix(Mountain): Forward editor state change notifications to Cocoon extension host\n\nAdd five missing Vine notification relays so VS Code API subscribers inside the Node.js extension host observe changes Mountain already delivers to the renderer:\n\n- **ThemesSet.rs**: Fan `$acceptActiveColorTheme` on theme switch, computing the workbench theme kind (Light/Dark/HighContrast) from the theme id. Without this, `vscode.window.onDidChangeActiveColorTheme` never fires for Node-resident extensions (GitLens, Roo Code, rust-analyzer).\n\n- **WindServiceHandlers/mod.rs**: Relay four Sky-detected editor state changes as Cocoon notifications: `$acceptVisibleEditorsChanged` (`onDidChangeVisibleTextEditors`), `$acceptTabsChanged` (`onDidChangeTabs`/`onDidChangeTabGroups`), `$acceptVisibleRangesChanged` (`onDidChangeTextEditorVisibleRanges`), and `$acceptTextEditorOptionsChanged` (`onDidChangeTextEditorOptions`). Each forwards the Sky-provided payload directly.\n\n- **Diagnostics.rs**: After every `SetDiagnostics`/`ClearDiagnostics` call, fan `$acceptDiagnosticsChanged` back to Cocoon with the owner and affected URIs so `vscode.languages.onDidChangeDiagnostics` subscribers in peer extensions observe the change. For clears, emit an empty URI list — consumers should re-query `getDiagnostics(uri)`.\n\n- **DebugLifecycle.rs**: For `debug.addBreakpoints`/`debug.removeBreakpoints` only, fan `$onDidChangeBreakpoints` with added/removed/changed arrays so `vscode.debug.onDidChangeBreakpoints` fires in all extensions, not just the one that made the mutation.\n\nCompletes the Mountain-to-Cocoon notification pipeline for theme, editor, diagnostics, and debug breakpoint surfaces that were previously renderer-only.",
-			"SHA": "dd925de41e8f4558f960cb99f6d1a78674eba4e7"
+			"Message": "refactor(Mountain): Finalize CreateEffectForRequest parameter borrowing and standardize blank lines\n\nComplete the parameter borrowing transition in CreateEffectForRequest by adding deferred `Parameters.clone()` calls inside `effect!` macro closures for FileSystem, Languages, StatusBar, TreeView, UserInterface, Webview, WindowUI, and Workspace handlers. Extract derived fields up front in LanguageFeatures provider registration using `_need` intermediates to avoid borrow checker conflicts.\n\nApply blank line formatting across Air stubs, ApplicationState, Binary TLS/runtime build, IPC subsystems (Connection, Encryption, Enhanced, Message, Permission, Security, WindAirCommands, WindServiceHandlers), RPC services, Telemetry, Track, Update, Vine, and Workspace modules. Insert blank lines after struct/enum openings, between fields, after imports, before functions, and inside multi-argument `dev_log!` macro calls.\n\nThis eliminates the last unconditional clones on the hot dispatch path while improving scanability across the entire Mountain source tree.",
+			"SHA": "c92357fc7d40a9c97669ad8bbb2f177fafdfbe70"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:53:04Z",
+			"Date": "2026-06-04T19:46:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
+				1731,
+				14
+			],
+			"Message": "refactor(Mountain): Remove redundant module docs and finalize CreateEffectForRequest parameter borrowing\n\nStrip the remaining module-level rustdoc comments from all CreateEffectForRequest handlers — their table-based documentation duplicated the central dispatcher's meta-module doc and is now superseded by explicit `Matches` predicates in each file.\n\nTighten `Git.Matches` from `starts_with(\"$gitExec\")` to exact equality since only the literal command string is valid. Complete the `&Value` borrowing transition in `LanguageFeatures.CreateProviderEffect` and `Workspace.CreateEffect` by extracting derived fields up front and cloning only inside the macro invocations where ownership is still required.\n\nThis removes dead comments and eliminates the last unconditional clone on the hot dispatch path across all CreateEffectForRequest layers.",
+			"SHA": "28e05322406c9829f820dd34e0955e8ffc64c3de"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-04T19:16:01Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1731,
 				2
 			],
-			"Message": "fix(Mountain): Relay executed command notifications to Cocoon extension host\n\nDual-emit `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, so that `vscode.commands.onDidExecuteCommand` callbacks fire inside extensions running in the Node.js extension host. The existing Tauri-emit only reaches the renderer (Sky); Cocoon has no Tauri runtime to subscribe to those events.\n\nCocoon's `Services/Handler/Notification/Handler.ts` maps `$acceptCommandExecuted` to an internal emitter that the `Commands/Namespace.ts` `onDidExecuteCommand` subscriber listens to. The Vine notification is fire-and-forget — failure is non-fatal since the renderer-side observers have already been notified via the Tauri event.\n\nAlso add the `tauri::Emitter` trait import in `CreateEffectForRequest/Commands.rs` to satisfy the compiler for the Tauri event emit.",
-			"SHA": "eeb3d39b739ebe9019b39f18ad4415ad9ad0fcb2"
+			"Message": "refactor(Mountain): Finalize CreateEffectForRequest parameter borrowing in utility and dispatcher\n\nUpdate parameter utility functions in Params.rs to accept `&Value` instead of `Value`, moving necessary clone operations inside the function bodies. Update the central dispatcher Try macro in mod.rs to pass `&Parameters` to CreateEffect constructors instead of cloning the owned value unconditionally.\n\nThis completes the parameter borrowing refactor that reduces clone overhead on the hot dispatch path across all CreateEffectForRequest layers.",
+			"SHA": "9c2c3857a8f3aa0557286314607a3c2191be2528"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:37:54Z",
+			"Date": "2026-06-04T19:14:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1746,
-				4
+				1731,
+				2
 			],
-			"Message": "fix(Mountain): Forward previously unhandled IPC notifications\n\nAdd four notification handlers that were missing from the IPC dispatch tables, completing the Cocoon-to-Mountain-to-renderer pipeline:\n\n- **ScanPathConfigure**: Scan `~/.land/extensions` alongside the FIDDEE user directory so pre-migration installs (Roo Code, rust-analyzer, etc.) remain discoverable. The path is only pushed when the directory exists, making the addition harmless on clean installs.\n\n- **Debug.rs**: Forward `debug.dap-response` from Cocoon (inline-implementation adapters) to the workbench via `sky://debug/dap-message`, enabling the RawDebugSession sequencer to correlate DAP responses by `request_seq`.\n\n- **StatusBar.rs**: Handle `setStatusBarText` mutations from extension StatusBarItem `text()` setters. Without this arm, status bar text freezes after the initial create, never reflecting runtime updates.\n\n- **Task.rs**: Relay `terminate_task`/`Task.Terminate` to the extension host task service, allowing `vscode.tasks.executeTask(...).terminate()` to stop running tasks. Falls back gracefully with a dev_log warning when no task provider is available.",
-			"SHA": "23b235d68ce4fa03776183d9f8a9ac8bcb98b9f2"
+			"Message": "refactor(Mountain): Finalize CreateEffectForRequest string matching simplification\n\nComplete the CreateEffectForRequest dispatch refactoring by converting the remaining two modules from macro-generated patterns to explicit string predicates.\n\nLanguageFeatures.rs replaces its match expression with `MethodName.starts_with(\"register_\") && MethodName.ends_with(\"_provider\")` and removes a stray extra brace left over from macro expansion. WindowUI.rs replaces the catch-all wildcard match with `MethodName.starts_with(\"Window.\")` plus a descriptive comment, ensuring only Window-namespace methods route here.\n\nAll CreateEffectForRequest modules now use explicit, self-documenting dispatch predicates instead of macro-generated tokens.",
+			"SHA": "bc05e8208557e6236d112704752939fa17599dc3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T20:45:29Z",
+			"Date": "2026-06-04T19:14:01Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				7
+				"⠁⠀⠀⠀⠀",
+				1731,
+				25
 			],
-			"Message": "build(Mountain): Restore simple crate and bundle identifiers\n\nRestore \"Mountain\" as the crate binary, library, and package name, and the\nTauri productName and bundle identifier, replacing the verbose development\nbuild descriptors from the prior commit. The Backup files are removed.\n\nGate the Cocoon sidecar launch on both the ExtensionHostCocoon feature flag\nand the absence of the no_node_host cfg flag, so the extension host tier\nrouting (Node vs WebWorker) is respected at boot time.\n\nInclude the task type in the task provider Options payload, fixing the\nregistration schema for Cocoon's task system.\n\nDerive Clone on ExtensionCollection to support shared access patterns in\nthe terminal environment variable mutation pipeline.\n\nAdd the zsh shell integration script to the Tauri resource bundle and\ntidy resource ordering.",
-			"SHA": "279ff30481d2276785d0a819d7314527ec775fb6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:31:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1748,
-				4
-			],
-			"Message": "build(Mountain): Differentiate development build identifiers from release\n\nRename the crate binary, library, package, Tauri productName, and bundle identifier to a verbose development build descriptor encoding the full toolchain configuration (Node 22, VS Code dependency, debug profile, esbuild compiler). This prevents the development build's binary name and macOS bundle ID from colliding with the release build, enabling side-by-side installation and testing.\n\nExpand the Tauri resource bundle to include all Sky deployment variant directories (Browser, BrowserProxy, Bundled, Electron, Favicon, Isolation, Manifest.json, Mountain) that were previously omitted, ensuring the development build can serve every editor UI target.",
-			"SHA": "960cc2f2c87bbd38613db3e6da10c856b2ae0dd3"
+			"Message": "refactor(Mountain): Simplify CreateEffectForRequest string matching\n\nReplace macro-generated match expressions and identifier constants with explicit string literal comparisons and `starts_with`/`ends_with` predicates across all CreateEffectForRequest modules. Static method names now use direct string matching (\"Authentication.GetSession\" | \"Authentication.GetAccounts\") instead of inferred identifier constants. Dynamic command patterns collapse into concise boolean expressions — `$gitExec` and `$terminal:` families use `MethodName.starts_with(...)`, `register_*_provider` uses a start+end check, and `$scm:`, `$statusBar:`, `$webview:`, and `tree.` prefixes follow the same pattern.\n\nThis removes macro coupling from the dispatch predicates, makes accepted method names immediately visible in each file, and eliminates stale `std::sync::Arc` imports left over from macro expansion. The central dispatcher now routes through cleaner pre-filters that operate on concrete strings rather than generated tokens.",
+			"SHA": "cafbc510d7e2b33f142fd0badacefb43068381ff"
 		}
 	],
-	"TimeStamp": 1781194525138
+	"TimeStamp": 1781360174153
 }

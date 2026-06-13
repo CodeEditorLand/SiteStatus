@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:08:29Z",
+			"Date": "2026-05-03T13:36:50Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				3
+				"⣿⣿⣿⡟⠀",
+				269,
+				199
 			],
-			"Message": "fix(Output): Fix ExposeWorkbenchAccessor import markers and add service error isolation\n\nTwo fixes to the ExposeWorkbenchAccessor transform that were causing SkyBridge bridges to silently fail:\n\n1. Import marker quote style: The transform was using single-quote import markers that matched stock VS Code source, but esbuild/Land's Output bundler rewrites quotes to double quotes in the post-bundle file. The marker mismatch caused `Source.includes(ImportMarker)` to return false, silently no-opping the entire `__CEL_SERVICES__` patch. All SkyBridge hooks (search registration, SCM, status bar, tree views) were offline because `__CEL_SERVICES__` stayed undefined.\n\n2. Service error isolation: Each `invokeFunction` is now wrapped in its own try-IIFE. Previously, a single failed service lookup (interface decorator missing in this profile, service not yet registered) would throw out of the entire `__CEL_SERVICES__` object literal, leaving the whole facade undefined. Now each service degrades to `null` individually, preserving all other bridges.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNodeModulesPath + expose IMarkerService)",
-			"SHA": "f55a02821a2d7acad85060cf17796f62fda700d9"
+			"Message": "chore(Output): Minify build configuration and remove source maps for release\n\nCompress the ESBuild configuration and plugin pipeline in the Output element to reduce module size and evaluation time. Replace verbose variable bindings (e.g., `Prefix` -> `t`, `Editor_default` -> `r`) and collapse function bodies in entry point definitions (`Configuration/ESBuild/CodeEditorLand/Editor.js`, `Microsoft/VSCode.js`) and exclusion rules (`Configuration/ESBuild/Exclude/*`).\n\nSimultaneously, delete all `.js.map` source map files associated with these configuration modules. This follows the previous readability pass, reverting the codebase to a production-ready state where logical behavior is preserved but source formatting is collapsed. The build pipeline entry points, exclusion patterns for Electron/Node/Telemetry, and plugin transform logic remain functionally identical.",
+			"SHA": "8904506ded6bfa31e48d864a11bf1088bf348e54"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:03:39Z",
+			"Date": "2026-05-03T13:36:37Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				267,
-				8
+				"⣿⣿⡟⠀⠀",
+				368,
+				199
 			],
-			"Message": "feat(Output): Add RewritePerfBaselineWorker transform\n\nAdd a new build transform that fixes worker bootstrap crashes in the\nbundled editor's timer service. The transform replaces\n`timerService.js`'s `(function() { ... __name(fib, \"fib\"); ... }).toString()`\nperfBaseline worker source with a literal-string equivalent that omits\nthe cosmetic `__name(...)` decoration.\n\nSame OXC-mangling-truth fix as `RewriteNestedWorkerBootstrap`: when Vite\ninlines `timerService.js` into Sky's `_astro/partsSplash.*.js` chunk,\nthe chunk's `__name` helper gets mangled (e.g., `$4e`). The IIFE captured\nby `.toString()` carries the mangled `$4e` reference; the worker scope\nhas no `$4e` defined and crashes at module-eval with `ReferenceError:\nCan't find variable: $4e`. The literal-string replacement is\nmangler-immune.\n\nAlso update prepublishOnly.sh to gate debug profiles on `Debug=true`\ninstead of `NODE_ENV`. Tauri's `.env` file was silently overriding\nBuild.sh's `NODE_ENV=development` export, forcing `out-build` (mangled)\neven for debug builds that should pull from readable `out/`.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNestedWorkerBootstrap)",
-			"SHA": "14cc0d5941bd561c41c6d5ffd190256cc92eafb9"
+			"Message": "refactor(Output): Reformat build configuration and plugin pipeline for readability\n\nReformat the entire Output element's ESBuild configuration, plugin definitions, and polyfill scripts to align with the project's PascalCase naming conventions and readability standards. This change follows the previous minification commit by restoring source formatting without altering logical behavior.\n\nKey modifications:\n- Rename minified bindings (e.g., `t` → `Prefix`, `e` → `Current`) and expand dense block structures in `Configuration/ESBuild/CodeEditorLand/Editor.js` and `Bundle.js`.\n- Reformat exclusion patterns (`Configuration/ESBuild/Exclude/` scripts) to include detailed comments explaining the rationale for each excluded path (e.g., `Bootstrap`, `ChromiumIPC`, `Network`, `Telemetry`).\n- Refactor plugin definitions (`Configuration/Plugin/Index.js`) and transform logic (`Configuration/Plugin/Transform/`) to use explicit variable names and multi-line structures for clarity.\n- Update polyfill implementations (`Configuration/Polyfill/` and `Configuration/Service/`) to restore whitespace and indentation.\n- Regenerate source map files (`.js.map`) for all modified configurations to support debugging.\n\nThe logical behavior of the build pipeline remains unchanged; this commit solely addresses source formatting and documentation consistency.",
+			"SHA": "5aad15138a7e005924d0e576f3cee8fa846d6250"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T23:06:23Z",
+			"Date": "2026-05-03T09:33:38Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				264,
-				10
+				"⣿⣿⣿⡟⠀",
+				269,
+				199
 			],
-			"Message": "feat(Output): Add RewriteNodeModulesPath transform and expose IMarkerService\n\nAdd a new build transform and update an existing one:\n\n1. RewriteNodeModulesPath: Patch `vs/base/common/network.js`'s hardcoded paths (`vs/../../node_modules`, `vs/../../extensions`, etc.) to drop one `../` segment. Without this, the dev server resolves to `/Static/node_modules/` instead of `/Static/Application/node_modules/`, returns SPA `index.html` fallback, and all grammar/tokenization (textmate, oniguruma, language-detection) silently breaks across every extension.\n\n2. ExposeWorkbenchAccessor: Expose `IMarkerService` on `__CEL_SERVICES__.Markers` so SkyBridge can push extension diagnostics (rust-analyzer, TypeScript, ESLint) into the workbench. Mountain emits `sky://diagnostics/changed` events; the bridge now calls `Markers.changeOne(owner, uri, markers)` to paint red squiggles and populate the Problems panel.\n\nBoth transforms are idempotent and added to the BuildPipeline after RewriteNestedWorkerBootstrap.",
-			"SHA": "cf8dea549df816cc3b534beb9449f90bf678f69f"
+			"Message": "refactor(Output): Apply minified build configuration and remove source maps\n\nCompress the ESBuild configuration and plugin pipeline in the Output element for reduced bundle size and faster module evaluation. Rename variables to single-character identifiers (e.g., `Editor_default` → `r`, `__name` → `d`) and collapse function bodies, while preserving all logical behavior, entry points, exclusion patterns, and plugin transforms.\n\nKey modifications:\n- Minify `Configuration/ESBuild/CodeEditorLand/Editor.js`, `Bundle.js`, and `Exclude/` scripts (Bootstrap, ChromiumIPC, Electron, Network, etc.) by removing whitespace and renaming bindings.\n- Compress `Configuration/Plugin/Apply.js`, `Copy.js`, and `Transform/` definitions (HoistFunctionDeclarations, ExposeWorkbenchAccessor, etc.) to single-line or dense block structures.\n- Minify polyfill implementations in `Configuration/Polyfill/` (ChildProcess, FileSystem, IPCRenderer, NativeModule, Process, SharedProcess) by shortening variable names and condensing control flow.\n- Update `Configuration/ESBuild/Output.js` and `Source/ESBuild/Output.js` to match the minified style.\n- Delete all `.js.map` source map files for these configurations to reflect the minified production-ready state.\n\nThe Output build pipeline remains functionally identical; only source formatting and size are affected.",
+			"SHA": "e8187bfba98a1c9fe2a56c34d1fbd0f2d2486501"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T21:54:01Z",
+			"Date": "2026-05-03T09:33:07Z",
 			"File": [
-				"⡿⠀⠀⠀⠀",
-				261,
-				45
+				"⣿⣿⡟⠀⠀",
+				368,
+				200
 			],
-			"Message": "feat(Output): Fix Monaco worker bootstrap crashes and add polyfill telemetry\n\nAdd two new build transforms that fix worker bootstrap crashes in the bundled editor:\n\n1. InjectWorkerBootstrapShim: Injects `__name`/`__defProp` shim into `webWorkerServiceImpl.js::getWorkerBootstrapUrl` blob factory so Monaco's language workers (TS/CSS/HTML/JSON services, semantic tokens) inherit the helpers in their module scope. Without this, workers crash with `ReferenceError: Can't find variable: $4e` when Vite/OXC mangling renames `__name` to `$4e`.\n\n2. RewriteNestedWorkerBootstrap: Replaces `polyfillNestedWorker.js`'s `(function... ).toString()` pattern with a literal JSON.stringified source that omits the cosmetic `__name(...)` decorations. The `.toString()` approach returns mangled source (`$4e`) which the blob worker can't evaluate since the identifier isn't defined in its scope.\n\n3. RewriteStaticBlockSelfRef: Replace hardcoded 2-file whitelist with auto-detection across all `vs/*.js` files - the whitelist silently failed because VS Code's out-build mangler emits different class names than expected.\n\n4. InstrumentVscodeGit: Add markers F (createModel done) and L (openRepository getRepositoryRoot done) for finer-grained Git extension activation diagnostics.\n\n5. Telemetry: Add global `__LAND_POLYFILL_TELEMETRY__` hook and wire it into ChildProcessPolyfill, IPCRendererShim, ProcessPolyfill, and SharedProcessProxy to route silently-caught failures to PostHog for monitoring.",
-			"SHA": "e0fda068f1befeb3a76f470689b34bd8378fe554"
+			"Message": "refactor(Output): Reformat build configuration and plugin pipeline for readability\n\nReformat the entire Output element's ESBuild configuration, plugin definitions, and polyfill scripts. Apply consistent whitespace, indentation, and array formatting across all `.js` and `.ts` files in `Configuration/` and `Source/` to align with the project's PascalCase naming conventions and readability standards.\n\nKey modifications:\n- Unbundle minified one-liners in `Configuration/ESBuild/` exclusion patterns and plugin transforms into multi-line structures for clarity.\n- Refactor `Source/Plugin/Index.ts` import statements and the `BuildPipeline` composition logic.\n- Update PostHog telemetry injection in `Source/ESBuild/Output.ts` to include environment variables `Capture` and `Report` as kill switches.\n- Reformat polyfill implementations (`ChildProcess`, `FileSystem`, `IPCRenderer`, etc.) to improve code density and maintenance.\n- Update `CHANGELOG.md` to reflect v2.2 correctness pass details.\n\nThe logical behavior of the build pipeline remains unchanged; the commit solely addresses source formatting and documentation consistency.",
+			"SHA": "949644e58395513f22db52abe8e8f16d6afde1f4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:56:17Z",
+			"Date": "2026-05-03T06:24:11Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				266,
-				1
+				"⣿⣿⡇⠀⠀",
+				269,
+				137
 			],
-			"Message": "refactor(Output): Update RewriteStaticBlockSelfRef to auto-detect affected files and remove manual whitelist\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "4fab2bb7a34e298cf9ea9c00697fedeedbacb2ac"
+			"Message": "refactor(Output): Reformat build configuration and plugin pipeline for readability\n\nReformat the entire Output element's ESBuild configuration, plugin definitions, and polyfill scripts. Apply consistent whitespace, indentation, and array formatting across all `.js` and `.ts` files in `Configuration/` and `Source/` to align with the project's PascalCase naming conventions and readability standards.\n\nKey modifications:\n- Unbundle minified one-liners in `Configuration/ESBuild/` exclusion patterns and plugin transforms into multi-line structures for clarity.\n- Refactor `Source/Plugin/Index.ts` import statements and the `BuildPipeline` composition logic.\n- Update PostHog telemetry injection in `Source/ESBuild/Output.ts` to include environment variables `Capture` and `Report` as kill switches.\n- Reformat polyfill implementations (`ChildProcess`, `FileSystem`, `IPCRenderer`, etc.) to improve code density and maintenance.\n- Update `CHANGELOG.md` to reflect v2.2 correctness pass details.\n\nThe logical behavior of the build pipeline remains unchanged; the commit solely addresses source formatting and documentation consistency.",
+			"SHA": "5d96f05899866da6486915f209a6bae7215ab9d9"
 		}
 	],
-	"TimeStamp": 1781194539753
+	"TimeStamp": 1781360183643
 }

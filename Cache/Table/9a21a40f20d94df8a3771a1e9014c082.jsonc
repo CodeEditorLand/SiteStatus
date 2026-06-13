@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T00:52:04Z",
+			"Date": "2026-05-20T08:32:14Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				1580,
+				2
 			],
-			"Message": "refactor(Mountain): Remove static runtime environment configuration from Info.plist\n\nStrip the `LSEnvironment` dictionary and associated `Disable` and `Trace` flags from `Info.plist`. These static configurations, which defined critical gRPC ports (`NetworkMountainPort`, `NetworkCocoonPort`) and execution tiers (e.g., `TierRemoteProcedureCall`, `TierExtensionActivation`), were re-introduced in the previous commit but are being removed to transition the runtime environment setup away from static plist injection.\n\nRetain the `CFBundleIconFile` entry to ensure the application icon is correctly resolved by macOS. This change prepares the native backend to source its runtime configuration exclusively from the `Mountain` environment variable system or dynamic initialization logic, reducing coupling with the application bundle's metadata and aligning with the flexible configuration strategy required for multi-platform deployment.",
-			"SHA": "d29b58488ebff9a89e854038127b6ca2c6dadcb6"
+			"Message": "feat(Mountain): Gate asset deployment strategy behind $TierSchemeAssets env var\n\nIntroduce a build-time gating mechanism that selects between two asset deployment modes: Embedded (default, assets Brotli-compressed into the binary) and FileSystem (full disk layout in Contents/Resources/ served via the localhost plugin static_root fallback).\n\nIn build.rs, read $TierSchemeAssets (defaults to \"Embedded\") and mutate tauri.conf.json at build time:\n- Embedded: frontendDist=\"../Sky/Target\", bundle.resources holds only Cocoon-needed files (bootstrap, extensions, nls, node_modules, product.json).\n- FileSystem: frontendDist=null, bundle.resources maps the full Sky/Target/ tree (Browser, BrowserProxy, Bundled, vs/, _astro/, index.html, etc.).\n\nIn LocalhostPlugin.rs, wrap the static_root resolution and Builder.static_root() call in #[cfg(feature = \"TierSchemeAssetsFileSystem\")] so the disk-fallback code is compiled only when FileSystem mode is active. Add \"TierSchemeAssetsFileSystem\" to IsDeclaredTierFeature and remove \"FileSystem\" from IsDefaultTierValue so it now emits a cfg feature rather than being a silent default.\n\nThis completes the foundation laid by the Static/Application/ prefix refactoring, making the deployment mode selectable at build time via a single environment variable rather than manual tauri.conf.json editing.",
+			"SHA": "a9e4b2d9bf9e3ed04251361f03325445f343e208"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T00:14:59Z",
+			"Date": "2026-05-20T08:21:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				15
+				1580,
+				4
 			],
-			"Message": "feat(Mountain): Restore experimental feature flags and runtime environment config\n\nReintroduce the `grove` and `cocoon` feature flags in `Cargo.toml` to enable conditional compilation for the future native extension host (Grove) and the current extension host sidecar (Cocoon). These flags are required by the build system's tier-gating logic.\n\nRestore the `LSEnvironment` dictionary in `Info.plist` containing critical runtime configuration values, including network ports for Mountain and Cocoon, product identifiers, and tier definitions (e.g., `TierRemoteProcedureCall`, `TierExtensionActivation`). This reverses the removal performed in previous commits, re-establishing the static environment injection required for the macOS application to bootstrap its sidecar connections.\n\nConcurrently, enhance documentation in the `Track/Effect/CreateEffectForRequest` module. Add comprehensive module-level comments and method tables to all RPC handler files (Documents, FileSystem, Git, LanguageFeatures, Languages, Search, StatusBar, TreeView, UserInterface, Webview, Workspace). These comments detail the specific RPC methods handled, the underlying `MountainEnvironment` trait providers used, and the execution model for each request type.",
-			"SHA": "511f9b624577e1447543ef14f5d12723316a452c"
+			"Message": "refactor(Mountain): Consolidate bundle resources under Static/Application prefix\n\nTransition the Tauri bundle layout from flat resource paths to a structured \"Static/Application/\" prefix, unifying the bundle and development directory trees under a single source of truth. This eliminates the mismatch between the flat bundle layout (Contents/Resources/extensions) and the monorepo layout (Sky/Target/Static/Application/extensions).\n\nIn tauri.conf.json, remap all resource entries to target \"Static/Application/...\" and set frontendDist to null so the dev server delegates to the localhost plugin's static_root disk fallback. Add static_root resolution in LocalhostPlugin.rs that probes both the production bundle path (../Resources/) and the monorepo dev path (../../../Sky/Target/).\n\nIn ScanPathConfigure.rs, register the new canonical extensions path (Resources/Static/Application/extensions) before the legacy flat paths, which are retained as fallbacks for existing development environments.\n\nLegacy flat paths remain functional during the transition, so existing dev runs and CI pipelines continue to work until all resource mapping is migrated.",
+			"SHA": "58b34f8a23c47aec5c01e92c493060403c7159b4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T23:00:41Z",
+			"Date": "2026-05-20T06:37:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				1576,
+				4
 			],
-			"Message": "build(Mountain): Enable experimental feature flags for terminals and debug protocol\n\nUpdate the default feature set in `Cargo.toml` to conditionally enable `terminals`, `debug-protocol`, `scm-support`, `child-processes`, and `Development` alongside existing `Cocoon`, `Mist`, and `Air` integrations. This consolidates the build configuration to activate support for terminal emulation, debugging capabilities, source control management, and child process handling by default.\n\nRemove the now-unused `grove` and `cocoon` feature placeholders from the list, aligning the feature registry with the current implementation status. This prepares the native backend for upcoming component integration while maintaining the explicit `Telemetry` and `Test` flags for optional toggling.",
-			"SHA": "a2869e478f35c9bc90a23edc28e7a95f066f88a9"
+			"Message": "chore(Mountain): Strip verbose build identifiers, restore compact names\n\nRevert the DevelopmentNodeEnvironment_MicrosoftVSCodeDependency verbose naming scheme introduced in the previous commit for Cargo.toml bin/lib/package names and tauri.conf.json identifier/productName. Replace identifier with the stable \"fiddee.editor.binary\" key and set productName to \"Mountain\".\n\nAlso collapse externalBin and targets arrays back to single-line format (reverting the formatting change from the previous commit) and delete the .Backup files that were created alongside the verbose identifiers.\n\nThe verbose identifiers were only needed during a transitional Electron-profile debugging phase and are no longer required for the production Rust/Tauri pipeline.",
+			"SHA": "f3219cd8532d03baa1cef3f2a23e51c026653c44"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:38:10Z",
+			"Date": "2026-05-20T06:37:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1578,
 				1
 			],
-			"Message": "feat(Mountain): Enable content protection for macOS overlay title bar\n\nAdd the `content_protected(true)` setting to the macOS `WindowBuilder` configuration in `WindowBuild.rs`. While the `TitleBarStyle::Overlay` is required for custom traffic light rendering, it allows webview content to extend underneath the system window controls by default.\n\nThis protection flag reserves a safe zone around the traffic-light cluster on macOS, preventing the `WKWebView` from rendering underneath the native buttons. This resolves potential click-through issues and visual overlap between the editor workbench and the system titlebar, ensuring the custom traffic lights remain interactive and visually distinct.",
-			"SHA": "2d569c4b2d69bcbff098a7bcaf449f7098f3db8b"
+			"Message": "style(Mountain): Format arrays in tauri.conf.json\n\nReformat `externalBin` and `targets` arrays in tauri.conf.json from single-line to multi-line for consistency with the rest of the configuration file. Also strip the trailing newline to match convention.\n\nNo functional changes — purely cosmetic formatting.",
+			"SHA": "4b54b6c25ffbf182ea9e813b5027759384979cf7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:23:17Z",
+			"Date": "2026-05-20T06:13:28Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				1578,
+				7
 			],
-			"Message": "fix(Mountain): Wrap webview scheme handler closure in AssertUnwindSafe\n\nUpdate the `catch_unwind` invocation in `VscodeWebviewSchemeHandler` within `Scheme.rs` to explicitly wrap the closure in `AssertUnwindSafe`. The previous implementation omitted this trait requirement, causing compilation failures when attempting to catch panics inside the async closure passed to the panic handler.\n\nThis restores the ability to gracefully handle panics within the VS Code webview asset loading path, ensuring that errors in MIME resolution or file reading return HTTP 500 responses rather than crashing the editor process. The change aligns `VscodeWebviewSchemeHandler` with the established panic recovery pattern used in `VscodeFileSchemeHandler`.",
-			"SHA": "01422c257e48f4a9f8a8fb32093daf2a7d283073"
+			"Message": "style(Mountain): Normalize dispatcher indentation; update Cargo/tauri build identifiers\n\nRe-indent the extracted GenericNotification/Dispatcher and GenericRequest/Dispatcher files to remove the spurious extra block indentation level that was carried over from their original inline positions in CocoonService/mod.rs. Reorder imports (std before third-party) and collapse import brace formatting. No logic changes in either dispatcher.\n\nUpdate Cargo.toml binary/lib/package names and tauri.conf.json identifier/productName to the verbose build configuration string for the development/debug Electron profile, distinguishing this build artifact from production Mountain releases. Preserve originals as .Backup copies.\n\nOutcome: dispatcher code now matches project style conventions, and the development build artifact is correctly labelled for toolchain identification.",
+			"SHA": "e78bf315d71ba4a49c4200d7f7002d24f6058255"
 		}
 	],
-	"TimeStamp": 1781194541747
+	"TimeStamp": 1781360192321
 }

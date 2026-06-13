@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-04-27T03:36:56Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T23:34:39Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				227,
-				1
+				"⠁⠀⠀⠀⠀",
+				368,
+				12
+			],
+			"Message": "fix(Output): Disable EditContext and refine WKWebView input polyfills\n\nAdd ForceTextAreaInput transform that flips Monaco's `editor.editContext`\ndefault from `true` to `false`, routing keyboard input through the legacy\n`<textarea class=\"inputarea\">` rather than the EditContext API. WKWebView's\nEditContext support is flaky enough that focused divs silently swallow\nkeystrokes - users see the cursor blink but typing produces nothing.\n\nRefine WorkbenchInteractivityCSS polyfill (V2):\n- Remove blanket `visibility: visible` and `opacity: 1` on workbench parts.\n  These forced invisible click-capturing rectangles over the editor that\n  absorbed clicks before Monaco's mousedown handler fired, presenting as\n  \"I clicked the editor but typing doesn't work\".\n- Add explicit `pointer-events: auto` rules for Monaco's textarea input\n  chain (.overflow-guard, .lines-content, .inputarea) to survive stacking\n  context interactions with our `InjectPartZIndexCSS` `isolation:isolate`.\n\nRefine WorkbenchPaintPrime polyfill (V2):\n- Remove `keydown` and `focus` capture-phase listeners. Each keystroke\n  triggered a synchronous `FindPartAncestor` + forced reflow BEFORE the\n  event reached Monaco's textarea, and the oninput queue could drop the\n  keystroke. Keeping only `pointerdown` still primes paint on first click\n  without breaking the input path.\n\nAdd LandDisableAll gate: when `process.env.Disable` is `\"true\"`, skip all\ntransform plugins and run only Copy plugins. Produces \"vanilla VS Code on\nTauri\" useful for bisecting whether regressions are in our polyfills or\nin upstream/Tauri/WKWebView.",
+			"SHA": "44e160c6b8a8de6aaa693bc8e4b6e3fcd56d49c6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T23:34:25Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				365,
+				7
+			],
+			"Message": "feat(Output): Add RewriteWebviewShellCSP transform and fix icon URL rewriting\n\nAdd a new transform plugin that loosens the webview shell's CSP script-src from a stale sha256 hash to `'unsafe-inline' 'self' blob:`. Stock VS Code pins the hash; WKWebView computes it differently from Chromium, and any transform that touches the inline script body silently invalidates it. This matches Land's single-user desktop threat model and lets every extension webview boot.\n\nAlso fix RewriteIconsStyleSheetURLs to handle a third URL scheme that leaks through under Tauri/WKWebView: plain `file:///` URLs. Stock VS Code's FileAccess.uriToBrowserUri only converts file→vscode-file when process.versions.node exists, but the shim isn't always installed before iconsStyleSheet.getCSS() runs. The @font-face rule then fetches a 0-byte mixed-scheme response and codicons render as missing-glyph boxes. Add a third replace: `file:///...` → `<origin>/Extension/...`.\n\nBump marker version to _V2 so prior builds get re-patched rather than skipped. Update regex patterns to handle trailing replace chains from previous transform versions.",
+			"SHA": "8a3e8d281a0c6815422cea9dd2278e24923ff677"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T20:27:12Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				363,
+				19
+			],
+			"Message": "feat(Output): Add macOS titlebar offset and z-index CSS transforms\n\nAdd two new Output transforms that inject runtime CSS to fix WKWebView visual issues:\n\n- InjectMacTitlebarOffsetCSS: Reserve ~80px on the left of the workbench titlebar so the in-window menubar (`File / Edit / View / ...`) and command-center quick-pick stop overlapping with macOS traffic lights. Targets `.monoco-workbench.mac` only via the standard marker pattern.\n\n- InjectPartZIndexCSS: Establish explicit z-index hierarchy for every workbench part (`isolation: isolate` + numeric z-indexes) so a sibling that accidentally creates a stacking context (transform, opacity) can't hide the activity bar, sidebar, panel resize handle, status bar badges, or command-center dropdown.\n\nAlso expand StripWebviewIframeSandbox to patch BOTH the outer iframe creation site (`webviewElement.js`'s `element.sandbox.add(...)`) AND the pending-frame-swap site (`pre/index.html`'s `setAttribute('sandbox', ...)`). The earlier single-file patch wasn't sufficient - the outer iframe remained sandboxed and blocked all webview loads with the \"custom protocol from sandboxed iframe\" error.\n\nAdd RewriteWebviewShellCSP: loosen the webview shell's CSP script-src from a stale sha256 hash (WKWebView normalizes CR/LF differently) to `'unsafe-inline' 'self' blob:`. Matches Land's single-user desktop threat model; every extension webview now boots.",
+			"SHA": "0d47460778c1a546313b88539815d6ebde3bb03e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T18:59:27Z",
+			"File": [
+				"⣿⣿⡟⠀⠀",
+				350,
+				189
 			],
 			"Message": "",
-			"SHA": "b15b23fcc0bb6abe76c9a5368f90a6c924b6c1f0"
+			"SHA": "fc91741983660b9ae401dd22f9fbfa1fa3a1301f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:05:00Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				227,
-				5
-			],
-			"Message": "feat(Output): Add InstrumentVscodeGit transform plugin\n\nAdd the InstrumentVscodeGit transform to the build pipeline, which\ninjects `process.stdout.write('[GIT-MARK-X] ...')` diagnostic markers\ninto the bundled vscode.git extension's main.js and model.js at\nstrategic activation-pipeline points.\n\nThe markers bypass Cocoon's outputChannel routing (which is muted in\nLAND_DEV_LOG=short) to provide unambiguous progress signals during\nthe F6 diagnostic workflow. Each marker has a distinct prefix that can\nbe grepped to identify exactly where vscode.git's activation silently\nbails out, leaving the SCM viewlet empty despite the extension\nactivating within 2814-4173ms.\n\nThe transform is self-idempotent — it skips injection if the marker\nis already present, allowing safe re-runs of the build pipeline.",
-			"SHA": "d70e115fe483bffb3f7391d3692c590b5e525ad6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:04:45Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				225,
-				5
-			],
-			"Message": "feat(Output): Expand workbench service exports + add git instrumentation\n\nExpand the ExposeWorkbenchAccessor transform to export additional\nservices and classes needed by SkyBridge's in-process providers:\n\n- SCM, Debug, CustomEditor service decorators - allow SkyBridge to\n  register providers that mirror Cocoon's extension-host registrations\n  (sky://scm/*, sky://debug/*, sky://customEditor/* events)\n- Emitter, Disposable, toDisposable - required for SCM provider shim's\n  event interface (ISCMService expects onDidChange* events matching\n  vs/base/common/event.js::Emitter's shape)\n- IModelService + ILanguageService - needed to construct real ITextModel\n  for the SCM inputBox (MainThreadSCMProvider rejects null inputBox)\n- ResourceTree + IUriIdentityService - for grouped SCM repository rendering\n\nAlso add InstrumentVscodeGit, a new diagnostic transform that injects\nprocess.stdout.write('[GIT-MARK-X] ...') markers into the bundled\nvscode.git extension's main.js and model.js. This bypasses Cocoon's\noutputChannel routing (muted in LAND_DEV_LOG=short) to diagnose why\nthe SCM viewlet stays empty despite vscode.git activating within\n2814-4173ms. The last visible marker identifies the exact bail point.",
-			"SHA": "a349f4ae1e12e98b33334504832d802cdbf6d3b4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:50:00Z",
+			"Date": "2026-04-30T05:00:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				224,
-				2
-			],
-			"Message": "feat(Output): Add URI import to ExposeWorkbenchAccessor transform\n\nComplete the workbench accessor patch by statically importing the `URI` class alongside the existing service decorators. The previous commit exposed the URI via the `__CEL_SERVICES__` object, but the import statement was missing from the transform's header injection.\n\nThis fix ensures the transform plugin injects the necessary import for `URI` when patching `web.main.js` and `desktop.main.js`, allowing SkyBridge's search provider to construct resource objects the workbench accepts directly without a `URI.revive` round-trip.",
-			"SHA": "3db8e24cd143fa7887d7395c6a0a2fbf53ac02f4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:29:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				224,
+				255,
 				1
 			],
 			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "842a79df562bc93fdaa122204343e99fa39933e9"
+			"SHA": "151dce184be08ba55c2f5dc406c5ff914a82ea70"
 		}
 	],
-	"TimeStamp": 1781194540658
+	"TimeStamp": 1781360186880
 }

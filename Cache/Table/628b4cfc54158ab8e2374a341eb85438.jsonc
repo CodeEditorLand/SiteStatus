@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:48:41Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				266,
-				16
-			],
-			"Message": "feat(Output): Add HoistFunctionDeclarations and RewriteStaticBlockSelfRef transforms\n\nAdd two new build transforms to Output's ApplyPipeline that fix TDZ errors in bundled VS Code:\n\n1. HoistFunctionDeclarations: Moves top-level `function NAME(...) {...}` declarations and ESBuild helper vars (`__defProp`, `__name`, `__decorate`, `__param`) to the top of each file, before any calls. After Rollup concatenation converts function declarations to `let NAME; NAME = function(){...}`, calls before the assignment hit a TDZ. Pre-hoisting preserves the unbundled semantics.\n\n2. RewriteStaticBlockSelfRef: Rewrites class-name self-references (`ClassName.member`) inside `static {...}` blocks to `this.member`. After bundling, `class X {...}` becomes `let X; X = class{...}` so static block self-references resolve to undefined. Inside a static block, `this` IS the class.\n\nAlso update InjectNameShim to add 'unsafe-inline' to the iframe's CSP - the name shim injection invalidates the SHA256 hash. Update RewriteWorkbenchBaseURL to use a literal import string instead of runtime-computed URL, enabling Vite/Rollup to follow the module graph for bundling.\n\nThese transforms enable the bundled workbench to boot correctly after Output's tree shake + bundle pass.",
-			"SHA": "3c4cbf07803c8b20cfceed4186ca2dd24682c052"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T05:26:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				260,
-				1
-			],
-			"Message": "refactor(Output): Exclude StaticToDynamicImport and CSS transforms from ApplyPipeline\n\nRemove CSSStrategy (InlineCSSImport/StripCSSImport) and StaticToDynamicImport from Output's ApplyPipeline. These transforms rewrite static imports into runtime forms (`await import(...)` for JS, `_LOAD_CSS_WORKER(...)` for CSS) which suit the `/Static/Application/` path where files are individually loaded via the Worker SW.\n\nFor Output's bundled tree where Vite walks Target, we WANT static imports so Rollup can follow the module graph and emit a single hashed chunk. CSS is handled by Vite's native pipeline which extracts and hashes CSS assets into `_astro/`, with `cssCodeSplit: false` in astro.config.ts to fold every CSS module into one file.\n\nSky's `astro:build:done` hook still runs the full BuildPipeline (including these transforms) over Sky/Target/Static/Application/, so the existing path maintains its runtime-load behavior. The two output trees diverge intentionally.",
-			"SHA": "5b9e387695fc9812e24274d0b447d42550613243"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:53:25Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				260,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "ae22fae83e8e83ac908e8af3a3159e2340b00435"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T04:53:22Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				260,
-				46
-			],
-			"Message": "feat: Implement ApplyPipeline for output-side transforms\n\n- Added ApplyPipeline.ts to run transform plugins after building VS Code.\n- Copied TauriMainProcessService.js to Output's Target for correct imports.\n- Introduced new transform plugins: InjectWebViewPolyfills, RewriteWorkerURLs, and RewriteWorkbenchBaseURL.\n- Updated existing plugins to ensure compatibility with new output structure.\n- Adjusted paths in Polyfill and Service modules to point to the new Target structure.\n- Modified prepublishOnly.sh to include the ApplyPipeline execution step.\n- Removed outdated exports and typesVersions from package.json.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "405c62842baa1e3d74c9403c903f299308f6bcb8"
-		},
-		{
 			"Author": "Auto",
-			"Date": "2026-04-28T03:42:58Z",
+			"Date": "2026-05-03T03:47:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				236,
+				269,
 				1
 			],
 			"Message": "",
-			"SHA": "111546dff13aad48b458ee6f709e5b8f31365cd9"
+			"SHA": "5e2dd204ead0ef0467e39b0ad9d3d3376c224dad"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T09:46:22Z",
+			"File": [
+				"⣿⣿⣿⡏⠀",
+				269,
+				198
+			],
+			"Message": "save\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "0a85c82b4f9c3a81b474cc12da7b6a25ca81558b"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-02T03:26:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				368,
+				1
+			],
+			"Message": "",
+			"SHA": "75641f620ffb6e87d74e991c621907f804ca13eb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T00:15:06Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				368,
+				7
+			],
+			"Message": "fix(Output): Restore eager paint and re-enable webview panel service injection\n\nRevert the `DisableLazyPaint` opt-in gate to restore unconditional requestAnimationFrame and IntersectionObserver overrides. The previous gating (`__LAND_AGGRESSIVE_LAZY_PAINT__`) regressed editor mount behavior—preventing the editor from loading until user interaction—because WKWebView's compositor does not fire native callbacks on hidden surfaces. Restoring the overrides ensures immediate paint and layout resolution without relying on user clicks.\n\nRe-introduce the `.monaco-workbench .part { isolation: isolate; }` CSS rule in `PartZIndexCSS`. While this rule previously blocked input events under WKWebView, that issue was resolved by the `ForceTextAreaInput` fix in recent commits. The `isolation` property is now required to prevent `transform: translate3d` hints from promoting individual parts into new stacking contexts, which was hiding sibling layers.\n\nAugment the `ExposeWorkbenchAccessor` transform to inject `IWebviewWorkbenchService`. This service is required by `SkyBridge` to materialize real editor-based panels for `vscode.window.createWebviewPanel` calls (e.g., Roo chat, Claude surfaces). Without this injection, such webviews were silently parked in memory and never rendered. The service is now exposed alongside `IWebviewViewService` and other core workbench services via the `__CEL_SERVICES__` facade.",
+			"SHA": "cc92003ba07d5af70491041752a39a3b4ebebe0a"
+		},
+		{
+			"Author": "github-actions[bot]",
+			"Date": "2026-05-01T18:02:16Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				368,
+				1
+			],
+			"Message": "Merge pull request #138 from CodeEditorLand/dependabot/github_actions/pnpm/action-setup-6.0.4\n\nbuild(deps): bump pnpm/action-setup from 6.0.3 to 6.0.4",
+			"SHA": "51e1f2c3b80503f5094bdf8007ec36eafd418da9"
 		}
 	],
-	"TimeStamp": 1781194540023
+	"TimeStamp": 1781360184913
 }

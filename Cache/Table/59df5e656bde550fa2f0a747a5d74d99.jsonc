@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T14:47:55Z",
-			"File": [
-				"⣿⠃⠀⠀⠀",
-				1195,
-				300
-			],
-			"Message": "chore(build)\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "be98fe831f1ba81ea685235a6c6ab71158fca0a5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T13:07:24Z",
+			"Date": "2026-06-12T21:47:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1036,
-				5
+				561,
+				3
 			],
-			"Message": "style(Cocoon): Normalize formatting across source and generated files\n\nClean up whitespace and indentation inconsistencies in Cocoon extension host:\n- Proto/vine.d.ts: Convert space indentation to tabs for consistency with project style\n- Source/Services/Command.ts: Fix string template literal formatting in logger call\n- Source/Services/Handler/VscodeAPI/Wrap/Namespace/With/Heuristics.ts: Align closing brace indentation\n- Source/Services/Workspace.ts: Collapse multi-line property getters to single line where appropriate\n- Archive/PatchProcess/ExitPreventedProblem.d.ts: Ensure newline at end of file\n\nAll changes are purely cosmetic with no functional impact. Improves code consistency and passes style checks.",
-			"SHA": "0c7ceb67c99509b2935c1ccfe8198b7d20a25cc2"
+			"Message": "refactor(Cocoon): Normalize Effect-TS pipe-chain patterns\n\nStandardize three call sites in Output, Webview, and Factory modules to use `.pipe()` chaining instead of nesting effects inside runner functions.\n\n**Channel.ts:** Extract the `Channel` variable before wrapping in `Effect.succeed()`, replacing an inline cast pattern that collapsed declaration and return. Insert a TODO(EFX-30) marker for the planned `Effect.gen` → `async/await` migration.\n\n**Webview/Panel.ts:** Convert `Effect.runPromise(Logger.Debug(...))` to `Logger.Debug(...).pipe(Effect.runPromise)` — idiomatic left-to-right Effect-TS composition.\n\n**Factory.ts:** Replace `Effect.runFork(Ref.update(...))` (fire-and-forget fiber) with `void Ref.update(...).pipe(Effect.runPromise).catch(() => {})`, ensuring the ActivePanelsRef registry cleanup runs to completion rather than being scheduled on a fiber that may be abandoned. The explicit `void` + `.catch` matches Cocoon's established fire-and-forget idiom for side effects that must complete synchronously.\n\nNo behavioral changes to any module.",
+			"SHA": "aa58914543fb46baadcd35fa8151c4510a76d30c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T12:58:53Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				1036,
-				237
-			],
-			"Message": "build(Cocoon): Regenerate Target artifacts with heuristic namespace wrapper\n\nAfter the previous commit removed the entire Target/ compiled artifact tree to force a clean regeneration, this commit represents the fresh build output. The regeneration includes 200+ compiled JavaScript files across Target/Bootstrap, Target/Codegen, Target/Effect, Target/IPC, Target/Interfaces, Target/PatchProcess, Target/Platform, Target/Services, Target/Telemetry, Target/TypeConverter, Target/Utility, and Target/WebviewPanel directories.\n\nSource changes accompanying the regeneration:\n- Update RouteManifest generation timestamp to 2026-06-10T12:50:43Z\n- Simplify CommandService local registry mutation (direct Map.set vs IIFE)\n- Add WrapNamespaceWithHeuristics proxy wrapper for VS Code API namespaces — unknown property accesses now return heuristic stubs instead of undefined, improving resilience when extensions call unsupported APIs\n\nThis completes the clean regeneration cycle with the new heuristic fallback infrastructure for the extension host.",
-			"SHA": "b45de46810b2aa45f31613718b97348f460d272c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T12:45:41Z",
+			"Date": "2026-06-12T21:23:52Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				630,
+				561,
+				1
+			],
+			"Message": "feat(Cocoon): Filter stale-channel frames in bidirectional gRPC stream\n\nMountain stamps Envelope.ChannelId (uint64, field 5) on every frame it pushes through the bidirectional streaming pump. When a stream is reopened — after a connection reset or re-registration — the old Mountain process may still send straggler frames through the previous registry entry before it shuts down.\n\nCapture the first nonzero ChannelId seen on each stream as the session identity. Frames arriving with a nonzero ChannelId that does not match the established session id are discarded immediately with a dev-log entry. ChannelId \"0\" (absent) is treated as a wildcard for backward compatibility with older Mountain builds and client-originated frames.\n\nAlso include the session ChannelId in the stream-closed dev-log for diagnostics.",
+			"SHA": "661b375e7c7bd4a9cca703be91ec5d0980670a73"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:22:14Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				561,
 				6
 			],
-			"Message": "",
-			"SHA": "0f5540b6877c81c637ab835bd7dfa5f5540470bd"
+			"Message": "feat(Cocoon): Implement willSave-as-REQUEST path; fix URI hydration and status bar paired colors\n\nAdd a `$willSaveDocument` REQUEST route in RequestRoutingHandler so Mountain can call Cocoon for TextEdits before persisting a document — the edits are returned in the response rather than fire-and-forget via `window.applyTextEdits`. Extract the listener collection logic from NotificationHandler into `CollectWillSaveDocumentEdits` with a 1.5s timeout cap on listener thenables; the notification path delegates to it and awaits before forwarding edits.\n\n**Bootstrap.ts:** Replace static stage-group arrays with a promise chain that links RPCServer → MountainConnection via `.then()`, letting the connect attempt start the moment the server settles instead of waiting for ModuleInterceptor too. Early-exit on RPCServer failure via `process.exit(1)` instead of `find`-based detection.\n\n**Env/Namespace.ts:** Hydrate every URI shape extensions hand to `openExternal` — string, real `vscode.Uri`, URI-like POJO, and the underscore-serialized wire form (`_scheme`, `_path`) — instead of casting with `String(Target)` which produces `[object Object]`. Implement `asExternalUri` that returns a real URI-compatible object with a `toString()` so extensions embedding the result in OAuth redirect URLs get a valid URL string. Respect Mountain's `isTelemetryEnabled` init payload when present.\n\n**Window/CreateStatusBarItem.ts:** Implement paired-theme-color semantics: when `statusBarItem.errorBackground` or `statusBarItem.warningBackground` is set, force the corresponding foreground (`errorForeground` / `warningForeground`) and serialize both as `{ id }` theme-color references instead of passing raw objects Mountain cannot resolve. Reject unsupported background theme IDs.\n\n**Window/Namespace.ts:** Extract `SendTreeRegister` with a retry that listens for `extensionHostInitialized` (plus a 2s fallback timer) so tree views registered before the Mountain connection is live still appear in the workbench. Fix `QuickPick.onDidChangeActive` vs `onDidChangeSelection` separation — each now has its own listener array, and assigning `items` resets the active item to the first entry and fires `onDidChangeActive` per VS Code semantics.",
+			"SHA": "9445a0082898d69fe8ebab1f92c68974af1b73c4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T12:45:40Z",
+			"Date": "2026-06-12T20:34:52Z",
 			"File": [
-				"⣿⣿⠇⠀⠀",
-				630,
-				300
+				"⠀⠀⠀⠀⠀",
+				561,
+				1
 			],
-			"Message": "refactor(Cocoon): Introduce RouteManifest routing hierarchy and lean Memento implementation\n\nAdd generated Source/Generated/RouteManifest.ts defining the four-tier RPC routing hierarchy for Mountain ↔ Cocoon communication: MountainMethods (tier 1, 146 Rust handlers scanned from Mountain), StockLiftExports (tier 2, pure VS Code lifts, currently empty), BespokeCocoonMethods (tier 3, hand-rolled Node fallbacks: FindTextInFilesNodeFallback), with tier 4 implicit unavailable methods throwing via DualTrack. Add accompanying RouteManifest.Report.md for generation metadata.\n\nRefactor Source/Services/Extension/Context.ts Memento class: replace Effect-TS Ref/Effect.runSync patterns with plain async IIFE initialization and direct Map mutation for get/keys/update/clear operations. Eliminates Effect overhead for hot-path storage access while preserving Mountain persistence via storage:getItems/storage:remove.\n\nReformat Source/ESBuild.js (tabs→spaces, brace style) and Proto/vine.d.ts (compact interfaces). Remove entire Target/ compiled artifact tree (200+ files) to force clean regeneration on next build. TypeScript build info updated accordingly.\n\nThis is a routine regeneration cycle with new routing manifest infrastructure and leaner extension context storage.",
-			"SHA": "d6d0d21831aca076cf29eb3e31359e6fefda6b9f"
+			"Message": "docs(Cocoon): Restructure README; normalize dash characters and section headings\n\nReorder the README document flow so the \"Getting Started\" section — including prerequisites, build instructions, dependency table, and debugging notes — appears before \"Security\" rather than after it. This aligns the Cocoon README with the standard project-documentation hierarchy (overview → features → architecture → setup → security → API reference).\n\nAlso normalize markdown formatting: replace typographic long dashes (—) with regular hyphens (-) throughout the feature bullet lists, and rename the \"Architecture\" heading to \"System Architecture\" for consistency with the broader Land documentation convention.\n\nNo runtime logic, identifiers, or module structure was modified.",
+			"SHA": "8a69dedc5ac5c3c2f0bfef75719c6648c043fdd3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T20:04:38Z",
+			"File": [
+				"⣿⡟⠀⠀⠀",
+				561,
+				194
+			],
+			"Message": "style(Cocoon): Remove blank lines after opening braces; normalize doc formatting\n\nRemove the blank line immediately following opening braces across all interface, type, enum, class, function, and conditional declarations in the Cocoon source tree, scripts, Proto definitions, services, handler modules, IPC layer, telemetry, type converters, webview panels, and tests — reversing the whitespace convention established in commit 553b7052.\n\nAlso normalize markdown formatting in DeepDive.md and README.md: realign tables with proper pipe-positioned column separators, reflow prose paragraphs to consistent line widths, and clean up table-of-contents indentation.\n\nNo runtime logic, identifier names, or module structure was modified.",
+			"SHA": "85e19690ff82aea5116568ba96185ef7a0cfebb7"
 		}
 	],
-	"TimeStamp": 1781194518041
+	"TimeStamp": 1781360157114
 }

@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T22:36:03Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				28,
+				2
+			],
+			"Message": "refactor(Output): Replace runtime require() with static ES imports in workbench accessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of both web.main.js and desktop.main.js instead of using runtime require() calls. This eliminates AMD require() resolution that could fail in the WKWebView context.\n\nChanges:\n- Anchor on stable import markers ('mark' from performance.js for web, 'localize' from nls.js for desktop)\n- Add IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports\n- Extract shared imports into SharedImportLines to avoid duplication between profiles\n- Add cel:services-ready DOM event dispatch on successful population\n- Add Mountain diagnostic logging for success/failure tracking\n- Add guard check for import marker to avoid matching unrelated files\n\nImpact: __CEL_SERVICES__ is now populated synchronously before the microtask queue drains, ensuring services are available for both web and Electron/Desktop profiles at runtime.",
+			"SHA": "055c5c94f6b7f3de102f98906b05603d30148f0a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T21:47:54Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "feat(Project): Bridge VS Code binary IPC to Mountain backend\n\nCross-cutting submodule sync enabling real file explorer, search, settings, and storage persistence:\n\n1. Mountain: Add VS Code IPC command aliases in WindServiceHandlers to bridge binary IPC protocol to native Effect-TS layer. Configuration: `configuration:getValue`/`updateValue` → `configuration:get`/`update`. File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`. Add stub handlers for `file:watch`/`file:unwatch` and `configuration:onDidChange` returning Null to prevent promise leaks.\n\n2. Output: Route VS Code binary IPC channels (25+ including localFilesystem, storage, configuration, search, terminal) to Mountain via MountainIPCInvoke instead of returning stub responses. Previously these channels returned FileNotFound, empty arrays, and empty objects.\n\n3. Cocoon: Enhance stderr filtering to suppress follow-up stack frames from extension errors.\n\nImpact: File explorer, search results, settings editor, and workspace storage now persist data to the real filesystem and backend instead of operating on in-memory stubs.",
+			"SHA": "edac4ec11f545cf3816d3a6cbb8db965aeff42eb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T21:25:45Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				28,
+				2
+			],
+			"Message": "feat(Project): Implement workspaceContains activation and reduce stderr noise\n\nCross-cutting submodule sync across Mountain and Cocoon:\n\n1. Mountain: Fire workspaceContains and onStartupFinished extension activation\n   - Implement VS Code-style startup activation with three bursts: `*`, `workspaceContains:<pattern>`, and `onStartupFinished` (2s delay)\n   - Add FindMatchingWorkspaceContainsPatterns for glob matching against workspace folders (depth 3, 4096 entries max)\n   - Filter benign stderr noise (macOS codesign, Node.js deprecation warnings) to cocoon-stderr-verbose channel\n   - Upgrade Rust edition from 2021 to 2024\n\n2. Cocoon: Reduce stderr spam from extension handler errors\n   - Downgrade $provide*, $resolve*, $get* handler errors from console.error to console.warn\n   - Prevents extension code failures from flooding stderr with full stack traces\n\nImpact: Extensions gated on workspaceContains:package.json and onStartupFinished now activate correctly. Default stderr is cleaner while preserving actionable error visibility.",
+			"SHA": "1cfc2cc882f651b1876ff69fedeadc0a8a61b77d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T20:52:42Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				28,
+				3
+			],
+			"Message": "refactor(Project): Reduce logging noise across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
+			"SHA": "786efde99dc3922147183375645841751ecd3fc2"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-24T20:37:45Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "feat(Project): Reduce Mountain log noise and wire extension tree views\n\nCross-cutting sync across four submodules:\n\n1. **Mountain (refactor):** Reduce high-frequency log noise in default mode by moving per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants muted in `short` mode. Expand IPC skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme. Reduces default log volume from ~14k+ lines per session to ~500 while preserving error visibility.\n\n2. **Output (feat):** Expose IViewsService and TreeViewByViewId in workbench accessor ESBuild transform. Enables Sky to resolve ITreeView instances from ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\n3. **Sky (feat):** Wire extension tree views into workbench rendering pipeline. Attach data providers to tree views that call `tree:getChildren` via MountainIPCInvoke, converting Cocoon wire shape into workbench ITreeItem. Add retry logic (5 attempts, 150ms spacing) for async workbench init. Implement `cel:tree-view:refresh` and `cel:tree-view:dispose` handlers.\n\n4. **Cocoon (sync):** Submodule update.\n\nImpact: Extension-registered tree views (from extensions like GitLens, Debugger) now render in the workbench pane. Default logs are actionable rather than noisy.",
 			"SHA": "ec447b98f146279aa5547aac15f54bc73d744fe0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T17:08:27Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				28,
-				1
-			],
-			"Message": "chore(Cocoon): Sync submodule to cb1a38823f1ee6b4b9386aedc19677e262547920\n\nUpdate Cocoon submodule to the latest commit, bringing in upstream changes to the extension host runtime.",
-			"SHA": "e792634e04de30735905243f7c3ea3eff4a51284"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T16:46:08Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "feat(Mountain): Expand trusted paths and add executable magic-number detection\n\nSubmodule sync bringing three complementary improvements for extension runtime reliability:\n\n1. **Extended trusted paths** (`PathSecurity.rs`):\n   - Add `/tmp`, `/private/tmp`, `/var/tmp` for language servers (ruby-lsp, pyright, etc.)\n   - Add third-party tool state: `~/.gitkraken`, `~/.gk`, `~/.copilot`, `~/.config/git`\n   - Add read-only POSIX OS files (`/etc/os-release`, `/proc/*`, etc.)\n\n2. **Magic-number executable detection** (`VsixInstaller.rs`):\n   - Probe file headers for ELF, Mach-O fat/thin, and shebang\n   - Detect bin paths (`bin/`, `server/`, `tools/`, `omnisharp`, `adapter`, `native`)\n   - Promote 0o644 → 0o755 for detected executables, fixing EACCES on spawn\n   - Add `HealExecutableBits()` to retroactively fix pre-existing installs\n\n3. **Boot-time exec-bit heal** (`Scanner.rs`):\n   - Walk user extensions (`~/.land/extensions/`) at scan time\n   - Apply same heuristic to recover extensions installed before the fix\n\n4. **Benign ENOENT** (`DevLog.rs`): Add vim registers, globalStorage probing, chat editing sessions.\n\nImpact: Extension binaries (rust-analyzer, GitLens, Copilot) that were failing with EACCES due to missing exec bits now run correctly.",
-			"SHA": "991e3b34886434902061a9b60f74bf790222c473"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T15:37:49Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "feat(Project): Add land-native search provider and expose ISearchService\n\nCross-cutting search integration across Sky, Output, and Mountain:\n\n- **Sky (b4358aa9):** Add search result provider routing VS Code's Search viewlet queries through Mountain's `search:findFiles` / `search:findInFiles` handlers. The stock web's `RemoteSearchService` relies on File System Access API which returns `undefined` for Mountain-based filesystem, causing silent zero-result returns. New provider registers for both `file` (0) and `text` (1) search types, translating Mountain hits into `IFileMatch` shape. Also add global exception cap to PostHogBridge to prevent CDN limit flooding (configurable via `LAND_POSTHOG_SKY_EXCEPTION_GLOBAL_LIMIT`, defaults to 7).\n\n- **Output (f651b48f):** Extend ExposeWorkbenchAccessor ESBuild transform to expose ISearchService alongside existing Statusbar, Commands, and CommandRegistry services. Adds require for `vs/workbench/services/search/common/search` and includes `Search` entry in `__CEL_SERVICES__` global, enabling Sky-side bridge code to access search service without re-entering AMD loader.\n\n- **Cocoon (5bc55a9f):** Submodule sync.\n\nImpact: Search functionality now works in the Land editor with Mountain-based filesystem. PostHog exception telemetry respects CDN rate limits.",
-			"SHA": "b0c61117bc38976c071b8690baa6017a75eec5c4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T15:08:08Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				28,
-				2
-			],
-			"Message": "feat(Mountain): Add trusted system paths bypass and idempotent VSIX installs\n\nUpdate Mountain submodule with two related extension-management improvements:\n1. **Trusted system paths** (`PathSecurity.rs`): Add `IsTrustedSystemPath` that defines directories Land owns (`.land/`, Application Support, bundled extension roots, TMPDIR) which bypass the workspace-folder sandbox check. Enables the extension scanner to read `~/.land/extensions` for user-installed VSIXes.\n2. **Idempotent VSIX reinstalls** (`VsixInstaller.rs`): Remove `AlreadyInstalled` error and treat re-installs as no-op when target already exists with a readable manifest. Matches VS Code semantics and prevents renderer crash from null result dereference. Corrupt/partial installs are wiped and re-extracted.\n\nBoth changes unblock the extension loading pipeline, allowing user-installed extensions to appear in the Extensions sidebar.",
-			"SHA": "dffce14837d3c5824a7fff68ae59a46f40915955"
 		}
 	],
-	"TimeStamp": 1781194544223
+	"TimeStamp": 1781360191203
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:36:04Z",
+			"Date": "2026-05-03T08:17:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1117,
-				1
+				1401,
+				10
 			],
-			"Message": "fix(Mountain): Invoke Vine gRPC ConnectToSideCar via explicit Fn method\n\nUpdate the Air sidecar launch logic in `AirStart.rs` to explicitly call the `::Fn` associated method for `ConnectToSideCar` on the `Vine::Client` gRPC stub. This change aligns with the updated calling convention for the Vine protocol client established in recent refactors, ensuring proper method resolution and preventing potential compilation errors or runtime mismatches when establishing the gRPC connection to the Air daemon.\n\nThis ensures consistent RPC communication with the Air sidecar across the Mountain backend.",
-			"SHA": "1ec8fe99d021b78ad6a2d1b4d4316d4581878394"
+			"Message": "feat(Mountain): Implement TLS certificate management IPC command suite\n\nIntroduce a comprehensive set of Tauri commands under `Source/Binary/Build/TlsCommands/` to expose the `CertificateManager` to the Wind/Sky frontend for local TLS/HTTPS provisioning.\n\nThe implementation adheres to PascalCase naming and the project's modular architecture, adding:\n- **DTOs:** `CertificateGenerationResult` and `CertificateStatus` to structure payload responses including expiry timelines and renewal flags.\n- **Lifecycle:** `tls_initialize` loads or generates the root CA; `tls_generate_cert` issues or retrieves server certificates for specific hostnames.\n- **Monitoring:** `tls_check_cert_status` calculates days until expiry and flags renewal needs based on the configured threshold.\n- **Inspection:** `tls_get_all_certs`, `tls_get_server_cert_info`, and `tls_get_ca_cert` provide diagnostic data for the security panel.\n- **Maintenance:** `tls_renew_certificate` and `tls_delete_cert` (currently aliased to renewal) allow manual certificate rotation.\n\nThese commands gate access via the `CertificateManager` state mutex, enabling secure, asynchronous certificate lifecycle operations from the editor UI.\n\nNote: `tls_delete_cert` currently regenerates the certificate as a placeholder until a dedicated deletion logic is implemented in `CertificateManager`.",
+			"SHA": "8e396fbf31d1bb878c5a4609f59a4e823f0f2871"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:35:59Z",
+			"Date": "2026-05-03T08:17:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1117,
-				2
+				1390,
+				14
 			],
-			"Message": "style(Mountain): Compact import and macro formatting in PathCanon module\n\nConsolidate multi-line `use` statements and `dev_log!` macro invocations into single-line blocks within `Source/Cache/PathCanon/Cache.rs` and `SpawnDiagnosticLogger.rs`.\n\nThese stylistic adjustments reduce vertical whitespace in the PathCanon cache implementation and diagnostic logging logic. The changes maintain full functional equivalence while adhering to a more compact Rust formatting convention, ensuring the code remains readable without unnecessary line breaks for simple constructs.",
-			"SHA": "223c09489a18c1679ff49fc34d48615be451198a"
+			"Message": "feat(Mountain): Implement DNS diagnostic and health-check IPC commands\n\nIntroduce a complete suite of Tauri commands under `Source/Binary/Build/DnsCommands/` to expose the internal DNS server state to the Wind/Sky frontend for diagnostic and monitoring purposes. This implements the backend support for a DNS health dashboard and resolution tester.\n\nThe commit adds:\n- **DTOs:** `DnsHealthStatus`, `DnsServerInfo`, `DnsResolutionResult`, `ZoneInfo`, `ZoneRecord`, and `ForwardAllowList` to structure return payloads, adhering to PascalCase naming.\n- **Server Info & Startup:** `dns_get_server_info` returns port status and a persistent startup timestamp captured via `StartupTime`.\n- **Health Monitoring:** `dns_get_health_status` and `dns_health_check` provide aggregated health snapshots and boolean checks for the server, zone, and forwarder states.\n- **Zone Inspection:** `dns_get_zone_info` returns the static `editor.land` authoritative zone snapshot, including SOA, NS, A records, and DNSSEC keys/signatures.\n- **Resolution Logic:** `dns_resolve` handles manual queries, routing `editor.land` to `127.0.0.1` and allowlisted external domains to `TEST-NET-1` placeholders, while rejecting others.\n- **Helpers:** `dns_get_forward_allowlist` and `dns_test_resolution` provide simplified access for automated health loops.\n\nAll commands gate access on the `DnsPort` state, ensuring safe interaction with the underlying Hickory DNS server lifecycle.",
+			"SHA": "004e560b79b0d6cb9ff67b09d4f9de615720c1a3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:35:54Z",
+			"Date": "2026-05-03T08:17:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1117,
-				5
+				1375,
+				7
 			],
-			"Message": "fix(Mountain): Correct import paths for state types and IPC modules\n\nUpdate import statements across the registration modules in `Source/Binary/Register/` to resolve types via their new granular paths. Specifically, change `ApplicationState` to `ApplicationState::State::ApplicationState::ApplicationState` to align with the recent atomic module refactoring. Additionally, update IPC function imports to reference the new sub-modules (`AdvancedFeatures`, `StatusReporter`, `WindAdvancedSync`) under `IPC` and adjust the IPC server reference to explicitly use the legacy `TauriIPCServer_Old` implementation during the transition.\n\nThese changes ensure the binary registration logic correctly resolves all dependencies, preventing compilation failures caused by outdated import paths following the module restructuring.",
-			"SHA": "f5c9c54e3eb34b0908de969b852b449bf47f585c"
+			"Message": "feat(Mountain): Standardize PostHog telemetry namespace and add handler instrumentation\n\nRefactor the PostHog telemetry plugin to adopt the unified `land:<component>:<event>` naming convention, replacing the previous `mountain:` prefix with `land:mountain:` to align with the global telemetry schema used by Cocoon and Sky. This enables consistent aggregation in the Errors & Reliability dashboard via a single `event LIKE 'land:%:error'` query.\n\nKey changes:\n- **Namespace Unification:** Update `CaptureError`, `CaptureIPC`, and `Initialize` to emit events under the `land:mountain:` prefix. Append system metadata (PID, OS, Arch) to session start events.\n- **Handler Instrumentation:** Introduce `CaptureHandler` to emit `land:mountain:handler:complete` events. This tracks `Feature` (IPC route key), `DurationMs`, and success status, enabling the Feature Parity dashboard to compare latency between migrated Mountain (Rust) and Cocoon (Node) handlers.\n- **Configuration Hardening:** Extend `Constants` with OTLP-specific build flags (`OTLPEndpoint`, `OTLPEnabled`) and a master `Capture` kill switch that gates both PostHog and OTLP pipelines. Distinct from the `Disable` flag which controls polyfills.\n- **Runtime Hydration:** Add `HydrateRuntimeEnvironment` to inject build-time telemetry constants into the runtime environment. This ensures child processes (Cocoon, Sky webview) inherit consistent config even when running bare binaries without sourcing `.env` files, while remaining idempotent to allow CI overrides.\n\nThese changes ensure telemetry data is correctly scoped, aggregated, and available for debugging IPC performance and error rates across the entire editor stack.",
+			"SHA": "fa1f78af8f15df86681a6a8307fdf13e12d649bc"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:35:48Z",
+			"Date": "2026-05-03T08:17:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1117,
-				2
+				1373,
+				10
 			],
-			"Message": "fix(Mountain): Correct ApplicationState import paths in Extension module\n\nUpdate the import statements in `Source/Binary/Extension/ExtensionPopulate.rs` and `ScanPathConfigure.rs` to resolve the `ApplicationState` type via the new nested path `ApplicationState::State::ApplicationState::ApplicationState`.\n\nAlign with the recent refactoring of the `ApplicationState` module, which reduced the root module to an atomic placeholder and shifted type definitions to granular sub-modules. This ensures the Extension logic correctly resolves the `ApplicationState` struct and `MapLockError` type, preventing compilation failures caused by the legacy flat import path.",
-			"SHA": "a67458952138f9e4d9c48362e2943e328fafd8e4"
+			"Message": "feat(Mountain): Implement native Git IPC service handlers\n\nIntroduce a complete suite of Tauri command handlers under `Source/IPC/WindServiceHandlers/Git` to bridge the Mountain backend with the Wind/Sky frontend for version control operations. This implementation fulfills the `localGit` service contract required for the editor's SCM integration.\n\nThe commit adds:\n- **Shared Runtime (`Shared.rs`):** A `RunningProcesses` map to track PIDs per `OperationId`, enabling cross-invocation cancellation. `RunGit` handles spawning `git` with `kill_on_drop`, logging, and result parsing.\n- **Lifecycle & Discovery:** `HandleIsAvailable` (cached `git --version` check), `HandleClone` (with optional branch), and `HandleCheckout` (supporting detached heads).\n- **Remote Operations:** `HandleFetch` and `HandlePull` (enforcing `--ff-only` with HEAD diff validation).\n- **Inspection:** `HandleRevParse` and `HandleRevListCount` for commit history and ahead/behind badges.\n- **Execution & Control:** `HandleExec` for arbitrary Git CLI arguments and `HandleCancel` (SIGTERM/TaskKill) to terminate in-flight processes.\n\nAll handlers adhere to PascalCase naming, strict error handling, and the project's modular architecture, ensuring reliable asynchronous Git operations from the native backend.",
+			"SHA": "2152034f2d8c2f3973951b61c59bcda758010e53"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T06:35:43Z",
+			"Date": "2026-05-03T08:17:15Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1117,
-				1
+				1362,
+				7
 			],
-			"Message": "refactor(Mountain): Reduce ApplicationState module to atomic placeholder\n\nStrip the verbose legacy documentation and complex re-export logic from `Source/ApplicationState/mod.rs` to align with the project's shift towards fine-grained, atomic state management.\n\nThe file is now reduced to a concise module header and declarations for `State`, `DTO`, and `Internal` sub-modules, with explicit `pub use` statements removed to enforce full path resolution (`State::ApplicationState::ApplicationState`) as established in recent refactors. The `non_snake_case` attribute is applied to the module file to suppress lints during this transitional period as consumers migrate to the new granular entry points.\n\nThis clears the namespace for the upcoming rewrite of the state layer while preserving the existing sub-module structure for future incremental implementation.",
-			"SHA": "d3996a8d5f2685a41cd420dd134c23e1c186a113"
+			"Message": "feat(Mountain): Implement enhanced IPC connection pool with health monitoring\n\nIntroduce a robust, bounded connection pool subsystem under `Source/IPC/Enhanced/ConnectionPool` to manage IPC backend resources efficiently. This module replaces ad-hoc connection handling with a scalable architecture featuring automatic lifecycle management, health scoring, and statistical telemetry.\n\nThe implementation adheres to the project's PascalCase naming and 'one struct per file' architecture:\n- `ConnectionHandle::Struct`: Tracks per-connection metadata including UUID, timestamps, error counts, and a dynamic health score that decays on failures and recovers on success.\n- `ConnectionHealth::Enum`: Defines states (`Healthy`, `Unhealthy`, `Degraded`) for precise resource filtering.\n- `HealthChecker::Struct`: Implements asynchronous health probes with configurable timeouts to validate connection viability.\n- `Pool::Struct`: The core aggregator managing a bounded semaphore, a wait queue for contention handling, and background Tokio tasks for periodic health monitoring and stale connection cleanup.\n- `PoolConfig::Struct` & `PoolStats::Struct`: Provide serialization support for tunable parameters (timeouts, bounds) and runtime telemetry (error rates, active counts).\n\nThis enhancement ensures the Mountain backend can sustain high-throughput IPC operations with automatic failover and resource recycling, crucial for the editor's stability during heavy extension host activity.",
+			"SHA": "abce84b95074b8849ebd1542814a776d4541f0d5"
 		}
 	],
-	"TimeStamp": 1781194560635
+	"TimeStamp": 1781360211370
 }

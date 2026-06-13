@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:35:57Z",
+			"Date": "2026-05-28T12:40:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1589,
-				8
-			],
-			"Message": "refactor(Mountain): Normalize IPC handler exports to Fn convention\n\nRename the three Cocoon IPC handler entry points from descriptive names (CocoonExtensionHostMessage, CocoonNotify, CocoonRequest) to the uniform `Fn` ident, and add the matching `as` aliases in the mod.rs re-exports so downstream callers are unaffected.\n\nAdd four new ExtensionHost IPC handlers also exporting as `Fn`:\n\n- **DebugServiceClose:** Emits `sky://exthost/debug-close` via Tauri's Emitter trait so Sky can react to debug-session teardown.\n- **DebugServiceReload:** Emits `SkyEvent::ExtHostDebugReload` as a typed event, giving Wind a signal to purge caches before Cocoon restarts.\n- **StarterCreate:** Returns a stub extension-host ID (`\"1\"`) to satisfy VS Code's extensionHostStarter:createExtensionHost protocol.\n- **StarterStart:** Returns the real Cocoon PID (via GetCocoonPid) or Mountain's own PID as fallback, enabling external debuggers to attach to the correct Node.js process.\n\nAll handler modules now follow a single convention: each file exposes `pub async fn Fn(...)` and is aliased at the mod.rs boundary. This eliminates naming guesswork when adding new IPC routes and keeps the interface consistent across all WindServiceHandlers.",
-			"SHA": "67e95cb626157a0f6e1a5b4f9d23dc35bebbf124"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:30:13Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1585,
-				4
-			],
-			"Message": "perf(Mountain): Cache getInstalled extension responses per type filter\n\nBuilding the serialized ILocalExtension[] array on every `extensions:getInstalled` IPC call re-serialized ~1.8 MB of extension metadata, visible as a multi-hundred-millisecond stall in the UI on startup. Add a `OnceLock`-backed static cache keyed by the three TypeFilter variants (None, System, User). The first call per type populates the cache; subsequent calls return the cached `Value` clone in <1 ms. Empty responses are not cached so a first-call timeout does not permanently poison the slot.\n\nAlso fix two reliability concerns in the same area:\n- **FileCloneNative:** Create the target parent directory via `tokio::fs::create_dir_all` before `fs::copy`. VS Code's local-history feature creates per-file history directories that may not exist yet, producing an OS-level ENOENT on clone.\n- **CocoonManagement IO forwarders:** Switch from `tokio::spawn` to `tauri::async_runtime::spawn` so the forwarder tasks live on Tauri's runtime handle and continue to be polled while the spawning async task is waiting elsewhere. Restructure the read loops from `while let Ok(Some(…))` to an explicit `loop` + `match` that handles EOF and read errors instead of silently dropping the pipe. Log a warning when a pipe handle is `None` (indicating `Stdio::piped()` was not configured), aiding debug of silent IO loss.\n\n**tauri.conf.json:** Add `Proto/Vine.proto` to the resource bundle so the .proto file is available at runtime from `Contents/Resources/` alongside the other bundled assets.",
-			"SHA": "a83e88eefa539b9b5bc7582822125fb8f7114d58"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:38:30Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1585,
-				9
-			],
-			"Message": "refactor(Mountain): Clean up dead vars and normalize scan paths lexically\n\nReplace the filesystem-backed `Canonicalize` closure in ScanPathConfigure\nwith `Normalize`, which resolves `..` segments lexically for non-existent\npaths - keeping extension scan-path log output clean regardless of path\nviability - while still calling `std::fs::canonicalize` for existing paths\nto resolve symlinks.\n\nDrop the stale `HandleSlot` accumulator in OutputChannelCoalesce (it was\nset but never meaningfully used after the previous refactor) and the\nunused `std::path::PathBuf` import in TryShipped.\n\nAdd stub IPC handlers for `browserView:*` (updateKeybindings, updateTheme,\nupdateConfiguration, openDevTools, closeDevTools -> Null;\ngetBrowserViews -> []), which Wind sends for Electron BrowserView\nmanagement but are no-ops under Tauri's single-webview architecture.\nRoute `extensionHostStarter:waitForExit` to a new async handler that\nresolves immediately with a stub exit-info so callers don't hang.\n\nFormatting-only: line-break Cocoon environment allow list one-per-entry,\ncollapse LocalhostUrl accessors, reflow WebviewWindowBuilder chain.",
-			"SHA": "167dfea1480a374254428bcbbafa11c6113041c5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:36:57Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1585,
+				1746,
 				7
 			],
-			"Message": "fix(Mountain): Serve webview panels via localhost plugin URL\n\nSecondary webview panels (settings, webview extensions, etc.) used `WebviewUrl::App(\"WebviewHost.html\")` which routes through tauri::manager — but Mountain's tauri.conf.json has no `frontendDist`, so Tauri has no bundled assets to serve, leaving those webviews blank.\n\nFix by loading them from the localhost plugin instead (`http://localhost:PORT/Mountain/WebviewHost`). A new `LocalhostUrl` singleton (OnceLock in `IPC/WindServiceHandlers/Utilities/LocalhostUrl.rs`) is populated once during `AppLifecycleSetup` and consumed in `create_webview_panel_impl` to build the external URL. Falls back to port 15536 if the singleton is unset.\n\nAlso extracts the inline Cocoon subprocess environment-building and I/O forwarding into named functions (`BuildCocoonEnvironment`, `SpawnCocoonIoForwarders`) in CocoonManagement.rs — pure refactor with no behavioral change, reducing method complexity from ~200 inline lines to two clear helpers.",
-			"SHA": "88be9db9ea1de55af0b96158021b2b77c7f86f6c"
+			"Message": "refactor(Mountain): Delegate PathCanon cache logic to Cache crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local path canonicalization cache implementation with delegations to the dedicated `Cache` crate. The modules in `Source/Cache/PathCanon/` are converted into thin shims or type aliases pointing to the `::Cache::PathCanon` namespace.\n\nThis refactor covers `CacheStats`, `Canonicalize`, `CanonicalizeUncached`, `Clear`, `Invalidate`, `SpawnDiagnosticLogger`, and `Stats`. By delegating to the central `Cache` crate, the backend ensures consistent path handling—preserving the use of `dunce` for UNC prefix avoidance—while reducing the code surface within the Mountain element.",
+			"SHA": "729d0b481a342fd9fd2810ec79799168db32fd6e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T07:49:35Z",
+			"Date": "2026-05-28T12:35:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1582,
-				8
+				1746,
+				6
 			],
-			"Message": "feat(Mountain): Enable .app bundle resource resolution for cache, Cocoon, and Node\n\nThe Mountain binary now resolves pre-baked resources from both the repo/dev\nlayout (binary-sibling files) and the .app bundle layout (Contents/Resources/)\nwhen running as a packaged application. Four systems are updated:\n\n**Extension manifest cache (LoadFromCache.rs):** Probes two locations in\norder — `BinaryDir/extensions.manifest.json` (dev) and\n`BinaryDir/../Resources/extensions.manifest.json` (bundle). Bundled caches\nskip the staleness check (10-minute threshold) since they are built\nalongside the .app and always consistent with its packed extensions. The\nper-manifest field extraction is also refactored with local `str()` and\n`arr()` helper closures to eliminate repeated\n`Manifest.get(k).and_then(Value::as_str)` chains.\n\n**CocoonManagement pre-flight check:** Cocoon's bundle probe now attempts\nTauri's resource resolver first (`Tauri::path::resolve` with\n`BaseDirectory::Resource`), falling back to the repo-layout relative-walk\nfrom `scripts/cocoon/` when the bundle path does not exist.\n\n**NodeResolver TryShipped:** Adds a sidecar resolution path matching\n`externalBin: [\"Binary/node\"]` in tauri.conf.json — the `node` binary sits\nalongside the Mountain executable, not in a `Node/bin/` subdirectory, in\nthe Tauri sidecar layout.\n\n**ScanPathConfigure and PathSecurity:** Extension scan paths now call\n`.canonicalize()` on resolved paths for cleaner log output (showing\n`Contents/Resources/...` instead of `Contents/MacOS/../Resources/...`).\n`IsTrustedSystemPath` adds `../Resources/Static/Application/extensions` to\nthe bundle-root allowlist so the new canonical static extension directory\nbypasses the workspace-folder gate.\n\n**Bootstrap fork (bootstrap-fork.js):** Cocoon entry path resolution\nhandles both bundle (2-level `../../`) and repo (3-level `../../../`)\nlayouts by iterating both URL bases for each candidate entry path.\n\n**tauri.conf.json:** Maps `bootstrap-fork.js`, `extensions.manifest.json`,\nand `Cocoon/Target/Bootstrap/Implementation/Cocoon` into\n`Contents/Resources/` so all three are reachable at runtime via the bundle\nresource resolver.",
-			"SHA": "0fe6cbfa5522594264233b21f4807ab5f184dab4"
+			"Message": "refactor(Mountain): Delegate AssetMemoryMap logic to Cache crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local AssetMemoryMap implementation with delegations to a dedicated `Cache` crate. The modules in `Source/Cache/AssetMemoryMap/` are converted into thin shims or type aliases pointing to the `::Cache` namespace.\n\nThis refactor covers `CacheStats`, `Clear`, `Entry`, `Invalidate`, `LoadOrInsert`, and `Stats`, ensuring that asset caching logic is centralized while preserving the existing internal API surface. This aligns with recent extractions of Air and Vine logic into specialized crates.",
+			"SHA": "2789d41a0836c5fb4af7b8c25ae457bdc0c5e505"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T12:22:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				9
+			],
+			"Message": "refactor(Mountain): Update AirClient method calls to PascalCase\n\nUpdate all Air gRPC client method invocations within the `WindAirCommands` module to use PascalCase naming. This change aligns the Mountain backend's IPC layer with the CodeEditorLand project-wide PascalCase standard for all functions and methods.\n\nThe refactor covers `ApplyUpdate`, `Authenticate`, `CheckForUpdates`, `DownloadFile`, `DownloadUpdate`, `GetMetrics`, `GetStatus`, `HealthCheck`, `IndexFiles`, and `SearchFiles` calls, ensuring compatibility with the latest trait definitions in the `AirLibrary` crate.",
+			"SHA": "11449b3877739f376184271629e2c4117e2d80ce"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T12:21:26Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				3
+			],
+			"Message": "refactor(Mountain): Delegate AirClient and AirServiceProvider logic to AirLibrary crate\n\nFollowing the migration of the Air gRPC client and service provider logic to the dedicated `AirLibrary` crate, replace the Mountain-side implementations with thin compatibility shims. `AirClient` and `AirServiceProvider` are now type aliases to their canonical definitions in the `::AirLibrary::Client` namespace.\n\nIntroduce `MapAirError` in `AirClient.rs` to handle the translation between `::AirLibrary::AirError` and `CommonError`, ensuring that existing Mountain call sites can preserve their `Result<_, CommonError>` signatures. The `GenerateRequestID` helper is also updated to delegate to the new crate namespace.\n\nThis restructuring completes the extraction of Air-related logic into its own element, reducing code duplication and decoupling the daemon communication surface from the Mountain backend.",
+			"SHA": "e3fadf040df9bd1cef2e59e6db7a41b974d6e510"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T12:17:47Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				10
+			],
+			"Message": "refactor(Mountain): Update Air type delegations to reference AirLibrary crate\n\nFollowing the delegation of Air-related types to external crates, the crate alias in the Mountain backend has been renamed from `Air` to `AirLibrary`. Update all type definitions in `Source/Air/AirClient/` to point to the new `::AirLibrary` namespace.\n\nThis aligns the type aliases for metrics, status, download streams, and file metadata with the updated crate naming convention, ensuring correct module resolution during the build process.",
+			"SHA": "74498135db36b1ab25ad374aa0c5ec94775b6c9e"
 		}
 	],
-	"TimeStamp": 1781194530469
+	"TimeStamp": 1781360183199
 }

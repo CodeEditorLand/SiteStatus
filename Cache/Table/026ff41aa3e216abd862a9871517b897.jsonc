@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T02:22:30Z",
+			"Date": "2026-06-12T22:34:52Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1768,
+				1866,
+				1
+			],
+			"Message": "docs(Mountain): Document Shim tiers and architecture in Arch.md\n\nAdd a new Shim Compatibility section to Documentation/GitHub/Architecture.md covering both tiers of the deep-shim interception system:\n\n- **Low-Level Shim** (🟠, TierShim=Own|Preempt): Engine prototype hooks for Error, Emitter, Cancel, Dispose, Async, Timing interception.\n- **Coverage Shim** (🔵, TierShim=Proxy|Replace): Service-level routing for IPC SwallowMap, DI proxy, and AuditLog.\n\nAlso links to the Shim documentation and notes the Source/Shim/ Rust module location. This completes the documentation coverage for the interception layer introduced across the last five commits on the Current branch.",
+			"SHA": "e4e3956cf47b55f13c8e072726535c21e3ca7160"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:26:53Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1866,
 				6
 			],
-			"Message": "feat(Mountain): Seed Cocoon with existing terminals and expand IPC method handlers\n\nCocoon's gRPC channel opens after the workbench restores terminals, leaving `vscode.window.terminals` empty for extensions that read it synchronously in `activate()`. After the sidecar connects, iterate `ApplicationState.Feature.Terminals` and resend each open terminal via the `$acceptTerminalOpened` notification so the terminal list is populated before extensions activate.\n\nAlso extend the Effect request routing matchers:\n- FileWatcher: add `Register` and `Unregister` methods\n- Storage: add `GetItems` method\n- Task: add `terminate_task` and `Task.Terminate` methods\n- Workspace: add `RequestResourceTrust`, `IsResourceTrusted`, `Save`, `SaveAs`, `saveAll`, `SaveAll` methods\n\nFix minor shell integration syntax: `2> /dev/null` → `2>/dev/null`.\n\nImpact: Extensions no longer see an empty terminal list on startup, and the Mountain backend now handles the full surface of FileWatcher, Storage, Task, and Workspace IPC requests from Cocoon.",
-			"SHA": "ec51929472623ef48d7a09a541edc668f24c0f6b"
+			"Message": "feat(Mountain): Wire Shim interception into both IPC dispatch paths\n\nInsert the Shim layer at two entry points so swallowed methods are\nintercepted before reaching any domain handler:\n\n- **DispatchMatch.rs** — Shim pre-check in `mountain_ipc_invoke` reads\n  `Gate::is_enabled()` and `SwallowMap::should_swallow()` to decide\n  whether to return a Null ack (Mountain/None targets) or passthrough.\n\n- **CreateEffectForRequest/Shim.rs** — New domain module that gets first\n  crack at every gRPC method via `Try!(Shim)` in the dispatch chain,\n  placed before all other domain handlers. Returns a Null-ack effect for\n  swallowed methods or `None` to fall through.\n\nAlso clean up the remaining AI-internal annotations from the initial\nShim implementation: remove the 🟠🔵 color/tier table and the\n`.hermes/microsoft/` doc reference from `Shim/mod.rs`, drop \"Land\"\nqualifier from `SwallowMap.rs`, and deduplicate the repeated subsystem\nfeature declarations in `Cargo.toml`.\n\nThe interception layer is fully gated behind `TierShim` (default: `None`)\nand compiles to zero overhead via dead-code elimination.",
+			"SHA": "8e7ff15b9ef23c3c0a63203a1086dc97e0300645"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T20:22:00Z",
+			"Date": "2026-06-12T22:26:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1768,
+				1865,
+				2
+			],
+			"Message": "style(Mountain): Strip AI-internal annotations and reorganize Cargo features\n\nRemove emoji markers (🟠🔵) and the .hermes/microsoft/ doc reference path\nfrom the Shim module comment, keeping only the functional description of the\ngated interception layer. Relocate inline Shim tier explanatory comments from\nthe default features list in Cargo.toml.\n\nReorganize feature flags into logical groups — tier flags, subsystem\nfeatures, and the Shim gate — for better maintainability alongside the\nexisting declarations per project policy on source cleanliness.",
+			"SHA": "0b9e8f0ca5e36019d5a812f965861eb01b7d668e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:20:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1865,
+				5
+			],
+			"Message": "feat(Mountain): Add Shim module with Gate and SwallowMap for IPC interception\n\nEstablish the Rust-level foundation for the deep-shim interception layer introduced by the TierShim env-var in the prior commit. Two new modules live behind the `pub mod Shim` declaration in Library.rs:\n\n- **Gate** — Compile-time tier gate reading `env!(\"TierShim\")` (baked by build.rs via EmitTierDefaults), exporting boolean guards (`is_enabled`, `is_proxy`, `is_replace_or_deeper`, `is_own_or_preempt`, `is_preempt`) that drive `#[cfg]` gating throughout Mountain. Zero overhead at default `None` tier via dead-code elimination.\n\n- **SwallowMap** — Pattern-matching decision engine that maps IPC method names (e.g. `statusbar:`, `telemetry:`) to a `SwallowAction`/`RedirectTarget` pair, determining whether Mountain handles the call locally, forwards it to Wind/Cocoon/Output/Sky, or discards it entirely (telemetry). Rules are checked in insertion order; first match wins with a default `Passthrough → None` fallback.\n\nCargo.toml gains inline comments documenting the four active shim tiers and their corresponding Rust features. This completes the Rust-side routing infrastructure for the Land Shim plan.\n\nSee: `.hermes/microsoft/05-Mountain-Rust-Intercept.md`",
+			"SHA": "d22f305e382b83b58e9a6ac5f32ce87c7369afc3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:54:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1861,
 				1
 			],
-			"Message": "refactor(Mountain): Move Cocoon restart loop to dedicated thread with LocalSet\n\nThe Cocoon sidecar restart logic was running via `tokio::task::spawn_local` on Tauri's single-threaded runtime, but `LaunchAndManageCocoonSideCar` is `!Send` because it holds `parking_lot` guards across `.await` points. This created a soundness risk on the shared executor.\n\nReplace with a dedicated OS thread (`cocoon-restart`) that owns a `current_thread` Tokio runtime wrapped in a `LocalSet`. The restart receiver, `AppHandle`, and `Arc<MountainEnvironment>` are all `Send` and cross the thread boundary safely. The `LocalSet` enables `spawn_local` for the async restart loop without requiring the future to be `Send`.\n\nImpact: Eliminates the `!Send` future on the main Tauri runtime, maintains exponential backoff restart semantics, and isolates Cocoon lifecycle management on its own executor.",
-			"SHA": "38160a1a67b1803a20b230914efc91e76bb31a2c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T20:21:36Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1768,
-				16
-			],
-			"Message": "fix(Mountain): Correct Send/Sync impls, fix Vine typo, simplify storage flush, and harden Cocoon spawn\n\nAdd `unsafe impl Send + Sync` for `MountainEnvironment` to satisfy trait bounds across async boundaries. Fix `cratecrate` typo in `MountainVinegRPCService` that broke gRPC request/notification forwarding. Simplify storage flush logic in `StorageDispatcher` and `mod.rs` by removing redundant `.ok().map()` chains and unwrapping locks directly. Correct debug session registration to use `RunTime.Environment.ApplicationState` path consistently.\n\nReplace `tokio::spawn` with `tauri::async_runtime::spawn` for Cocoon activation events and use `tokio::task::spawn_local` with safety comment for restart loop, since `LaunchAndManageCocoonSideCar` holds `parking_lot` guards across `.await` points and runs on Tauri's single-threaded runtime. Add `IsVisible:false` to sidecar and tree view provider registrations. Drop `path_resolver` early in Cocoon launch to avoid holding it across awaits. Clean up import paths across all WindServiceHandlers dispatchers and add missing `tauri::Emitter` where events are emitted.\n\nImpact: Resolves thread-safety violations, fixes gRPC client calls, eliminates lock-unwrap panics, and ensures Cocoon sidecar management runs on the correct executor.",
-			"SHA": "00ea3ea3348955d7ee80e8e98e59b5cbe397ddc3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T14:37:24Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				1768,
-				103
-			],
-			"Message": "Refactor: Clean up code by removing unnecessary whitespace and comments\n\n- Removed redundant whitespace in multiple files to improve code readability.\n- Consolidated comments for clarity and consistency.\n- Streamlined the handling of parameters and responses in various functions.\n- Enhanced the overall structure of the codebase for better maintainability.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "5c10b95f63323c3da8a410c3c75d1c15d750be6a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T13:04:24Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1768,
-				1
-			],
-			"Message": "fix(tests): Update hostnames in test_multiple_server_certificates function\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "ea7158242a4bc680d4828177eb55995f86f20513"
+			"Message": "feat(Mountain): Add TierShim env-var for deep-hook intercept layer\n\nIntroduce a new `TierShim` compile-time environment variable to build.rs that enables an experimental deep-hook intercept layer for VS Code service instantiation. The tier defines five progressive levels compiled out via `#[cfg]` gates:\n\n- `None` — zero overhead, all shim code omitted (default)\n- `Proxy` — audit-only observation of existing paths\n- `Replace` — individual service shim replacement\n- `Own` — Land owns the InstantiationService container\n- `Preempt` — Land controls BrowserMain.open()\n\nAdd the default emission in EmitTierDefaults and wire validation into IsDefaultTierValue. No behavioral change at default `None`.",
+			"SHA": "885383348767e1ef23c19da1124877eadf237a49"
 		}
 	],
-	"TimeStamp": 1781194514702
+	"TimeStamp": 1781360154174
 }

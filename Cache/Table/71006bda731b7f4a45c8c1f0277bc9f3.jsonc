@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-04-27T02:28:42Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T22:17:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				85,
+				102,
+				1
+			],
+			"Message": "fix(Sky): Add defensive error handling to SkyBridge IPC handlers\n\nWrap all Tauri listener handlers, tree-item mapping, TreeView.refresh(), and webview registration calls in try/catch to prevent one bad handler from crashing the listener loop. This mirrors VS Code's Emitter pattern where each subscriber's call is isolated.\n\nAlso add SSR safety checks for `window` being undefined during Astro's pre-render pass in both GetWorkbench() and GetServices(). The existing early-return contract is preserved - callers continue to use `if (!Services) return;`.\n\nSpecifically handles: Tauri listen() registration failures (window closing mid-boot), tree-item serialization errors (missing label/handle), TreeView.refresh() synchronous throws (older xterm/tree shims), WebviewViewService.register duplicate viewId (hot-reload), and CustomEvent dispatch failures. Each failure is now isolated and logged rather than propagating and breaking unrelated listeners.\n\nThis improves SkyBridge stability during startup, view transitions, and extension host reloads.",
+			"SHA": "7563ee4580bd46c41ffc01ef4e8a8a950437da13"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T18:37:25Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				102,
+				4
+			],
+			"Message": "fix(Sky): Add reentrancy guard to InstallSkyBridge and phase advancement\n\nThe InstallSkyBridge function lacked reentrancy protection, causing duplicate Tauri listen() registrations on Astro view-transitions, Tauri webview reloads, and dev HMR. Each Mountain emit fired handlers N times, resulting in duplicated tree views, markers, and webview renders—the \"workbench loading twice\" / \"purple overlays\" bug.\n\nAdd a module-level guard (_SkyBridgeInstalled, _SkyBridgeInstallPromise) so multiple calls to InstallSkyBridge only execute once. Also add the phase advance script to Layout.astro that fires BEFORE the workbench import, mirroring Mountain.astro to prevent the 8s/23s fallback timers from leaving the workbench in a half-restored render state. Finally, add a +5s view-registry snapshot diagnostic to probe extension-point registration status.\n\nAdditionally, update astro.config.ts: set output=\"static\", disable clientPrerender and contentIntellisense, and add queuedRendering config. This restores responsive UI during startup and eliminates the double-render flicker.",
+			"SHA": "876ea919a147073a94bff61862d7861719720b8d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T16:59:30Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				102,
 				1
 			],
 			"Message": "",
-			"SHA": "6fdd245d6b501cd78deef79d6137f208759f8ecb"
+			"SHA": "d574527e4edb29303f096511fc595dfa8dec9548"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:02:31Z",
+			"Date": "2026-04-29T16:59:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				85,
+				102,
 				1
 			],
-			"Message": "style(Sky): Reformat SCM and CustomEditor callback arguments\n\nReformat long ternary operators and function call arguments to span multiple lines for improved readability. Changes affect SCM provider registration and CustomEditor capability registration handlers in SkyBridge.\n\nNo functional changes - purely formatting improvements to match existing code style.",
-			"SHA": "daf304285b94b5832b83574c4edb8d36dc767814"
+			"Message": "fix(Sky): Fix 0-based line indexing for search results and add diagnostic tracing\n\nThe search result `RangeLocations` was using 1-based line numbers, causing 'undefined is not an object' errors for single-line previews because `previewLines[1]` was out of bounds. VS Code's `MatchImpl` indexes `_fullPreviewLines` directly with 0-based indexing, so convert both `source` and `preview` to 0-based: `SourceLine = Math.max(0, M.lineNumber - 1)`.\n\nAlso add comprehensive diagnostic bridging to Mountain.dev.log for service shape probing. The original `console.log` only surfaces in DevTools which is invisible to log dissection. Add `ToMountain` helper that invokes `diagnostic:log` through the same `MountainIPCInvoke` path SkyBridge uses, making service shape and webview registration observable in Mountain's logs. Include `ResourceTree`, `UriIdentity`, `WebviewViews`, and `Markers` in the key probe list, and probe one level deeper for `WebviewViews.register` and `Markers.changeOne` to distinguish stubs from real implementations.\n\nThis restores search functionality and provides post-mortem visibility into the service initialization that drives the Problems panel and sidebar webviews.",
+			"SHA": "400379dc34d82e207dbeee66053e8dc22a11103a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T20:01:39Z",
+			"Date": "2026-04-29T05:25:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				85,
+				102,
 				1
 			],
-			"Message": "feat(Sky): Add SCM shim, debug session lifecycle, and custom editor registration\n\nThis change adds three new integration paths between SkyBridge and the VS Code workbench services:\n\n1. **SCM Provider Shim** - Implements TryRegisterScmProvider, TryUnregisterScmProvider, TryRegisterScmGroup, and TryUpdateScmGroup to bridge Cocoon's extension-hosted SCM to the workbench's ISCMService. Creates real ITextModel for the inputBox via IModelService to avoid the workbench throwing on registerSCMProvider. Builds ISCMResource from raw resourceStates with proper URI hydration. Includes ResourceTree lazy-building for hierarchical view mode support.\n\n2. **Debug Session Events** - Registers handlers for sessionStart, sessionEnd, addBreakpoints, removeBreakpoints, and consoleAppend events. Fans out as cel:debug:* CustomEvents so UI components can react without waiting on typed Debug service snapshots.\n\n3. **Custom Editor Capabilities** - Registers viewTypes with ICustomEditorService via registerCustomEditorCapabilities, making them discoverable in the \"Open With...\" menu. Includes unregister path to dispose capabilities on Cocoon shutdown.\n\nAlso adds a one-time services probe on cel:services-ready that logs __CEL_SERVICES__ shape to the renderer console (visible in DevTools) to help diagnose why SCM/Debug/CustomEditor bridges silently no-op when a service fails to resolve.",
-			"SHA": "3c76a377de511fdf76f97d4fc07054cdd3c76bde"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T10:38:12Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				85,
-				1
-			],
-			"Message": "feat(Sky): Add column-based match highlighting for text search results\n\nParse Mountain's `columns` array (0-based UTF-8 char offsets) and transform into VS Code's 1-based `ISearchRange` format for result ranges. Also populate `preview.matches` with preview-local coordinates so the renderer shows the actual matched-substring highlight inside each line.\n\nPreviously all matches displayed as full-line highlights with no sub-line underline. With columns, users now see precise character-level highlighting in the search results widget.",
-			"SHA": "6184960547bdde71192e36850d605b9e2353f4d0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:58:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				85,
-				1
-			],
-			"Message": "fix(Sky): Fix text search result mapping and fileSearch params\n\nUpdate MatchFromHit to read Mountain's actual response format: use `Hit.resource` instead of `Hit.uri`, and `Hit.matches[]` array (each with `preview` and `line_number`) instead of flat per-hit shape. Add backwards-compat support for the old flat `{uri, lineNumber, preview}` format for any future Mountain path that returns it.\n\nFix search:findFiles IPC call to include required null exclude parameter. Without it, MaxResults shifted into the exclude slot, causing the glob extractor to ignore max and default to 10000.\n\nThis resolves empty search results where previous code produced resource=MakeFileUri(\"\") with empty results array because Mountain's response never contained the expected flat hit fields.",
-			"SHA": "a3139802b461c5b1201b2f3b51f36196a97fbdfb"
+			"Message": "docs(Sky): Rewrite CHANGELOG.md with improved formatting and v2.2 entries\n\nRestructure the changelog with clearer section headers, expanded prose for each version entry, and document the v2.2 \"Bundled-Electron Profile: Correctness Pass\" release. The update covers the `sky:replay-events` invoke, channel-event bridge for terminal PTY communication, promise-protocol short-circuit in TauriChannel.call, and search-result format migration to VS Code ≥1.92 schema.",
+			"SHA": "f87442b047efe2f43fd296e9d8f01380b2eb8868"
 		}
 	],
-	"TimeStamp": 1781194538531
+	"TimeStamp": 1781360186837
 }

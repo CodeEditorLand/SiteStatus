@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:24:50Z",
+			"Date": "2026-04-26T10:38:12Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				81,
-				2
+				"⠀⠀⠀⠀⠀",
+				85,
+				1
 			],
-			"Message": "feat(Sky): Add tree-view data bridge for cel: events\n\nAdd a document listener for `cel:tree-view:create` that bridges tree view data between Mountain and the Sky frontend. When triggered, the listener invokes Mountain's `tree:getChildren` method and re-dispatches the returned items as `cel:tree-view:items` for any downstream renderer shim.\n\nThis completes the F1.1 handoff contract: Mountain emits `cel:tree-view:create` but nothing was listening, resulting in `consumer-present=false` in the cel-dispatch logs. The listener now primes the viewer by requesting root children and broadcasting them, eliminating the orphan event pattern.\n\nDev logging via `RenderDevLog` tracks both successful item retrieval (`bridge-items`) and failures (`bridge-error`) for debugging.\n\nAlso removes obsolete Step 13 comment from astro.config.ts regarding the built-in extension copy workaround.",
-			"SHA": "4d9fb694ce1b313609c5c620583478aee4b09206"
+			"Message": "feat(Sky): Add column-based match highlighting for text search results\n\nParse Mountain's `columns` array (0-based UTF-8 char offsets) and transform into VS Code's 1-based `ISearchRange` format for result ranges. Also populate `preview.matches` with preview-local coordinates so the renderer shows the actual matched-substring highlight inside each line.\n\nPreviously all matches displayed as full-line highlights with no sub-line underline. With columns, users now see precise character-level highlighting in the search results widget.",
+			"SHA": "6184960547bdde71192e36850d605b9e2353f4d0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T16:54:38Z",
+			"Date": "2026-04-26T09:58:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				81,
+				85,
 				1
 			],
-			"Message": "feat(Sky): Add consumer tracking for cel:* event dispatch\n\nTrack whether each `cel:*` CustomEvent has at least one listener registered by patching `document.addEventListener`. Log every dispatch to Mountain's dev-log via the `RenderDevLog` Tauri command with a `consumer-present` flag.\n\nOrphan events (Mountain emits but no workbench listener) are now visible as `consumer-present=false` in the `cel-dispatch` tag - these are F1.1 indicators where a feature silently fails because nothing subscribes to the expected event.\n\nThe patch is wrapped in try/catch to gracefully degrade on Safari/WebKit where `Document.prototype.addEventListener` is readonly and would throw in strict mode. When tracking fails, the flag reports `?` rather than breaking boot.",
-			"SHA": "8da853ea62909d3ea381c97a9c57e75ee612e08d"
+			"Message": "fix(Sky): Fix text search result mapping and fileSearch params\n\nUpdate MatchFromHit to read Mountain's actual response format: use `Hit.resource` instead of `Hit.uri`, and `Hit.matches[]` array (each with `preview` and `line_number`) instead of flat per-hit shape. Add backwards-compat support for the old flat `{uri, lineNumber, preview}` format for any future Mountain path that returns it.\n\nFix search:findFiles IPC call to include required null exclude parameter. Without it, MaxResults shifted into the exclude slot, causing the glob extractor to ignore max and default to 10000.\n\nThis resolves empty search results where previous code produced resource=MakeFileUri(\"\") with empty results array because Mountain's response never contained the expected flat hit fields.",
+			"SHA": "a3139802b461c5b1201b2f3b51f36196a97fbdfb"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:32:15Z",
+			"Date": "2026-04-26T09:49:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				81,
+				85,
 				1
 			],
-			"Message": "refactor(Sky): Centralize event URIs through Wind's SkyEvent table\n\nReplace the hardcoded string table in SkyBridge with imports from Wind's `@codeeditorland/wind/Target/IPC/SkyEvent.js`, the single source of truth that mirrors Mountain's Rust `SkyEvent` enum. This catches drift at type-check time rather than failing silently at runtime.\n\nKey changes:\n- Import `SkyEvent` constants from Wind; remove local string array\n- Add `ChannelToDomEvent` helper to transform `sky://` → `cel:` with consistent `/` → `:` mapping\n- Standardize statusbar URIs from hyphenated `sky://status-bar/...` to `sky://statusbar/...`\n- Fold the separate webview fan-out loop into the main bulk loop via `SkyEvent.WebviewSetHTML`\n\nThe canonical wire format is now `sky://statusbar/` (no hyphen) matching the Wind table.",
-			"SHA": "78f6f82339f93c4ab5a35f64e64af452208fac42"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-23T02:13:32Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "",
-			"SHA": "16bda3dcabcd28298a9191cb36dfdb2a1e33f9c2"
+			"Message": "fix(Sky): Add BuildOpenArg helper for real URI instances in open commands\n\nThe previous manual POJO construction `{ $mid: 1, path, scheme }` for vscode.open and similar commands fails when in-process consumers (command palette, quick pick) call `uri.with()` or `uri.toString()` directly without going through `revive` - the same root cause as the search results dedup bug fixed in the previous commit.\n\nAdd `BuildOpenArg` function that accepts string, URI instance, UriComponents, or workspace-folder shape and produces a real URI when `GetServices()?.URI` is available. Falls back to POJO with `$mid: 1` for code paths that DO call `revive`.\n\nUpdates two call sites in SkyBridge: OpenFile and the other vscode.open invocation to use the helper instead of manual object construction.",
+			"SHA": "18f9fb7fee75a0fa00c4fe1d0823061309905ec1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T20:25:07Z",
+			"Date": "2026-04-26T09:29:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				81,
+				85,
 				1
 			],
-			"Message": "feat(Sky): Add exception signature throttling to PostHog bridge\n\nExceptions share the `$exception` event-name slot in posthog-js, so a burst of CSP refusals/console.error/unhandledrejection callbacks during workbench boot would blow through the 10/10s rate limit. Add a secondary throttle layer keyed by the first 200 chars of the error message.\n\nUnique exceptions still reach PostHog while bursts of the same error collapse into one. Both regular and exception drop counts are now reported in the `land:sky:throttle-dropped` event for visibility.\n\nThis follows the previous throttling commit (24e76da) which added the basic per-event-name throttle for non-exception events.",
-			"SHA": "f601c0a884535251332d05d5a36cf874c147af8d"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
+			"SHA": "a2c0d3ce109bb45b7047f2933edb4c995d0c3e27"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T09:28:59Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				85,
+				1
+			],
+			"Message": "fix(Sky): Fix URI object construction in search results for workbench deduplication\n\nThe previous manual resource object construction (`{ $mid: 1, path, scheme }`) fails when the workbench attempts result deduplication via `uri.with({...})` because it's a POJO without methods. Add `CelUriCtor` and `CelUri` interfaces to type VS Code's URI class, then create `MakeFileUri` that uses the actual `Ctor.file()` method when `__CEL_SERVICES__.URI` is available.\n\nThe lookup is re-resolved on each result construction to handle the event-rescue path where SkyBridge registers before the URI patch binds. Includes a last-resort POJO fallback for edge cases, though the workbench will gracefully fail on dedup in that scenario.\n\nUpdates both `MatchFromHit` (text search results) and file search result mapping to use `MakeFileUri` instead of manual object construction.",
+			"SHA": "e9eff04e9a2e6a16986b6817863f204c2c1c3c3e"
 		}
 	],
-	"TimeStamp": 1781194540696
+	"TimeStamp": 1781360192747
 }

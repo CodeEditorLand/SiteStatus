@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T00:20:40Z",
+			"Date": "2026-05-22T05:36:23Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				1138,
-				35
-			],
-			"Message": "chore(Cocoon): Regenerate build artifacts and update RouteManifest timestamp\n\nRebuild all TypeScript compilation outputs in the `Target/` directory following the latest source modifications. This refreshes the generation timestamp in `Source/Generated/RouteManifest.ts` from 2026-05-15T23:58:27Z to 2026-05-16T00:17:04Z to reflect the current build cycle.\n\nThe regeneration includes updated JavaScript bundles and source maps for the bootstrap entry points, gRPC server services, VS Code API handlers, and the dual-track routing logic. All intermediate build cache files (`.tsbuildinfo`) and generated manifest reports are synchronized to ensure the extension host sidecar is in a consistent state for the upcoming testing phase.",
-			"SHA": "4509d9df796b7bc816e4f88ecc86d834a17de4a0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T00:03:13Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1138,
+				1173,
 				41
 			],
-			"Message": "fix(Cocoon): Forward WebviewView options to Mountain and polish logging\n\nThe `CreateWebviewViewBuilder` previously stored webview options in a static object without forwarding them to the Mountain backend. This caused the workbench webview to render with default security settings (e.g., `enableScripts: false`), preventing extension UIs that rely on scripts or forms from functioning correctly.\n\nIntroduce a reactive `options` getter/setter in the builder. The setter now captures any user-provided configuration and immediately forwards it to Mountain via the `webview.setOptions` gRPC command. This ensures the native webview instance respects the extension's declared capabilities. Additionally, standardize trace logging by ensuring all stdout writes in the trace block explicitly terminate with a newline character to prevent log stream corruption.\n\nAlso update `Documentation/GitHub/Architecture.md` to use bullet points for feature lists and standardize markdown formatting for consistency. Rebuild all `Target/` artifacts and refresh the `RouteManifest` timestamp to 2026-05-15T23:58:27Z.",
-			"SHA": "a2ff9185f340ef69685a5b7b15c5ee244e56fe9c"
+			"Message": "style(Cocoon): Normalise config JS to tab indentation with trailing commas\n\nReformat all Configuration/ESBuild/*.js, Configuration/Mountain/Config.js, and Source/ESBuild.js from 2-space indentation back to tab indentation, restoring the project convention. Alongside the indentation change:\n\n- Restore trailing commas to all array and object literals across every config file.\n- Reorder imports so re-exports (`export *`) appear after local imports in Cocoon.js and index.js, matching the convention used by sibling config files.\n- Normalise `node:path` import ordering to `{ posix, sep }` throughout.\n- Collapse Environment Constant.js named exports to a single-line block.\n- Wrap `__name` helper calls and long template expressions with consistent multi-line formatting at soft line widths (Compile Config.js, Mountain Config.js).\n\nRegenerate the RouteManifest timestamp (2026-05-22T05:18:10Z) and rebuild all Target/ compiled artifacts to reflect the reformatted configuration sources. No functional changes to build logic, RPC method registration (still 135 Mountain methods), or runtime behaviour.",
+			"SHA": "f37eb88fd6025a5eb65e1c1a20dc7567c2c3a8bf"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T23:37:15Z",
+			"Date": "2026-05-22T05:36:04Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
-				1138,
-				51
+				1173,
+				72
 			],
-			"Message": "fix(Cocoon): Add wildcard CSP fallback for WebviewPanel fonts on WKWebView\n\nThe Content Security Policy (CSP) in Webview/Implementation.ts previously listed strict legacy schemes (`vscode-file:`, `vscode-resource:`, `vscode-webview-resource:`) and `https:`. On macOS, WKWebView does not recognize these custom protocol schemes within the `font-src` directive, causing custom fonts provided by extensions to fail loading with a CSP refusal error.\n\nModify the `getCspString` method to append a wildcard `*` to the `font-src` list. This acts as a fallback to permit font loading from any source when the specific legacy schemes are rejected by the native webview engine, ensuring visual fidelity for extensions using custom typography.\n\nAdditionally, update `Documentation/GitHub/Architecture.md` to improve readability by using bullet points for feature lists and standardizing markdown formatting. Regenerate all `Target/` build artifacts and `RouteManifest` timestamps to reflect the rebuild.",
-			"SHA": "603a8752f4aba7d9c243913ad2add0444da4a0cb"
+			"Message": "feat(Cocoon): Wire extension host secrets, storage, provider dispatch, and live UI dialogs through Mountain\n\nReplace stubs across the Cocoon extension host with real implementations routed through Mountain's gRPC IPC:\n\n**Secrets & Storage** (`ActivateExtension.ts`): Extension secrets (`secrets.get/store/delete/onDidChange`) now round-trip via Mountain's AES-256-GCM encrypted storage with extension-scoped keys. Workspace/global state uses a local cache primed asynchronously from `Storage.Get`.\n\n**Extension Dependency Ordering** (`Extension/Host/Handler.ts`): Replace flat fire-and-forget activation with `ActivateWithDeps` — a recursive, depth-guarded (max 20) sequential activator that resolves `extensionDependencies` before the depending extension. Cycle-breaking via `InProgress` set.\n\n**Language Provider Resolution** (`Language/Provider/Handler.ts`): Add `$provideFileDecoration` and two-phase resolution handlers (`$resolveCodeAction`, `$resolveCodeLens`, `$resolveCompletionItem`, `$resolveHover`, `$resolveInlayHint`, `$resolveDocumentLink`, `$resolveWorkspaceSymbol`) so extension providers can return lightweight items that Monaco resolves for details.\n\n**Notification Handler** (`Notification/Handler.ts`): Track `window.focused/blurred` state via `__windowState`. Overhaul virtual document model in `$acceptModelChanged` — range-aware `getText()`, `lineAt()` with `range`/`firstNonWhitespaceCharacterIndex`/`isEmptyOrWhitespace`, `getWordRangeAtPosition()`, correct `offsetAt()`/`positionAt()`, `isUntitled` detection, language derivation from extension. Route `revealRange`/`showTextDocument` through `sendRequest` (Track effect) not `SendToMountain`. Add `$acceptTerminalOpened`/`$acceptTerminalClosed` handlers for UI-created terminal lifecycle.\n\n**Content Provider Routing** (`Request/Routing/Handler.ts`): Add `$provideTextDocumentContent` route that looks up the registered `__textDocumentContentProvider:{scheme}` and calls `provideTextDocumentContent` with a hydrated `Uri`.\n\n**VSCode API Namespaces:**\n- **Authentication**: Stash registered provider in `ExtensionRegistry` as `__authProvider:{id}` so `ExtHostAuthentication$getSession` can call `getSessions()`.\n- **Debug**: Stash debug config provider; forward `_TriggerKind` parameter.\n- **Languages**: `setLanguageConfiguration` now forwards through Mountain's `set_language_configuration` notification for Sky/Monaco relay.\n- **Tasks**: Stash task provider in `ExtensionRegistry` for `ExtHostTaskService$fetchTasks` callback.\n- **StatusBarItem** (`CreateStatusBarItem.ts`): Reactive getter/setter properties for `text`, `tooltip`, `command`, `backgroundColor`, `color` — each setter pushes an incremental `statusBar.update` to Mountain. `accessibilityInformation` stub added.\n- **Window** (`Window/Namespace.ts`): Live `showInformationMessage` with action buttons routes through `Window.ShowQuickPick` when actions are present. Live `createQuickPick`/`createInputBox` that open via `Window.ShowQuickPick`/`Window.ShowInputBox` round-trips and emit `onDidAccept`/`onDidChangeSelection`/`onDidHide` events. `showTextDocument` returns a full `TextEditor` shim with live `setDecorations()`, `edit()`, `insertSnippet()`, `revealRange()`, `show()` methods that dispatch through Mountain. Active tab getter returns a minimal `Tab` shape. `state` becomes a live getter backed by `__windowState`. Terminal creation fires `didOpenTerminal`/`didChangeActiveTerminal` events; dispose fires `didCloseTerminal`/`didChangeActiveTerminal`.\n- **Workspace/Providers**: Wire `onDidChange` handler on `TextDocumentContentProvider` — re-fetches content on provider change and emits `didChangeTextDocument` for virtual docs. Stash/unstash task providers on register/unregister.\n- **Workspace/Text/Document** (`Document.ts`): `openTextDocument({language, content})` creates an untitled in-memory document. `untitled:` scheme documents return synchronously from cache. Scheme-based provider dispatch queries `__textDocumentContentProvider:{scheme}` before falling back to disk/Mountain. `BuildSaveAll` routes through `Workspace.SaveAll`. `BuildApplyEdit` routes through Mountain's `applyEdit` Track effect (awaitable round-trip). `onWillSaveTextDocument` now supports `waitUntil` via `__willSaveListeners` array for format-on-save.\n\n**gRPC Server** (`GRPCServerService`): Route `$resolve*` methods alongside `$provide*` to language provider handler. Implement `ExtHostAuthentication$getSession` via stashed auth providers. Implement `ExtHostTaskService$fetchTasks/provideTasks/executeTask` via stashed task providers. Implement `ExtHostDebug$resolveDebugConfiguration/provideDebugConfigurations` via stashed debug config providers. Implement `ExtHostFileSystem$readFile/writeFile/stat/readDirectory/createDirectory/delete/rename/copy` via stashed file system providers. Add generic `ExtHost[A-Z]` fallback returning `null` instead of crashing on unknown methods.\n\n**Build**: Re-indent `ESBuild.js` from tabs to 4-space indentation. Regenerate `RouteManifest.ts` timestamp.\n\n388 Mountain RPC methods registered, 0 bespoke routes.",
+			"SHA": "a6241df5a0c6a01f9eaeb1420d08f646c8d3b396"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T22:33:23Z",
+			"Date": "2026-05-22T01:49:59Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1173,
+				1
+			],
+			"Message": "",
+			"SHA": "2938d7c371fa6e94785c3f1456bb68ba76d15e71"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T00:53:28Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1173,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Cocoon into Current",
+			"SHA": "545a2d40944c9cfbe744cfa3515bdb42a81f27b4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T00:51:48Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				1138,
-				36
+				1173,
+				40
 			],
-			"Message": "chore(Cocoon): Add comprehensive architecture documentation and regenerate build artifacts\n\nIntroduce `Documentation/GitHub/Architecture.md` to formally document the Cocoon Node.js extension host sidecar. The new document details the Effect-TS architecture, startup sequence, VS Code API shim implementation, service providers, gRPC communication via the Vine protocol, and the dual-track routing strategy for delegating I/O-heavy operations to Mountain.\n\nAdditionally, execute a full rebuild of the Cocoon extension host to reflect the latest repository state. Update the `RouteManifest` metadata with a new generation timestamp (2026-05-15) while maintaining the current set of 118 registered Mountain RPC methods and 1 bespoke Node fallback. Regenerate all TypeScript build artifacts in the `Target/` directory, including entry points, gRPC server services, and VS Code API handlers, along with refreshed source maps and incremental build cache.",
-			"SHA": "405d6a2c0caf2390b2cca6117a06fd2d882695c6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T21:32:39Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				1137,
-				44
-			],
-			"Message": "fix(Cocoon): Implement gRPC channel readiness polling before health check\n\nThe `Service.ts` health check logic previously failed immediately if the gRPC channel was not in the `READY` state, causing errors during cold starts or reconnection phases where the channel might be `IDLE` or `CONNECTING`. Replace the synchronous state check with an asynchronous polling mechanism that waits up to 3 seconds for the channel to become ready.\n\nThe implementation triggers a connection attempt if the channel is idle and recursively polls the connectivity state with a 100ms interval. It distinguishes between transient failures and terminal states (`TRANSIENT_FAILURE`, `SHUTDOWN`) to provide accurate error messages. This ensures the Cocoon extension host sidecar robustly handles the gRPC handshake timing with the Mountain backend.\n\nAdditionally, update `RouteManifest` metadata with a new generation timestamp and regenerate all `Target/` build artifacts to reflect this logic change.",
-			"SHA": "a06319edf2234d95d990068b35470ce6c2a28733"
+			"Message": "style(Cocoon): Normalise config JS to 2-space indentation without trailing commas\n\nReformat all Configuration/ESBuild/*.js and Configuration/Mountain/Config.js from tab indentation to consistent 2-space indentation, the opposite direction from the previous style pass. Alongside the indentation change:\n\n- Remove trailing commas from all array and object literals across every config file.\n- Normalise import ordering so re-exports (export *) appear before local imports, and node:path imports precede project imports.\n- Consolidate duplicate imports in Target.js (default3/default5 now share a single import from Config/Target/Config.js).\n- Collapse __name helper calls in Compile Config.js and Mountain Config.js from multi-line to single-line format.\n- Flatten Environment Constant.js boolean expressions to single lines, and expand exports to multiline block format.\n- Move named export declarations to the end of the module body in Base Config.js, matching the convention used by sibling config files.\n\nRegenerate the RouteManifest timestamp (2026-05-21T23:59:06Z) and rebuild all Target/ compiled artifacts to reflect the reformatted configuration sources. No functional changes to build logic, RPC method registration (still 135 Mountain methods), or runtime behaviour.",
+			"SHA": "0977a9fd01435d081d1433a0c98c1eb677fdb0b2"
 		}
 	],
-	"TimeStamp": 1781194553088
+	"TimeStamp": 1781360179294
 }

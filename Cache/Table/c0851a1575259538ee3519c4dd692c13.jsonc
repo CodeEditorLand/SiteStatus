@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T08:26:08Z",
+			"Date": "2026-05-28T15:15:19Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				136,
+				144,
 				1
 			],
-			"Message": "feat(Land): Advance Element submodule — registry-backed vscode.tests namespace shim\n\nAdvance the Element submodule pointer to 9b3109db, replacing the stock inline no-op stub for `vscode.tests` in Cocoon's EnsureVscodeAPI.ts with a dynamically-imported, registry-backed TestsNamespace factory.\n\nEach TestController now owns a `Map`-backed `TestItemCollection` with working add/delete/get/replace/forEach, a profile registry for `createRunProfile`, and a `TestRun` state machine tracking the full queued/started/skipped/failed/errored/passed lifecycle. Re-registering a controller with the same id returns the existing instance, softening VS Code's duplicate-id throw for dev-reload double-calls.\n\nExtensions like vitest, mocha-explorer, and rust-analyzer that consume `vscode.tests` now maintain correct internal state instead of silently dropping `controller.items.add(item)` calls against the old stub.",
-			"SHA": "5e47a39363c8654206b10bdfb8111ef5c8925a66"
+			"Message": "chore(Land): Advance Element submodule — Consolidate request ID generation and remove dead Git wrappers\n\n**Air** (refactor): Replace the local `GenerateRequestID` module in AirServiceProvider with direct calls to `crate::Utility::GenerateRequestId()`. Update all 15 service method modules to use the shared utility function, eliminating redundant indirection.\n\n**Mountain** (refactor): Delete the dead `Git::Shared::Removed` wrapper module and replace calls with direct `uuid::Uuid::new_v4()` invocations in Git service handlers. Remove unused `Air` and `Cache` re-exports from `Library.rs` and the `Client` re-export from `Vine/mod.rs`.\n\nBoth submodules continue the absolute-path migration and elimination of wrapper modules, ensuring direct delegation to canonical utility and library definitions.",
+			"SHA": "d1c0439cdfca1879d53840b1adec7960ad901b17"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T08:12:19Z",
+			"Date": "2026-05-28T15:03:37Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				136,
-				3
+				"⠀⠀⠀⠀⠀",
+				144,
+				1
 			],
-			"Message": "feat(Land): Advance Element submodule — diff info, view column, terminal state bridge, and command broadcast flag\n\nAdvance the Element submodule pointer to 0de33710, integrating the Mountain-to-Cocoon notification relay for three additional extension API surfaces plus the TierCommandEventBroadcast feature flag.\n\nSky adds three snapshot-style bridge subscriptions guarded with try/catch: diff editor onDidUpdateDiff line-changes relayed as sky:editor:diffInformationChanged, per-group onDidMoveEditor relayed as sky:editor:viewColumnChanged, and OSC 633 B terminal interaction detection relayed via localPty:setInteracted.\n\nMountain fans three new IPC notifications through WindServiceHandlers — $acceptTextEditorDiffInformationChanged, $acceptTextEditorViewColumnChanged, and $acceptTerminalStateChanged — and introduces TierCommandEventBroadcast (default Off) which dual-emits $acceptCommandExecuted over Vine after gRPC Command.Execute from Cocoon, ensuring onDidExecuteCommand fires for non-locally-registered extension host commands.\n\nCocoon registers four Notification/Handler.ts cases: $activateByEvent defers to ExtensionHostHandler via setImmediate so extension activation actually runs; $acceptTextEditorDiffInformationChanged emits didChangeTextEditorDiffInformation keyed on modifiedUri; $acceptTextEditorViewColumnChanged fires didChangeTextEditorViewColumn with URI and viewColumn matching VS Code's event shape; $acceptTerminalStateChanged updates the cached terminal's isInteractedWith flag and emits didChangeTerminalState. The Auth namespace also subscribes to each AuthenticationProvider.onDidChangeSessions on registration with proper disposal on provider unregister to prevent listener leaks.\n\nThe accompanying Cargo.toml bumps http, log, reqwest, rhai, and all OXC dependencies to their latest patch/minor versions. turbo.json adds TierCommandEventBroadcast to the compile-time feature flag pipeline alongside the existing TierSearch, TierStorage, TierTasks, and TierTelemetry flags.\n\nExtensions consuming didChangeTextEditorDiffInformation, didChangeTextEditorViewColumn, didChangeTerminalState, and onDidExecuteCommand now receive live workbench signals through the complete Mountain-to-Cocoon bridge.",
-			"SHA": "72c78c72671b51b5fca37f5a36df5b7bb34d1073"
+			"Message": "chore(Land): Advance Element submodule — Normalize Vine imports in GenericRequest handlers\n\nRefactor 24 CocoonService generic request handlers across Commands, Secrets, and WindowDialogs services to separate local `crate::` bindings from absolute `::Vine::Generated` path imports. Apply consistent two-line import pattern to InitialHandshake and MountainVinegRPCService.\n\nThis continues the absolute-path migration that eliminates local re-export indirection for the gRPC protocol layer, ensuring all Vine type references delegate exclusively to the canonical Vine library crate.",
+			"SHA": "53a033ab0ad5570e4c6954850e6b9eb11065546c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:17:12Z",
+			"Date": "2026-05-28T15:01:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				136,
+				144,
 				1
 			],
-			"Message": "feat(Land): Advance Element submodule — terminal shell execution event relay\n\nAdvance the Element submodule pointer to d43cffe1, integrating the end-to-end bridge for VS Code terminal shell execution lifecycle events across Cocoon, Mountain, and Sky.\n\nSky parses OSC 633 sequences beyond the existing cwd handler — adding OscEndPattern (;D[;<exitCode>]) and OscCmdLinePattern (;E;<commandLine>) regex parsers plus a per-terminal InflightExecution Map. On OSC 633;C (output begins), Sky fires `localPty:shellExecutionStart` via Mountain IPC; on ;D (command finished), it fires `localPty:shellExecutionEnd` with exitCode, clearing the cached commandLine for the next execution.\n\nMountain adds two WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, fanning the former as `$acceptTerminalShellExecutionStart` to Cocoon and the latter as two Vine notifications: `$acceptTerminalShellExecutionEnd` and a derived `$acceptExecutedTerminalCommand` so extension subscribers observe executed commands without an additional Sky-side detection pass.\n\nCocoon registers three Notification/Handler.ts cases — `$acceptTerminalShellExecutionStart`, `$acceptTerminalShellExecutionEnd`, and `$acceptExecutedTerminalCommand` — each resolving the matching terminal from the `__terminals` context cache and assembling the VS Code event shape with the required terminal, shellIntegration, and execution sub-objects including the `{ value, isTrusted }` commandLine contract.\n\nExtension subscribers hooked via `window.didStartTerminalShellExecution`, `window.didEndTerminalShellExecution`, and `window.didExecuteTerminalCommand` now receive live notifications from OSC 633 sequence parsing in the Sky terminal layer.",
-			"SHA": "b1968f3dc1b03822af26982256b33f98cad3ac55"
+			"Message": "chore(Land): Advance Element submodule — Complete absolute-path migration for IPC boundaries\n\nAdvance the Element submodule pointer to 67b9d58e, removing the final Vine re-export modules and completing the absolute-path delegation pattern across all IPC boundaries.\n\nMountain eliminates the deprecated `Generated` and `Client` module re-exports from `Source/Vine/mod.rs`. Refactor 90+ RPC handler files across Auth, Command, FileSystem, Provider, Window, Workspace, and Terminal services to use `::Vine::Generated` instead of `crate::Vine::Generated`. Delete the remaining wrapper modules in `Source/Air/mod.rs`, `Source/Cache/mod.rs`, and `Source/Vine/Server/Notification/Support/mod.rs`, updating imports to reference `::AirLibrary::Client::AirClient` directly.\n\nImpact: Mountain's IPC and service layers now delegate exclusively to canonical Vine/Cache/Air library crates with zero local re-export indirection. The absolute-path migration is complete across all three dependency boundaries.",
+			"SHA": "c0d8cd79f78a27510e09747cb58b6c5f99866044"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:10:00Z",
+			"Date": "2026-05-28T14:52:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				136,
+				144,
 				1
 			],
-			"Message": "fix(Land): Advance Element submodule — bridged editor state, diagnostics, theme, and breakpoint event pipeline\n\nAdvance the Element submodule pointer to c3783083, integrating Cocoon notification handlers and Mountain-to-Cocoon fan-out for six extension API surfaces that were previously renderer-only.\n\nCocoon adds Notification/Handler.ts cases for $acceptDiagnosticsChanged, $acceptVisibleEditorsChanged, $acceptTabsChanged, $acceptVisibleRangesChanged, $acceptTextEditorOptionsChanged, and $acceptActiveColorTheme — each pumping the Mountain notification through the matching Emitter channel. The $acceptTabsChanged handler caches tab-group snapshots on __tabGroups so synchronous window.tabGroups.all getters reflect current state.\n\nMountain fans five notification types back to Cocoon: $acceptActiveColorTheme in ThemesSet.rs on theme switch, $acceptVisibleEditorsChanged/$acceptTabsChanged/$acceptVisibleRangesChanged/$acceptTextEditorOptionsChanged in WindServiceHandlers/mod.rs forwarding Sky payloads, $acceptDiagnosticsChanged in Diagnostics.rs after Set/Clear calls, and $onDidChangeBreakpoints in DebugLifecycle.rs for breakpoint mutations.\n\nSky bridges four Monaco/workbench event streams through the IPC layer: onDidScrollChange (debounced to ~16 fps) emits visible ranges, onDidChangeConfiguration emits options changes, onDidVisibleEditorsChange emits the URI list of visible editors, and onDidChangeActiveGroup/onDidAddGroup/onDidRemoveGroup emit tab-group snapshots. All IPC calls are wrapped in try/catch so render failures never interrupt the UI pipeline.\n\nVS Code API subscribers inside Cocoon — languages.onDidChangeDiagnostics, window.onDidChangeVisibleTextEditors, window.tabGroups.onDidChangeTabs, window.onDidChangeTextEditorVisibleRanges, window.onDidChangeTextEditorOptions, window.onDidChangeActiveColorTheme, and debug.onDidChangeBreakpoints — now fire correctly for all extensions.",
-			"SHA": "4f239fbb7f63ad88216d43f491062f299efeba4d"
+			"Message": "chore(Land): Advance Element submodule — Rebuild compiled output after RouteManifest regeneration\n\nAdvance the Element submodule pointer to 8f7cb14a, synchronizing compiled artifacts with the regenerated RouteManifest.\n\nCocoon rebuilds all Target/ artifacts including JS bundles and source maps following the RouteManifest timestamp update. This is a routine compilation pass with no new RPC methods added — Mountain method count remains at 142.",
+			"SHA": "385c6b633c02bab81a9ffd4b32f998ddded078b5"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:54:53Z",
+			"Date": "2026-05-28T14:42:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				136,
+				144,
 				1
 			],
-			"Message": "fix(Land): Advance Element submodule — command execution notification relay\n\nAdvance the Element submodule pointer to 69826df9, integrating fixes that relay executed command notifications from Mountain to Cocoon so that `vscode.commands.onDidExecuteCommand` callbacks fire inside Node.js extensions.\n\nCocoon replaces the dead `@tauri-apps/api/event`.listen call (which never fires without `window.__TAURI__`) with a subscription to the `commands.executed` Emitter channel, fed by the `$acceptCommandExecuted` Vine notification from Mountain and local command routes in Commands/Namespace.ts for extension-to-extension `executeCommand` calls. The `viewId` dual-key resolution strategy (established for `setHtml`/`postMessage`) is extended to five more webview mutators — `dispose`, `setTitle`, `setIconPath`, `setOptions`, `reveal` — so panel mutations arriving before the workbench mounts the `IOverlayWebview` still reach their target.\n\nMountain dual-emits `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, alongside the existing Tauri event that reaches the renderer. The Vine notification is fire-and-forget — failure is non-fatal since renderer-side observers are already notified. The `tauri::Emitter` trait import is added in CreateEffectForRequest/Commands.rs to satisfy the compiler.\n\nExtension `onDidExecuteCommand` hooks now fire correctly, webview panel mutations during mount race conditions resolve via the viewId fallback, and Cocoon's Terminal/Service.ts is marked deprecated pending vertical-split cleanup.",
-			"SHA": "dd6c26982b5825f174d7c7b2e1f06477c198093b"
+			"Message": "chore(Land): Advance Element submodule — Eliminate Air module wrappers\n\nAdvance the Element submodule pointer to 9ccc3638, completing the Air integration layer migration.\n\nMountain removes the dead `AirServiceTypesStub` re-export module and consolidates `AirClient.rs` to retain only the `MapAirError` translation boundary and type alias. The `DEFAULT_AIR_SERVER_ADDRESS` constant is now referenced directly from `::AirLibrary::Client::AirClient` in `GetAirAddress.rs` rather than via the local wrapper.\n\nThis finishes the absolute-path delegation pattern across all IPC boundaries. Mountain's Air surface is now a pure error-translation layer with no local re-exports.",
+			"SHA": "62c215350216cba2bcb41ff8ed3997975e85bd0b"
 		}
 	],
-	"TimeStamp": 1781194521101
+	"TimeStamp": 1781360162082
 }

@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-04-09T02:35:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1022,
-				1
-			],
-			"Message": "",
-			"SHA": "09ea5dc6a3fe316974f3e9b782f293bc93be58a3"
-		},
-		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-09T00:57:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1022,
-				8
-			],
-			"Message": "feat(Wind): Add platform detection and fix Tauri command naming\n\nAdd DetectPlatform() to properly detect OS, architecture, hostname, and release version from the browser context. The CreateProcess and ResolveConfiguration now use platform-specific values for:\n- PATH environment variable (Windows vs Unix paths)\n- execPath (Land.exe vs /usr/local/bin/land)\n- homeDir, tmpDir, userDataDir (platform-specific paths)\n- os.release/arch from actual detection\n\nAlso rename Tauri commands from colon format (`process:get_exec_path`) to underscore format (`process_get_exec_path`) to match Mountain's expected Tauri 2.x command names. Update ProcessPolyfill, SharedProcessProxy health checks, and add proper error propagation for file system errors so VS Code's fileService.js can catch FileNotFound/NoPermissions errors.\n\nThese changes enable the workbench to run on Windows and fix IPC communication with Mountain.",
-			"SHA": "845b0911af452942fb4905d1cf17fe56d4abb726"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-08T22:30:01Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1022,
-				5
-			],
-			"Message": "feat(Wind): Refactor profile config and add OS detection for workbench\n\nRefactor the profile configuration in ResolveConfiguration to use a reusable DefaultProfile variable instead of duplicate inline objects. Add the os configuration object with release (parsed from navigator.userAgent), hostname, and arch (arm64/x86_64 detection) required by the VS Code workbench.\n\nAlso improve IPCRendererShim to handle known no-op vscode: channels (createSharedProcessChannelConnection, toggleDevTools, reloadWindow, etc.) without logging warnings, and return undefined for truly unmapped channels instead of calling non-existent Tauri commands. Add a stub for utilityProcessWorker in TauriMainProcessService to prevent UtilityProcessWorkerWorkbenchService from hanging.\n\nThese changes complete the workbench initialization requirements and reduce noise from expected IPC calls.",
-			"SHA": "4788084ce9535bfbf5805b967ce6098d16535ba2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-08T21:15:14Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1022,
-				6
-			],
-			"Message": "feat(Wind): Complete profile URI configuration and improve IPC error handling\n\nAdd missing URI fields to default profile configuration in ResolveConfiguration:\n- location: vscode-userdata scheme for profile directory\n- promptsHome: user prompts path\n- extensionsResource: extensions.json path\n- mcpResource: mcp.json path\n\nThese URI fields were undefined, preventing the VS Code workbench from locating user data directories.\n\nAlso improve TauriMainProcessService error handling:\n- Add storage stub (getItems, updateItems, optimize, isUsed) to prevent NativeWorkbenchStorageService from hanging\n- Return undefined on IPC failures instead of throwing, since many services don't handle rejections gracefully\n- Change console.error to console.warn for failed channel calls\n\nThese changes enable the workbench to initialize properly and make IPC more resilient to service errors.",
-			"SHA": "5ad4d3c96f4b84405c4b1bc5022a1503062fff62"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-08T16:13:50Z",
+			"Date": "2026-04-22T00:08:50Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				1022,
-				20
+				1039,
+				21
 			],
-			"Message": "feat(Wind): Add Tauri 2.x invoke compatibility across all polyfills\n\nUpdate Tauri invoke calls in all Wind polyfills and services to support both Tauri 1.x and 2.x APIs. The invoke pattern changed from `window.__TAURI__.invoke()` (Tauri 1.x) to `window.__TAURI__.core.invoke()` (Tauri 2.x).\n\nChanges:\n- Update invokeTauri() in: ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill, IPCRendererShim, NativeModulePolyfill, ProcessPolyfill, SharedProcessProxy\n- Update InvokeMountain() in TauriMainProcessService\n- Add TelemetryLive layer to Bootstrap configuration\n- Reorganize TextModelResolver import in Tauri.ts layer\n\nAll polyfills now check for Tauri 2.x first (core.invoke), then fall back to 1.x patterns, ensuring backward compatibility with existing Tauri 1.x deployments while enabling Tauri 2.x upgrades.",
-			"SHA": "14c15166326ad501986bc36dbd49f45458ff6779"
+			"Message": "refactor(Wind): Use Channel registry for all IPC invokes across Wind services\n\nRefactor all 19 Wind service Live layers to use the IPC Channel registry instead of free-text string literals, ensuring compile-time validation against typos at every call site.\n\nThis completes the migration started in the previous commit (which added InstallVsix/Uninstall to ExtensionsService using the Channel registry). Now every service layer in Wind uses typed Channel imports:\n- Commands, Decorations, Files, History, Keybinding, Label, Lifecycle, Model\n- Notification, Output, Progress, QuickInput, Search, Storage, Terminal\n- TextFile, Themes, WorkingCopy, Workspaces\n\nAlso extend Source/IPC/Channel.ts with newly-defined channels for TextFile (read/write/save), WorkingCopy (dirty-state tracking), and QuickInput (showInputBox/showQuickPick) to complete the registry coverage.\n\nOne exception remains: `mountain_get_status` in MountainImplementation.ts uses a snake_case wire string that doesn't fit the `prefix:method` convention, documented as TODO for a future coordinated rename.",
+			"SHA": "8244ad244acdea3e3eccfae5c308b697ea2afbfe"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-21T23:37:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1039,
+				2
+			],
+			"Message": "feat(Wind): Add InstallVsix and Uninstall to ExtensionsService\n\nImplement the Atom K5 contract by adding InstallVsix and Uninstall methods\nto the ExtensionsService interface and Live layer. InstallVsix accepts a\n.vsix path (plain or file:// URI) and returns the ILocalExtension envelope\nfrom Mountain. Uninstall accepts an extension identifier and resolves with\ntrue after Mountain removes the install directory and broadcasts the\nuninstalled event.\n\nAlso refactor all IPC invokes to use the Channel registry\n(Element/Wind/Source/IPC/Channel.ts) instead of free-text string literals,\nensuring compile-time validation against typos. Affected operations:\nGetExtension, GetAllExtensions, IsActive, Activate.\n\nThe prior implementation was a no-op stub that silently returned null,\nleaving the \"Install from VSIX…\" prompt and sidebar Uninstall button\nnon-functional. These now resolve through real handlers in\nWindServiceHandler/Extension.rs.",
+			"SHA": "86bd4240706a77d5d2cea5337b4006bb9dccf625"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-21T22:54:42Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1039,
+				1
+			],
+			"Message": "feat(Wind): Add IPC Channel registry TypeScript module\n\nAdd Source/IPC/Channel.ts as a TypeScript mirror of the Rust Channel enum in Element/Common/Source/IPC/Channel.rs. This file provides the authoritative wire string constants for all IPC communication between Wind and Mountain.\n\nThe module exports a default object with all channel names mapped to their wire string format (e.g., \"commands:execute\", \"file:read\"). TypeScript consumers can import and use these channels for type-safe IPC invocations via IPCService.invoke(), ensuring compile-time validation against typos at the call site.\n\nThe file is hand-kept in lockstep with the Rust Channel enum — both must agree on the number and wire strings for correct dispatch.",
+			"SHA": "2164b922070af98d8eac43a46f6c960412dc7b57"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-21T18:32:07Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1037,
+				12
+			],
+			"Message": "feat(Wind): Load product.json at build time for configuration\n\nImplement Atom I5: refactor ResolveConfiguration to fetch product identity from /product.json (generated by Maintain/Script/ResolveProductConfig.sh from .env.Land variables) instead of hardcoded strings.\n\n- Add LoadProductJson() async function that fetches /product.json with fallback to minimal defaults\n- Update product configuration fields (nameShort, nameLong, applicationName, version, commit, urlProtocol, dataFolderName, serverApplicationName) to use resolved values\n- Preserve backward compatibility: network failures fall through to base defaults allowing degraded boot with version mismatch warning\n\nThis enables single-source-of-truth product identity without hardcoded version strings in the codebase. The Target/ build outputs are regenerated to reflect the new configuration resolution.",
+			"SHA": "cc360e37a2ae2757410b42cc94580bff1eccd8d4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-21T16:34:10Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1037,
+				13
+			],
+			"Message": "",
+			"SHA": "72a2860fd93d25ff53327ca3fab3d15840392fa1"
 		}
 	],
-	"TimeStamp": 1781194546781
+	"TimeStamp": 1781360207370
 }

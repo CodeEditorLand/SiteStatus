@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-06-10T03:58:06Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:48:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1028,
+				920,
 				1
 			],
-			"Message": "",
-			"SHA": "5c13f6847146803137c65004824a58d7541a82c8"
+			"Message": "feat(Wind): Introduce AuditLog for Proxy-level service resolution monitoring\n\nAdd the AuditLog singleton — a ring-buffered audit trail for the TierShim=Proxy\nmode. Every ServiceCollection.get() and InstantiationService.invokeFunction()\ncall is timestamped and recorded with action type, resolution status, cache\nhit, and optional duration.\n\n**Source/Shim/AuditLog.ts** — Static class wrapping a 2000-entry ring buffer.\nProvides record(), flush(), summary(), getByService(), getByAction(),\ntopServices(), and sendToMountain() which serialises the batch to\nMountain's diagnostic log via Tauri IPC with fire-and-forget semantics.\nSupports clear() for testing.\n\nThis is the evidence-gathering component of the shim architecture. At the\nProxy level, it records every service access without interception, building\nthe data needed to decide which services can be safely swallowed or replaced\nat higher ShimLevels (Replace, Own, Preempt).",
+			"SHA": "33567c3217a5b7a634875b3e4b86a116437b7569"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T00:19:01Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				1028,
-				50
-			],
-			"Message": "build(Wind): Regenerate service interfaces from VS Code upstream and update domain references\n\nRegenerate all Effect-TS service interfaces under Source/Effect/Generated/ from VS Code upstream sources, adding 513 service catalog entries and 552 command catalog entries with standardized formatting. Update all documentation and configuration references from land.playform.cloud to editor.land domain.\n\nKey changes:\n- Regenerate 44 service interface files (IAgentHost*, IChat*, ITerminal*, ISession*, etc.) from VS Code upstream with consistent PascalCase and spacing conventions\n- Add CommandCatalog.ts with 552 command registrations from VS Code workbench contributions\n- Add ServiceCatalog.ts with 513 service decorator entries mapping to generated interface files\n- Update README.md, Documentation/GitHub/DeepDive.md, and .github/Update.md for editor.land domain migration\n- Bump effect dependency from 3.21.2 to 3.21.3 and @types/node from 25.9.1 to 25.9.2\n- Apply mechanical formatting to Source/ESBuild.js and tsconfig.json (array expansion, consistent indentation)\n\nImpact: Restores generated upstream interfaces deleted in previous refactor, aligns service definitions with current VS Code upstream, and completes domain migration to editor.land.",
-			"SHA": "840916f90b1b9893141443bdd64414d856c21385"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T00:13:45Z",
-			"File": [
-				"⣿⡏⠀⠀⠀",
-				943,
-				300
-			],
-			"Message": "refactor(Wind): Migrate service layers to synchronous factory pattern and remove generated upstream interfaces\n\nReplace Effect.gen-based Layer.effect service construction with synchronous factory functions reading from globalThis.__CEL_SERVICES__ across all Wind service implementations. This eliminates Effect runtime overhead during service initialization and simplifies the service layer architecture.\n\nKey changes:\n- Convert 25+ Live.ts service files from Layer.effect(Effect.gen(...)) to Layer.succeed(factory()) pattern\n- Refactor TauriIPC from Effect.gen to direct function returning IPCService\n- Simplify ESBuild configuration files (BaseConfig, CompileConfig, TargetConfig, Wind.js, index.js) and Source/ESBuild.js with consistent formatting\n- Delete 200+ generated upstream service interfaces under Source/Effect/Generated/ (ServiceCatalog, CommandCatalog, and all I*Upstream.ts files)\n- Delete 15 Workbench*BridgeShapeGenerated.ts bridge shape files\n- Add TerminalPropertyChanged event to SkyEvent.ts for terminal property change notifications\n- Minor formatting fixes in MistWebSocketTransport.ts\n\nImpact: Reduced service initialization latency, simpler mental model for service construction, and removal of stale generated code that was blocking regeneration from updated VS Code upstream sources.",
-			"SHA": "4f8fe2c193f1cce55af8b94bc452d645d87575d2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-09T23:15:11Z",
+			"Date": "2026-06-12T21:47:55Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1966,
-				4
+				919,
+				3
 			],
-			"Message": "feat(Wind): Add Mist WebSocket transport and eager runtime initialization\n\nIntroduce direct Sky-to-Cocoon WebSocket transport (B7-S6) eliminating the Mountain gRPC hop for ~95% of extension-API IPC volume. The new MistWebSocketTransport handles authentication via subprotocol/query param, exponential backoff reconnection (100ms-5s, dead after 30s), and request/response correlation.\n\nKey changes:\n- LandWorkbenchRuntime: Switch from lazy to eager ManagedRuntime initialization via IIFE at module load, removing first-call latency and ensuring single runtime instance across Sky chunks.\n- FileSystemProviderImplementation: Replace Effect.runPromise(IPCService.invoke) with direct @tauri-apps/api/core invoke for MountainIPCInvoke.\n- MistWebSocketTransport (new): Full WebSocket client with pending request map, health checks, and notify/invoke APIs.\n- TauriMainProcessService: Add WebSocket routing tier checked before Node tier; InitializeWebSocket() entry point for Sky bootstrap.\n\nImpact: Reduced IPC latency for extension host communication, simpler Tauri invoke path, and foundation for Mountain gRPC offload.",
-			"SHA": "27003f66c45b115f6a6c3ecfa4d6a19dad5277a5"
+			"Message": "feat(Wind): Implement SwallowMap, RedirectBus, and IPCInterceptor for the Shim routing layer\n\nBuild on the Shim type system and activation gate to introduce the three core runtime components that intercept and redirect VS Code IPC calls to Land-native implementations.\n\n**Source/Shim/SwallowMap.ts** — Pattern-matching decision engine that classifies every method into SWALLOW (Land handles, VS Code never sees), PASSTHROUGH (VS Code handles normally), MIXED (both handle, Land's result wins), or DISCARD (silently dropped). Includes a comprehensive built-in default ruleset covering: StatusBar, SCM, Search, Terminal, Output, FileSystem, Notifications, Dialogs, QuickInput, Keybindings, Themes, Configuration, Telemetry (DISCARD), ExtensionsGallery, and Product. Rules are ordered from most-specific to least-specific with first-match-wins semantics, regex support, and optional runtime conditions.\n\n**Source/Shim/RedirectBus.ts** — Central routing bus for the shim architecture. Registered handlers match by method pattern (prefix or regex); first match processes the event. Supports `register`, `unregister`, `route`, `hasHandler`, and `clear` operations. Duplicate registrations update in place. Unmatched methods emit a console warning for debugging misconfigured rules.\n\n**Source/Shim/IPCInterceptor.ts** — Intercepts every Tauri `invoke(\"MountainIPCInvoke\", {method, params})` call before it reaches Mountain's DispatchMatch. Only intercepts MountainIPCInvoke commands; all other Tauri commands pass through unchanged. The fast-path short-circuits entirely when TierShim is None (enabling esbuild tree-shaking). Routes through the four SwallowMap actions with proper fire-and-forget semantics for MIXED mode.\n\nThis completes the Shim's routing infrastructure, enabling Land services to progressively intercept VS Code IPC calls as their Land-native implementations become available.",
+			"SHA": "f36e21721c4309b3ae18449223544f7b52913651"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-09T19:49:31Z",
+			"Date": "2026-06-12T21:47:22Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
-				1981,
-				300
+				"⠀⠀⠀⠀⠀",
+				916,
+				3
 			],
-			"Message": "",
-			"SHA": "4996da25e5fbdb3eba91992058c85fed96fc143a"
+			"Message": "feat(Wind): Introduce Shim system types and activation gate\n\nAdd the foundational types and activation infrastructure for the Land Shim system, which intercepts and redirects VS Code service calls to Land-native implementations via the TierShim env var.\n\n**Source/Shim/Type.ts** — Define the core type contract shared between Wind, Output, and Cocoon: `ShimLevel` (None/Proxy/Replace/Own/Preempt), `SwallowAction`, `RedirectTarget`, `SwallowRule`, `SwallowDecision`, `RedirectHandler`, `FlowDirection`, and `ShimEvent`. These types underpin the SwallowMap decision engine and RedirectBus routing.\n\n**Source/Shim/Gate.ts** — Implement the master activation switch that reads `TierShim` at module load and exports boolean flags (`IsEnabled`, `IsProxy`, `IsReplace`, `IsOwn`, `IsPreempt`) for tree-shaking via esbuild. Each activation level unlocks progressively more control: Proxy (audit-only), Replace (service substitution), Own (container ownership), Preempt (full BrowserMain interception).\n\n**Source/Effect/Layers/Test.ts** — Remove the now-obsolete `IPCMockLive` from both test layer stacks (TestLayer and TestWithTelemetryLayer). IPC mock is already a plain object imported directly; no longer part of the Effect Layer composition. Update doc comments to reflect that Configuration, Mountain, and IPC are all plain objects outside the layer stack.\n\nThis completes the cleanup following the IPC De-Effect-ification and establishes the type-safe foundation for the shim system's multi-tier interception strategy.",
+			"SHA": "d4987298b9edaead17c58bef82d6e20b1651c9d9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:43:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				913,
+				3
+			],
+			"Message": "refactor(Wind): Strip IPC from Electron layer, finalize barrel exports\n\nComplete the IPC de-Effect-ification cleanup. The three Electron layer stacks\n(ElectronBaseLayer, ElectronLiveLayer, ElectronDevLayer) no longer register\nIPCElectronLive — IPC is a plain object imported directly.\n\nRenames barrel exports to the plain-object convention: TauriIPCLive as IPCLive\nand MockIPCLive as IPCMockLive, replacing the old Effect-TS aliases\n(IPCElectronLive, IPCTag as IPC, IPCMockLive, IPCTauriLive). Promotes IPC\nerror classes from export type to export (now concrete Error subclasses).\nSurfaces new IPC helper types (IPCEvent, IPCEventListener, IPCEventStream,\nIPCCleanup) in the main Effect barrel.",
+			"SHA": "8c1067c411e40266ff73ea9c737a2187e8c168d6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:42:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				913,
+				5
+			],
+			"Message": "refactor(Wind): Finalize IPC De-Effect-ify — clean up barrel, delete Live/Tag, convert Mock\n\nComplete the IPC service migration away from Effect-TS, following the core conversion in 0aeaeb8a that rewrote the errors, interface, and implementation. This commit cleans up the Effect scaffolding that the prior conversion left behind.\n\n**Main barrel** (`Effect/IPC.ts`): Move error-class re-exports from inline definitions to the sub-barrel; replace default-import of Effect-TS Layer with direct implementation imports; add backward-compatibility aliases (`IPCTauriLive`, `IPCMockLive`) using `export { X as Y } from` syntax.\n\n**Deleted files**:\n- `Effect/IPC/Live.ts` — the `Layer.effect(IPCTag, …)` factory; no longer needed since the implementation is a plain object, not an Effect Layer.\n- `Effect/IPC/Tag/IPCTag.ts` — the `Context.GenericTag<IPCService>`; no longer needed since consumers import `TauriIPCLive` directly.\n\n**Mock** (`Effect/IPC/Mock.ts`): Convert from `Layer.succeed(IPCTag, {…})` to a plain `IPCService` object. All methods drop the curried `(_args) => …` Effect signature: `send` returns `void`, `invoke` returns `Promise`, `events` returns an `{ subscribe }` object, `once` takes a callback.\n\n**Sub-barrel** (`Effect/IPC/index.ts`): Remove Tag, Layer, and error-helper (`Create*`) re-exports. Add type exports for the new `IPCEvent`, `IPCEventListener`, `IPCEventStream`, `IPCCleanup` types.\n\n**Impact**: Eliminates the last Effect-TS dependency from Wind's IPC layer. Cuts ~80 lines of Effect boilerplate (Layer, Tag, factory helpers). All imports now come from plain TypeScript modules.",
+			"SHA": "fe858d9d20ff1f67eadca05a554d54fc0194c89c"
 		}
 	],
-	"TimeStamp": 1781194515731
+	"TimeStamp": 1781360155903
 }

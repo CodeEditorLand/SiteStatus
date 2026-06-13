@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-05-16T02:33:53Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T08:36:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1499,
-				1
+				1585,
+				7
+			],
+			"Message": "fix(Mountain): Serve webview panels via localhost plugin URL\n\nSecondary webview panels (settings, webview extensions, etc.) used `WebviewUrl::App(\"WebviewHost.html\")` which routes through tauri::manager — but Mountain's tauri.conf.json has no `frontendDist`, so Tauri has no bundled assets to serve, leaving those webviews blank.\n\nFix by loading them from the localhost plugin instead (`http://localhost:PORT/Mountain/WebviewHost`). A new `LocalhostUrl` singleton (OnceLock in `IPC/WindServiceHandlers/Utilities/LocalhostUrl.rs`) is populated once during `AppLifecycleSetup` and consumed in `create_webview_panel_impl` to build the external URL. Falls back to port 15536 if the singleton is unset.\n\nAlso extracts the inline Cocoon subprocess environment-building and I/O forwarding into named functions (`BuildCocoonEnvironment`, `SpawnCocoonIoForwarders`) in CocoonManagement.rs — pure refactor with no behavioral change, reducing method complexity from ~200 inline lines to two clear helpers.",
+			"SHA": "88be9db9ea1de55af0b96158021b2b77c7f86f6c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T07:49:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1582,
+				8
+			],
+			"Message": "feat(Mountain): Enable .app bundle resource resolution for cache, Cocoon, and Node\n\nThe Mountain binary now resolves pre-baked resources from both the repo/dev\nlayout (binary-sibling files) and the .app bundle layout (Contents/Resources/)\nwhen running as a packaged application. Four systems are updated:\n\n**Extension manifest cache (LoadFromCache.rs):** Probes two locations in\norder — `BinaryDir/extensions.manifest.json` (dev) and\n`BinaryDir/../Resources/extensions.manifest.json` (bundle). Bundled caches\nskip the staleness check (10-minute threshold) since they are built\nalongside the .app and always consistent with its packed extensions. The\nper-manifest field extraction is also refactored with local `str()` and\n`arr()` helper closures to eliminate repeated\n`Manifest.get(k).and_then(Value::as_str)` chains.\n\n**CocoonManagement pre-flight check:** Cocoon's bundle probe now attempts\nTauri's resource resolver first (`Tauri::path::resolve` with\n`BaseDirectory::Resource`), falling back to the repo-layout relative-walk\nfrom `scripts/cocoon/` when the bundle path does not exist.\n\n**NodeResolver TryShipped:** Adds a sidecar resolution path matching\n`externalBin: [\"Binary/node\"]` in tauri.conf.json — the `node` binary sits\nalongside the Mountain executable, not in a `Node/bin/` subdirectory, in\nthe Tauri sidecar layout.\n\n**ScanPathConfigure and PathSecurity:** Extension scan paths now call\n`.canonicalize()` on resolved paths for cleaner log output (showing\n`Contents/Resources/...` instead of `Contents/MacOS/../Resources/...`).\n`IsTrustedSystemPath` adds `../Resources/Static/Application/extensions` to\nthe bundle-root allowlist so the new canonical static extension directory\nbypasses the workspace-folder gate.\n\n**Bootstrap fork (bootstrap-fork.js):** Cocoon entry path resolution\nhandles both bundle (2-level `../../`) and repo (3-level `../../../`)\nlayouts by iterating both URL bases for each candidate entry path.\n\n**tauri.conf.json:** Maps `bootstrap-fork.js`, `extensions.manifest.json`,\nand `Cocoon/Target/Bootstrap/Implementation/Cocoon` into\n`Contents/Resources/` so all three are reachable at runtime via the bundle\nresource resolver.",
+			"SHA": "0fe6cbfa5522594264233b21f4807ab5f184dab4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T06:19:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1582,
+				4
 			],
 			"Message": "",
-			"SHA": "3906b0c7629c258c4ad73ebe5249aca4ee9464b0"
+			"SHA": "1a1ee9b546b80eef444b0dc0ae4da09b291f2ca9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T00:03:04Z",
+			"Date": "2026-05-22T06:19:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1499,
-				1
+				1584,
+				7
 			],
-			"Message": "docs(Mountain): Fix invisible whitespace artifacts in section headers\n\nThe `Documentation/GitHub/Architecture.md` file contained invisible non-breaking space characters (U+00A0) between the header text and emojis in all major section titles. These artifacts caused inconsistent rendering and length discrepancies in Markdown viewers.\n\nStrip the non-breaking spaces and replace them with standard ASCII spaces in the title line and all H2/H3 headers (e.g., `Overview`, `Application Lifecycle`, `Module Architecture`, `Provider Registration`, `Tauri Command System`, `gRPC Service`, `Process Management`, `IPC and Event System`, `Cache System`, `Extension Management`, `Related Documentation`).\n\nThis restores visual consistency across the documentation and aligns with the project's formatting standards established in the recent commit `302e3fe`.",
-			"SHA": "4495e6f1fc92b2213c73dce4d5473b634ef1435f"
+			"Message": "fix(Mountain): Normalize extension location URI from cache to plain string\n\nThe `LoadFromCache` path serialized `ExtensionLocation` as a JSON object\n`{\"value\": url}` — the Identifier wrapper shape — rather than a plain\n`Value::String` URI. The `Normalize.rs` URI parser then failed to match\nagainst the `scheme` key and fell through to `/extensions/unknown`,\nbreaking extension resolution for cached manifests.\n\n- Fix the source: emit `Value::String(LocationUri)` from\n  `LoadFromCache.rs`, matching the format `FromUrl::Fn` expects.\n- Fix the sink: add a backward-compatibility branch in `Normalize.rs`\n  that unwraps `{\"value\": url_string}` when encountered, so legacy\n  cache entries still resolve correctly.\n- Reorder Sky resource globs in `tauri.conf.json` alphabetically for\n  maintainability.\n\nAccompanying build metadata: the Cargo.toml package name, tauri\nidentifier, and productName are expanded to their full environment-keyed\nform (DevelopmentNodeEnvironment…) as part of the CI artifact\nlabelling scheme; backup files preserve the canonical values.",
+			"SHA": "af8fcdd2e74f49cd5943e056f6af38bddb0d7205"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T23:36:50Z",
+			"Date": "2026-05-22T05:35:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1499,
-				1
+				1582,
+				2
 			],
-			"Message": "docs(Mountain): Standardize documentation formatting and add component emojis\n\nRefactor the Architecture.md document to align with strict project formatting guidelines. Update inline code elements (e.g., `Tauri`, `Rust`, `gRPC`) and standardize emoji usage in section headers to ensure consistent rendering across Markdown viewers.\n\nEnhance the `Related Documentation` section by converting relative links to absolute GitHub URLs targeting the `Current` branch. Add a summary list of Mountain's core responsibilities at the introduction and apply a mountain emoji (🏔️) to the title. Update the `Process Management` and `Environment` sections to explicitly reference `PATH`, `SIGTERM`, and `AppState` with code formatting for clarity.\n\nThese changes improve document readability and maintain consistency with the project's documentation standards.",
-			"SHA": "302e3fdea12b8e7084cf8a13ddeb4c67f72833c8"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T22:32:55Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1499,
-				1
-			],
-			"Message": "docs(Mountain): Add Mermaid sequence diagram for application lifecycle\n\nExpand the `Documentation/GitHub/Architecture.md` file by inserting a Mermaid sequence diagram that visualizes the Mountain startup process. The diagram details the initialization order from `main()`, through `Tauri::Builder` setup, `AppState` creation, and `MountainEnvironment` provider injection, to the spawning of background tasks.\n\nKey stages captured include the initialization of the Echo scheduler (`AppRuntime`), the launch of the gRPC server (Vine), the bootstrap handshake with the Cocoon extension host, and the optional connection to the Air daemon. This addition provides a clear, visual reference for the complex inter-process orchestration defined in the preceding text.",
-			"SHA": "064ab84c283122d356b3418ecccd91a17be83326"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-15T22:32:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1499,
-				1
-			],
-			"Message": "docs(Mountain): Introduce comprehensive architecture documentation\n\nCreate `Documentation/GitHub/Architecture.md` to serve as the definitive technical reference for the Mountain native backend. This document details the Tauri-based application lifecycle, the implementation of Common traits via the `MountainEnvironment` provider system, and the orchestration of sidecar processes (Cocoon, Air).\n\nThe narrative covers critical subsystems including the gRPC server (Vine) for inter-process communication, the Tauri command registration system, state management via `AppState`, and the process management strategies for extension hosts and background daemons. It also catalogs the IPC event system and caching mechanisms.\n\nThis addition provides necessary context for developers and auditors regarding the Rust backend's structure, effectively replacing scattered code comments with a structured, high-level overview of the editor's native substrate.",
-			"SHA": "d4d6944bdecaae78a45ed256e1a6288488f5056d"
+			"Message": "refactor(Mountain): Extract inline JSON blocks to avoid macro recursion limit\n\nThe `ConstructSandboxConfiguration` function builds the entire `ISandboxConfiguration` payload in a single deeply-nested `json!()` macro invocation. As the `profiles` and `productConfiguration` sections grew, the macro expansion exceeded Rust's recursion limit, causing compilation failures on certain toolchain versions.\n\nExtract the `nls`, `productConfiguration`, `os`, and `profiles` sub-objects into separate `json!()` calls bound to local variables (`NlsSection`, `ProductConfig`, `OsSection`, `ProfilesSection`), then reference them by name in the outer `json!()` invocation. This breaks the single deep expansion into multiple shallow ones, staying well within the recursion limit without changing any emitted values.\n\nNo behavioral change — all pre-built variables produce identical JSON to the previously inlined blocks.",
+			"SHA": "78820a9ee66e89a88169dab5bf7acb7b986c1eb3"
 		}
 	],
-	"TimeStamp": 1781194539758
+	"TimeStamp": 1781360189199
 }

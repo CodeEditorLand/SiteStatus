@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:16:54Z",
+			"Date": "2026-05-20T06:13:01Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1576,
+				9
+			],
+			"Message": "refactor(Mountain): Extract CocoonService dispatchers; fix Send-ness in InitData; retry AppDataPrefix\n\nThe 1400+ line `process_mountain_request` and 600+ line `send_mountain_notification` handlers were inlined in `CocoonService/mod.rs`, making the file unwieldy and obscuring the gRPC service boundary. Extract both match blocks into dedicated `GenericRequest::Dispatcher` and `GenericNotification::Dispatcher` modules, reducing `mod.rs` by ~1900 lines.\n\nIn `InitializationData.rs`, the `MutexGuard` on `WorkspaceFolders` was held across an `.await` call, making the future non-`Send` and breaking `tauri::async_runtime::spawn`. Scope the guard to a block so it is dropped before any await point; extract logging scalars before moving `FoldersWire` into `WorkspaceDTO`.\n\nIn `AppDataPrefix.rs`, replace the `OnceLock<Option<String>>` that caches `None` forever (routing all dev logs to `/tmp` after the first failed resolution) with a two-phase system: `RESOLVED: OnceLock<String>` for the permanent prefix, and `RETRY: Mutex<bool>` that stays `true` on first failure so subsequent writes retry after Tauri has created the app-data directory.\n\nIn `WindServiceHandlers/mod.rs`, the previous boot-latency fix used a bare `return Ok(...)` inside a match arm, which exits the enclosing async block (not just the arm), changing the block's inferred return type from `()` to `Result<Value, _>` and breaking `Scheduler::Submit`'s `Output = ()` bound. Replace with an `if/else` expression that evaluates to `Ok(...)` in both branches.\n\nAlso fix a minor clippy-nit in `AliasPath.rs` by removing the redundant `.as_str()` call.",
+			"SHA": "47a603158ca0d368b2ae744ef8fd7edcf5ed7410"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:37:16Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1574,
+				4
+			],
+			"Message": "style(Mountain): Reflow long lines and brace placement across four files\n\nNormalize formatting in `UpdateValue.rs`, `WindServiceHandlers/mod.rs`, `InitializationData.rs`, and `CocoonService/mod.rs` to align with Rust style conventions. Changes are limited to comment reflow, static declaration compaction, method body compression, and brace positioning — no logic is altered.\n\nCleans up artifacts from prior commits where formatter passes were missed, keeping the codebase consistent.",
+			"SHA": "65f1cf26cfa85fc1639f84d0458df61276bfa44a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:37:05Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1574,
+				6
+			],
+			"Message": "feat(Mountain): Add lang-scoped config override, stable session ID\n\n**Language-scoped configuration overrides** — `UpdateValue` now writes into\n`\"[<langId>]\": { key: value }` when the `ConfigurationOverridesDTO` carries a\nnon-empty `OverrideIdentifier`, matching the VS Code convention used by\nprettier-vscode, vscode-eslint, and other per-language formatters. The scope\nkey is cleaned up when its last entry is removed.\n\n**Stable session ID** — `ConstructSandboxConfiguration` and\n`ConstructExtensionHostInitializationData` now share a `OnceLock`-backed\nstatic `SESSION_ID` instead of generating a fresh `Uuid::new_v4()` per call.\nExtensions comparing `telemetryInfo.sessionId` across initialization calls now\nsee a consistent value for the process lifetime.\n\n**Call/Type hierarchy RPC handlers** — `CocoonService` now dispatches\n`$provideCallHierarchyItems`/`prepareCallHierarchy` and\n`$provideTypeHierarchyItems`/`prepareTypeHierarchy` generic requests to\n`Environment::PrepareCallHierarchy` and `PrepareTypeHierarchy` respectively,\nunblocking F12 / Go to References / Call Hierarchy in the editor.\n\n**Real IPC stubs** — `mountain_get_configuration` returns the live merged\nconfig object; `mountain_get_services_status` reports actual Cocoon connection\nstate; `mountain_get_state` surfaces real workspace folder count and active\ndocument URI. Eliminates hardcoded mock data.\n\n**SOCKS proxy support** — Proxy env-var parsing now emits the correct PAC\nkeyword (`SOCKS` for socks/socks4/socks5 URIs, `PROXY` for http/https),\nso extensions using the `proxy` setting work behind SOCKS proxies.\n\n**Dev-log lock contention** — `FlushDedup::Fn` switches from `lock()` to\n`try_lock()` so a contended dedup mutex never parks a Tokio worker thread.\nThe dedup line is cosmetic; missing one flush costs nothing.\n\n**Atomic always-on-top toggle** — Replaces the heuristic title-prefix proxy\nwith a `static AtomicBool` so `nativeHost:toggleWindowAlwaysOnTop` correctly\nflips and sets the opposite state on each invocation.\n\n**ViewColumn forwarding** — The `window.didChangeTextEditorSelection`\nVine notification now includes `viewColumn` from the incoming arguments,\nso extensions calling `activeTextEditor.viewColumn` see the correct pane\nnumber in split-editor layouts.",
+			"SHA": "5c627091d0aecbc4b96f536dde7bdf12242cc6f7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:21:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1574,
 				1
 			],
-			"Message": "fix(Mountain): Consolidate panic recovery logic in scheme handlers\n\nMigrate the panic recovery implementation in `VscodeWebviewSchemeHandler` to match the established pattern in `VscodeFileSchemeHandler`. The previous implementation attempted to use `catch_unwind` but failed to handle the `AssertUnwindSafe` trait requirement and redundantly implemented the result matching logic inside the closure.\n\nUpdate `VscodeWebviewSchemeHandler` to use `catch_unwind` with `AssertUnwindSafe` for the closure wrapper and move the `match` result handling and `dev_log` error reporting to the function scope. This ensures that panics within the webview asset loading path (e.g., in MIME type resolution or file reading) are caught, logged with backtrace details, and converted to HTTP 500 responses without crashing the editor process.\n\nAlign the import structure in `Scheme.rs` to group `panic` imports correctly. This change unifies the error handling strategy for both file and webview scheme handlers, ensuring consistent graceful degradation across the native backend's asset serving layer.",
-			"SHA": "139de360adc2c0b17a5adbef32cee1d8d6e06c54"
+			"Message": "",
+			"SHA": "07bd1cd0f25a8de5e7c19ec3eb0eab1bfabc8eca"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:10:11Z",
+			"Date": "2026-05-20T05:21:19Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				2
+				1574,
+				6
 			],
-			"Message": "fix(Mountain): Migrate VS Code webview scheme handler to internal panic wrapper\n\nMove the VS Code webview scheme handler logic into a private `_VscodeWebviewSchemeHandler` function and wrap the public entry point with `std::panic::catch_unwind`. This mirrors the protective pattern recently implemented for the file scheme handler to prevent editor crashes caused by panics crossing the Objective-C FFI boundary.\n\nConcurrently, remove the `LSEnvironment` dictionary from `Info.plist`. These runtime configuration values (including network ports and feature tiers) were previously stored in the property list but are now generated and injected at build time via `build.rs` and `Scheme.rs`. Removing the dead XML nodes cleans up the configuration file and aligns the binary structure with the current build process.\n\nThis change ensures graceful error recovery for webview asset requests and resolves configuration drift by centralizing environment setup in the Rust build logic.",
-			"SHA": "230ca02557a152875ce896802af0b4c5ec9d5929"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:05:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				1
-			],
-			"Message": "fix(Mountain): Wrap scheme handlers in panic catch to prevent editor crash\n\nAdd `std::panic::catch_unwind` guards around `_VscodeFileSchemeHandler` and `_VscodeWebviewSchemeHandler` to prevent the entire editor process from aborting. These handlers run inside the `wkwebview` Objective-C FFI boundary, where panics crossing the `extern \"C\"` limit cause immediate process termination.\n\nThe implementation catches panics, logs the error message and current thread backtrace via the `lifecycle` dev_log, and returns a standard HTTP 500 Internal Server Error response instead. This ensures that bugs in memory mapping (mmap) or MIME type handling within the asset loading path result in a graceful failure rather than a full application crash.",
-			"SHA": "478ca92acb177ec84b73c6e5faf4f56c4d4b5ddf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T21:54:43Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				2
-			],
-			"Message": "chore(Mountain): Align documentation structure with recent refactoring and cleanup configuration\n\nUpdate README.md to reflect the current source directory structure following the recent migration from `Binary.rs` to the `Binary/` module folder and the addition of new components like `IPC/`, `RPC/`, `Telemetry/`, and `Cache/`. Correct the architectural diagram and module descriptions to match the actual file layout in `Source/`.\n\nAdditionally, clean up `Info.plist` by removing extraneous indentation and empty XML nodes around the `LSEnvironment` key to ensure a valid, consistent property list format. Remove trailing whitespace to maintain formatting standards.\n\nThis change synchronizes the project documentation with the current codebase state and resolves formatting inconsistencies in the build configuration.",
-			"SHA": "4ce8e735fd7551cdf8c3d5c41f2820eaef15eefc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T21:13:48Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1490,
-				33
-			],
-			"Message": "refactor(Mountain): Consolidate imports and reformat Rust code across core modules\n\nStandardize multi-line import blocks to use brace-compressed syntax in CertificateManager.rs. Apply consistent line-wrapping and removal of unnecessary vertical whitespace across the Environment provider modules, Command handlers, and Track effect handlers.\n\nThis change focuses purely on formatting and code style alignment. No functional logic, business rules, or error handling flows are altered. The modifications ensure uniform indentation and line length compliance (typically wrapping comments and long method chains at 100 characters) across the Mountain native backend codebase.\n\nThis improves readability and prepares the codebase for automated linting enforcement.",
-			"SHA": "c8a486c1635ccee407de53db21f6127a3cce049b"
+			"Message": "fix(Mountain): Reduce lock contention; notify Cocoon on config change\n\n**Lock contention fixes** — In `ScanAndPopulateExtensions`, replace the N-insert\nloop under `ScannedExtensions` lock with a single pointer-swap (`*Guard = All.clone()`),\nreducing lock hold time from 100–500 ms to a clone duration. In `DiagnosticProvider`,\nsnapshot the `DiagnosticsMap` under the lock then aggregate outside it, so concurrent\n`SetDiagnostics`/`ClearDiagnostics` calls are not blocked during serialization.\n\n**Cocoon config notification** — After a successful configuration value write in\n`UpdateValue`, fire a `configuration.change` Vine notification to `cocoon-main` so\nextensions' `ConfigCache` invalidates the affected key and re-primes on next access.\nWithout this, `workspace.getConfiguration().get(key)` returns stale cached data until\nthe next full re-merge notification.\n\n**Cleanup** — Group `SkyEvent` import into existing block in `UpdateValue`; collapse\n`TextfileSave` import paths; fix `AppMenu` and `FileWriteNative` formatting.",
+			"SHA": "7018ff29e26f00125ebe80f2482765bbdb842202"
 		}
 	],
-	"TimeStamp": 1781194542135
+	"TimeStamp": 1781360193308
 }

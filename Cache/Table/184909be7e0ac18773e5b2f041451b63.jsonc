@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:58:13Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				3
-			],
-			"Message": "feat(Output): Bridge localPty channel events through Tauri's sky:// event system\n\nAdd ChannelEventBridge to map VS Code's IPC channel.listen() calls to Tauri's native event system. The localPty channel now routes onProcessData, onProcessReady, and onProcessExit events from Mountain's PTY reader (sky://terminal/*) to the workbench's terminal service handlers with proper payload transformation.\n\nPreviously, channel.listen() returned a no-op handler that silently discarded all event subscriptions. This caused the terminal's xterm panel to stay blank despite Mountain emitting sky://terminal/data hundreds of times - the callback never fired because there was no connection between Tauri's event system and VS Code's channel event surface.\n\nThe bridge maps Mountain's `{id, data|pid|code}` payload shape to VS Code's expected `{id, event: ...}` format and wires the listener through Tauri's @tauri-apps/api/event.listen(). Terminals now render properly.",
-			"SHA": "471479a2554333d215fad46705e9873c5fa671a1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:07:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "99efc02f89574f4e46a52eeb1611ac4103262602"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:01:14Z",
+			"Date": "2026-05-04T15:09:36Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				267,
-				5
+				397,
+				6
 			],
-			"Message": "fix(Output): Add user extension retry + short-circuit Promise probes\n\nTwo fixes to the Output build pipeline:\n\n1. ExtensionScannerIPC: Mirror retry logic on user extensions scan path\n   The system extensions path had retry on empty response but user\n   extensions did not. Without it, an empty initial user-extensions\n   response silently passes 0 extensions through to viewsExtensionPoint\n   and ExtensionsRegistry, leaving every user extension contribution\n   (gitlens, clangd, commands, configuration, languages) unregistered.\n   Also switch to exponential backoff (100, 200, 400, 800, 1500ms) from\n   fixed 1000ms delays - Mountain's scan usually completes in ~500ms.\n\n2. TauriMainProcessService: Short-circuit Promise protocol probes\n   When VS Code resolves a channel-returned thenable, the JS runtime\n   accesses .then, .catch, .finally, constructor, valueOf, toString,\n   toJSON, @@iterator, @@asyncIterator on the proxy to determine if it's\n   a Promise. Each access became a channel call with the property name,\n   surfacing as \"Unknown IPC command: localPty:then\" on every workbench\n   wake. Returning undefined synchronously matches stock VS Code's\n   IChannel behaviour for unknown methods - the runtime sees a non-\n   thenable and stops probing. Saves ~15-25ms of round-trip per probe\n   and removes the noisiest IPC error in the dev log.\n\nRefs a28351b7240a5a722ebef039f3370ac90240818c (system ext retry)",
-			"SHA": "2924f2ae8bb3b41fa32ae0fd965804a80d548dfa"
+			"Message": "feat(Output): Fix webview iframe hanging by patching ServiceWorker and event activation\n\nAddress critical UI stalls where extension webviews and sidebar panes remain stuck at the bare chrome (`pre/index.html`).\n\n1. **Webview Shell Patch (Plugin):** Add `PatchWebviewIframeServiceWorker` to the ESBuild pipeline. Under Tauri 2 + WKWebView, the custom `vscode-webview://` protocol rejects ServiceWorker registration, causing the bootstrap script to await a rejected promise and bail with `fatal-error`. This plugin forces `disableServiceWorker = true` and soft-fails strict `parentOrigin` hash checks that fail on custom protocols, ensuring the iframe renders correctly.\n\n2. **Extension Activation Patch (Service):** Enhance `CELExposeAccessor` to short-circuit `IExtensionService.activateByEvent` for `onView:*` events. Since Land's `*` activation pass loads all extensions at boot, waiting for specific view events (which block `WebviewViewPane.activate`) creates a deadlock in Cocoon. Immediate resolution prevents sidebar stalls.\n\nThese changes resolve hangs in extension webviews and sidebar views without forking the upstream workbench bootstrap logic.",
+			"SHA": "57b2a1a56c41c5e61dcc2dd421aaf5a555a80d37"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T03:40:20Z",
+			"Date": "2026-05-04T11:29:14Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				1
+				"⡇⠀⠀⠀⠀",
+				396,
+				36
 			],
-			"Message": "fix(Output): Add retry logic to user extension scan path\n\nThe system extension scan path had retry logic but user extension scan\ndid not. Without retry on the user path, an empty initial response\nsilently passes 0 user extensions through to viewsExtensionPoint and\nExtensionsRegistry, which means every user-extension contribution\n(gitlens panes, clangd views, commands, configuration, languages)\nstays unregistered for the rest of the session.\n\nAdd the same retry logic to `extensions:scanUserExtensions` as already\nexists for `extensions:scanSystemExtensions`. Also switch to exponential\nbackoff (100, 200, 400, 800, 1500ms) instead of fixed 1000ms delays,\nsince Mountain's scan usually completes in ~500ms and the longer delays\nwere just padding boot time.\n\nUser extensions now load properly at boot even if Mountain's async disk\nscan hasn't completed yet.",
-			"SHA": "a28351b7240a5a722ebef039f3370ac90240818c"
+			"Message": "",
+			"SHA": "6133a6f806529b2c4b77047190c1e9da4c4dc7ce"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-04T10:40:35Z",
+			"File": [
+				"⣿⡏⠀⠀⠀",
+				380,
+				120
+			],
+			"Message": "refactor(Output): Reformat build configuration and plugin pipeline for readability\n\nReformat the entire Output element's ESBuild configuration, plugin definitions, exclusion patterns, and polyfill scripts to align with the project's PascalCase naming conventions and readability standards. This change follows the previous minification commits by restoring source formatting without altering logical behavior.\n\nKey modifications:\n- Revert minified variable names in entry points (`Configuration/ESBuild/CodeEditorLand/Editor.js`, `Bundle.js`) and exclusion scripts (`Bootstrap`, `Electron`, `Telemetry`, etc.) to explicit identifiers and expand dense block structures.\n- Refactor plugin definitions (`Configuration/Plugin/Index.js`, `Apply.js`) and transform logic (`Configuration/Plugin/Transform/`) to use multi-line structures and detailed comments explaining the rationale for each excluded path or transform.\n- Expand polyfill implementations (`Configuration/Plugin/Polyfill/`) and service modules (`Configuration/Service/`) to restore whitespace, indentation, and function names.\n- Reformat the Rest plugin (`Configuration/ESBuild/RestPlugin.js`) and output configuration (`Configuration/ESBuild/Output.js`) to align with the project's style guide.\n\nThe logical behavior of the build pipeline remains unchanged; this commit solely addresses source formatting, documentation consistency, and the introduction of new service modules like `CELExposeAccessor`.\n\nRefs #65058a0e1555a69544fbef42ff813a85eaab7f07",
+			"SHA": "0de0ae14ad1d9d191f1a82016950854b04954f91"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-04T10:40:16Z",
+			"File": [
+				"⣿⣿⡟⠀⠀",
+				369,
+				202
+			],
+			"Message": "refactor(Output): Reformat build configuration and plugin pipeline for readability\n\nReformat the entire Output element's ESBuild configuration, plugin definitions, polyfills, and service modules to align with the project's PascalCase naming conventions and readability standards. This change follows the previous minification commits by restoring source formatting without altering logical behavior.\n\nKey modifications:\n- Rename minified bindings (e.g., `t` → `Prefix`, `e` → `Current`, `o` → `Browser`) and expand dense block structures in `Configuration/ESBuild/CodeEditorLand/Editor.js` and `Bundle.js`.\n- Refactor exclusion patterns (`Configuration/ESBuild/Exclude/` scripts like `Bootstrap`, `ChromiumIPC`, `Electron`, `Network`, `Telemetry`) to include detailed comments explaining the rationale for each excluded path and restore whitespace.\n- Refactor plugin definitions (`Configuration/Plugin/Index.js`, `Apply.js`, `Copy.js`) and transform logic (`Configuration/Plugin/Transform/`) to use explicit variable names and multi-line structures for clarity.\n- Expand polyfill implementations (`Configuration/Polyfill/`) and service modules (`Configuration/Service/TauriMainProcessService.js`, `DevLog.js`) to restore whitespace, indentation, and function names (e.g., `DisableLazyPaint`, `EagerExtensionActivation`).\n- Rename `Configuration/ESBuild/Output.js` from `Source/ESBuild/Output.js` (deleted) and reformat its content.\n- Add source map files (`.js.map`) for all modified configurations to support debugging.\n\nThe logical behavior of the build pipeline remains unchanged; this commit solely addresses source formatting, documentation consistency, and the introduction of the `CELExposeAccessor` service and its supporting TypeScript source in `Source/Service/`.",
+			"SHA": "65058a0e1555a69544fbef42ff813a85eaab7f07"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-04-29T03:39:30Z",
+			"Date": "2026-05-04T03:44:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				267,
+				269,
 				1
 			],
 			"Message": "",
-			"SHA": "c7eef6cacab62664fa2fd8f62cd83b84fcfc397a"
+			"SHA": "c2a9f5db83f905ba0a4aba743649cc9058631908"
 		}
 	],
-	"TimeStamp": 1781194539453
+	"TimeStamp": 1781360182325
 }

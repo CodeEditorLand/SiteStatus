@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-04-13T03:29:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				154,
-				1
-			],
-			"Message": "",
-			"SHA": "a45371bebc03f77e669b4b72f8f66e0908b98162"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-12T03:23:28Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				154,
-				1
-			],
-			"Message": "",
-			"SHA": "7cc9df1855f9ea2eb8e6accddbd98d112b10e05e"
-		},
-		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-11T12:55:56Z",
+			"Date": "2026-04-23T00:02:00Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				154,
-				4
+				215,
+				3
+			],
+			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object\nargs ({ path, encoding: \"utf8\" }) and the response was assumed to be\na string. Mountain actually returns raw bytes as { buffer: number[] } and\nignores the encoding param entirely.\n\nWhen VS Code loaded binary files (WASM, fonts, images), the response\nbody became \"[object Object]\" which corrupted the data. This broke\nTextMate syntax highlighting with:\n  \"WebAssembly.Module doesn't parse at byte 0: module doesn't start\n   with '\\0asm'\"\n\nFix by:\n1. Invoking file:read with positional array args [path] as expected\n   by MountainIPCInvoke\n2. Adding UnwrapReadResult() to unwrap { buffer: number[] } into\n   Uint8Array for binary-safe Response bodies\n3. Updating content type to Uint8Array | string | Blob | null\n\nAll three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler,\nFileHandler) now use the binary-safe pattern.",
+			"SHA": "2f14553fa6611e381918643364ca6e0c65155a9c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T23:44:07Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				215,
+				6
+			],
+			"Message": "feat(Output): Add CatchOutputFolderRejection transform plugin\n\nAdd Step 15 to the build pipeline that catches an unhandled promise rejection\nfrom VS Code's outputServices.createFolder(). In Land, the VFS-IPC stat call\nrejects with FileNotFound before fileService can swallow it, causing the\nrejection to propagate past the .then(() => undefined) handler and surface as\ntelemetry noise in PostHog.\n\nThe plugin uses a regex match against outputServices.js to append\n.catch(() => undefined) to the createFolder chain, silencing the harmless\nrejection since the output folder is created lazily on first channel write\nanyway. If upstream VS Code changes the exact .then(() => undefined) shape,\nthe Match() returns Unchanged and a LOG line surfaces as a regression tripwire.",
+			"SHA": "a900f339a30600bc403059043a5a71f9a2b4c854"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T23:24:42Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				212,
+				3
+			],
+			"Message": "fix(Output): Add IPC stubs for extension tips, MCP, sync, and language detection\n\nAdd missing stub handlers to TauriMainProcessService to prevent renderer crashes when VS Code code calls these services without Mountain handlers:\n\n- IExtensionTipsService: exeBasedRecommendations.ts calls .forEach() on the result, requiring array stubs (empty = no recommendations)\n- IMcpManagementService / IMcpWorkbenchManagement: mcpManagementIpc.ts calls .map() on server arrays, requiring array stubs\n- IUserDataSyncService: userDataSyncServiceIpc.ts destructures a [status, conflicts, lastSyncTime] tuple, requiring tuple stub\n- ILanguageDetectionService: iterates fileExtensions.extensions, requiring object stub with nested empty extensions array\n\nThese stubs return safe empty values that VS Code's workbench code can gracefully handle, preventing TypeError crashes in the renderer.",
+			"SHA": "1452db402083b54d42dd76a6ab8ea6a45111f087"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T19:42:06Z",
+			"File": [
+				"⣿⣿⠇⠀⠀",
+				212,
+				100
 			],
 			"Message": "",
-			"SHA": "7cd58112ebfb1fdf31086a55dbf6df42eab4047a"
+			"SHA": "28c2f0b65dd0165f695a314b9bd6d1dd76dce039"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-11T10:04:11Z",
+			"Date": "2026-04-22T18:45:48Z",
 			"File": [
-				"⣿⠀⠀⠀⠀",
-				154,
-				30
+				"⣿⣿⣿⣿⣿",
+				95,
+				101
 			],
-			"Message": "feat(Output): Add PostHog build telemetry and complete polyfill layer\n\nAdd a fire-and-forget PostHog build telemetry plugin to ESBuild configuration that captures:\n- Build duration, errors, and warnings\n- Compiler type (esbuild vs Rest)\n- Development vs production mode\n- User identifier for developer analytics\n\nAlso complete the Electron-to-Tauri polyfill layer (Phases 1-7 of Approach A3):\n\n**Polyfills:**\n- ProcessPolyfill: Node.js process object (argv, env, platform, versions, cwd, hrtime, cpuUsage, exit)\n- FileSystemPolyfill: fs module mapped to Mountain file:invoke commands\n- FileProtocolShim: vscode-file://, vscode-userdata://, vscode-resource://, vscode-remote:// protocol handlers\n- ChildProcessPolyfill: child_process spawn/exec/fork mapped to Mountain commands\n- IPCRendererShim: Electron ipcRenderer API with VS Code binary IPC protocol loopback\n- NativeModulePolyfill: require('electron') shim providing ipcRenderer, webFrame, app, screen, shell, dialog, clipboard, nativeTheme\n- SharedProcessProxy: Service proxies for extension host, search, debug, storage, update routing to Cocoon/Mountain\n\n**Services:**\n- DevLog: Tag-filtered development logging (vfs, ipc, config, etc.) with short/dedup modes\n- TauriMainProcessService: Drop-in replacement for ElectronIPCMainProcessService, routes getChannel().call() through Tauri invoke to Mountain\n- Trace: Zero-dependency browser tracing via performance.mark()\n\nThese polyfills enable VS Code to run in the Tauri browser environment without Electron.",
-			"SHA": "0a0e5fda674c7d9c0b86bf6b59bc934c896fe793"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-11T05:31:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				131,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "99e8dcd70aa2a9ebb7a910423cf74606aab5d629"
+			"Message": "build(Output): Remove compiled JavaScript configuration artifacts\n\nDelete all compiled .js and .js.map files from the Configuration directory. These represent the transpiled output of TypeScript build configuration sources that have been moved to or consolidated under a different source location.\n\nThe removed files include ESBuild configurations (CodeEditorLand, Microsoft/VSCode, Exclude modules), plugin modules (Apply, Copy, Transform, Type), polyfills (ChildProcess, FileProtocol, FileSystem, IPCRenderer, NativeModule, Process, SharedProcess), services (DevLog, TauriMainProcess, Trace), and tsconfig JSON files.\n\nThis cleanup eliminates redundant build artifacts from the Output element, leaving only the TypeScript source files for the configuration system.",
+			"SHA": "461fcef32466f6afee5de65bf15049c0971506ec"
 		}
 	],
-	"TimeStamp": 1781194545699
+	"TimeStamp": 1781360201930
 }

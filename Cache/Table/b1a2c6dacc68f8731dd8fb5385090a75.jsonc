@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T18:42:42Z",
+			"Date": "2026-05-01T00:36:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				109,
 				1
 			],
-			"Message": "chore(Element): Sync Element submodules with upstream fixes\n\nSynchronize the Element submodule to caa2b47f, bringing multiple downstream updates:\n- Mountain: Fix duplicate DevTools window in debug builds by removing redundant open_devtools() call from WindowBuild.rs, update DiagnosticProvider docstring to clarify 1-based indexing\n- Output: Disable PatchTerminalGpuAcceleration transform due to \"black shadow over text\" artifacts in WKWebView, add ViewRegistrySnapshot() to __CEL_SERVICES__ facade\n- Sky: Add reentrancy guard (_SkyBridgeInstalled, _SkyBridgeInstallPromise) to prevent duplicate Tauri listen() registrations causing double-render \"purple overlays\" bug, update astro.config.ts with static output and disabled prerendering\n- Cocoon: Submodule sync bringing cross-cutting synchronizations\n\nThis synchronization brings in the reentrancy guard fix for the workbench loading twice issue, disables the GPU acceleration transform that introduced visual artifacts, and removes the duplicate DevTools window opening behavior.",
-			"SHA": "02d2e32fffdabcfccc45d1d45b5e13040d5f0800"
+			"Message": "refactor(Output): Make DisableLazyPaint RAF/IO overrides opt-in\n\nWrap the requestAnimationFrame and IntersectionObserver overrides in a conditional guard, requiring `__LAND_AGGRESSIVE_LAZY_PAINT__ = true` to be set BEFORE workbench bootstrap. These overrides redirect Monaco's rAF callbacks to the macrotask queue and replace native IntersectionObserver with a fire-on-observe stub that calls getBoundingClientRect() synchronously. The problem: both bypass WKWebView's compositor-frame coordination—which also delivers keyboard input. Once Monaco starts rendering (theme load, decorations, cursor blink, minimap, scrollbars), the macrotask queue floods and keystrokes starve, causing the input lag symptom this polyfill was meant to solve. Keep the CSS lazy-paint kill (content-visibility: visible) always applied—it solves the original \"panels invisible until hover/scroll\" WKWebView bug without affecting input latency. This complements the recent IPC logging fix (2588fe4) and EditContext polyfill (44e160c) in addressing WKWebView input starvation.",
+			"SHA": "9cae17ed70c86ca51f9b79df42ce6ccf4e14a1b7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:43:27Z",
+			"Date": "2026-05-01T00:16:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				109,
 				1
 			],
-			"Message": "chore(Element): Complete terminal race-condition fix via submodule sync\n\nSynchronize Element submodules to complete the terminal race-condition fix cycle:\n- Mountain: Complete the terminal race-condition fix by deferring the `sky://terminal/create` event with a 120ms delay. This addresses the timing vulnerability where the Tauri event arrived before `_ptys.set(id, pty)` completed during step 1 (RPC in-flight), causing `_ptys.get(id)` to return undefined and silently dropping keystrokes. Complements the earlier fix that added the `AppendTerminalOutput` replay buffer for data events.\n- Output: Add disabled `PatchTerminalGpuAcceleration` transform that defaults `terminal.integrated.gpuAcceleration` to `'off'` to work around xterm.js WebGL texture atlas font drift in WKWebView.\n- Cocoon: Submodule sync to latest.\n\nThis synchronization completes the terminal race-condition fix cycle that began with bf94e30, restoring proper terminal panel functionality.",
-			"SHA": "e1f9361be392209a7f4b7fed12867c22a908204e"
+			"Message": "perf(Element): Reduce IPC channel saturation to fix keystroke lag during extension boot\n\nSynchronize five Element submodules with performance optimizations addressing input lag caused by IPC channel saturation:\n- Mountain: Gate mountain_sync_status_update and mountain_performance_update events behind LAND_SYNC_STATUS_EMIT and LAND_PERF_EMIT env vars. Add subscriber fast-path to skip lock-and-drain when Subscribers.is_empty().\n- Output: Remove success-case tauri-invoke logging in InvokeMountain and fire-and-forget channel stub logging. Only log drift disposition.\n- Sky: Remove per-fire _CelDispatchLog traces (now requires __LAND_TRACE_CEL_DISPATCH__=true). Diagnostic bridges for markers-bridge and webview-bridge now only log on pushable=false or hasRegister=false.\n- Wind: Remove success-case tauri-invoke forward (failures still forwarded). Only forward drift disposition case.\n\nThese changes prevent 50-100 log/emits per second during extension boot from saturating Tauri's invoke channel and starving keystroke delivery on the shared WebKit message channel.",
+			"SHA": "10785a06a6996e30792a4a1818f5be6db75fd5c3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:20:43Z",
+			"Date": "2026-04-30T23:35:10Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				102,
-				2
+				"⠃⠀⠀⠀⠀",
+				109,
+				6
 			],
-			"Message": "fix(Project): Sync submodules bringing Mountain terminalPTY fix\n\nSynchronize Element and Dependency submodules to bring in the critical Mountain fix (c99ccbe7) for blank terminal panels. The VS Code terminal workbench expects `IPtyService.createProcess` to return a `Promise<number>` (the integer terminal id), but Mountain was incorrectly returning the full `{id, name, pid}` object. This caused the workbench's `_ptys` map lookups to fail, resulting in xterm receiving zero bytes despite data being emitted continuously.\n\nThe fix splits the terminal handler into three paths: spawn preserves full response for Cocoon's Sky bridge, createProcess returns only the integer id per VS Code contract, and start is a no-op for the eager-spawn pattern.\n\nAlso brings Dependency CHANGELOG update (cb1f22c0) documenting version history.\n\nResolves terminal panel blank display issue in the editor workbench.",
-			"SHA": "4fc8e7994bb05c1cea96ae0774573f4dde362b94"
+			"Message": "build(Land): Add diagnostics overlay and generated-artifact clean script\n\nAdd a new `.env.Land.Diagnostics` overlay exposing debug-only knobs: Inspect (WKWebView DevTools), Smoke (CommandCatalog test harness), Trace (dev-log tag selection), Record (dev-log file sink), and Disable (master kill-switch to bypass all Land customisations).\n\nShip `.env.Land.Diagnostics.Sample` as the canonical comment block; TierEnvironment.sh now sources the new overlay after PostHog.\n\nAdd `Maintain/Script/CleanGenerated.sh` to wipe source-side generated artefacts (Wind/Cocoon/Sky codegen, tonic-prost output, proto mtimes) that `cargo:rerun-if-changed` can't detect when `Generated/` is deleted by hand. Build.sh sources this helper when Clean=true.\n\nSync Element submodule to latest downstream versions which add Disable=true for bisecting typing/input regressions and refine Output/Sky with CSP loosening, icon URL fixes, and input routing options.\n\nThis enables developers to bisect whether regressions originate in Land's customizations or upstream/Tauri/WKWebView by running with Disable=true.",
+			"SHA": "11c3c5905596a97db0349cd8d27c65ccd111b05f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:00:42Z",
+			"Date": "2026-04-30T20:27:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				107,
 				1
 			],
-			"Message": "",
-			"SHA": "804c8ee22fcf284b3fc0d4902ed7f51e77999123"
+			"Message": "chore(Element): Sync submodule updates with macOS UX fixes and extension webview support\n\nSynchronize five Element submodules to their latest downstream versions delivering critical macOS UX improvements and extension webview infrastructure:\n- Mountain: Fix boot race and close handling for macOS (Cmd+W intercept, DevTools focus opt-in) and add vscode-webview:// URI scheme handler for extension webviews (Roo Code, Claude, GitLens)\n- Output: Add macOS titlebar offset and z-index CSS transforms, expand sandbox stripping to both iframe sites, rewrite webview shell CSP\n- Sky: Add window close handler (Cmd+W closes active editor first), lifecycle focus after restoration, and opt-in command catalog smoke test\n- Wind: Update service layer with latest Effect-TS changes\n\nThese fixes resolve the \"I can't type or keybind\" issue, empty Explorer on first launch, and enable sideloaded extension webviews to render properly.",
+			"SHA": "b03e792bcab717d62f36fa3211adfc37e9e147cb"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T17:00:42Z",
+			"Date": "2026-04-30T18:59:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				102,
+				107,
 				1
 			],
-			"Message": "chore(Project): Sync Element submodule with fleet-wide updates\n\nSynchronize the Element submodule to 220904a6, bringing in downstream updates across multiple Element components:\n- Mountain (db5f0f7): Rename binary/library targets to \"Mountain\", simplify tauri.conf.json identifiers\n- Sky (d574527): Fix 0-based line indexing bug in search results RangeLocations causing 'undefined' errors, add Mountain.dev.log diagnostic bridging\n- Maintain (0d1cee9): Rebuild CHANGELOG with quarter-based versioning, add v1.3 and v1.0 sections\n- Worker (0e2d546): Expand CHANGELOG from 61 to 134 lines documenting complete version history v2.1→v0.0\n- Echo (1f3c848): Bump miniflare and wrangler dev dependencies\n- Cocoon (01322bf): Submodule sync bringing search functionality fix and documentation improvements\n\nThis aligns with the ongoing CHANGELOG format migration and maintenance synchronization across the Element umbrella.",
-			"SHA": "557fc4e37ee298759be1a554e3baab03924e7644"
+			"Message": "chore(Element): Sync submodule updates with dependency bumps and Mountain extension roots\n\nSynchronize seven Element submodules to their latest downstream versions:\n- Cocoon: Bump OpenTelemetry devDependencies (sdk-trace-node, exporter-trace-otlp-http, sdk-trace-base, sdk-logs, sdk-metrics, sdk-trace-web)\n- Common: Bump @cloudflare/workers-types to 4.20260430.1\n- Echo: Bump @cloudflare/workers-types to 4.20260430.1\n- Mountain: Revert to simple Mountain naming and add extension_root allowlist for Land and VSCode extension directories\n- Wind: Bump OpenTelemetry devDependencies and reformat ESBuild config/output to readable multi-line format\n- Worker: Bump @types/serviceworker and expand ESBuild configuration from minified to readable format\n- Output: Sync point\n\nThe Mountain extension_root allowlist enables the `/Extension/<abs-fs-path>` URL prefix to serve extension-contributed assets (icons, webview resources) from ~/.land/extensions and ~/.vscode/extensions, fixing missing icons for sideloaded extensions like GitLens.",
+			"SHA": "9b8bab2887f5ff3ffe183f2525292c3f648618a6"
 		}
 	],
-	"TimeStamp": 1781194541204
+	"TimeStamp": 1781360182010
 }

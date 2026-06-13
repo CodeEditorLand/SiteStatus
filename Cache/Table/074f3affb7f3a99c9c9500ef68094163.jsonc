@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:52:47Z",
+			"Date": "2026-04-24T23:05:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5214,
 				1
 			],
-			"Message": "refactor(Mountain): Migrate notification handlers to Batch 15-16 atoms\n\nConsolidate inline notification handler bodies in MountainVinegRPCService into delegations to atom functions in Vine::Server::Notification. Batch 15 migrates 8 handlers (ExtensionHostMessage, ExtensionActivated/ExtensionDeactivated, WebviewReady, ProgressStart/ProgressReport/ProgressEnd, LanguagesSetDocumentLanguage, WorkspaceApplyEdit, WindowShowTextDocument). Batch 16 adds 10 new handlers (WebviewLifecycle, WindowCreateTerminal, TerminalLifecycle covering 4 wire methods, DecorationTypeLifecycle, DebugLifecycle, StatusBarLifecycle covering 2 methods, StatusBarMessage, WindowShowMessage, RegisterCommand, UnregisterCommand).\n\nThis removes dead handler bodies at the bottom of match arms that were unreachable after Rust selected the first matching arm, keeping MountainVinegRPCService thin with one-line delegations. TerminalLifecycle and StatusBarLifecycle are group atoms covering methods sharing sky:// relay and provider-side drive.\n\nImpact: Consistent atom-layer dispatch pattern across all 26+ notification types.",
-			"SHA": "07242d034472307f1b6610234b2c848d8def4c25"
+			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to properly-implemented trait methods on MountainEnvironment:\n- handle_search_find_in_files → SearchProvider::TextSearch (grep-searcher + ignore::WalkBuilder with parallel walking)\n- handle_search_find_files → WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive starts_with('.') hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus format!(\"file://{}\") URI constructor, and single-threaded walkers. The trait implementations were reachable only through Environment.Require<dyn SearchProvider>() calls and no IPC handler ever issued those.\n\nAlso change FileReaddirNative.rs log level from vfs-verbose to vfs since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.\n\nImpact: File search and find-files now use proper ignore rules, parallel walking, and regex support instead of naive single-threaded implementations.",
+			"SHA": "ab81979739d237da5c6179b32dcdf7437a7a83ae"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T18:48:42Z",
+			"Date": "2026-04-24T22:56:21Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5214,
 				1
 			],
-			"Message": "feat(Project): Add notification atom handlers and stub disposition tracking\n\nCoordinate submodule updates across Mountain, Output, and Wind to complete VS Code notification IPC and improve stub diagnostics:\n\n- **Mountain:** Add 25 new notification atom handlers in Vine::Server::Notification covering output channel lifecycle (create, append, appendLine, clear, dispose, replace, show), status bar text updates, progress lifecycle, webview reverse messaging, provider unregistration, and misc handlers (openExternal, security.incident, set_language_configuration). Add ExtractDevTag module to parse Cocoon stdout [DEV:<TAG>] prefixes and re-emit under Mountain's matching tag for bootstrap-stage, ext-activate, config-prime, breaker filtering.\n\n- **Mountain Refactor:** Consolidate singular WindServiceHandler into plural WindServiceHandlers atoms - delete 24 dead duplicate files, re-implement 3 live handlers as atoms (extensions:install, extensions:uninstall, nativeHost.showOpenDialog). Add 9 new notification atoms: ExtensionActivated, ExtensionDeactivated, ExtensionHostMessage, LanguagesSetDocumentLanguage, ProgressStart, ProgressReport, ProgressEnd, WebviewReady, WorkspaceApplyEdit.\n\n- **Output:** Add __initialize stub for PlaywrightChannelClient constructor protocol version negotiation. Replace binary present=true/false stub-hit logging with three-state disposition: value (real payload), noop (intentionally undefined), drift (stub key missing - sync issue). Add explicit setExtensionGalleryManifest stub.\n\n- **Wind:** Add IPC stub for extensionGalleryManifest channel and __initialize to playwright stub. Enhance stub-hit logging with three-state disposition tracking using hasOwnProperty for reliable checking.\n\nImpact: Extension output channels, status bar, progress, and webview messaging now flow through Mountain. Cocoon bootstrap logs are tag-filterable. Stub drift detection helps developers distinguish sync issues from intentional undefined returns.",
-			"SHA": "e7be1cbc0e4ef27e79a20cc9ada12db5165eecd3"
+			"Message": "feat(Project): Add DisableUnusedServices transform and sync dependencies across submodules\n\nCross-cutting Element submodule sync with functional improvements and dependency updates:\n\n1. Output: Add DisableUnusedServices ESBuild transform - Replaces upstream VS Code contribution barrels for features Land doesn't back (auto-update, issue reporter, MS account/sync, process explorer) with inert stubs. Removes broken UI surfaces and silences \"service not registered\" warnings, shortening boot time.\n\n2. Output: Fix ExtensionScannerIPC path matching - Now matches BOTH electron-browser AND browser variants of extensionsScannerService.js. Previously only matched electron-browser, but desktop.main.js loads the browser variant.\n\n3. Sky: Sync dependency updates - @xterm/xterm: 6.1.0-beta.202 → 6.1.0-beta.203, @astrojs/compiler-rs: 0.1.9 → 0.1.10, pozil/auto-assign-issue: 2.2.0 → 3.0.0\n\nImpact: Extension scanning now works correctly for desktop profile. Unused VS Code services are stubbed out, reducing boot noise and improving startup time.",
+			"SHA": "4c908a36d5a2b16ff9ab9e0e5dbc8c6964566d17"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:59:42Z",
+			"Date": "2026-04-24T22:36:12Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5214,
 				1
 			],
-			"Message": "feat(Project): Expand provider type coverage to full VS Code surface\n\nSubmodule sync to a3764731 coordinating Common and Mountain to add 7 new ProviderType enum variants: InlineEdit, MappedEdits, MultiDocumentHighlight, NotebookContent, RemoteAuthorityResolver, ResourceLabelFormatter, and ScmResourceGroup. This expands provider coverage from ~25 to 51 types.\n\nMountainVinegRPCService adds corresponding provider type handlers matching Cocoon's complete VS Code API shim, enabling extensions that register these previously-unhandled providers (e.g., GitLens, live share, remote tunnels) to activate successfully.\n\nRefs: b71ab93f22e526a1a9cc961706c66040fd2a9be6",
-			"SHA": "c5fbb6ce3e814930df7b6d5ee79540c4a3c3a7fa"
+			"Message": "refactor(Output): Replace runtime require() with static ES imports in workbench accessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of both web.main.js and desktop.main.js instead of using runtime require() calls. This eliminates AMD require() resolution that could fail in the WKWebView context.\n\nChanges include:\n- Anchor on stable import markers ('mark' from performance.js for web, 'localize' from nls.js for desktop)\n- Add IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports\n- Extract shared imports into SharedImportLines to avoid duplication\n- Add cel:services-ready DOM event dispatch on successful population\n- Add Mountain diagnostic logging for success/failure tracking\n- Add guard check for import marker to avoid matching unrelated files\n\nImpact: __CEL_SERVICES__ is now populated synchronously before the microtask queue drains, ensuring services are available for both web and Electron/Desktop profiles at runtime.",
+			"SHA": "96667ac6d621541665452df55118710d737719da"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:25:41Z",
+			"Date": "2026-04-24T21:48:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5214,
 				1
 			],
-			"Message": "feat(Project): Update Element submodule with Git IPC and tree-view round-trip\n\nSubmodule sync to 6f49be5 bringing coordinated changes across Common, Mountain, Output, Sky, and Wind:\n\n- **Git IPC:** Route localGit channel to Mountain's git subprocess handlers, fixing SourceControl panel hang with InvokeMountain(\"undefined:exec\"). Common adds Git IPC definitions (cancel, checkout, clone, exec, fetch, isAvailable, pull, revListCount, revParse).\n\n- **Tree-View:** Add tree:getChildren invoke handler in Mountain to forward to Cocoon's $provideTreeChildren. Sky adds cel:tree-view:create listener that re-dispatches as cel:tree-view:items, completing the F1.1 handoff contract.\n\n- **Diagnostics:** Add ext-scan and scheme-assets diagnostic tags. Add tauri-invoke timing instrumentation to distinguish webview transport latency from Mountain handler slowness.\n\nImpact: Built-in Git extension now functions with native git binaries. Extension tree views (GitLens, SCM, debug, tasks) render with data from providers.",
-			"SHA": "a4feadcddd29b833207b91a5a20820f388483486"
+			"Message": "feat(Project): Bridge VS Code binary IPC to Mountain backend\n\nCross-cutting submodule sync enabling real file explorer, search, settings, and storage persistence:\n\n1. Mountain: Add VS Code IPC command aliases in WindServiceHandlers to bridge binary IPC protocol to native Effect-TS layer. Configuration: `configuration:getValue`/`updateValue` → `configuration:get`/`update`. File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`. Add stub handlers for `file:watch`/`file:unwatch` and `configuration:onDidChange` returning Null to prevent promise leaks.\n\n2. Output: Route VS Code binary IPC channels (25+ including localFilesystem, storage, configuration, search, terminal) to Mountain via MountainIPCInvoke instead of returning stub responses. Previously these channels returned FileNotFound, empty arrays, and empty objects.\n\n3. Cocoon: Enhance stderr filtering to suppress follow-up stack frames from extension errors.\n\nImpact: File explorer, search results, settings editor, and workspace storage now persist data to the real filesystem and backend instead of operating on in-memory stubs.",
+			"SHA": "846bf6296b9f994c5d60c3f5e1bced701332f8fb"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:02:00Z",
+			"Date": "2026-04-24T21:25:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
-				1
+				5214,
+				2
 			],
-			"Message": "feat(Project): Coordinate performance optimization and diagnostic instrumentation\n\nThree coordinated changes eliminate ~156 unnecessary Tauri IPC round-trips per editor boot and add comprehensive diagnostic capabilities:\n\n- **Performance (Wind/Output):** Add no-op IPC stubs for telemetryAppender (155 calls/boot) and mcpGalleryManifest (1 call/boot). These channels were falling through to Rust invoke with undefined handlers, adding latency to every editor startup. Stubs short-circuit in the TypeScript layer.\n\n- **Diagnostics (Mountain):** Add Git service handlers implementing the full localGit channel (clone, pull, checkout, revParse, fetch, etc.). Add SkyEmit instrumentation logging all Mountain→Wind/Sky emits under the sky-emit tag. Expand provider registration from 8 to 34+ types with scheme extraction.\n\n- **Diagnostics (Sky):** Track cel:* CustomEvent listener registration via document.addEventListener patching. Log consumer-present flag on every dispatch to identify orphan events (Mountain emits but no workbench listener). These are F1.1 indicators where features silently fail.\n\nImpact: Editor startup latency reduced by eliminating ~156 IPC round-trips. Developers can now audit SkyEmit traffic via LAND_DEV_LOG=sky-emit and identify dead event routes via cel-dispatch consumer-present=false.",
-			"SHA": "2d95bc0ae30754abf7c20dabc8b7feb319499429"
+			"Message": "feat(Project): Implement workspaceContains activation and improve route manifest script\n\nElement submodule sync bringing two complementary improvements:\n\n1. **Extension Activation (Mountain/Cocoon)**: Implement VS Code-style workspaceContains and onStartupFinished activation. Mountain now fires three activation bursts: `*`, `workspaceContains:<pattern>` (glob matching against workspace folders, depth 3, 4096 entries max), and `onStartupFinished` (2s delay). Add FindMatchingWorkspaceContainsPatterns for glob matching. Filter benign stderr noise (macOS codesign, Node.js deprecation warnings) to cocoon-stderr-verbose channel. Upgrade Rust edition from 2021 to 2024.\n\n2. **Route Manifest Script (Maintain)**: Reformat pipe chains in GenerateRouteManifest.sh to use `|` at line ends consistently instead of trailing backslashes. Fix variable redirections to remove spaces after `<` (e.g., `< \"$file\"` → <\"$file\").\n\nImpact: Extensions gated on workspaceContains:package.json and workspaceContains:**/now activate correctly. Default stderr is cleaner while preserving error visibility. Route manifest generation script follows consistent shell style.",
+			"SHA": "1353aed19c582c4cb1a6ff9ac69462e69032705b"
 		}
 	],
-	"TimeStamp": 1781194546350
+	"TimeStamp": 1781360199799
 }

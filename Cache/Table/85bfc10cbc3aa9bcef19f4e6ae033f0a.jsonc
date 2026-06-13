@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T13:00:32Z",
+			"Date": "2026-06-12T21:41:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1768,
-				2
-			],
-			"Message": "feat(Mountain): Add Cocoon auto-restart with exponential backoff and gRPC notification handlers\n\nAdd automatic restart capability for the Cocoon extension host sidecar. When the health monitor detects a crash, it schedules a restart with exponential backoff (1, 2, 4, 8, 16 seconds) up to 5 attempts via a new mpsc channel wired into CocoonProcessState.\n\nAlso add supplementary workspace activation events for well-known root config files (Cargo.toml, package.json, tsconfig.json, go.mod, pyproject.toml, CMakeLists.txt) that fire exact-filename activation events after the manifest-based phase, ensuring extensions activate even when the workspace opens after the initial scan.\n\nExtend the Vine gRPC notification dispatcher with four new handlers:\n- languageClient.status / languageServer.status — forwards language server status to Sky via Tauri event\n- extension.activating — logs extension activation for observability\n- task.completed / tasks.completed — removes task from active executions and emits completion to Sky\n- debug.session.stopped / debug.stopped — unregisters debug session and emits stop event to Sky\n\nImpact: Improves Cocoon resilience with self-healing restarts, closes activation gaps for workspace-root extensions, and wires language server, task, and debug lifecycle events from Cocoon to the Sky UI layer.",
-			"SHA": "ac5b27c6a5931f91ea25c543529dbaa33e080743"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T12:57:03Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1768,
-				2
-			],
-			"Message": "feat(Mountain): Add URI resolution, extension reinstall, text document open, window title, and diagnostic marker handlers\n\nImplement missing IPC command handlers and a gRPC notification bridge to improve VS Code extension compatibility and editor integration.\n\nIPC additions in WindServiceHandlers:\n- `env:asExternalUri` / `env:resolveExternalUri` - pass-through URI resolution so extension-provided URIs work without a registered opener\n- `extensions:reinstall` - returns minimal ILocalExtension envelope preventing ExtensionManagementService retries (no gallery backend)\n- `text:open` / `workspace:openTextDocument` - relays open intent to Sky via Tauri event so Monaco loads the document and emits onDidOpenTextDocument\n- `window:setTitle` / `nativeHost:setTitle` - explicit title override from extensions or workbench title service\n- `nativeHost:setDocumentEdited` - visual dirty-dot proxy by prefixing window title with '•' since Tauri 2.x lacks NSWindow::setDocumentEdited\n- `language:getLanguages` / `languages:getLanguages` - returns hardcoded language identifier list for extension API compatibility\n\ngRPC addition in MountainVinegRPCService:\n- `markers.change` / `language.markers.change` - receives diagnostic marker updates from Cocoon and forwards to Mountain's DiagnosticManager via Environment.SetDiagnostics\n\nImpact: Closes gaps in extension host IPC surface, enables document opening from Cocoon, provides window title control, and wires diagnostic marker streaming from the extension host to the native backend.",
-			"SHA": "910b3cc89d4d2b685d05aaca35e150c51efdf03a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T12:45:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1768,
+				1861,
 				1
 			],
-			"Message": "feat(Mountain): Implement bidirectional streaming channel for Cocoon gRPC service\n\nThe `open_channel_from_mountain` RPC was a stub returning `Unimplemented` since the multiplexer wiring was deferred to a later patch. This change provides the full bidirectional streaming implementation so Cocoon can open a persistent stream and exchange Envelope frames with Mountain without falling back to unary endpoints.\n\nKey modifications:\n- Add `NEXT_CHANNEL_ID` atomic counter and `CHANNEL_REGISTRY` (DashMap) to track per-stream outbound senders\n- Implement stream handler that reads inbound frames and routes: Notification → GenericNotification::Dispatcher, Request → GenericRequest::Dispatcher with response sent back via the registered mpsc channel, Response → dropped (unexpected direction), Cancel → no-op\n- Spawn read pump as detached Tauri async task so the method returns the outbound stream immediately\n- Clean up registry entry on stream termination\n\nImpact: Enables low-latency bidirectional communication between Mountain and the Cocoon extension host, removing the need for polling or repeated unary calls for streaming workloads.",
-			"SHA": "4853ac85e2cc627cbd26e696a77b5d1ab9b93d61"
+			"Message": "feat(Mountain): Fire onFileSystem activation on register_file_system_provider\n\nExtract `register_file_system_provider` from the catch-all handler group and give it a dedicated match arm that fires `$activateByEvent(\"onFileSystem:{scheme}\")` when an extension registers a virtual file-system provider. The scheme is read from the `scheme` key in the parameters object.\n\nThis ensures extensions declaring `\"activationEvents\": [\"onFileSystem:xyz\"]` in their manifest are activated on registration, matching VS Code's behaviour. The provider is still forwarded through `RegisterLanguageProvider` for handle tracking, and a warning is logged when the provider falls outside the known language-feature map.",
+			"SHA": "9f2f1783e8d68a4825ed628969e4297d12606d05"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T12:35:21Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1768,
-				40
-			],
-			"Message": "",
-			"SHA": "c20ad575221381cf520201c4e83ae7d42b2d3847"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-06-10T02:56:25Z",
+			"Date": "2026-06-12T21:23:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1768,
+				1861,
 				1
 			],
-			"Message": "",
-			"SHA": "a65279d7fa404587b48c6e66a62c6c498f411324"
+			"Message": "style(Mountain): Fix indentation of diagnostic:getBootMarks match arm in DispatchMatch\n\nThe `diagnostic:getBootMarks` handler and its preceding doc comment were indented one tab level deeper than the surrounding match arms in `mountain_ipc_invoke`, creating an inconsistent brace depth relative to the other cases.\n\nDedent the arm and comment block by one level to align with the enclosing match statement's formatting. No behavioral change.",
+			"SHA": "9262422ce1ef71be84be4d5edeafe56025bdba8e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:23:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1861,
+				12
+			],
+			"Message": "feat(Mountain): Add language provider cancellation, decoration lazy-registration, and window event bridging\n\nImplement a cancellation system for language provider requests: store `watch::Sender<bool>` in the new `LanguageProviderCancellations` DashMap, keyed by renderer-supplied `requestId`, so that `language:cancelRequest` flips the sender locally instead of forwarding to Cocoon. Wire cancellation through `InvokeProvider` and `InvokeProviderMethod` by passing the cancellations map into `ForwardCancellable`.\n\nAdd lazy-decoration-type registration to `SetTextEditorDecorations`: when `decorationTypeKey` isn't in `KnownTypeKeys`, auto-forward a synthetic `createTextEditorDecorationType` to Sky so Monaco has styling registered before `setDecorationsByType` executes. Track known keys via `IsTypeKeyKnown` / `RegisterTypeKey` on `DecorationsState`.\n\nEmit `sky://window/maximize-changed` on maximize/unmaximize handlers and bridge `nativeHost:onDidChangeMaximizeState` from Cocoon to Sky. Emit `sky://storage/changed` on storage IPC handlers and `sky://webview/ready` on `WebviewReady` gRPC notification for reactive workbench consumers.\n\nSplit file-system IPC into its own `TierFileSystem` env var so `file:*` commands don't route to Cocoon (which has no disk provider). Replace the blocking 3-second `WaitForClientConnection` in `forward_to_cocoon` with a non-blocking `IsClientConnected` check, returning Null fallback when Cocoon is disconnected.\n\nForward `CommandNotFound` errors from Mountain's command registry to Cocoon's extension host via `proxy_cocoon` for both `executeCommand` and `commands:execute` paths, so palette-invoked extension commands that never reached Mountain's registry still execute.\n\nAdd `$acceptModelSaved` notification on `textFile:save` so `onDidSaveTextDocument` fires for extensions. Query real dirty URIs from `WorkingCopy::GetAllDirty` in `workspaces:getDirtyWorkspaces` instead of returning an empty array. Add empty-store short-circuit in `StorageGet` to skip trait dispatch on first boot. Raise gRPC connect initial delay from 50ms to 200ms matching real Cocoon bind times.\n\nLog unroutable `register_*` provider notifications on the gRPC service and return `false` instead of silently dropping them. Include `viewType` in `WebviewReady` log output.",
+			"SHA": "d1c2117a977bec02903d935702d30d37f4b0376b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T20:37:48Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1861,
+				1
+			],
+			"Message": "feat(Mountain): Route nativeHost picker to correct dialog type via options\n\nRead `canSelectFiles` and `canSelectFolders` from the options object passed by VS Code extensions in the `nativeHost:pickFolderAndOpen` handler, then route to `blocking_pick_folder` or `blocking_pick_file` accordingly. Previously the handler always opened a folder picker regardless of the caller's declared selection constraints.\n\nWhen neither flag is set (e.g. `canSelectFiles: false, canSelectFolders: false`) the handler returns early as cancelled, matching Electron's behaviour. Adds dev_log output for the resolved picker type.",
+			"SHA": "042dd2ddc3e825e506478afbe872243d772e8cab"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T20:34:47Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1861,
+				1
+			],
+			"Message": "style(Mountain): Replace em dashes with hyphens in README.md\n\nConsistently replace all em dash characters (`—`) with standard hyphens (`-`) throughout the README.md, affecting the Feature list, Architecture table, Dependencies table, Security table, and Related Documentation links. The change moves from typographic punctuation to plain ASCII for consistency with the surrounding codebase documentation conventions.\n\nNo behavioral or semantic changes — prose style alignment only.",
+			"SHA": "c8f239f13c0c09ef81f4d73cf9180e840f67beed"
 		}
 	],
-	"TimeStamp": 1781194515504
+	"TimeStamp": 1781360155119
 }

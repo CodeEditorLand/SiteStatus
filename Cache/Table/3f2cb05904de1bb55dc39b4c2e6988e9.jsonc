@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T12:43:19Z",
+			"Date": "2026-06-05T08:40:06Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1732,
-				32
+				"⠀⠀⠀⠀⠀",
+				1731,
+				11
 			],
-			"Message": "refactor(Mountain): Delegate Vine notification logic to Vine crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local gRPC notification handlers in `Source/Vine/Server/Notification/` with thin delegation shims pointing to the dedicated `Vine` crate.\n\nThis refactor extracts the implementation logic for all Cocoon → Mountain notifications—including complex batching and coalescing for `DecorationTypeLifecycle`, `OutputChannel`, and `ProgressReport`—into the `::Vine` library namespace. The Mountain-side modules are converted into thin wrappers that pass the `MountainVinegRPCService` and payload to the library implementation.\n\nThe `OutputChannelCoalesce::TryEnqueue` handler is updated to use the `TauriRendererEmitter` shim, allowing the library's coalescing logic to remain agnostic of the specific Tauri app handle while preserving the existing internal API surface.\n\nThis change enforces consistent IPC handling standards across the project and significantly reduces the code surface within the Mountain element.",
-			"SHA": "452fafa5f558cfa180a348131f92caf25af1e508"
+			"Message": "refactor(Mountain): Migrate std::sync::Mutex to parking_lot::Mutex and modernize lazy static initialization\n\nReplace standard library mutexes with parking_lot::Mutex across terminal state management, IPC connection pools, secure message channels, performance dashboard, and Cocoon process management. The parking_lot implementation provides faster lock acquisition and doesn't return Result from lock() (panics on poison instead), simplifying error handling throughout the codebase.\n\nSimultaneously replace lazy_static macros with once_cell::sync::Lazy for global registry initialization (feature flags, metrics, Cocoon state), adopting the more modern and maintenance-friendly pattern.\n\nKey changes:\n- TerminalState and TerminalStateDTO: Arc<Mutex<>> replaces Arc<StandardMutex<>> for PTY handles and terminal collections\n- TerminalProvider: Output buffer and terminal map locks simplified; removed MapLockErrorToCommonError mappings\n- ErrorMapping: Added WithParkingLotMutex helper for the new locking pattern\n- IPC Enhanced modules: ConnectionPool, MessageCompressor, PerformanceDashboard, SecureMessageChannel all updated\n- CocoonManagement: lazy_static replaced with once_cell::Lazy for COCOON_STATE and COCOON_HEALTH\n- Telemetry registries: FeatureFlags and Metrics global registries migrated to once_cell::Lazy\n- Vine client/server notification shims: Minor formatting normalization\n\nImpact: Reduced lock contention overhead, cleaner error handling paths (no more .ok().and_then() chains for mutex access), and modernized static initialization across Mountain's core subsystems.",
+			"SHA": "3b0c95e2986ddeebe6dfa24f4e7a1652a0d5d670"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T12:42:41Z",
+			"Date": "2026-06-05T07:50:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1732,
+				1731,
 				1
 			],
-			"Message": "refactor(Mountain): Delegate Vine connection logic to Vine crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local gRPC connection logic for sidecars with a delegation to the dedicated `Vine` crate. The manual implementation in `TryConnectSingle.rs` is converted into a thin compatibility shim.\n\nThe refactor removes local handling of `tonic` channel configuration—including performance tuning for `LAND_TONIC_TUNED` and the optional `LAND_VINE_STREAMING` multiplexer initialization—in favor of the canonical `::Vine::Client::TryConnectSingle::Fn` implementation.\n\nThis ensures consistent gRPC client behavior and lifecycle management across the project while further reducing the internal code surface of the Mountain element.",
-			"SHA": "9841398a265623f4879dfb0a08a1d1b86388d925"
+			"Message": "feat(Cargo): Add experimental tier flags for enhanced functionality\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "a4784b825cc0dd0995ae3023a3f5d22a112f50cb"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T12:41:34Z",
+			"Date": "2026-06-05T07:39:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1732,
-				16
-			],
-			"Message": "refactor(Mountain): Prune redundant Cache delegation modules\n\nFollowing the migration of caching logic to the central Cache crate, remove the intermediate module files for AssetMemoryMap and PathCanon that no longer have direct callers within the Mountain element.\n\nOnly the primary entry points—LoadOrInsert for asset mapping and Canonicalize for path security—are retained as local compatibility shims. This cleanup reduces the internal code surface of the Mountain element and enforces the use of the canonical ::Cache namespace for all other caching operations, such as statistics and cache invalidation.",
-			"SHA": "159d9faaaed88c1b964443837baefdb822b6cb9a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T12:40:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				7
-			],
-			"Message": "refactor(Mountain): Delegate PathCanon cache logic to Cache crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local path canonicalization cache implementation with delegations to the dedicated `Cache` crate. The modules in `Source/Cache/PathCanon/` are converted into thin shims or type aliases pointing to the `::Cache::PathCanon` namespace.\n\nThis refactor covers `CacheStats`, `Canonicalize`, `CanonicalizeUncached`, `Clear`, `Invalidate`, `SpawnDiagnosticLogger`, and `Stats`. By delegating to the central `Cache` crate, the backend ensures consistent path handling—preserving the use of `dunce` for UNC prefix avoidance—while reducing the code surface within the Mountain element.",
-			"SHA": "729d0b481a342fd9fd2810ec79799168db32fd6e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T12:35:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
+				1731,
 				6
 			],
-			"Message": "refactor(Mountain): Delegate AssetMemoryMap logic to Cache crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local AssetMemoryMap implementation with delegations to a dedicated `Cache` crate. The modules in `Source/Cache/AssetMemoryMap/` are converted into thin shims or type aliases pointing to the `::Cache` namespace.\n\nThis refactor covers `CacheStats`, `Clear`, `Entry`, `Invalidate`, `LoadOrInsert`, and `Stats`, ensuring that asset caching logic is centralized while preserving the existing internal API surface. This aligns with recent extractions of Air and Vine logic into specialized crates.",
-			"SHA": "2789d41a0836c5fb4af7b8c25ae457bdc0c5e505"
+			"Message": "style(Mountain): Clean up formatting and whitespace across core modules\n\nApply consistent formatting improvements across Mountain's application state, extension registry, file system effects, and gRPC service:\n\n- ExtensionRegistry: Condense WithCommands/GetCommands implementations, inline dev_log calls, remove excess whitespace\n- FeatureState: Move std::sync imports to module top, fix Default implementation formatting\n- Entry: Fix type annotation spacing for AppStateArcForClosure\n- FileSystem: Reformat base64 decode error handling, align comment wrapping\n- CreateEffectForRequest: Expand Try! macro arms for readability, wrap long comment lines\n- MountainVinegRPCService: Reflow cancellation warning comment, inline CreateErrorResponse call\n\nNo functional changes — purely mechanical formatting cleanup for consistency.",
+			"SHA": "153056369679d7c3dd6ecdbba393c7a08321c40a"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-06-05T02:57:32Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1731,
+				1
+			],
+			"Message": "",
+			"SHA": "5ac30cf1b3d71a461473c8a2f5e9f8b1fad83d4a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-04T22:13:10Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1731,
+				1
+			],
+			"Message": "Fix issues 64, 65, 67, 68 (Mountain)",
+			"SHA": "c7885ac9a57eb6986e051fbef2bcd87ac2436295"
 		}
 	],
-	"TimeStamp": 1781194522399
+	"TimeStamp": 1781360169787
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T22:55:26Z",
+			"Date": "2026-04-24T01:47:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5213,
 				1
 			],
-			"Message": "fix(Mountain): Ensure extension manifest fields and type filtering work correctly\n\nFour related fixes address extension loading failures and missing activation:\n\n1. Manifest field serialization: Remove `skip_serializing_if` from Name, Version, Publisher fields. VS Code's trusted-publishers migration calls `manifest.publisher.toLowerCase()` at boot—if the key is omitted, the renderer crashes with `TypeError: undefined is not an object`. Add IPC handler hardening with explicit fallback values.\n\n2. Extension type filtering: Respect the ExtensionType filter passed to `getInstalled(type?)`. Previously all calls returned the full list as `type: 0, isBuiltin: true`. Now System extensions (type=0) and User extensions (type=1, including VSIX) are properly distinguished. Forward filters from `scanSystemExtensions` and `scanUserExtensions` handlers.\n\n3. Post-install activation: Fire `onStartupFinished` activation events after `$deltaExtensions` adds an extension. Without this, extensions like `Anthropic.claude-code` register but never activate—sidebar contributions silently no-op until restart.\n\n4. Log file eager init: Call `InitEager()` at binary startup to preserve logs before any panic. Fix `BinarySignature()` PascalCase splitting. Expand benign ENOENT ignore list.\n\nImpact: VSIX extensions now show under \"Installed\" with Uninstall, activate immediately after install without reload, and the Extensions sidebar refresh works correctly.",
-			"SHA": "dd606e20bdc57b03917454d8b6a2fc9cc4563fc7"
+			"Message": "feat(Project): Add ExposeWorkbenchAccessor transform plugin\n\nUpdate Element submodule to pull in new ESBuild transform plugin that exposes VS Code's IInstantiationService and IWorkbench facade on globalThis. The transform patches web.main.js to stash IInstantiationService after workbench.startup() and web.factory.js to expose the IWorkbench facade after workbenchPromise.complete(). Both injections are idempotent, short-circuiting on existing markers.\n\nThis enables Sky-side bridge code to resolve internal VS Code services via __CEL_INSTANTIATION_SERVICE.invokeFunction(), allowing proper integration of extension-contributed UI elements like status bar items and SCM providers without re-implementing parallel UI surfaces.",
+			"SHA": "45b2541a478d94e694610be813fdfd6011787e9b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T22:18:03Z",
+			"Date": "2026-04-24T01:24:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5213,
 				1
 			],
-			"Message": "fix(Mountain): Add shutdown guard and fix static asset path resolution\n\nAdd atomic shutdown guard to Entry.rs to prevent the graceful shutdown sequence from running twice. The graceful path ends with `app_handle.exit(0)` which Tauri re-delivers as a second `ExitRequested { code: Some(0) }`. On re-entry we must NOT `prevent_exit` or spawn the shutdown task again — Cocoon has already been SIGKILLed and the second pass would log spurious \"tcp connect error\" warnings.\n\nExtend static asset path resolution in Utilities.rs to handle both `/Static/Application/` and `Static/Application/` forms. The webview's WASM loader resolves asset URLs relative to the current document, which strips the leading slash before reaching the `file:read` IPC handler. Without this fix, `tokio::fs::read` would fail with ENOENT, breaking TextMate syntax highlighting.\n\nAlso expand the benign ENOENT ignore list in DevLog.rs to suppress warnings for `.copilot/agents`, `.vscode/tasks.json`, `/User/tasks.json`, `/User/mcp.json`, `vscode-chat-images`, and `/output_<TIMESTAMP>` window log file patterns.\n\nThis prevents spurious shutdown warnings, fixes TextMate grammar loading, and reduces log noise.",
-			"SHA": "bd38c344b6e75841edd53fa141b61eb9cb6a257b"
+			"Message": "chore(Project): Update Element submodule with workspace folders, status bar removal, SCM events\n\nSynchronize Element submodule reference from 31cf2b5f to 21ddbb2. This pulls in coordinated changes across Mountain, Sky, and Cocoon:\n\n- **Mountain:** Add `folders` array inline to WorkspaceDTO in InitData so extensions reading `vscode.workspace.workspaceFolders` synchronously (vscode.git, gitlens, typescript) see real folders immediately instead of `[]`. Also add `configuration` field for workspace config path. Enable CWD-autoload by default in debug builds to support git repository scanning.\n\n- **Sky:** Remove custom fallback status bar that was overlaying VS Code's native `.statusbar`. Extension-contributed status bar items now display properly through the native mechanism. Add SCM event bridge handlers that dispatch `cel:scm:*` CustomEvents when Mountain emits `sky://scm/{register,unregister,updateGroup}`.\n\n- **Cocoon:** Submodule pointer update.\n\nImpact: Extensions like vscode.git and gitlens now surface tree-views on cold boot in debug builds. SCM state events properly route to Sky-side consumers.",
+			"SHA": "57037f91c30cb6ae84bcd0ca48ddbeb7a21a1ccb"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T20:26:48Z",
+			"Date": "2026-04-24T00:10:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
-				1
+				5213,
+				4
 			],
-			"Message": "build(Project): Coordinate Element submodule updates across 2 components\n\nSynchronize Mountain and Sky submodules with the following changes:\n- **Mountain:** Simplify binary naming from verbose development profile identifier to just 'Mountain'. Update Tauri identifier to 'land.editor.binary'. Remove externalBin reference to Binary/node since Node.js sidecar is now handled differently. Add vscode-file and vscode-file://vscode-app to img-src Content Security Policy for VS Code file protocol support. Delete temporary backup files (Cargo.toml.Backup, tauri.conf.json.Backup).\n- **Sky:** Add exception signature throttling to PostHog bridge — exceptions share the `$exception` event-name slot in posthog-js, so a burst of CSP refusals/console.error/unhandledrejection callbacks during workbench boot would blow through the 10/10s rate limit. Add a secondary throttle layer keyed by the first 200 chars of the error message. Both regular and exception drop counts are now reported in the `land:sky:throttle-dropped` event for visibility.\n\nThis coordinated update delivers build configuration simplification and PostHog rate limit protection while maintaining identical runtime behavior.",
-			"SHA": "ddf6e4aed3c5d003a92613262637479678a4a5f7"
+			"Message": "feat(Project): Add route manifest generation for dual-track RPC routing\n\nAdd GenerateRouteManifest.sh script that scans Mountain Rust handlers, StockLift exports, and Cocoon fallback functions to emit a TypeScript manifest consumed by DualTrack.ts at runtime. The manifest enables smart tier selection for method dispatch - Mountain gRPC for tier-1 methods, StockLift pure functions for tier-2, bespoke Node fallbacks for tier-3 - and identifies tier-4 (unavailable) methods.\n\nIntegrate the script into both Debug and Release build pipelines. Idempotent execution completes in <500ms.\n\nAlso update Element submodule to pull in Mountain reliability improvements (exponential backoff for Cocoon gRPC handshake, child-exit detection, activation-race TOCTOU handling, pre-flight bundle probe), Output configuration cleanup (remove source directory from bundle artifacts), and Sky status bar codicon stripping.",
+			"SHA": "3cf802b2a5ca05e9396aceff75403a929a7e2103"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T19:45:30Z",
+			"Date": "2026-04-23T22:42:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
-				1
+				5212,
+				4
 			],
-			"Message": "build(Project): Coordinate Element submodule updates across 7 components\n\nSynchronize Air, Cocoon, Grove, Mist, Mountain, Output, and Rest submodules with the following changes:\n- **Air:** Migrate SHA256 checksum generation to hex::encode for sha2 0.11 compatibility — sha2 crate 0.11 changed `Digest::finalize()` output from `GenericArray` to `hybrid_array::Array`. Replace format!(\"{:x}\", …) with hex::encode() across Daemon/Manager, Indexing/Scan/ScanFile, Indexing/State/CreateState, Security/ChecksumVerifier, Updates/UpdateManager, and Vine/Server/AirVinegRPCService.\n- **Mist:** Update to hickory-server 0.26 API — Migrate from hickory-server 0.25 module reorganization (authority::* → zone_handler::*, InMemoryAuthority → InMemoryZoneHandler<T>, ServerFuture → Server, AXFR bool → AxfrPolicy enum). Add DNS_TCP_RESPONSE_BUFFER_SIZE constant (65,535 bytes) for TCP listener registration.\n- **Mountain:** Update build configuration for development profile — Rename binary, lib, and product to include DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_Mountain. Add Binary/node to externalBin in tauri.conf.json. Replace deprecated posthog-rs api_endpoint() with host(). Apply sha2 0.11 hex::encode migration to ConfigurationBridge.rs.\n- **Rest:** Migrate to OXC 0.127 API for codegen and transform — Replace flat `comments: bool` in CodegenOptions with structured CommentOptions type. Migrate from deprecated `into_symbol_table_and_scope_tree()` / `build_with_symbols_and_scopes()` to unified `into_scoping()` / `build_with_scoping()` returning a single Scoping value.\n\nThis coordinated update delivers dependency compatibility, API migrations, and build configuration alignment while maintaining identical runtime behavior.",
-			"SHA": "3e906ccc0a626ad9cfe776034eaaefec78279f2c"
+			"Message": "feat(Project): Eliminate startup visual flash and add compiled debug profiles\n\nCoordinate startup sequence improvements across Mountain, Sky, and Wind to eliminate the \"purple/dark flash\" and panel-pop flicker observed on cold boot:\n\n- **Mountain:** Implement hidden-until-ready window pattern using WebviewWindowBuilder.visible(false), reveal only when Sky reports phase 3 (Restored). Add 3s safety timer to force-reveal if Sky crashes before phase 3 (prevents invisible-window lockup).\n- **Sky:** Add missing SkyBridge initialization to Electron Layout to subscribe to cel:* Tauri events (tree-view, SCM, debug, extensions). Previously, panels painted empty on first frame then re-rendered with data.\n- **Wind:** Add PostHogDefines to TargetConfig.ts mapping LAND_POSTHOG_* environment variables to esbuild define directives, completing the hardcoded-key removal work.\n\nAdditionally, add two new debug profiles for single-binary embedded resource testing:\n- `debug-electron-compiled` - Electron workbench with all Sky/Output assets embedded via Tauri's resource table, preserving debug symbols and dev-log tags\n- `debug-mountain-compiled` - Same embedded-resource layout on the lighter Mountain workbench\n\nAlso update turbo.json to declare global dependencies (.env files) and globalEnv variables (LAND_POSTHOG_*, Product*, Tier*, etc.) for proper cache invalidation.\n\nImpact: Eliminates four-repaint startup cascade. All panels now render with data on first paint.",
+			"SHA": "ee6a383737da87d261c60b7d46466ae249c89981"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:50:40Z",
+			"Date": "2026-04-23T21:18:55Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				100,
-				3
+				"⠃⠀⠀⠀⠀",
+				5212,
+				300
 			],
-			"Message": "build(Project): Coordinate Element submodule updates with dependency bumps\n\nSynchronize Element submodule to 3682595a bringing coordinated changes across 8 components: Cocoon (@vitest/coverage-v8 v4.1.4→v4.1.5), Common (@cloudflare/workers-types update), Grove (wasmtime 42→44, wasmtime-wasi 42→44, wasmparser 0.245→0.247, prost 0.12→0.14, tonic 0.12→0.14, vergen 8→9), Output (remove compiled JS artifacts from Configuration), Rest (rayon 1.11.0→1.12.0), SideCar (tauri-plugin-shell 2.0→2.3), Sky (Astro 6.1.8→6.1.9, @astrojs/compiler-rs 0.1.7→0.1.8).\n\nAlso bump workspace Rust dependencies in Cargo.toml: tauri 2.10.2→2.10.3, tauri-plugin-dialog 2.6.0→2.7.0, tauri-plugin-fs 2.4.5→2.5.0, arboard 3.4→3.6, clap 4.5.60→4.6.1, config 0.15.19→0.15.22, env_logger 0.11.9→0.11.10, hickory-proto/server 0.25→0.26, once_cell 1.21.3→1.21.4, posthog-rs 0.3.5→0.5.3, prometheus 0.13.4→0.14.0, rand 0.10.0→0.10.1, sha2 0.10.9→0.11.0, sysinfo 0.38.2→0.38.4, tar 0.4.44→0.4.45, tauri-build 2.5.5→2.5.6, tempfile 3.26.0→3.27.0, tokio 1.49.0→1.52.1, tokio-tungstenite 0.28.0→0.29.0, toml 1.0.3→1.1.2, toml_edit 0.25.3→0.25.11, tracing-appender 0.2.4→0.2.5, tracing-subscriber 0.3.22→0.3.23, uuid 1.21.0→1.23.1, and OXC crates (0.48.0→0.127.0), zip 8.1.0→8.5.1.\n\nBump npm devDependencies in package.json: @biomejs/biome 2.4.10→2.4.12, @playform/pipe 0.1.4→0.1.5, @prettier/plugin-oxc 0.1.3→0.1.4, @vue/compiler-sfc 3.5.32→3.5.33, prettier 3.8.1→3.8.3, prettier-plugin-ember-template-tag 2.1.3→2.1.5, prettier-plugin-sh 0.18.0→0.18.1, typescript 6.0.2→6.0.3.\n\nThis coordinated update delivers dependency updates, build cleanup, and compatibility improvements across the monorepo while maintaining identical runtime behavior.",
-			"SHA": "eaa755669cb6a111a79461801ea290f72d743a39"
+			"Message": "",
+			"SHA": "9abb5023d636985a9649c66290c1b7b8d27f81d2"
 		}
 	],
-	"TimeStamp": 1781194547286
+	"TimeStamp": 1781360205848
 }

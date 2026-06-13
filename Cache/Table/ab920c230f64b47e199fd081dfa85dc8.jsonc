@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T09:33:44Z",
+			"Date": "2026-05-11T18:19:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1492,
-				4
-			],
-			"Message": "refactor(Mountain): Generalize hardcoded volume paths in comments\n\nReplace literal `/Volumes/CORSAIR/...` and `/Users/nikola/...` references with abstract placeholders (`<vol>`, `<home>`) across build, utility, and effect modules.\n\nUpdate comments in `Scheme.rs`, `WindowBuild.rs`, `PathSecurity.rs`, and `FileSystem.rs` to reflect generic path structures rather than local development environment specifics. This ensures documentation accuracy regardless of the developer's mount points or home directory structure, aligning with the project's requirement for portable, environment-agnostic logging and comments.\n\nNo functional code changes were introduced; only documentation strings were updated to prevent confusion during future maintenance or code review.",
-			"SHA": "4dd712f4d78aad6976cb327b861e369409817a36"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:35:34Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1492,
-				5
-			],
-			"Message": "chore(Mountain): Update documentation and telemetry configuration for v2.2\n\nSync CHANGELOG.md and README.md to reflect the v2.2 correctness pass, detailing the reduction of Cocoon circuit-breaker rejections to zero via the new `-32004` JSON-RPC error code for benign 404s. Expand documentation on the `sky:replay-events` handler, terminal ring buffers, and the modularization of the IPC layer.\n\nIn `build.rs`, propagate new OTLP telemetry environment variables (`OTLPEndpoint`, `OTLPEnabled`, `Capture`, `Trace`) to the compilation target, enabling granular trace filtering and endpoint configuration. Update `scripts/cocoon/bootstrap-fork.js` to emit structured OTLP spans for bootstrap milestones, aligning the extension host instrumentation with the new backend tracing capabilities. Minor formatting adjustments applied to `capabilities/default.json`.",
-			"SHA": "5bca3dde328711d9c6f263697f20d507a847c0cf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:20:56Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1492,
-				9
-			],
-			"Message": "refactor(Mountain): Atomize IPC layer and inject W3C trace context\n\nDecompose monolithic IPC handler files (`AdvancedFeatures`, `DevLog`, `StatusReporter`, `WindAirCommands`, `WindServiceAdapters`) into their dedicated sibling directories, aligning with the project's strict file-per-command modularization strategy. This eliminates single-source files exceeding 30KB and prepares the `Source/IPC` layer for granular testing and independent component evolution.\n\nIntroduce `EmitWithTraceparent` to instrument outbound Tauri events with W3C `traceparent` headers. This bridge stamps `_traceparent` fields onto JSON payloads in debug builds, enabling the `Sky` UI layer to correlate frontend event handlers with backend OTLP spans. Release builds bypass this overhead via `cfg!(debug_assertions)` gating.\n\nUpdate remaining modules (`ConfigurationBridge`, `WindAdvancedSync`) to enforce explicit `::Struct` and `::Fn` qualification patterns, resolving potential symbol shadowing during the transition to the atomized architecture.",
-			"SHA": "c96e22222b3ced5e16e63c598d8d953340bd7793"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:20:42Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1496,
+				1505,
 				3
 			],
-			"Message": "refactor(Mountain): Modularize SCM and TreeView command surfaces\n\nDecompose the monolithic `SourceControlManagement.rs` and `TreeView.rs` command handlers into discrete modules, aligning with the project's strict file-per-command naming convention. The previous implementation bundled all Tauri command logic into single files with extensive inline documentation, violating the separation of concerns required for the growing IPC layer.\n\nKey modifications:\n- **SourceControlManagement.rs**: Replaced 260-line file with a module manifest exporting 7 stub modules (`GetAllSourceControlManagementState`, `ExecuteSCMCommand`, etc.). Retained high-level architectural docs while moving implementation details to dedicated files.\n- **TreeView.rs**: Replaced 302-line file with a module manifest exporting 8 stub modules (`GetTreeViewChildren`, `RefreshTreeView`, etc.). Preserved references to `TreeViewProvider` trait integration points.\n- **Keybinding.rs**: Refactored documentation comments to strictly adhere to the `Command::Function` naming pattern and fix formatting inconsistencies.\n\nThis structural change enables independent development of specific IPC commands, facilitates granular testing, and prevents symbol shadowing issues as the codebase scales. The modular approach mirrors the recent refactorings in `PublishNotification` and `CommandProvider` modules, ensuring consistency across the Mountain binary initialization path.",
-			"SHA": "96e824c731d69abcf06c33c53bb3e17f19b3c8e8"
+			"Message": "fix: update keyring usage to keyring-core in CertificateManager and SecretProvider\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "1bb0d7b47c76a9b7ae642aeea5f5485df75e6628"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:20:30Z",
+			"Date": "2026-05-11T17:48:46Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1496,
-				14
+				1505,
+				1
 			],
-			"Message": "feat(Mountain): Introduce modular DevLog subsystem with OTLP tracing\n\nReplace ad-hoc logging in the IPC layer with a dedicated `DevLog` subsystem under `Source/IPC/DevLog/`. This module provides tag-gated console output, file sink mirroring, and fire-and-forget OTLP span exporting.\n\nKey components include:\n- `IsEnabled`/`IsShort`: Tag resolution logic supporting `Trace=all`, `Trace=short`, and specific tag lists.\n- `WriteToFile`: Lazy-initialized file sink writing to `~/Library/Application Support/land.editor.*.mountain/logs/<timestamp>/Mountain.dev.log`.\n- `AliasPath`: Replaces verbose Tauri app-data paths with `$APP` for readability in short mode.\n- `DedupState`/`FlushDedup`: Consecutive duplicate suppression to reduce log noise.\n- `EmitOTLPSpan`: Async HTTP POST implementation for OpenTelemetry data.\n- `IsBenignEnoent`: Filter for known-optional probe paths (VS Code/Copilot artifacts) to downgrade errors to debug logs.\n\nThe implementation follows strict PascalCase naming and explicit `::Fn()` qualification patterns, ensuring zero runtime cost in release builds via `cfg!(debug_assertions)` gating. The new `dev_log!` and `otel_span!` macros provide a unified interface for developers to instrument IPC handlers and boot sequences.",
-			"SHA": "746075e9cc8ee101c809bb67f2628006eb4fa52b"
+			"Message": "fix(GITEX): wrap git subprocess with a 30s timeout (#55)\n\ntokio::process::Command::new(\"git\").output().await had no\ncancellation boundary. A slow or hanging git operation (large\nrepo, network mount, credential prompt, locked index) would\nhold the effect slot open indefinitely.\n\nWrap with tokio::time::timeout(Duration::from_secs(30), ...).\nOn expiry the child process is abandoned and a descriptive Err\nis returned so the extension host can surface the failure.\n\nThe 30s ceiling is generous enough for legitimate slow clones\nover gRPC but tight enough to prevent indefinite hangs. The\nelapsed dev_log is kept so timing is still observable in logs.",
+			"SHA": "4215c8a141c82a6bd07e3e642eccc2e4b3cade9e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-11T17:48:39Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
+			],
+			"Message": "fix(WSAE): propagate Err from applyEdit instead of synthetic true (#54)\n\nWhen Sky does not answer sky://workspace/applyEdit, returning\nOk(json!(true)) causes every extension that checks the boolean\nresult of `workspace.applyEdit()` to believe the edit succeeded\nand proceed against post-apply state that never materialised.\n\nPropagate the error instead so the extension host surfaces the\nfailure correctly. showTextDocument already uses Ok(json!(null))\non its failure path; this aligns applyEdit with that safer\npattern while going one step further and returning a real Err\nso callers can distinguish a Sky failure from a successful\nfalse-result from the provider.",
+			"SHA": "fc59918c8e1ce7045b50bccabc57e23344167604"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-11T17:43:39Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
+			],
+			"Message": "Merge pull request #53 from CodeEditorLand/fix/uiqp2-show-quick-pick\n\nfix(UIQP2): deserialise items and options from Parameters",
+			"SHA": "8083f74c0dab32d0b6bccdcab093011a0d3b9748"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-11T17:34:26Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
+			],
+			"Message": "fix(UIQP2): deserialise items and options from Parameters in ShowQuickPick",
+			"SHA": "77191858d1cb1af57f174db23fd7ee2f72f1eae7"
 		}
 	],
-	"TimeStamp": 1781194554659
+	"TimeStamp": 1781360204768
 }

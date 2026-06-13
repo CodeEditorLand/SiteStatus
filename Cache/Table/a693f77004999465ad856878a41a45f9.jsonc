@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:29Z",
+			"Date": "2026-05-10T20:54:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1450,
+				1505,
 				1
 			],
-			"Message": "refactor(Mountain): Format CheckKeybindingConflicts command signature\n\nReflow the function signature for `CheckKeybindingConflicts` in `Source/Command/Keybinding/CheckKeybindingConflicts.rs` to place all parameters on a single line.\n\nThis change aligns the code with the project's Rust formatting standards and ensures consistency with the recent modularization efforts in `WindServiceHandlers`. The logic and functionality remain unchanged; this is purely a stylistic adjustment to improve readability and maintain a uniform codebase structure.",
-			"SHA": "c71126c2c31b16ebd36602c62fe2f9438ccc81ad"
+			"Message": "fix(TVIEW): wire tree.unregister + tree.dispose to provider + emit TreeViewDispose\n\n`tree.unregister` / `tree.dispose` were no-ops: the effect body\nlogged the handle but never called the provider and never emitted a\nSkyEvent. The consequence:\n\n  - Provider registry in `Sky/Source/TreeView/TreeViewService.ts`\n    kept the `_dataProvider` slot live after the extension called\n    `vscode.window.registerTreeDataProvider(...).dispose()`. A\n    subsequent re-registration from the same extension (reload,\n    update) produced a duplicate registration warning from Sky and\n    the new provider was ignored.\n\n  - `getChildren()` calls on a disposed tree continued to hit the\n    old provider pointer, producing stale results or panics if the\n    provider had been GC'd from the Cocoon side.\n\nFix: call `provider.UnregisterTreeDataProvider(view_id)`, emit\n`SkyEvent::TreeViewDispose` (parity with the register arm's\n`TreeViewCreate`), and log both outcomes under the same `tree-view`\nand `grpc` tags used by the register arm.",
+			"SHA": "90a62cdda4de6b6184a0e80498676c96d39f3f4d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:26Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1450,
-				22
-			],
-			"Message": "feat(Mountain): Establish Wind-Air IPC delegation layer for updates and indexing\n\nIntroduce a comprehensive Tauri command suite under `Source/IPC/WindAirCommands/` to bridge the Wind frontend with the Air native daemon. This implementation exposes update management, authentication, file operations, and system metrics to the UI via gRPC.\n\nKey additions:\n- **Client Wrapper:** `AirClientWrapper` manages gRPC connections with reconnect logic and PascalCase logging.\n- **Command Handlers:** Implement `CheckForUpdates`, `DownloadUpdate`, `ApplyUpdate`, `AuthenticateUser`, `DownloadFile`, `IndexFiles`, `SearchFiles`, `GetAirStatus`, and `GetAirMetrics`.\n- **DTOs:** Define strict response types (`UpdateInfoDTO`, `DownloadResultDTO`, `SearchResultsDTO`, etc.) for serializing Air daemon responses.\n- **Registration:** `RegisterWindAirCommands` wires all 9 handlers into the Tauri builder, centralizing the IPC surface.\n\nThis layer enables the Wind frontend to offload background tasks (updates, auth, indexing) to the Air sidecar, maintaining the separation of concerns between UI logic and native background services.",
-			"SHA": "bb0e43765c29626f33885b136223a4aaff0b8fdc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:20Z",
+			"Date": "2026-05-10T20:51:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1427,
+				1505,
 				1
 			],
-			"Message": "chore(Mountain): Remove empty Permission role management stub\n\nDelete the `ManageRole.rs` file under `Source/IPC/Permission/Role/`, which existed as an empty placeholder with zero bytes. This cleanup aligns with the recent architectural shift toward inline permission validation and specific handler implementations, removing dead code artifacts that no longer serve a function in the IPC layer.\n\nThe removal ensures the permission directory structure accurately reflects the current state of the codebase, preventing confusion from orphaned files and maintaining consistency with the modularization efforts in `WindServiceHandlers` and `ValidatePermission`.",
-			"SHA": "c88625a48c7b0fcb7681a2637c21b1ea4ef20d54"
+			"Message": "fix(FSSRV): add empty-path guard + URI strip to Stat, ReadDirectory, ReadFile\n\nFileSystem.Stat and FileSystem.ReadDirectory had no empty-path guard,\nunlike FileSystem.ReadFile which already had one (added in the\n`LooksLike404` classifier batch). An extension passing an empty string\nto `vscode.workspace.fs.stat` or `readDirectory` (probe-on-activate\npattern) hit PathBuf::from(\"\") which:\n  - On Stat: reached the OS with an empty path and returned a\n    platform-dependent error string that did NOT match any of the eight\n    known \"not found\" patterns in MountainVinegRPCService, so the\n    LooksLike404 guard logged it at grpc/error and incremented the\n    circuit-breaker counter.\n  - On ReadDirectory: same failure path, plus PathSecurity could emit\n    \"path outside workspace\" which was previously only guarded on the\n    ReadFile arm.\n\nFix: mirror the ReadFile guard verbatim on both Stat and ReadDirectory.\nThe \"resource not found\" suffix in the error string is the canonical\nkey the LooksLike404 classifier matches on, so these errors now\ndowngrade to grpc-verbose and use code -32004 like ReadFile does.\n\nStripFileUriScheme is already called on the path_str in both arms;\nthis commit makes that call consistent - the strip was missing on\nReadDirectory before the empty-path branch was added, leaving\nfile:///absolute/path inputs reaching the OS with the scheme intact\nand 404-ing with a literal \"file:\" prefix in the error.",
+			"SHA": "701563143aa3d55befc5f0b1adc173057a1dc30c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:18Z",
+			"Date": "2026-05-10T16:25:54Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1428,
-				1
+				1505,
+				2
 			],
-			"Message": "refactor(Mountain): Reformat shell environment utility comments\n\nReflow the documentation comments in `EnhanceShellEnvironment.rs` to adhere to the 72-column hard limit. This change addresses line-wrapping issues in the explanation of PATH injection logic, specifically regarding Homebrew binary discovery and language server initialization.\n\nThe content and logic remain unchanged; this is a purely cosmetic adjustment to ensure the codebase maintains consistent formatting standards for Rust documentation blocks.",
-			"SHA": "6c6cb93cc701e9ec9f730429bd7ee87a862bbe5e"
+			"Message": "docs: expand //! headers in FileSystemProvider sub-modules",
+			"SHA": "3bd8a8e5afc64a9c7e8be094baf35b6e5246ec03"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-03T08:18:15Z",
+			"Date": "2026-05-10T16:21:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1428,
-				12
+				1505,
+				4
 			],
-			"Message": "feat(Mountain): Implement advanced IPC monitoring and collaboration session tracking\n\nIntroduce a comprehensive `AdvancedFeatures` module under `Source/IPC/AdvancedFeatures/` to expose real-time performance metrics and collaborative session management to the Wind/Sky frontend via Tauri commands.\n\nKey additions include:\n- **State Aggregator:** `Features::Struct` manages concurrent access to performance counters, a TTL-bound `MessageCache`, and active `CollaborationSession` maps using `Arc<Mutex>`.\n- **Background Monitoring:** Three asynchronous tasks handle periodic performance stat emission, cache cleanup (TTL expiration), and session timeout management.\n- **Collaboration Primitives:** Define DTOs for `CollaborationPermissions` (edit/view/comment/share flags) and `CollaborationSession` (participant lists, document URIs).\n- **Tauri Commands:** Surface functionality via `mountain_create_collaboration_session`, `mountain_get_collaboration_sessions`, `mountain_get_performance_stats`, and `mountain_get_cache_stats`.\n\nThis implementation provides the backend telemetry required for the Feature Parity dashboard and establishes the structural foundation for real-time co-editing features in Land.",
-			"SHA": "535672b372fb0e0187307494d5782bda8e257bfd"
+			"Message": "docs: expand //! headers in DocumentProvider sub-modules",
+			"SHA": "2c57464724ab09aab6a25bdf4aad43b1c7044099"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-10T16:15:30Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				4
+			],
+			"Message": "docs: expand //! headers in ConfigurationProvider sub-modules",
+			"SHA": "de7365f43cf302276c9e92d258605b5fb93ee184"
 		}
 	],
-	"TimeStamp": 1781194555886
+	"TimeStamp": 1781360206098
 }

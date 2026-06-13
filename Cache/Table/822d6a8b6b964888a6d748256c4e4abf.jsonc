@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T06:19:23Z",
+			"Date": "2026-05-28T10:47:25Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1582,
-				4
+				"⠁⠀⠀⠀⠀",
+				1746,
+				26
 			],
-			"Message": "",
-			"SHA": "1a1ee9b546b80eef444b0dc0ae4da09b291f2ca9"
+			"Message": "refactor(Mountain): delegate Air and Vine types to the Air and Vine crates\n\nThis commit refactors the codebase to delegate struct definitions for Air and Vine types to their respective crates, ensuring better separation of concerns and reducing duplication. Shared definitions for Air and Vine components are now centralized in their respective modules, with the editor crate now referencing ::Air::Client::AirClient and ::Vine::Client by default. This change reduces the public interface surface and improves maintainability by modularizing the core logic for Air and Vine gRPC interactions.",
+			"SHA": "544fc6e4bb4bc6b642b87f8c5a04abd360c44ce6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T06:19:23Z",
+			"Date": "2026-05-28T09:49:15Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1584,
-				7
-			],
-			"Message": "fix(Mountain): Normalize extension location URI from cache to plain string\n\nThe `LoadFromCache` path serialized `ExtensionLocation` as a JSON object\n`{\"value\": url}` — the Identifier wrapper shape — rather than a plain\n`Value::String` URI. The `Normalize.rs` URI parser then failed to match\nagainst the `scheme` key and fell through to `/extensions/unknown`,\nbreaking extension resolution for cached manifests.\n\n- Fix the source: emit `Value::String(LocationUri)` from\n  `LoadFromCache.rs`, matching the format `FromUrl::Fn` expects.\n- Fix the sink: add a backward-compatibility branch in `Normalize.rs`\n  that unwraps `{\"value\": url_string}` when encountered, so legacy\n  cache entries still resolve correctly.\n- Reorder Sky resource globs in `tauri.conf.json` alphabetically for\n  maintainability.\n\nAccompanying build metadata: the Cargo.toml package name, tauri\nidentifier, and productName are expanded to their full environment-keyed\nform (DevelopmentNodeEnvironment…) as part of the CI artifact\nlabelling scheme; backup files preserve the canonical values.",
-			"SHA": "af8fcdd2e74f49cd5943e056f6af38bddb0d7205"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T05:35:38Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1582,
-				2
-			],
-			"Message": "refactor(Mountain): Extract inline JSON blocks to avoid macro recursion limit\n\nThe `ConstructSandboxConfiguration` function builds the entire `ISandboxConfiguration` payload in a single deeply-nested `json!()` macro invocation. As the `profiles` and `productConfiguration` sections grew, the macro expansion exceeded Rust's recursion limit, causing compilation failures on certain toolchain versions.\n\nExtract the `nls`, `productConfiguration`, `os`, and `profiles` sub-objects into separate `json!()` calls bound to local variables (`NlsSection`, `ProductConfig`, `OsSection`, `ProfilesSection`), then reference them by name in the outer `json!()` invocation. This breaks the single deep expansion into multiple shallow ones, staying well within the recursion limit without changing any emitted values.\n\nNo behavioral change — all pre-built variables produce identical JSON to the previously inlined blocks.",
-			"SHA": "78820a9ee66e89a88169dab5bf7acb7b986c1eb3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T05:35:25Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1582,
-				19
-			],
-			"Message": "feat(Mountain): Complete Cocoon extension host bridge across providers, boot, and keyboard\n\nImplement the gRPC and provider-infrastructure layer for four extension-host features that Mountain forwards to Cocoon, three complementary improvements, and one build-config update.\n\n**Extension provider features:**\n\n- **Inline completion items** (GitHub Copilot, Roo Code, Continue): New `InlineCompletionItem` / `InlineCompletionContext` messages in Vine.proto, gRPC handler in `ProvideInlineCompletionItems.rs`, and `$provideInlineCompletionItems` dispatch from `FeatureMethods.rs` to Cocoon's registered provider. Registration flows through the generic notification dispatcher via `register_inline_completion_item_provider`.\n\n- **File decorations from extensions**: `DecorationsGet` in `Decoration.rs` falls back to `ProvideFileDecoration` via Cocoon gRPC when the in-memory store has no entry, populating git-status badges, error markers, and other extension-contributed decorations on demand.\n\n- **Terminal lifecycle sync**: `TerminalProvider.rs` emits `$acceptTerminalOpened` / `$acceptTerminalClosed` notifications to Cocoon so `vscode.window.terminals` stays current for terminals created from the UI (not just via the extension API).\n\n- **Webview message forwarding**: `Messaging.rs` implements the forward path for `acquireVsCodeApi().postMessage()` calls from extension iframes, sending them as `webview.message` notifications to Cocoon so the extension host's `onDidReceiveMessage` subscriber fires. `remove_webview_message_listener_impl` is now a logging stub rather than a no-op.\n\n**Boot performance and crash fixes:**\n\n- **Extension manifest cache (B7.P08)**: New `LoadFromCache.rs` reads a pre-baked `extensions.manifest.json` blob in a single `fs::read`, reducing extension-scan boot time from ~1200 ms to <50 ms. Falls back gracefully to the live `ScanAndPopulateExtensions` path on cache miss, staleness (>10 min), or corruption. The cache file is produced by `Maintain/Build/Manifest/PreBake.ts` during `beforeBundleCommand`.\n\n- **WKWebView NSUndoManager suppression**: `TauriBuild.rs` disables the macOS default menu (which pre-installs Edit > Undo/Redo). `WindowBuild.rs` injects a capture-phase keydown listener that `preventDefault()`s Cmd+Z/Cmd+Y before the webview's internal responder chain dispatches undo:/redo:, preventing WKWebView's NSUndoManager from competing with Monaco's undo stack.\n\n- **Profiles configuration**: `InitializationData.rs` adds the `INativeWindowConfiguration.profiles` section with all required URI fields (`languageModelsResource`, `agentPluginsHome`, `cacheHome`, etc.) to prevent the `TypeError: undefined is not an object (evaluating 'M.revive(o.languageModelsResource).with')` crash during workbench initialisation. Also adds `sqmId`, `devDeviceId`, and `isPortable` as defensive non-optional fields.\n\n**Build:** `tauri.conf.json` adds `node Maintain/Build/Manifest/PreBake.ts` to the `beforeBundleCommand` pipeline.\n\nCloses the Mountain side of the inline-completion provider circuit and addresses the workbench profile crash (VS Code desktop-mode init).",
-			"SHA": "8db51dd0dc8da12799836d25faaf61658c445a52"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-22T02:53:08Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1580,
+				1746,
 				1
 			],
-			"Message": "",
-			"SHA": "138352332e04a0046c07228f1b171bb588a3f421"
+			"Message": "fix(Mountain): Add missing window management capabilities to schema\n\nThe `gen/schemas/capabilities.json` was out of sync with `capabilities/default.json`, which already declared window management permissions (`start-dragging`, `internal-toggle-maximize`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`). The generated schema still held the stale subset without these entries, causing Tauri runtime validation to reject IPC calls that drive native window chrome operations from the Sky titlebar.\n\nRegenerate `capabilities.json` from the current source-of-truth default manifest so the capability digest matches the declared permissions. This unblocks the interactive titlebar (drag, maximize, close) and any programmatic `Window` API calls that were being denied by the capability guard.",
+			"SHA": "ab9ea343be1b531180726eaed576f194395e2218"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T18:19:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				5
+			],
+			"Message": "fix(Mountain): Reconstruct full URI from vscode.Uri POJO fields\n\nCocoon may forward a raw URI string, a serialised `vscode.Uri` POJO\n(`{scheme, authority, path, query, fragment}`), or the legacy\n`{external, path}` shape from older rendering paths. The previous code\nonly extracted `external` or bare `path` from objects, which silently\ndropped the scheme on non-file URIs —\n`rust-analyzer-diagnostics-view:/diag/foo` became `/diag/foo` and Sky\nrendered either a 404 or `[object Object]` in the editor tab.\n\nReconstruct the full URI by fallback priority: `external` →\n`scheme+authority+path+query+fragment` → `fsPath` (prefixed with\n`file://` for absolute paths) → bare `path` → empty string. Every\nknown vscode.Uri shape now resolves to a valid wire string the Sky\nworkbench can open.\n\nAlso:\n\n- **TreeView timeouts**: Bump `$provideTreeChildren` from 5 s to 15 s\non both Wind and Cocoon IPC paths. Cold scans on multi-repo workspaces\n(`npm` walking every package.json, `gitlens` enumerating submodules)\ncan exceed 5 s on first expansion, causing the panel to render empty\nuntil manual refresh.\n\n- **PTY binary input**: Route `localPty:processBinary` through\n`TerminalSendText` instead of falling through to the `null` no-op.\nSystem clipboard paste and Cmd+Shift keyboard escape sequences were\nsilently swallowed.\n\n- **Output channel hide**: Forward Cocoon's `outputChannel.hide`\nnotification to Sky as `sky://output/show { visible: false, channel }`\ninstead of logging a no-op. Extensions calling `OutputChannel.hide()`\nnow see the panel dismiss the channel.",
+			"SHA": "e1d82f3455e42b168108fe76935d015713f083e4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T17:57:31Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				2
+			],
+			"Message": "fix(Mountain): Realign SCM DTO import path and enable native window capabilities\n\nFix the `SourceControlManagementResourceDTO` import in `UpdateScmGroup` to use the reorganized `DTO` submodule path under `CommonLibrary::SourceControlManagement`, correcting the module resolution after Common's struct rehoming.\n\nAdd window management capability permissions (`start-dragging`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`, `internal-toggle-maximize`) to `capabilities/default.json`, enabling the Sky UI to drive native window chrome operations — dragging the titlebar, maximizing/minimizing/closing — through Tauri's IPC permission layer.\n\nWithout these capabilities, the editor's custom titlebar was non-interactive and the workbench window could not be controlled programmatically from the frontend.",
+			"SHA": "4a6097c8945fea0e487dc49487de53a47983988f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T17:23:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				6
+			],
+			"Message": "fix(Mountain): Replay SCM resource groups and persist snapshots for late subscribers\n\nCocoon fires `register_scm_resource_group` before SkyBridge's listener is attached (Tauri events are not buffered), so the workbench booted with the SCM provider header visible but zero groups — and even when `update_scm_group` arrived, the resource tree stayed empty because the event was consumed without persisting the snapshot for boot-time replay.\n\n- **UpdateScmGroup**: Persist each incoming `ResourceStates` array into MarkerState as `SourceControlManagementResourceDTO` entries keyed by `(ProviderHandle, GroupId)`, so the replay loop can re-emit the latest snapshot.\n- **ReplayEvents**: Add two new replay legs — group registration (`sky://scm/registerGroup`) and resource update (`sky://scm/updateGroup`) — reconstructing the same `GroupHandle = \"{ProviderHandle}/{GroupId}\"` that the live wire path produces, resolved through the provider identifier map (defaulting to \"git\").\n- **LoggingPlugin**: Cap `tauri::manager` and `tauri::manager::asset` to Warn, `tauri::webview` and `wry` to Info, to suppress the flood of expected 404 fallback probes for sourcemap/module URLs that WebKit auto-fetches with the wrong base under `tauri://localhost`.\n- **LocalPTYGetProfiles**: Rename `Arguments` → `args` (lowercase) to match VS Code's `ITerminalProfile.args` — the uppercase key silently mis-parsed and the profile picker fell back to `$SHELL`.\n- **SCM Effect**: Accept `git.openChange` / `git.openFile` as diff-forwarding aliases alongside `vscode.diff` / `$scm:openDiff`; these are the actual command IDs the built-in vscode.git extension uses on resource state entries.\n- **build.rs**: Normalize array formatting in `PropagatePostHogSentinel`.\n\nThe SCM panel now populates with groups and working-tree state at boot, and terminal profiles render with their configured arguments.",
+			"SHA": "2db7957cc5af3113a94be7ee360e1f2cb34cb769"
 		}
 	],
-	"TimeStamp": 1781194530779
+	"TimeStamp": 1781360184224
 }

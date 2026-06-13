@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-05-21T02:52:57Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1580,
-				1
-			],
-			"Message": "",
-			"SHA": "b702320d74f87a6d04c892b6dfd073fc8c00bd17"
-		},
-		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:38:25Z",
+			"Date": "2026-05-26T08:11:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1580,
-				1
-			],
-			"Message": "feat(Mountain): Read TierSchemeAssets from .env.Land as env fallback\n\nAdd the helper function `ReadTierValueFromEnvFile` to build.rs that walks up the directory tree from `CARGO_MANIFEST_DIR` (up to 5 ancestors) looking for `.env.Land` or `.env.Land.Sample` to resolve the `TierSchemeAssets` key. The resolution priority is: process environment variable first, then the env file, then the hard-coded default of `\"Embedded\"`.\n\nThis mirrors the file-reading logic already used by `PropagateTierGating` in the Rust tier system, ensuring the tauri.conf.json mutation in build.rs agrees with the cfg-gated Rust code even when a shell has a stale exported `$TierSchemeAssets` from a previous build tier. If the env file is found but the key is absent, the function returns `None` immediately rather than falling through to a parent directory — preventing accidental cross-project key leakage.",
-			"SHA": "4ba376b9241d0f9cc58e68f6cb1be03affa8000c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:32:14Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1580,
-				1
-			],
-			"Message": "",
-			"SHA": "52d240d6376d08d9e81c1bc50e34b336e36ead59"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:32:14Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1580,
-				2
-			],
-			"Message": "feat(Mountain): Gate asset deployment strategy behind $TierSchemeAssets env var\n\nIntroduce a build-time gating mechanism that selects between two asset deployment modes: Embedded (default, assets Brotli-compressed into the binary) and FileSystem (full disk layout in Contents/Resources/ served via the localhost plugin static_root fallback).\n\nIn build.rs, read $TierSchemeAssets (defaults to \"Embedded\") and mutate tauri.conf.json at build time:\n- Embedded: frontendDist=\"../Sky/Target\", bundle.resources holds only Cocoon-needed files (bootstrap, extensions, nls, node_modules, product.json).\n- FileSystem: frontendDist=null, bundle.resources maps the full Sky/Target/ tree (Browser, BrowserProxy, Bundled, vs/, _astro/, index.html, etc.).\n\nIn LocalhostPlugin.rs, wrap the static_root resolution and Builder.static_root() call in #[cfg(feature = \"TierSchemeAssetsFileSystem\")] so the disk-fallback code is compiled only when FileSystem mode is active. Add \"TierSchemeAssetsFileSystem\" to IsDeclaredTierFeature and remove \"FileSystem\" from IsDefaultTierValue so it now emits a cfg feature rather than being a silent default.\n\nThis completes the foundation laid by the Static/Application/ prefix refactoring, making the deployment mode selectable at build time via a single environment variable rather than manual tauri.conf.json editing.",
-			"SHA": "a9e4b2d9bf9e3ed04251361f03325445f343e208"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:21:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1580,
+				1746,
 				4
 			],
-			"Message": "refactor(Mountain): Consolidate bundle resources under Static/Application prefix\n\nTransition the Tauri bundle layout from flat resource paths to a structured \"Static/Application/\" prefix, unifying the bundle and development directory trees under a single source of truth. This eliminates the mismatch between the flat bundle layout (Contents/Resources/extensions) and the monorepo layout (Sky/Target/Static/Application/extensions).\n\nIn tauri.conf.json, remap all resource entries to target \"Static/Application/...\" and set frontendDist to null so the dev server delegates to the localhost plugin's static_root disk fallback. Add static_root resolution in LocalhostPlugin.rs that probes both the production bundle path (../Resources/) and the monorepo dev path (../../../Sky/Target/).\n\nIn ScanPathConfigure.rs, register the new canonical extensions path (Resources/Static/Application/extensions) before the legacy flat paths, which are retained as fallbacks for existing development environments.\n\nLegacy flat paths remain functional during the transition, so existing dev runs and CI pipelines continue to work until all resource mapping is migrated.",
-			"SHA": "58b34f8a23c47aec5c01e92c493060403c7159b4"
+			"Message": "feat(Mountain): Add tier-gated command broadcast and IPC notification relays\n\nAdd three missing IPC notification handlers in WindServiceHandlers and an opt-in dual-emit mechanism for command execution events from the extension host.\n\n`localPty:setInteracted` forwards terminal interaction state (OSC 633 B) as `$acceptTerminalStateChanged`, enabling `onDidChangeTerminalState` subscribers in Node-resident extensions. `sky:editor:diffInformationChanged` relays Monaco diff metadata as `$acceptTextEditorDiffInformationChanged`. `sky:editor:viewColumnChanged` forwards editor group movement as `$acceptTextEditorViewColumnChanged`, completing the notification surface for `onDidChangeTextEditorDiffInformation` and `onDidChangeTextEditorViewColumn`.\n\nIntroduce `TierCommandEventBroadcast` (default `Off`) in build.rs. When set to `On`, Mountain dual-emits `$acceptCommandExecuted` over Vine after gRPC `Command.Execute` from Cocoon, ensuring `vscode.commands.onDidExecuteCommand` fires even for commands not locally registered in the extension host. The tier variable is surfaced in LandFixTier runtime diagnostics.",
+			"SHA": "a51086049e21a27597657cfe97db6b996922f356"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:15:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				2
+			],
+			"Message": "fix(Mountain): Relay terminal shell execution events to Cocoon extension host\n\nAdd two new IPC notification handlers in WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, bridging terminal shell execution events from Sky to the Node.js extension host.\n\n`$acceptTerminalShellExecutionStart` fans to Cocoon so `vscode.window.onDidStartTerminalShellExecution` fires for extension subscribers. `$acceptTerminalShellExecutionEnd` fans two Vine notifications: `$acceptTerminalShellExecutionEnd` (for `onDidEndTerminalShellExecution`) and a derived `$acceptExecutedTerminalCommand` so `vscode.window.onDidExecuteTerminalCommand` subscribers observe the executed command without an additional Sky-side detection pass.\n\nAlso inline a multi-line closure chain in `CreateEffectForRequest/Diagnostics.rs` to a single-line filter_map for consistency with surrounding code style.",
+			"SHA": "275e31a312378afe6b7deb7a8e7f6f579e52b42c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:08:42Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
+			],
+			"Message": "fix(Mountain): Forward editor state change notifications to Cocoon extension host\n\nAdd five missing Vine notification relays so VS Code API subscribers inside the Node.js extension host observe changes Mountain already delivers to the renderer:\n\n- **ThemesSet.rs**: Fan `$acceptActiveColorTheme` on theme switch, computing the workbench theme kind (Light/Dark/HighContrast) from the theme id. Without this, `vscode.window.onDidChangeActiveColorTheme` never fires for Node-resident extensions (GitLens, Roo Code, rust-analyzer).\n\n- **WindServiceHandlers/mod.rs**: Relay four Sky-detected editor state changes as Cocoon notifications: `$acceptVisibleEditorsChanged` (`onDidChangeVisibleTextEditors`), `$acceptTabsChanged` (`onDidChangeTabs`/`onDidChangeTabGroups`), `$acceptVisibleRangesChanged` (`onDidChangeTextEditorVisibleRanges`), and `$acceptTextEditorOptionsChanged` (`onDidChangeTextEditorOptions`). Each forwards the Sky-provided payload directly.\n\n- **Diagnostics.rs**: After every `SetDiagnostics`/`ClearDiagnostics` call, fan `$acceptDiagnosticsChanged` back to Cocoon with the owner and affected URIs so `vscode.languages.onDidChangeDiagnostics` subscribers in peer extensions observe the change. For clears, emit an empty URI list — consumers should re-query `getDiagnostics(uri)`.\n\n- **DebugLifecycle.rs**: For `debug.addBreakpoints`/`debug.removeBreakpoints` only, fan `$onDidChangeBreakpoints` with added/removed/changed arrays so `vscode.debug.onDidChangeBreakpoints` fires in all extensions, not just the one that made the mutation.\n\nCompletes the Mountain-to-Cocoon notification pipeline for theme, editor, diagnostics, and debug breakpoint surfaces that were previously renderer-only.",
+			"SHA": "dd925de41e8f4558f960cb99f6d1a78674eba4e7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T21:53:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				2
+			],
+			"Message": "fix(Mountain): Relay executed command notifications to Cocoon extension host\n\nDual-emit `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, so that `vscode.commands.onDidExecuteCommand` callbacks fire inside extensions running in the Node.js extension host. The existing Tauri-emit only reaches the renderer (Sky); Cocoon has no Tauri runtime to subscribe to those events.\n\nCocoon's `Services/Handler/Notification/Handler.ts` maps `$acceptCommandExecuted` to an internal emitter that the `Commands/Namespace.ts` `onDidExecuteCommand` subscriber listens to. The Vine notification is fire-and-forget — failure is non-fatal since the renderer-side observers have already been notified via the Tauri event.\n\nAlso add the `tauri::Emitter` trait import in `CreateEffectForRequest/Commands.rs` to satisfy the compiler for the Tauri event emit.",
+			"SHA": "eeb3d39b739ebe9019b39f18ad4415ad9ad0fcb2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T21:37:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
+			],
+			"Message": "fix(Mountain): Forward previously unhandled IPC notifications\n\nAdd four notification handlers that were missing from the IPC dispatch tables, completing the Cocoon-to-Mountain-to-renderer pipeline:\n\n- **ScanPathConfigure**: Scan `~/.land/extensions` alongside the FIDDEE user directory so pre-migration installs (Roo Code, rust-analyzer, etc.) remain discoverable. The path is only pushed when the directory exists, making the addition harmless on clean installs.\n\n- **Debug.rs**: Forward `debug.dap-response` from Cocoon (inline-implementation adapters) to the workbench via `sky://debug/dap-message`, enabling the RawDebugSession sequencer to correlate DAP responses by `request_seq`.\n\n- **StatusBar.rs**: Handle `setStatusBarText` mutations from extension StatusBarItem `text()` setters. Without this arm, status bar text freezes after the initial create, never reflecting runtime updates.\n\n- **Task.rs**: Relay `terminate_task`/`Task.Terminate` to the extension host task service, allowing `vscode.tasks.executeTask(...).terminate()` to stop running tasks. Falls back gracefully with a dev_log warning when no task provider is available.",
+			"SHA": "23b235d68ce4fa03776183d9f8a9ac8bcb98b9f2"
 		}
 	],
-	"TimeStamp": 1781194531592
+	"TimeStamp": 1781360185075
 }
