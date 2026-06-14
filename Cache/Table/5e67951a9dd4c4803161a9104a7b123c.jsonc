@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:58:02Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				907,
+				5
+			],
+			"Message": "refactor(Wind): Strip Effect monad from Editor and TextModelResolver services\n\nContinue the de-Effectification of low-level Wind service bindings, following the pattern established in the Commands service (f97e5dd). Both EditorService and TextModelResolverService convert their Effect.Effect return types to native sync/Promise signatures.\n\nEditorService:\n- Sync getters (GetActiveEditor, GetVisibleEditors, GetSelections) return plain values instead of Effect<..., EditorProblem>.\n- Async methods (OpenEditor, CloseEditor, etc.) return Promise<T> instead of Effect<T, EditorProblem>.\n- Delete the EditorServiceTag reference and Layer.succeed wrapper from Live.ts. Export LiveEditorServiceLayer as the plain service object.\n- Replace the tagged union EditorProblem type with plain Error via MakeEditorProblem.\n\nTextModelResolverService:\n- Interface methods (Resolve, HasModel, Reload) return Promise<T> instead of Effect<T, TextModelResolverProblem>.\n- Delete TextModelResolverServiceTag and Layer.succeed wrapper from Live.ts. Export LiveTextModelResolverServiceLayer as the plain service object.\n- Bridge the ModelService (which still uses Effect) via Effect.runPromise wrappers (OpenModel, GetModel, CloseModel) at the top of the module, isolating Effect imports to a single bridge boundary.\n- Replace MakeResolverProblem tagged union with plain Error.\n\nThis reduces runtime overhead from Effect pipeline construction for these thin Tauri IPC wrappers where no composition, retry, or scheduling guarantees are required.",
+			"SHA": "ae827284cc4b3c44f88e7069e3b369a5092b1afc"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T21:56:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "refactor(Wind): Remove defunct ActivityBar Effect module and barrel exports\n\nThe ActivityBar Effect service module — types, errors, implementations, and mock — was built for direct VS Code workbench integration that Land no longer uses. The Shim system's SwallowMap now routes ActivityBar IPC calls at the proxy layer, and the WorkbenchLayout bridge references \"ActivityBar\" only as a layout-section string constant, not the deleted service.\n\nDelete the entire `Source/Effect/ActivityBar/` subtree (9 files) and strip the corresponding type, implementation, and error exports from the Effect barrel (`Source/Effect/index.ts`). This eliminates 13 lines of stale re-exports that would block tree-shaking and confuse consumers.\n\nNo callers remain — confirmed by content search across the Wind source tree.",
 			"SHA": "339051dadd7191f894987c4f464182fdca241302"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:48:56Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				921,
-				2
-			],
-			"Message": "feat(Wind): Barrel-export Shim system, fix AuditLog type narrowing\n\nAdd the missing barrel file (`Source/Shim/Index.ts`) that re-exports all Shim submodules — Type, Gate, SwallowMap, RedirectBus, IPCInterceptor, and AuditLog — with proper type-only vs value exports.\n\nAlso fix two issues in `Source/Shim/AuditLog.ts`: correct a double `static static` declaration to `static async`, and fix TypeScript optional-chaining on bracket-indexed access by casting `tauri?.[\"core\"]` through an intermediate `as Record<string, unknown>` before applying the safe-access `?.` operator. The redundant `return Promise.resolve()` is simplified to `return` since the async keyword already wraps the return path.\n\nTogether this completes the Shim system's public API surface, making it importable from external consumers (Cocoon, Sky) via a single barrel import.",
-			"SHA": "8ebd1f857db6c07eb66084ae11c833bcc627096c"
 		}
 	],
-	"TimeStamp": 1781360154997
+	"TimeStamp": 1781446800415
 }

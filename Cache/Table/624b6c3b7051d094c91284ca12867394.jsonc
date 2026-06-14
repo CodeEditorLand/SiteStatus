@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T01:02:12Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1146,
+				1
+			],
+			"Message": "feat(Cocoon): Register IPC tier configuration in bootstrap\n\nExpose the `__LandTier_IPC__` compile-time constant and the `TierIPC` runtime environment variable to the `__LandTiers` configuration object in `Main.ts`.\n\nThis update extends the tier initialization logic to include the IPC routing strategy, defaulting to \"Mountain\" to ensure the native Tauri backend is used for gRPC communication. It aligns the bootstrap sequence with the `TierIPCValue` type introduced in the recent IPC routing refactoring, enabling the runtime to select between native (`Mountain`), deferred (`NodeDeferred`), or direct (`Node`) execution paths for extension host calls.",
+			"SHA": "f84f339d2e6c336b9468d0473bcc8d686e6f41e4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T00:47:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1146,
+				1
+			],
+			"Message": "feat(Cocoon): Add IPC routing tier configuration\n\nIntroduce the `TierIPCValue` type and corresponding runtime tier selector to control the extension host's gRPC strategy. The new `IPC` tier allows switching between `Mountain` (native Tauri backend), `NodeDeferred`, and `Node` execution paths.\n\nDefined in `Source/Utility/Tier.ts`, the default configuration is set to `\"Mountain\"`, ensuring the standard path through the Mountain gRPC client is used by default. This change prepares the codebase for hybrid execution modes where specific gRPC calls may be deferred or routed directly to the Node.js sidecar, aligning with the project's modular IPC architecture.",
+			"SHA": "3ad09894e513acb869a0c0cb1fe12d65d9b8d366"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T00:36:12Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1146,
+				22
+			],
+			"Message": "refactor(Dev/Log): Replace native console calls with CocoonDevLog across core services\n\nReplaced all native `console.log`, `console.warn`, and `console.error` invocations with the centralized `CocoonDevLog` utility across 20+ files in the Cocoon extension host. This change standardizes logging output, enabling consistent categorization via tags (e.g., `grpc`, `mountain-client`, `ext-host`, `service`, `configuration`) and aligning with the project's structured logging requirements.\n\nKey changes include:\n- **Bootstrap & Effect Layers**: Updated RPC server startup and module interceptor warnings in `Bootstrap.ts`, `RPCServer.ts`, and `Interceptor.ts`.\n- **Mountain Integration**: Replaced raw console output in `Mountain/Client.ts` and `Mountain/Client/Service.ts` with tagged logs for connection states, health checks, and request tracing.\n- **Service Layer**: Migrated `Configuration`, `Error/Handling`, `Security`, `Health`, `Terminal`, and `gRPC/Server` services to use `CocoonDevLog` for lifecycle events, error reporting, and circuit breaker state transitions.\n- **Handler & IPC**: Updated `Extension/Host/Handler`, `Request/Routing/Handler`, and `Channel.ts` to route logs through the new system, while explicitly preserving `process.stderr.write` for critical IPC errors that must bypass the logging abstraction.\n- **Module Interception**: Applied the change to `Module/Interceptor` classes to ensure security audit logs are properly tagged.\n\nThis refactoring paves the way for advanced log filtering, performance metrics extraction, and centralized log aggregation in the development workflow, removing the dependency on the global `console` object which may be replaced or suppressed in certain runtime contexts.",
+			"SHA": "d28d660e5db3e3f6bec9d8796f0607109659766c"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-19T23:44:10Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "",
 			"SHA": "29eaa8c666e4e89fee49b19c492e5960cdeb760e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:41:32Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1146,
-				42
-			],
-			"Message": "refactor(Cocoon): Rename dotfile root from .land to .fiddee\n\nExtract the FIDDEE user-data directory path ($HOME/.fiddee) into a shared FiddeeRoot() atom at Source/Platform/FiddeeRoot.ts, replacing the scattered `process.env.HOME/.land/...` string literals across three storage-path resolution sites and one extension-bug stack filter.\n\nThe new file mirrors the Rust atom at Element/Mountain/Source/IPC/WindServiceHandlers/Utilities/FiddeeRoot.rs, centralising the product-name mapping so a future rename touches one file per language. The fallback semantics match the previous `$HOME/.land` resolution.\n\nUpdate Source/Services/Extension/Context.ts to derive GlobalStorageRoot from FiddeeRoot() instead of hardcoding the $HOME/.land prefix. Rewrite Source/Services/Handler/Extension/Host/Handler.ts to use FiddeeRoot() for extensionStorage, globalStorage, and logs, preserving the dedicated (non-scanned) root discipline that keeps storage out of the Mountain extension scanner path. Add `/.fiddee/extensions/` to the extension-internal-bug frame matcher in Source/Services/Handler/Notification/Handler.ts so the rejection filter works for both old and new dotfile layouts.\n\nBuild artifacts in Target/ are rebuilt to reflect the new FiddeeRoot path dependency across the ESBuild output graph.",
-			"SHA": "16ab1dd18507535605e3386477f56c20bb638950"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:22:50Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1143,
-				37
-			],
-			"Message": "chore(Cocoon): Rebuild Target artifacts and register 4 new Workspace document methods\n\nRebuild all ESBuild output bundles in `Target/` and regenerate the RouteManifest after four new Workspace document-level save methods were added on the Mountain side.\n\nUpdate `Source/Generated/RouteManifest.ts` generation timestamp from `2026-05-19T21:31:01Z` to `2026-05-19T22:15:03Z`. Four new Mountain RPC methods are now tracked: `saveAll`, `Workspace.Save`, `Workspace.SaveAll`, `Workspace.SaveAs` for saving individual and all workspace documents. The `MountainMethods` count rises from 130 to 134.\n\nThe 39 compiled target files (JS bundles + source maps across Bootstrap, Effect, gRPC, Service, and Handler layers) are regenerated to incorporate the new route set.\n\nThis keeps the build pipeline and RouteManifest aligned with the latest Mountain IPC surface.",
-			"SHA": "4456d952409945ef8b05ff728e6ecb1ddfb5ce9a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:53:23Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1143,
-				3
-			],
-			"Message": "feat(Cocoon): Track active text editor and upgrade secret storage to request/reply\n\nWire `window.didChangeActiveTextEditor` from Mountain into the notification handler in Handler.ts, building a minimal TextEditor stub from the payload URI/languageId and emitting it on the VS Code event emitter. The live `__activeTextEditor` reference on Context is patched so extensions reading `vscode.window.activeTextEditor` synchronously in `activate()` see the current value rather than `undefined`.\n\nUpgrade `showTextDocument` in Window/Namespace.ts from a fire-and-forget notification to a `sendRequest` round-trip that returns the TextEditor stub from Mountain. Fall back to a disposable stub on failure so extension callers that `await` the result and chain `.selection` or `.revealRange` don't crash.\n\nMigrate ExtensionSecretStorage in Context.ts from `sendNotification` to `sendRequest` with namespaced methods (`secrets.get`, `secrets.store`, `secrets.delete`) and include `extensionId` in the payload for scoped secret isolation. Remove the stale `// HIGH:` implementation TODO comments.\n\nTogether these changes eliminate three categories of extension-host crash: synchronous reads of undefined `activeTextEditor`, awaited `showTextDocument` returning undefined, and unhandled notification rejections in secret storage.",
-			"SHA": "3c4cc760a985ed0e6a85b68e6810aaa29e6b6e12"
 		}
 	],
-	"TimeStamp": 1781360185190
+	"TimeStamp": 1781446821980
 }

@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:06:12Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				154,
+				2
+			],
+			"Message": "perf(Sky): Parallelize extension scanning, inject modulepreload hints, enable terser minification\n\nOptimise the Astro build pipeline for both developer iteration speed and production load performance.\n\n**BakeExtensionManifest — dev-rebuild debounce and parallel root scanning:**\nAdd a module-level `LastScanAt` timestamp guard so hot-reload rebuilds that fire the `astro:build:done` hook more than once within 5 s skip re-scanning the extension directories entirely, cutting repeated I/O during fast edit-save cycles. Replace the sequential `for` loop over extension roots with `Promise.all(…map(ScanRoot))` so the two extension directories are scanned concurrently, reducing single-build wall-clock time.\n\n**InjectModulePreload — new Astro build integration:**\nRegister an `astro:build:done` hook (before CompressBundle, so injected links survive compression) that parses each workbench page's `<script type=\"module\">` entry chunks, walks their `__vite__mapDeps` reference arrays plus static and (for entry chunks) dynamic import paths, and emits one `<link rel=\"modulepreload\">` hint per transitive static dep, up to 40 links per page. Without this, the WKWebView discovers the boot chain (Preload → Polyfills → Bootstrap → Workbench → SkyBridge plus their static deps) one module-graph level at a time; the hints let the browser preload the full dependency tree before execution reaches each `import()` call.\n\n**Rollup terser minification:**\nEnable `minify: 'terser'` for production builds when the VS Code workbench is not bundled into the Rollup graph (i.e. `BundledActive` is false). In bundled mode the ~44 MB `vs/**` workbench chunk would add prohibitive time and `drop_console` would strip VS Code's own diagnostics, so minification is skipped. Clarify the sourcemap comment to document why `true` is used instead of `'hidden'`: WKWebView DevTools needs the `//# sourceMappingURL=` trailing comment to discover sibling `.map` files through the `land://` static server.",
+			"SHA": "64cdae903ed7825691e14f5e33543f285b44be09"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T17:35:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "fix(Sky): Add missing diagnostic log for unmatched revealRange URI\n\nComplete the diagnostic logging added in the full-URI matching fix by emitting a \\`[SkyBridge] editor/revealRange: no editor matches <URI>\\` diagnostic when revealRange fails to resolve an editor. This operation was left without a logging path when the Matched tracking was introduced for the other editor operations, depriving operators of visibility into stale or mismatched URIs for scroll-reveal commands.",
 			"SHA": "896cf7258e7e08897d6f7f7c642c007f46287070"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:38:30Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				154,
-				5
-			],
-			"Message": "fix(Sky): Enforce full-URI editor matching to prevent cross-editor bleed\n\nReplace suffix-based editor lookup (`endsWith`) with strict full-URI equality in three SkyBridge operations — decoration set-ranges, text edits, and scroll-position. The suffix match caused commands targeting one file (e.g. `src/foo/index.ts`) to bleed into every other editor whose model shared the same basename (`src/bar/index.ts`, `test/index.ts`), resulting in misplaced decorations, applied edits, and scroll jumps across unrelated tabs.\n\nAlongside this core fix:\n- Correct the model service fallback in InstallEditorAndOutput from `ModelService` to `Models`.\n- Add `Matched` tracking with diagnostic logging via `MountainIPCInvoke` when no editor resolves, giving operators visibility into stale or mismatched URIs.\n- Refactor ProbeServices to use the `ToMountain` wrapper instead of raw `invoke(\"MountainIPCInvoke\", ...)` plus try/catch — reducing boilerplate and centralizing IPC calls.\n- Update Architecture.md and DeepDive.md: fix repository/issue links to point to the Land monorepo, correct opening descriptions, and add the standard maintainer footer to DeepDive.\n\nEditor operations now reliably target the intended editor by exact URI, and unmatched commands produce actionable diagnostics instead of silently affecting the wrong view.",
-			"SHA": "53afb5281516509009a741209f8eace64a9916fc"
 		}
 	],
-	"TimeStamp": 1781360155671
+	"TimeStamp": 1781446800747
 }
