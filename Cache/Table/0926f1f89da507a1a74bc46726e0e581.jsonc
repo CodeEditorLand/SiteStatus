@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:22:14Z",
+			"Date": "2026-06-12T22:26:36Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				561,
-				6
+				"⣿⡏⠀⠀⠀",
+				563,
+				181
 			],
-			"Message": "feat(Cocoon): Implement willSave-as-REQUEST path; fix URI hydration and status bar paired colors\n\nAdd a `$willSaveDocument` REQUEST route in RequestRoutingHandler so Mountain can call Cocoon for TextEdits before persisting a document — the edits are returned in the response rather than fire-and-forget via `window.applyTextEdits`. Extract the listener collection logic from NotificationHandler into `CollectWillSaveDocumentEdits` with a 1.5s timeout cap on listener thenables; the notification path delegates to it and awaits before forwarding edits.\n\n**Bootstrap.ts:** Replace static stage-group arrays with a promise chain that links RPCServer → MountainConnection via `.then()`, letting the connect attempt start the moment the server settles instead of waiting for ModuleInterceptor too. Early-exit on RPCServer failure via `process.exit(1)` instead of `find`-based detection.\n\n**Env/Namespace.ts:** Hydrate every URI shape extensions hand to `openExternal` — string, real `vscode.Uri`, URI-like POJO, and the underscore-serialized wire form (`_scheme`, `_path`) — instead of casting with `String(Target)` which produces `[object Object]`. Implement `asExternalUri` that returns a real URI-compatible object with a `toString()` so extensions embedding the result in OAuth redirect URLs get a valid URL string. Respect Mountain's `isTelemetryEnabled` init payload when present.\n\n**Window/CreateStatusBarItem.ts:** Implement paired-theme-color semantics: when `statusBarItem.errorBackground` or `statusBarItem.warningBackground` is set, force the corresponding foreground (`errorForeground` / `warningForeground`) and serialize both as `{ id }` theme-color references instead of passing raw objects Mountain cannot resolve. Reject unsupported background theme IDs.\n\n**Window/Namespace.ts:** Extract `SendTreeRegister` with a retry that listens for `extensionHostInitialized` (plus a 2s fallback timer) so tree views registered before the Mountain connection is live still appear in the workbench. Fix `QuickPick.onDidChangeActive` vs `onDidChangeSelection` separation — each now has its own listener array, and assigning `items` resets the active item to the first entry and fires `onDidChangeActive` per VS Code semantics.",
-			"SHA": "9445a0082898d69fe8ebab1f92c68974af1b73c4"
+			"Message": "refactor(Cocoon): Replace functional closing parentheses with statement-terminating semicolons across entire source tree\n\nEvery function call, constructor invocation, method chain, async closure, and import expression that was written with a trailing `)` closing its final argument now terminates with a `;` instead. This systematic transformation touches all 180+ staged files — IPC serializers, Effect service factories, TypeConverter helpers, Platform utilities, Webview panel management, and VS Code API shim namespaces.\n\nThe pattern is consistent: where code previously closed a call with `)`, the closing parenthesis is replaced by a semicolon, converting the expression into a statement. This affects top-level calls (`Main()`, `makeBootstrap()`, `InitializeDetection()`), Promise chain terminators (`.catch(() => {})` → `.catch(() => {};`), new-expressions (`new Map()` → `new Map(;`), and `Effect.gen` / `async function` wrappers that closed with `)`. Constructor `super()` calls, `throw new Error(...)`, `JSON.stringify(...)`, `require.resolve(...)`, `Buffer.from(...)`, `process.exit(...)`, dynamic `import(...)`, and `Reflect.construct` also follow the same `)` → `;` rule.\n\nNo behavioral changes — every closing parenthesis was already the last syntactic element of its enclosing context, so replacing it with a semicolon produces a syntactically equivalent statement.",
+			"SHA": "6db25a205ccaa687374ec4a39529fb1975f1cda0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:34:52Z",
+			"Date": "2026-06-12T22:21:46Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				561,
+				49
+			],
+			"Message": "refactor(Cocoon): Strip Effect-TS from interface tags; decouple module interception layer\n\nRemove `effect` imports from all 42 Cocoon interface and service files, replacing `Context.Tag<Iface>()` service tags with plain `unique symbol` declarations. The module interception layer — Loader, Patcher, Security, Validator, and their type converters — no longer imports any Effect-TS module.\n\n**Design intent:** Cocoon's interface layer (`Interfaces/`) and patch-process pipeline (`PatchProcess/`) are the contract surface for extension sandboxing and module loading. Binding them to Effect-TS's `Context.Tag` at the type level forced every consumer to transitively depend on the full Effect library, even when the actual service implementation used plain async/await patterns. Replacing with symbol-based tags preserves the DI marker semantics without the Effect dependency.\n\n**Key changes:**\n- `Interfaces/I/` — 11 interface modules: `Configuration/Service`, `Error/Handling/Service`, `Extension/Host/Service`, `Module/Interceptor`, `Module/Interceptor/Service`, `Performance/Monitoring/Service`, `Security/Service`, `Terminal/Service`, `API/Factory/Service`, `IAPIFactory` switch from `Context.Tag<T>()` to `unique symbol = Symbol.for(...)`\n- `PatchProcess/` — 6 modules (Loader, Patcher, Security, Type/Converter, Validator) strip all `import { Effect, Config, Data, Queue } from \"effect\"` lines entirely; none of these modules used Effect-TS runtime values — only type-level references\n- `Platform/` — 5 modules (Environment, OS, Process, Service, Type/Converter) remove `Effect`, `Option`, and `Layer` imports where no Effect-TS constructs remain in the file\n- `Services/` — 14 service modules (Configuration, Error/Handling, Extension, Extension/Context, Extension/Host, File/System, Health, Logger, Module/Interceptor, Module/Interceptor/Service, Performance/Monitoring, Security, Terminal, Workspace, gRPC/Server/Service) remove now-unused Effect imports; 4 of these also convert their `Context.Tag` to `unique symbol` (API/Factory, File/System, Logger, Terminal)\n- `Services/Init/Data.ts` — `InitDataService` converted from `Context.Tag` class to a plain `type` alias, since the tag was only ever read as an opaque key\n- `Services/Mountain/Client/Service.ts`, `Services/Mountain/gRPC/Client.ts` — strip `Effect`, `Layer`, `Context` but keep grpc and uuid imports unchanged\n- `WebviewPanel/` — 6 modules remove unused `Effect` imports\n- `IPC/Type/Converter.ts` — removes one unused `Effect` import\n- `Services/Window/` — 4 modules (Interfaces, State, Text/Document, Types) remove unused `Effect` imports; Window/State additionally removes `Context` and `Layer`\n\n**Impact:** Reduces bundle overhead for the module interception path, eliminates transitive Effect-TS dependency from Cocoon's contract definitions, and simplifies the type-level dependency graph for esbuild resolution. No behavioral changes.",
+			"SHA": "a017e9f4b4e123a426cfa8f165934c07f86591d9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:48:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				561,
+				2
+			],
+			"Message": "chore(Cocoon): Annotate Window dialog modules with EFX-30 migration TODO\n\nAdd `TODO(EFX-30)` markers to the JSDoc module headers of `Dialog.ts` and `File/Dialogs.ts`, flagging their `Effect.gen` wrappers for conversion to `async/await` once the callers in `Window/Index.ts` migrate.\n\nNo runtime changes — documentation only.",
+			"SHA": "602f2030b48e3b64828c7a65f230b197393ae689"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:47:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				561,
+				3
+			],
+			"Message": "refactor(Cocoon): Normalize Effect-TS pipe-chain patterns\n\nStandardize three call sites in Output, Webview, and Factory modules to use `.pipe()` chaining instead of nesting effects inside runner functions.\n\n**Channel.ts:** Extract the `Channel` variable before wrapping in `Effect.succeed()`, replacing an inline cast pattern that collapsed declaration and return. Insert a TODO(EFX-30) marker for the planned `Effect.gen` → `async/await` migration.\n\n**Webview/Panel.ts:** Convert `Effect.runPromise(Logger.Debug(...))` to `Logger.Debug(...).pipe(Effect.runPromise)` — idiomatic left-to-right Effect-TS composition.\n\n**Factory.ts:** Replace `Effect.runFork(Ref.update(...))` (fire-and-forget fiber) with `void Ref.update(...).pipe(Effect.runPromise).catch(() => {})`, ensuring the ActivePanelsRef registry cleanup runs to completion rather than being scheduled on a fiber that may be abandoned. The explicit `void` + `.catch` matches Cocoon's established fire-and-forget idiom for side effects that must complete synchronously.\n\nNo behavioral changes to any module.",
+			"SHA": "aa58914543fb46baadcd35fa8151c4510a76d30c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:23:52Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				561,
 				1
 			],
-			"Message": "docs(Cocoon): Restructure README; normalize dash characters and section headings\n\nReorder the README document flow so the \"Getting Started\" section — including prerequisites, build instructions, dependency table, and debugging notes — appears before \"Security\" rather than after it. This aligns the Cocoon README with the standard project-documentation hierarchy (overview → features → architecture → setup → security → API reference).\n\nAlso normalize markdown formatting: replace typographic long dashes (—) with regular hyphens (-) throughout the feature bullet lists, and rename the \"Architecture\" heading to \"System Architecture\" for consistency with the broader Land documentation convention.\n\nNo runtime logic, identifiers, or module structure was modified.",
-			"SHA": "8a69dedc5ac5c3c2f0bfef75719c6648c043fdd3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:04:38Z",
-			"File": [
-				"⣿⡟⠀⠀⠀",
-				561,
-				194
-			],
-			"Message": "style(Cocoon): Remove blank lines after opening braces; normalize doc formatting\n\nRemove the blank line immediately following opening braces across all interface, type, enum, class, function, and conditional declarations in the Cocoon source tree, scripts, Proto definitions, services, handler modules, IPC layer, telemetry, type converters, webview panels, and tests — reversing the whitespace convention established in commit 553b7052.\n\nAlso normalize markdown formatting in DeepDive.md and README.md: realign tables with proper pipe-positioned column separators, reflow prose paragraphs to consistent line widths, and clean up table-of-contents indentation.\n\nNo runtime logic, identifier names, or module structure was modified.",
-			"SHA": "85e19690ff82aea5116568ba96185ef7a0cfebb7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:12:04Z",
-			"File": [
-				"⣿⡟⠀⠀⠀",
-				561,
-				191
-			],
-			"Message": "style(Cocoon): Normalize blank-line spacing across interface, enum, function, and conditional blocks\n\nAdd a consistent blank line after opening braces in all interface, type, enum, class, and function declarations — as well as after ternary conditionals (`?`) and arrow-function bodies (`=>`) — to bring the entire codebase into a single whitespace convention.\n\nThe change touches ~180 files across the Cocoon source tree, Proto definitions, scripts, services, handler modules, IPC layer, telemetry, type converters, webview panels, and tests. No runtime logic, identifier names, or module structure was modified.\n\nEvery statement, expression, and declaration block now follows the same vertical spacing rule, eliminating intra-file inconsistencies that previously mixed compact and spaced styles within the same module.",
-			"SHA": "553b7052d4263309d3c2d5e9f59c883622e51d92"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:23:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				561,
-				1
-			],
-			"Message": "fix(Cocoon): Dispose partial extension context on activation failure\n\nWhen ActivateExtension throws mid-activation, an extension may have already pushed disposables onto context.subscriptions before the error. The old catch block deleted the extension from ActiveExtensionContexts without disposing those registered disposables, leaking watchers and providers.\n\nStore the partial RegisteredContext in ActiveExtensionContexts so DisposeExtensionContext iterates and calls .dispose() on every registered disposable, then removes the map entry. Shared cleanup now handles both successful and failed activation paths uniformly.",
-			"SHA": "2bc0675c8e91772a928c5df07b065f88f148de7a"
+			"Message": "feat(Cocoon): Filter stale-channel frames in bidirectional gRPC stream\n\nMountain stamps Envelope.ChannelId (uint64, field 5) on every frame it pushes through the bidirectional streaming pump. When a stream is reopened — after a connection reset or re-registration — the old Mountain process may still send straggler frames through the previous registry entry before it shuts down.\n\nCapture the first nonzero ChannelId seen on each stream as the session identity. Frames arriving with a nonzero ChannelId that does not match the established session id are discarded immediately with a dev-log entry. ChannelId \"0\" (absent) is treated as a wildcard for backward compatibility with older Mountain builds and client-originated frames.\n\nAlso include the session ChannelId in the stream-closed dev-log for diagnostics.",
+			"SHA": "661b375e7c7bd4a9cca703be91ec5d0980670a73"
 		}
 	],
-	"TimeStamp": 1781446800999
+	"TimeStamp": 1781544254774
 }

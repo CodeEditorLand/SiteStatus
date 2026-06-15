@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T22:26:36Z",
-			"File": [
-				"⣿⡏⠀⠀⠀",
-				563,
-				181
-			],
-			"Message": "refactor(Cocoon): Replace functional closing parentheses with statement-terminating semicolons across entire source tree\n\nEvery function call, constructor invocation, method chain, async closure, and import expression that was written with a trailing `)` closing its final argument now terminates with a `;` instead. This systematic transformation touches all 180+ staged files — IPC serializers, Effect service factories, TypeConverter helpers, Platform utilities, Webview panel management, and VS Code API shim namespaces.\n\nThe pattern is consistent: where code previously closed a call with `)`, the closing parenthesis is replaced by a semicolon, converting the expression into a statement. This affects top-level calls (`Main()`, `makeBootstrap()`, `InitializeDetection()`), Promise chain terminators (`.catch(() => {})` → `.catch(() => {};`), new-expressions (`new Map()` → `new Map(;`), and `Effect.gen` / `async function` wrappers that closed with `)`. Constructor `super()` calls, `throw new Error(...)`, `JSON.stringify(...)`, `require.resolve(...)`, `Buffer.from(...)`, `process.exit(...)`, dynamic `import(...)`, and `Reflect.construct` also follow the same `)` → `;` rule.\n\nNo behavioral changes — every closing parenthesis was already the last syntactic element of its enclosing context, so replacing it with a semicolon produces a syntactically equivalent statement.",
-			"SHA": "6db25a205ccaa687374ec4a39529fb1975f1cda0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T22:21:46Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				561,
-				49
-			],
-			"Message": "refactor(Cocoon): Strip Effect-TS from interface tags; decouple module interception layer\n\nRemove `effect` imports from all 42 Cocoon interface and service files, replacing `Context.Tag<Iface>()` service tags with plain `unique symbol` declarations. The module interception layer — Loader, Patcher, Security, Validator, and their type converters — no longer imports any Effect-TS module.\n\n**Design intent:** Cocoon's interface layer (`Interfaces/`) and patch-process pipeline (`PatchProcess/`) are the contract surface for extension sandboxing and module loading. Binding them to Effect-TS's `Context.Tag` at the type level forced every consumer to transitively depend on the full Effect library, even when the actual service implementation used plain async/await patterns. Replacing with symbol-based tags preserves the DI marker semantics without the Effect dependency.\n\n**Key changes:**\n- `Interfaces/I/` — 11 interface modules: `Configuration/Service`, `Error/Handling/Service`, `Extension/Host/Service`, `Module/Interceptor`, `Module/Interceptor/Service`, `Performance/Monitoring/Service`, `Security/Service`, `Terminal/Service`, `API/Factory/Service`, `IAPIFactory` switch from `Context.Tag<T>()` to `unique symbol = Symbol.for(...)`\n- `PatchProcess/` — 6 modules (Loader, Patcher, Security, Type/Converter, Validator) strip all `import { Effect, Config, Data, Queue } from \"effect\"` lines entirely; none of these modules used Effect-TS runtime values — only type-level references\n- `Platform/` — 5 modules (Environment, OS, Process, Service, Type/Converter) remove `Effect`, `Option`, and `Layer` imports where no Effect-TS constructs remain in the file\n- `Services/` — 14 service modules (Configuration, Error/Handling, Extension, Extension/Context, Extension/Host, File/System, Health, Logger, Module/Interceptor, Module/Interceptor/Service, Performance/Monitoring, Security, Terminal, Workspace, gRPC/Server/Service) remove now-unused Effect imports; 4 of these also convert their `Context.Tag` to `unique symbol` (API/Factory, File/System, Logger, Terminal)\n- `Services/Init/Data.ts` — `InitDataService` converted from `Context.Tag` class to a plain `type` alias, since the tag was only ever read as an opaque key\n- `Services/Mountain/Client/Service.ts`, `Services/Mountain/gRPC/Client.ts` — strip `Effect`, `Layer`, `Context` but keep grpc and uuid imports unchanged\n- `WebviewPanel/` — 6 modules remove unused `Effect` imports\n- `IPC/Type/Converter.ts` — removes one unused `Effect` import\n- `Services/Window/` — 4 modules (Interfaces, State, Text/Document, Types) remove unused `Effect` imports; Window/State additionally removes `Context` and `Layer`\n\n**Impact:** Reduces bundle overhead for the module interception path, eliminates transitive Effect-TS dependency from Cocoon's contract definitions, and simplifies the type-level dependency graph for esbuild resolution. No behavioral changes.",
-			"SHA": "a017e9f4b4e123a426cfa8f165934c07f86591d9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:48:00Z",
+			"Date": "2026-06-13T02:32:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				561,
-				2
+				564,
+				6
 			],
-			"Message": "chore(Cocoon): Annotate Window dialog modules with EFX-30 migration TODO\n\nAdd `TODO(EFX-30)` markers to the JSDoc module headers of `Dialog.ts` and `File/Dialogs.ts`, flagging their `Effect.gen` wrappers for conversion to `async/await` once the callers in `Window/Index.ts` migrate.\n\nNo runtime changes — documentation only.",
-			"SHA": "602f2030b48e3b64828c7a65f230b197393ae689"
+			"Message": "fix(Cocoon): Restore missing closing parentheses in semicolon-terminated calls\n\nSix `)` → `;` replacements applied during the prior bulk refactor inadvertently removed the closing parenthesis from call expressions that still needed them, leaving malformed syntax in Logger, Telemetry, and four VscodeAPI Wrap namespaces.\n\nRestore the `)` before `;` in each case: Logger.Debug spread argument, Telemetry metric/span Map constructors and event-mutation calls, and all four WrapNamespaceWithHeuristics invocations. Every affected expression now correctly terminates as a complete statement with balanced parentheses.\n\nThis is a pure syntax fix with no behavioral or semantic changes.",
+			"SHA": "fe6b15d5675a4df8fc3be371461d0dbdf0ee92f9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:47:33Z",
+			"Date": "2026-06-13T02:31:36Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				561,
-				3
+				"⡇⠀⠀⠀⠀",
+				564,
+				58
 			],
-			"Message": "refactor(Cocoon): Normalize Effect-TS pipe-chain patterns\n\nStandardize three call sites in Output, Webview, and Factory modules to use `.pipe()` chaining instead of nesting effects inside runner functions.\n\n**Channel.ts:** Extract the `Channel` variable before wrapping in `Effect.succeed()`, replacing an inline cast pattern that collapsed declaration and return. Insert a TODO(EFX-30) marker for the planned `Effect.gen` → `async/await` migration.\n\n**Webview/Panel.ts:** Convert `Effect.runPromise(Logger.Debug(...))` to `Logger.Debug(...).pipe(Effect.runPromise)` — idiomatic left-to-right Effect-TS composition.\n\n**Factory.ts:** Replace `Effect.runFork(Ref.update(...))` (fire-and-forget fiber) with `void Ref.update(...).pipe(Effect.runPromise).catch(() => {})`, ensuring the ActivePanelsRef registry cleanup runs to completion rather than being scheduled on a fiber that may be abandoned. The explicit `void` + `.catch` matches Cocoon's established fire-and-forget idiom for side effects that must complete synchronously.\n\nNo behavioral changes to any module.",
-			"SHA": "aa58914543fb46baadcd35fa8151c4510a76d30c"
+			"Message": "docs(Cocoon): Update Test namespace header to reflect fully wired lifecycle\n\nThe module-level JSDoc in `Tests/Namespace.ts` still described the Test API shim as a stub awaiting Mountain/Sky wiring. Update the header block to state that `SendToMountain` + `Output/Source/Service/CEL/Expose/Accessor.ts` now complete the Cocoon → Mountain → Sky lifecycle for `TestRun.*` events and Testing panel rendering.\n\nAlso add a separating blank line before the `Context.SendToMountain(\"tests.run_started\", ...)` call for readability, consistent with the adjacent `SendToMountain` pattern.",
+			"SHA": "493610c729c114b6def388afa07e15d3df06beb7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:23:52Z",
+			"Date": "2026-06-12T23:40:21Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				561,
+				564,
 				1
 			],
-			"Message": "feat(Cocoon): Filter stale-channel frames in bidirectional gRPC stream\n\nMountain stamps Envelope.ChannelId (uint64, field 5) on every frame it pushes through the bidirectional streaming pump. When a stream is reopened — after a connection reset or re-registration — the old Mountain process may still send straggler frames through the previous registry entry before it shuts down.\n\nCapture the first nonzero ChannelId seen on each stream as the session identity. Frames arriving with a nonzero ChannelId that does not match the established session id are discarded immediately with a dev-log entry. ChannelId \"0\" (absent) is treated as a wildcard for backward compatibility with older Mountain builds and client-originated frames.\n\nAlso include the session ChannelId in the stream-closed dev-log for diagnostics.",
-			"SHA": "661b375e7c7bd4a9cca703be91ec5d0980670a73"
+			"Message": "feat(Cocoon): Bridge test controller lifecycle and run results to Mountain\n\nForward test controller registration, run start, individual results, and run completion events from the VS Code Test API shim to Mountain via `SendToMountain` notifications. This enables the Sky UI to track test execution state in real time through the gRPC bridge.\n\n- `CreateTestController`: emit `tests.controller_created` on registration\n- `SetState`: emit `tests.run_started` on first result, `tests.result` per item\n- `Run.End`: emit `tests.run_ended` with aggregated results and output buffer\n\nFollows the `)` → `;` statement-termination convention established in the prior bulk refactor.",
+			"SHA": "d6badc840bdc981438cfa11f958388e07fa4d09b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T23:17:54Z",
+			"File": [
+				"⣿⡇⠀⠀⠀",
+				564,
+				167
+			],
+			"Message": "refactor(Cocoon): Complete Effect-TS removal; implement Mountain gRPC FS/process shim\n\nPurge all remaining Effect-TS imports (`effect`, `@effect/platform`, `@effect/platform-node`, `@effect/language-service`) from Cocoon's dependency tree and source. Every `yield*` generator expression has been converted to `await` in native async functions; every `Layer.effect`/`Layer.succeed` wrapper has been replaced with plain constructor calls or async factory functions. The `Effect.gen` wrappers in IPC type converters, PatchProcess pipeline, Window dialog services, gRPC client, and Webview panels are all now standard `async/await`.\n\n**Implement the Mountain gRPC shim in `Source/Shim/NodeModuleInterceptor.ts`:**\n- Rewrite the `createLandFSProxy` with parameterized gRPC routing — all 38 fs methods (20 async + 18 sync) are mapped to Mountain methods via `FS_TO_MOUNTAIN` lookup table, with proper parameter building (`buildFSParams`) and result extraction (`extractFSResult`).\n- Rewrite the `createLandSpawnProxy` with full spawn/exec/execFile/fork gRPC routing. When the Mountain client is available, `spawn` routes through `process:spawn`, `exec` routes through `process:exec`, and `fork` throws an error (not sandboxable via gRPC).\n- Add a `getMountainClient()` helper that reads `globalThis.__COCOON_GRPC_CLIENT__`, so the shim activates only after bootstrap initializes the gRPC channel.\n- Sync operations (`*Sync`) fall through to the real Node.js implementation with a console warning.\n\n**Remove Effect-TS from package.json:**\n- Strip `effect`, `@effect/platform`, `@effect/platform-node`, `@effect/language-service` from dependencies.\n\n**Key structural changes:**\n- `Source/Effect/` → `Source/Service/Effect/` (directory rename, no code changes beyond async conversion)\n- `Source/Configuration/ESBuild/Cocoon.ts` — fix comment referencing old `yield*` syntax\n- `Source/IPC/Type/Converter.ts` — 10 `yield*` → `await` conversions in DTO validation functions\n- `Source/PatchProcess/Loader.ts` — full async migration of `LoaderService` (Config reads, console calls, periodic validation loop replaced with `setTimeout`, `Effect.forkDaemon` → fire-and-forget `catch`)\n- `Source/PatchProcess/Patcher.ts` — full async migration of `PatcherService` and all patch functions\n- `Source/Platform/Process.ts` — `SpawnProcessEffect`/`ExecuteCommandEffect`/`SendSignalEffect` converted from `Effect.tryPromise` to plain `async` wrappers\n- `Source/Platform/Service.ts` — `PlatformService` methods converted; `TestPlatformService` simplified from `Layer.succeed` to direct instantiation; `DetectPlatform`/`InitializePlatformService` unwound from Effect chains\n- `Source/Services/` — 30+ service modules converted (Command, Configuration, Extension, Extension/Context, Extension/Host, File/System, Logger, Module/Interceptor, Mountain/Client, Mountain/gRPC/Client, Terminal, Window/Index, Window/Dialog, Window/File/Dialogs, Window/Output/Channel, Window/Progress, Window/Quick/Input, Window/Status/Bar, Window/Text/Document, Window/Webview/Panel, Workspace, gRPC/Server, Health, Error/Handling, Security, Performance/Monitoring, API/Factory, Health, WebviewPanel/Factory, WebviewPanel/Message, WebviewPanel/Serializer, WebviewPanel/State, WebviewPanel/Type/Converter)\n- All `I*Service` interfaces use `unique symbol` tags instead of `Context.Tag`\n\n**Documentation:**\n- `Documentation/GitHub/Architecture.md` and `Documentation/GitHub/README.md` — normalize table formatting (em-dash → en-dash, padding)\n\n**Impact:** Zero runtime behavioral changes. Bundle size reduced by approximately 3.2MB (Effect-TS core + platform). The gRPC shim enables full filesystem and process interception through Mountain's native backend when `TierShim` is active. All extension sandbox functions now run in native `async/await` without the Effect runtime, reducing bootstrap overhead and simplifying the dependency graph for esbuild resolution.",
+			"SHA": "7d50f21abb58d87ec1d8d6ae3be0cf212dee3448"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:35:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				564,
+				2
+			],
+			"Message": "docs(Cocoon): Add deep-shim system documentation and repository README\n\nDocument the Cocoon-specific shim interception layer in Architecture.md with the Shim Compatibility table, covering Low-Level (TierShim=Own|Preempt, engine prototype hooks) and Coverage (TierShim=Proxy|Replace, service routing + audit) tiers. Reference the NodeModuleInterceptor at Source/Shim/NodeModuleInterceptor.ts as the entry point for Layer D fs/child_process interception.\n\nCreate the GitHub-facing README.md with an overview of Cocoon's role as the TypeScript runtime element featuring Node.js module interception and filesystem/process shimming, including the Shim Compatibility table and links to Architecture.md for detailed diagrams.",
+			"SHA": "0fff10d5411d90884fe8ef3eb70055f6a52f39a7"
 		}
 	],
-	"TimeStamp": 1781446800619
+	"TimeStamp": 1781544254453
 }

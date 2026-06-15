@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T05:36:38Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				106,
+				2
+			],
+			"Message": "fix(eliminate): preserve inline comments and blank lines via span-based text patching\n\nFixes the root cause of the formatting regression reported in the issue.\n\nBefore this change, Transform::Run called prettyplease::unparse on the\nentire syn::File whenever any elimination occurred. prettyplease only\nsees the AST; it has no view of inline // comments, blank lines, or\noriginal spacing trivia. Every touched file was fully reprinted in\nprettyplease canonical style, which removed comments and restructured\nwhitespace across regions of the file that had nothing to do with the\neliminated bindings.\n\nThis change replaces the full reprint with a span-based text-patch\napproach:\n\n1. Run::Run now takes the original source string and the post-elimination\n   AST side-by-side.\n2. A new Patch module collects the byte-span of each removed let\n   statement and the byte-span of the use site where the initialiser\n   was substituted, sourced from proc_macro2 span start/end offsets on\n   the original parsed tokens.\n3. PatchSource applies those edits as a sorted, non-overlapping set of\n   byte-range replacements against the original source string, leaving\n   every other byte - including comments, blank lines, and all\n   formatting trivia - untouched.\n4. If span information is unavailable (proc_macro2 built without\n   span-locations feature, or spans are call_site), the pipeline falls\n   back to prettyplease so behaviour is never worse than before.\n\nThe fallback path keeps all existing tests passing without modification.\nNew tests in Patch.rs verify the splice logic directly.",
+			"SHA": "5a183b72104fb140900f03aba2e46a4efca42e06"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-25T05:31:32Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "test(Maintain): split integration tests into Syntactic and Integration suites\n\nSplit the original Eliminate integration tests into two binary-compatible\nsuites: Syntactic (for fast, string-based comparison) and Integration\n(for semantically-validating via rustc).  The integration suite now compiles\ntransformed snippets to validate semantic equivalence.\n\nThis separation allows for faster, more targeted testing of the elimination\nlogic (syntactic) versus real-world usage (integration) and improves\nmaintainability by modularising the test files.\n\nRename `tests/Eliminate.rs` → `tests/Eliminate/Syntactic.rs` and\nintroduce `tests/Eliminate/Integration.rs` with per-test files under\n`tests/Eliminate/Integration/`.  Both test suites are built by `cargo test`.",
 			"SHA": "ad03561e6603ff1f089e8e4fa4859c9a2ad3f24c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T15:55:32Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "test(Maintain): Add comprehensive test cases for Eliminate pass transformations\n\nExpand test coverage in `tests/Eliminate.rs` with detailed assertions for expression inlining, macro handling, and real-world Mountain backend patterns. Key additions include:\n\n- Cast expression handling (`CastExprInlined`, `CastExprNeedsParen`)\n- JSON macro token handling (`DerefOnceLockIntoJsonMacro`, `TypeAnnotatedCollectIntoJsonMacro`)\n- Closure-local binding inlining (`ClosureLocalBindingsInlined`)\n- Match scrutinee inlining (`OptionBindingIntoMatchScrutinee`, `ChainIntoMatchDiscriminant`)\n- Async inlining patterns with `tokio::fs` and `json!` macro use\n- Safety assertions for multi-use variables and pre-clone handling (`RangeDoubleBoundKept`, `PreCloneForMoveClosureKept`)\n\nThese test cases validate the `Eliminate` transformer's behavior in complex expression contexts, including real-world patterns from the Mountain backend.",
-			"SHA": "eaa6a54c54224b010bbef7a8bfb2b892e96bf48f"
 		}
 	],
-	"TimeStamp": 1781446806696
+	"TimeStamp": 1781544259127
 }

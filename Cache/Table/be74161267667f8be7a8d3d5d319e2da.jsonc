@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:26:37Z",
+			"Date": "2026-05-26T15:10:01Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				765,
+				13
+			],
+			"Message": "refactor(Output): Extract drag selectors at build time\n\nWebKit drops the Chromium-only `-webkit-app-region` declaration at CSS parse time, so runtime inspection of `CSSStyleRule.style.getPropertyValue(\"-webkit-app-region\")` returns `\"\"` for every rule under WKWebView. The runtime stylesheet-walking approach from the prior commit cannot work.\n\nRework InjectTauriDragRegion to scan VS Code's CSS source files on disk at build time, extracting every selector that declares `-webkit-app-region: drag|no-drag` via regex. The collected lists are baked into the workbench bundle as `globalThis.__LAND_DRAG_SELECTORS__` / `__LAND_NO_DRAG_SELECTORS__`. The runtime polyfill switches from walking stylesheets to iterating the prepared lists with `querySelectorAll`, with an early bail when both arrays are empty (transform not run).\n\nCompanion changes:\n- Remove the drag-region CSS inset (`left: 80px`) from MacTitlebarOffsetCSS since the HTML attribute polyfill handles the Tauri hit-test; stock drag-region geometry suffices\n- Add `padding-right: 0` assertion to the titlebar-container to prevent future stock CSS from introducing right-edge drift\n- Improve the fullscreen detector in MacTitlebarOffsetCSS (triple-signal: fullscreen API, matchMedia, window-vs-screen heuristic) and refactor initialisation to install stylesheet + detector together\n- Gate InjectPartZIndexCSS behind DisableUIFixes: the `isolation: isolate` rule can hide the in-window menubar, so operators diagnosing dropdown/clipping can skip it and return parts to stock stacking behaviour\n- Add InjectTauriDragRegion to both the bundle BuildPipeline and the patch ApplyPipeline",
+			"SHA": "905ac54afb0d1ebc6c1342cb5b258fab55b81934"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T14:17:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				757,
+				3
+			],
+			"Message": "refactor(Output): Replace hardcoded drag selectors with stylesheet-driven extraction\n\nRather than maintaining a brittle hardcoded list of titlebar drag and no-drag selectors in the polyfill itself, walk every accessible stylesheet rule at runtime to discover which elements VS Code already declares as `-webkit-app-region: drag` / `no-drag` and stamp the equivalent `data-tauri-drag-region` attribute.\n\n`Walk()` recurses into CSSMediaRule and CSSSupportsRule containers so OS-scoped and feature-gated rules (e.g. `@media (-webkit-min-device-pixel-ratio...)`) are picked up automatically. Selectors are cached after the first full pass and reused across MutationObserver callbacks; a second collection runs on `window.onload` to cover lazy-loaded extension stylesheets. Cross-origin sheets that throw on `cssRules` access are skipped defensively, and selector strings that fail `querySelectorAll` (e.g. `:has()` / `:where()` on older WebKit builds) are caught and skipped per-selector rather than aborting the pass.\n\nThis eliminates the need to manually update the polyfill whenever VS Code upstream changes its titlebar or sidebar drag-region markup — the polyfill now reflects whatever the stylesheets declare.\n\nMinor companion formatting: add blank-line separators in Editor and Terminal GPU layer CSS files for readability consistency with adjacent rule blocks.",
+			"SHA": "510588e3948874783f2e60f2f79ec8559f846e1d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T14:02:02Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				757,
+				5
+			],
+			"Message": "feat(Output): Implement Tauri 2 drag region polyfill and macOS fullscreen detector\n\nTauri 2's overlay-titlebar window-drag hit-test ignores Chromium's `-webkit-app-region: drag` CSS rule used by stock VS Code; it requires the explicit `data-tauri-drag-region` HTML attribute on draggable elements. Without it, dragging the workbench titlebar selects text instead of moving the window.\n\nAdd the `InjectTauriDragRegion` polyfill and transform:\n- Stamps `data-tauri-drag-region` on `.titlebar-drag-region` and related selectors\n- Stamps `data-tauri-drag-region=\"false\"` on interactive children (menubar, command-center, window controls) so click events land correctly\n- Uses a `MutationObserver` on `<body>` to catch late-mounted drag regions (titlebar repaints on profile switch / window-mode toggle)\n- Transform injects the polyfill into `vs/code/electron-browser/workbench/workbench.js`, always active (cross-OS structural fix)\n\nExtend the MacTitlebarOffsetCSS polyfill with a fullscreen detector:\n- Triples-signal detection: HTML5 fullscreen API, `display-mode: fullscreen` media query, window-vs-screen dimension heuristic\n- Toggles `body.land-fullscreen` to reclaim the 80px left padding when macOS native fullscreen hides the traffic-light cluster\n- Asserts `padding-right: 0` explicitly so future stock CSS cannot introduce right-edge drift\n- The fullscreen detector and stylesheet are installed together on DOMContentLoaded\n\nGate `InjectPartZIndexCSS` behind `DisableUIFixes`: the `isolation: isolate` rule this transform emits has been observed to hide the in-window menubar under specific configurations. Operators running with the env var set (e.g. when diagnosing menubar / dropdown clipping) now bypass this transform, returning workbench parts to stock CSS stacking-context behaviour.\n\nAll additions are idempotent (runtime markers prevent re-application). Existing comments updated to reflect always-active vs gated semantics.",
+			"SHA": "9d76c4fb921c8bdc999fdadf8c0aaf48d26eebfd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T09:05:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				751,
 				1
 			],
-			"Message": "fix(package): add missing browserslist dependency\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "15a6262188ff5c6d8d94446cde9c2c7cefffcccd"
+			"Message": "chore(Output): Regenerate Service.js.map with updated VLQ mappings\n\nThe embedded TypeScript source in Service.js.map is unchanged, but the VLQ-encoded mappings field has been regenerated — likely from a build-tool version bump or non-deterministic compiler output. File size: 53396 → 53393 bytes.\n\nNo functional change to the TauriMainProcessService runtime behaviour.",
+			"SHA": "fa228dd1379a37242b606ae6150293417ad9c826"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:09:39Z",
-			"File": [
-				"⣿⡏⠀⠀⠀",
-				751,
-				235
-			],
-			"Message": "feat(Output): Expose ICodeEditorService on workbench accessor for extension decorations\n\nAdd ICodeEditorService to the CELExposeAccessor services facade so extensions' `createTextEditorDecorationType` and `setDecorationsByType` calls paint visible decorations (squiggles, gutter icons, inline hints) instead of silently no-oping.\n\nWithout this, every extension using the editor decoration API — including error squiggles from language servers — produces no visible result because the Sky bridge had no reference to the live Monaco editor service. Both `CodeEditor` and `CodeEditorService` keys expose the same ICodeEditorService instance, matching both the existing `Services.CodeEditorService.listCodeEditors()` call site and the new `Services.CodeEditor.registerDecorationType(...)` usage.\n\nRegenerate the full Configuration/ compiled output tree from the updated source, and standardise shell script indentation in Run.sh and prepublishOnly.sh to match the project's 2-space convention.",
-			"SHA": "463cc2596550df59a1af7c488a10bd06666a8cff"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T13:48:20Z",
-			"File": [
-				"⣿⣿⣿⡇⠀",
-				336,
-				236
-			],
-			"Message": "refactor(Output): Always apply MacTitlebarOffset and PartZIndex CSS fixes\n\nRemove the `LandDisableUIFixes` conditional gating from `InjectMacTitlebarOffsetCSS` and `InjectPartZIndexCSS` in both the main Pipeline and the BuildPipeline plugin index. These CSS injections are structural layout fixes — not performance optimisations — and should always execute regardless of the `DisableUIFixes` flag.\n\nClean up the entire `Configuration/` output tree by deleting stale compiled `.js` and `.js.map` artefacts alongside the source changes, and standardise case-statement indentation in `Run.sh` and `prepublishOnly.sh` for consistency.\n\nThe overhauled output tree now reflects only the currently-defined plugins, eliminating dead transforms from prior pipeline iterations.",
-			"SHA": "c055befeb969dd3138690e857f6f80289aaa3a60"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T07:30:57Z",
+			"Date": "2026-05-25T20:44:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				751,
 				3
 			],
-			"Message": "feat(Output): Expose terminal service in Accessor module\n\nAdd ITerminalService to the Expose/Accessor module to enable terminal-related functionality. This change modifies both the TypeScript source and the compiled JavaScript output.\n\nThe update includes the necessary import and instantiation of the terminal service for integration with the service accessor.",
-			"SHA": "0f1675dcac4a6442fb7c0e57080f601d6007f084"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T06:49:28Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				751,
-				2
-			],
-			"Message": "style(Output): standardize indentation in shell scripts with spaces\n\nStandardize shell script formatting in build scripts `Run.sh` and `prepublishOnly.sh` to use 2-space indentation and consistent comment style. This aligns with hermes-shell-hooks linting and shellscript-maintenance standards. The changes ensure all scripts under the Output module use spaces for indentation and have re-formatted shell-style comments.",
-			"SHA": "745639f2b7689c926755bb293fef1a78d44d923e"
+			"Message": "feat(Output): Implement per-subsystem tier resolution in TauriChannel IPC routing\n\nIntroduce per-subsystem tier assignment so IPC channels can route to either Mountain (Tauri backend) or Node (Cocoon extension host) independently, rather than being governed by the single global `_TierIPC` variable.\n\nAdd `_ReadTier` to read per-subsystem overrides from `import.meta.env` or `globalThis.__LandTiers`, with defaults that keep most routes on \"Mountain\" but route `tasks` and `auth` to \"Node\" by default. `_ResolveTierForRoute` maps route prefixes (`terminal`, `git`, `language`, `search`, `model`, etc.) to their configured tier. `TauriChannel.Call` and the fallback no-route path both consult the per-subsystem tier instead of — or alongside — the global `_TierIPC`, so e.g. a `tasks:List` call goes to Cocoon even when `TierIPC` is \"Mountain\".\n\nThis is the Output-side counterpart of the matching change in `Wind/Source/Service/TauriMainProcessService.ts` (TIER-SYSTEM Step 4b). The compiled `.js` and source map are regenerated from the updated `.ts`.",
+			"SHA": "cac1b663c47e6f535d5449d208dacdd8d941ab08"
 		}
 	],
-	"TimeStamp": 1781446806903
+	"TimeStamp": 1781544260548
 }

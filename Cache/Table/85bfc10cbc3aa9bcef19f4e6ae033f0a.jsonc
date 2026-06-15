@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:20:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1865,
+				5
+			],
+			"Message": "feat(Mountain): Add Shim module with Gate and SwallowMap for IPC interception\n\nEstablish the Rust-level foundation for the deep-shim interception layer introduced by the TierShim env-var in the prior commit. Two new modules live behind the `pub mod Shim` declaration in Library.rs:\n\n- **Gate** — Compile-time tier gate reading `env!(\"TierShim\")` (baked by build.rs via EmitTierDefaults), exporting boolean guards (`is_enabled`, `is_proxy`, `is_replace_or_deeper`, `is_own_or_preempt`, `is_preempt`) that drive `#[cfg]` gating throughout Mountain. Zero overhead at default `None` tier via dead-code elimination.\n\n- **SwallowMap** — Pattern-matching decision engine that maps IPC method names (e.g. `statusbar:`, `telemetry:`) to a `SwallowAction`/`RedirectTarget` pair, determining whether Mountain handles the call locally, forwards it to Wind/Cocoon/Output/Sky, or discards it entirely (telemetry). Rules are checked in insertion order; first match wins with a default `Passthrough → None` fallback.\n\nCargo.toml gains inline comments documenting the four active shim tiers and their corresponding Rust features. This completes the Rust-side routing infrastructure for the Land Shim plan.\n\nSee: `.hermes/microsoft/05-Mountain-Rust-Intercept.md`",
+			"SHA": "d22f305e382b83b58e9a6ac5f32ce87c7369afc3"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T21:54:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "feat(Mountain): Add language provider cancellation, decoration lazy-registration, and window event bridging\n\nImplement a cancellation system for language provider requests: store `watch::Sender<bool>` in the new `LanguageProviderCancellations` DashMap, keyed by renderer-supplied `requestId`, so that `language:cancelRequest` flips the sender locally instead of forwarding to Cocoon. Wire cancellation through `InvokeProvider` and `InvokeProviderMethod` by passing the cancellations map into `ForwardCancellable`.\n\nAdd lazy-decoration-type registration to `SetTextEditorDecorations`: when `decorationTypeKey` isn't in `KnownTypeKeys`, auto-forward a synthetic `createTextEditorDecorationType` to Sky so Monaco has styling registered before `setDecorationsByType` executes. Track known keys via `IsTypeKeyKnown` / `RegisterTypeKey` on `DecorationsState`.\n\nEmit `sky://window/maximize-changed` on maximize/unmaximize handlers and bridge `nativeHost:onDidChangeMaximizeState` from Cocoon to Sky. Emit `sky://storage/changed` on storage IPC handlers and `sky://webview/ready` on `WebviewReady` gRPC notification for reactive workbench consumers.\n\nSplit file-system IPC into its own `TierFileSystem` env var so `file:*` commands don't route to Cocoon (which has no disk provider). Replace the blocking 3-second `WaitForClientConnection` in `forward_to_cocoon` with a non-blocking `IsClientConnected` check, returning Null fallback when Cocoon is disconnected.\n\nForward `CommandNotFound` errors from Mountain's command registry to Cocoon's extension host via `proxy_cocoon` for both `executeCommand` and `commands:execute` paths, so palette-invoked extension commands that never reached Mountain's registry still execute.\n\nAdd `$acceptModelSaved` notification on `textFile:save` so `onDidSaveTextDocument` fires for extensions. Query real dirty URIs from `WorkingCopy::GetAllDirty` in `workspaces:getDirtyWorkspaces` instead of returning an empty array. Add empty-store short-circuit in `StorageGet` to skip trait dispatch on first boot. Raise gRPC connect initial delay from 50ms to 200ms matching real Cocoon bind times.\n\nLog unroutable `register_*` provider notifications on the gRPC service and return `false` instead of silently dropping them. Include `viewType` in `WebviewReady` log output.",
 			"SHA": "d1c2117a977bec02903d935702d30d37f4b0376b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:37:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1861,
-				1
-			],
-			"Message": "feat(Mountain): Route nativeHost picker to correct dialog type via options\n\nRead `canSelectFiles` and `canSelectFolders` from the options object passed by VS Code extensions in the `nativeHost:pickFolderAndOpen` handler, then route to `blocking_pick_folder` or `blocking_pick_file` accordingly. Previously the handler always opened a folder picker regardless of the caller's declared selection constraints.\n\nWhen neither flag is set (e.g. `canSelectFiles: false, canSelectFolders: false`) the handler returns early as cancelled, matching Electron's behaviour. Adds dev_log output for the resolved picker type.",
-			"SHA": "042dd2ddc3e825e506478afbe872243d772e8cab"
 		}
 	],
-	"TimeStamp": 1781446800319
+	"TimeStamp": 1781544254058
 }
