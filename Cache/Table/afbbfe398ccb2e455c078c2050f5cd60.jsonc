@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T08:17:33Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				155,
-				2
-			],
-			"Message": "refactor(Sky): Eliminate retry loops and forced UI state in diagnostics and tree view bridges\n\nRemove aggressive retry mechanisms and forced panel manipulation from `InstallDiagnostics.ts` and `InstallTreeView.ts` to align with the stabilized workbench bootstrap sequence.\n\nIn `InstallDiagnostics`, delete the logic that forced the Problems panel open or cleared the `activeFile` filter upon diagnostic arrival. The bridge now strictly reacts to `IMarkerService` changes without assuming or manipulating visibility, relying on the `MarkersView` to handle state naturally.\n\nIn `InstallTreeView`, strip out the exponential backoff retry logic, pending attach queues, and delayed hook installation. The `AttachDataProvider` now executes synchronously; if the `TreeView` service is unavailable, the registration fails immediately rather than entering a polling loop. This assumes the workbench services are ready when bridge functions are invoked.\n\nThese changes reduce bundle size, eliminate hidden asynchronous delays, and remove complex error-handling paths that previously masked upstream initialization timing issues.\n\nCloses: Aligns with previous simplification of extension bridge layers.",
-			"SHA": "14346f54c84b5c160190b4af3340e78dec9e7601"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T08:12:51Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				155,
-				4
-			],
-			"Message": "refactor(Sky): Remove aggressive retry logic from extension bridge layers\n\nEliminate complex retry mechanisms and polling loops across multiple bridge installation modules that were previously used to compensate for workbench service initialization race conditions. In InstallInlineCompletions, InstallScm, InstallSearch, and InstallTreeView, replace exponential backoff and event-listener rescue paths with direct service acquisition and synchronous execution.\n\nThe previous implementations guarded against early-arriving IPC events by deferring registration or re-attempting connection until specific services (LanguageFeatures, SCM, Search, TreeView) became available. This approach introduced significant code complexity, unbounded execution paths, and potential resource leaks.\n\nThis change assumes the workbench bootstrap sequence has been stabilized elsewhere, allowing the bridge layers to execute registration logic immediately upon invocation. Failed registrations now fail fast and silently rather than entering retry cycles, aligning with the architecture's expectation that service availability is guaranteed by the time bridge installation functions are called.\n\nThe simplification reduces bundle size, removes hidden asynchronous delays in feature activation, and makes the bridge logic strictly deterministic and easier to reason about.",
-			"SHA": "9c424d95afa5fdc1f65032b0835eeb557289f8dd"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T08:09:26Z",
+			"Author": "Auto",
+			"Date": "2026-05-25T03:28:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				155,
 				1
 			],
-			"Message": "refactor(Sky): Simplify diagnostic bridge logic and remove forced view initialization\n\nThe previous implementation in `InstallDiagnostics.ts` attempted to force-open the Problems panel on every diagnostic batch if it was not visible, using throttling to avoid spam. This approach was brittle, caused unnecessary UI state changes, and relied on `openView` to trigger `reInitialize()`.\n\nRevise the bridge to strictly match VS Code's reactive model: rely on `IMarkerService.changeOne` to update state and let the `MarkersView` handle visibility events naturally. Remove the `openView` logic, throttling, and per-batch visibility checks entirely. The panel now only opens if the user explicitly requests it.\n\nAdditionally, streamline the UI intervention to a single, one-time check: if the panel is already open when diagnostics arrive, clear any persisted `activeFile` filter to ensure all markers are visible immediately. This mirrors upstream behavior and prevents the \"count shows but panel empty\" issue caused by stale filters without forcing the panel open.\n\nThis reduces side effects, eliminates unnecessary IPC overhead, and ensures diagnostic updates are purely data-driven until user interaction is required.",
-			"SHA": "3f25af2676d30ddaa95e7ef1e60b2e1e59e21a9c"
+			"Message": "",
+			"SHA": "72491e100e7ec4e691dfcc0911508a56d24711c6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T08:01:20Z",
+			"Date": "2026-05-24T16:57:07Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				155,
-				2
+				3
 			],
-			"Message": "fix(Sky): Restore missing progress end handler and webview dispose relay\n\nAddress two critical gaps in the Sky bridge layer that caused resource leaks and stale UI states. First, implement the missing handler for `sky://progress/end`, which is emitted by Mountain's Wind-IPC progress handlers to signal completion. Without this, progress bars initiated by the backend would never dismiss in the UI. Second, reintroduce the `sky://webview/dispose` event listener. This handler, previously located in InstallTasksAndDecorations and accidentally removed, is essential for cleaning up DOM nodes and removing panel handles from the global registry when extensions call `panel.dispose()`. Failure to handle this event led to accumulating stale DOM nodes and memory leaks in long-running extension sessions.\n\nThese changes ensure proper lifecycle management for progress indicators and webview panels, aligning Sky's event handling with the Mountain backend's IPC contract.",
-			"SHA": "660f2f37e06d0b5d08401fd7ade8257adecbf1e5"
+			"Message": "",
+			"SHA": "2d496dfbc2f7aa611fe1c505cb2e9eda56d1aeb5"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-24T02:52:30Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				155,
+				1
+			],
+			"Message": "",
+			"SHA": "3b4c33d3a322800863e21330cadd44804fa8f2f3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T07:59:14Z",
+			"Date": "2026-05-23T15:33:05Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
+				"⠁⠀⠀⠀⠀",
 				155,
-				8
+				3
 			],
-			"Message": "fix(Sky): Consolidate bridge event routing, fix SCM registration race, and correct completion text handling\n\nSeveral critical gaps in the Sky bridge layer have been addressed to ensure reliable IPC between the UI and Mountain, and correct behavior for extension-host features.\n\nIn InstallEditorOperations, consolidate two separate subscriptions on `onDidChangeActiveCodeEditor` into a single handler. The previous dual-listener setup caused the `sky:editor:activeChanged` IPC to fire twice on every editor switch, doubling downstream load and causing unbounded listener accumulation when selection listeners were not properly disposed.\n\nIn InstallScm, resolve a race condition where `sky://scm/registerGroup` events arriving too early would permanently lose SCM groups due to missing Emitter/URI services. Introduce a `TryRegisterScmGroupWithRetry` mechanism with exponential backoff to guarantee group registration. Additionally, correct the `splice` call signature to pass the resources array directly, as the custom wrapper handles the internal spread, preventing \"iterable\" errors on empty states.\n\nIn InstallInlineCompletions, fix corruption in non-snippet completions. The logic previously wrapped all text in `{ snippet }`, causing literal `$` and `\\` characters to be interpreted as snippet syntax. Now, text is only wrapped when `isSnippet` is explicitly true.\n\nIn InstallDeadChannelListeners, InstallEditorAndOutput, and InstallStatusbar, add the missing `invoke` import from `@tauri-apps/api/core` to enable the Tauri command layer required for the bridge relays.\n\nFinally, in BakeExtensionManifest, prevent dev-mode hangs by writing only to `BundlePath` (skipping `DebugPath`) when no extensions are found. This ensures the empty stub in the `.app` bundle does not trigger a timeout in the live extension host during development, allowing it to fall back to a runtime scan safely.\n\nThese changes eliminate double-firing events, prevent memory leaks, fix SCM visibility issues, correct completion rendering, and stabilize the build process for empty extension environments.",
-			"SHA": "1c848470a27833378b38c6651b381cc9ddfc417d"
+			"Message": "",
+			"SHA": "9b1a45129e91b9d5c5e8ae00b63817de74e7dc1a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T10:13:15Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				155,
+				1
+			],
+			"Message": "feat(Sky): Implement webview reveal, setTitle, and setIconPath bridges\n\nExtend the `InstallWebview` bridge layer in Sky to handle runtime panel updates and focus management. Register listeners for `sky://webview/setTitle`, `sky://webview/setIconPath`, and `sky://webview/reveal` to intercept extension calls.\n\nThe `setTitle` and `setIconPath` handlers dispatch DOM events for UI synchronization and invoke native methods on parked webview entries. The `reveal` handler implements logic to open views via the `Views` service for view IDs or focus specific webview panels by handle, respecting the `preserveFocus` flag.\n\nAdditionally, restore the `sky://webview/dispose` registration which was previously relocated, ensuring panels are correctly cleaned up to prevent stale DOM node accumulation. These additions complete the lifecycle control surface for the webview component layer.",
+			"SHA": "aaa182cebde41b5e0030065feb8eeab066223325"
 		}
 	],
-	"TimeStamp": 1781544259812
+	"TimeStamp": 1781711637771
 }

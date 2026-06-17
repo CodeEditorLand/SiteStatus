@@ -2,6 +2,50 @@
 {
 	"Set": [
 		{
+			"Author": "Auto",
+			"Date": "2026-06-14T04:19:56Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				795,
+				1
+			],
+			"Message": "",
+			"SHA": "27165f869ea7edd18273cd96f24d5ff2574cc101"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-06-13T04:01:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				795,
+				1
+			],
+			"Message": "",
+			"SHA": "fc06d87b1dae12f2069734e0cf05c549af5384eb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T23:17:38Z",
+			"File": [
+				"⣿⡿⠀⠀⠀",
+				795,
+				300
+			],
+			"Message": "refactor(Wind): Complete service migration from Source/Effect/ to Source/Service/Effect/, prune dead Configuration module\n\nMove all 30+ Wind service domains from the outdated `Source/Effect/` path to the canonical `Source/Service/Effect/` hierarchy, updating barrel exports and JSDoc import paths accordingly. Delete the orphaned Configuration module — all 6 files under `Source/Effect/Configuration/` (ConfigApplyError, ConfigFetchError, ConfigValidationError, ConfigurationHelper, ConfigurationImplementation, ConfigurationService, ConfigurationMock, ConfigurationSchemaType, and index) — which became dead code when its functionality was absorbed into Bootstrap stages.\n\nActivate the deep-shim system at bootstrap time: wire EventInterceptor, NetworkProxy, and AsyncProxy into `TauriMainProcessService` constructor under the TierShim gate, ensuring DOM event interception, network routing, and async scheduling interception are installed before any workbench code executes. Add `createInterceptedInvoke` wrapper to both `_InvokeViaNode` and `InvokeMountain` so all MountainIPCInvoke calls flow through the IPCInterceptor for ShinkLevel-aware routing.\n\nReformat the entire codebase for consistent blank-line spacing between statement blocks, satisfying the format-pipeline blank-line formatter. Fix import ordering in shim modules (IPCInterceptor, EventInterceptor, Index) to match project convention. Improve type safety in AsyncProxy by replacing `@ts-nocheck` with proper typed originals and eliminating the nullable Originals pattern. Remove stale `effect` and `@effect/language-service` dependencies from package.json.\n\nImpact: Clean module boundaries under `Source/Service/Effect/`, zero dead Configuration code, and fully wired deep-shim activation at the Tauri service level. All 388 staged files pass formatting and type checks.",
+			"SHA": "967049675678d7d31281e1af1983291819dbbc3f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:34:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				810,
+				5
+			],
+			"Message": "feat(Wind): Add async scheduling and network proxy interceptors to deep-shim system\n\nIntroduce two new proxy layers for Land's deep-shim interception architecture, completing Layers E (network) and F (async scheduling) alongside the existing EventInterceptor (Layer D).\n\n**AsyncProxy (Source/Shim/AsyncProxy.ts):** Monkeys all 8 async scheduling primitives — setTimeout, clearTimeout, setInterval, clearInterval, requestAnimationFrame, cancelAnimationFrame, requestIdleCallback, cancelIdleCallback — routing zero-delay timers through a microtask batch flush for coalescing, tracking interval handles through an ActiveIntervals map for proper cleanup, and delegating rAF/rIC to Land's render/idle cycle. String-eval callbacks are safely wrapped.\n\n**NetworkProxy (Source/Shim/NetworkProxy.ts):** Intercepts global fetch() and XMLHttpRequest to route network calls through Land's service tree. Microsoft telemetry endpoints (dc.services.visualstudio.com, vortex.data.microsoft.com) are silently discarded with a 204 response. vscode-file:// URIs are routed to Mountain's scheme handler (501 stub pending wire-up). Extension gallery queries (marketplace.visualstudio.com, open-vsx.org) are forwarded to Land's GalleryService (501 stub pending wire-up). All other traffic passes through to the original fetch/XHR unchanged.\n\n**FullIndex (Source/Shim/FullIndex.ts):** Combined barrel export re-exporting the core shim (Index.ts) plus EventInterceptor, NetworkProxy, and AsyncProxy — the \"everything\" entry point for the deep-shim system. All exports are dead-code-eliminated by esbuild when TierShim=None.\n\n**Documentation:** Add Shim Compatibility section to Architecture.md with shim tier comparison table. Add a standalone Repository README.md with the same tier table pointing to the architecture doc.\n\nAll three new modules are gated behind the IsEnabled check from Gate.ts — zero runtime overhead when TierShim=None.",
+			"SHA": "bfefeb33a21df23add80241edb7ef02836ee103a"
+		},
+		{
 			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T22:26:03Z",
 			"File": [
@@ -11,51 +55,7 @@
 			],
 			"Message": "feat(Wind): Install EventTarget.addEventListener interceptor for TierShim event swallow\n\nAdd `Source/Shim/EventInterceptor.ts` — a DOM-level interceptor that patches `EventTarget.prototype.addEventListener` to redirect matched event types to Land's RedirectBus instead of attaching them to the DOM element.\n\nWhen TierShim is \"Own\" or \"Preempt\", the interceptor checks each registered listener against SwallowMap rules. Matched listeners are registered on the RedirectBus (with the event type as the pattern) and the DOM attachment is skipped entirely. Unmatched event types pass through to the original `addEventListener` unchanged. The activation gate uses the esbuild-defined `__LandTier_Shim__` symbol in production builds, falling back to `process.env.TierShim` in dev.\n\nThe module must be installed at the top of Wind's bootstrap entry point, before any UI component registers listeners. This completes the DOM-intercept layer of the deep-shim architecture, giving Land control over event dispatch for specific event types that VS Code would otherwise capture.",
 			"SHA": "072b495a2e9d70308841fee63f3192f86204515a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T22:19:55Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				805,
-				23
-			],
-			"Message": "refactor(Wind): Prune orphaned Effect-TS imports from de-Effectified service domains\n\nRemove the final dangling Effect-TS import statements (Effect, Layer, Stream, Either, Context) from stub, mock, live, and layer files across seven service domains — Commands, Editor, Extensions, Output, Sandbox, Sidebar, and TextModelResolver — whose interfaces and implementations were already converted to native async/sync signatures in prior commits (f97e5dd, ae82728, ff60a11, 1621bf7).\n\nEach affected file carried an import for a type or function that no longer appeared in its active code paths:\n- Stub files (CommandsStub, OutputStub, TextModelResolverStub): strip the orphaned { Effect } import\n- Mock files (CommandsMock, ExtensionsMock, OutputMock, TextModelResolverMock): strip { Layer } import\n- Live implementations (OutputLive, TextModelResolverLive): strip { Effect, Layer } / { Effect } import\n- Layer composition files (Electron, Tauri, Test): strip { Layer } import from the top-level layer barrel\n- Interface files (OutputService, SandboxService, SidebarService): strip import type { Effect } / { Effect, Stream }\n- Problem type files (CommandsProblem, EditorProblem, ExtensionsProblem): strip import type { Effect }\n- Sandbox layer files (SandboxLive, SandboxMock): strip { Context, Effect, Layer } / { Effect, Layer }\n- Sidebar layer files (SidebarLive, SidebarMock): strip { Effect, Either, Layer, Stream } / { Effect, Layer, Stream }\n- Clipboard barrel: prune the now-unused Effect-related re-exports\n\nImpact: Zero dead Effect-TS import traces remain across all Wind service domains that have been fully migrated to native async/sync. This completes the import-level cleanup phase of the de-Effectification sweep.",
-			"SHA": "6919b8dbc9868242e40d3a9cb176c1ad2a79551b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T22:18:15Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				805,
-				52
-			],
-			"Message": "refactor(Wind): Purge all orphaned Effect service tags and de-Effectify Extensions and History\n\nDelete all 46 remaining *ServiceTag.ts files across every Wind service domain — these became dead code when their corresponding Live implementations were stripped of Layer.succeed wrappers in the prior de-Effectification commits (ff60a11, ae82728, f97e5dd, e71ed57). Each Tag file was a two-line module (GenericTag import + Context.GenericTag<ServiceInterface>) with zero remaining consumers.\n\nConvert Extensions and History — the last two service domains still using Effect.Effect return types — to native async/await:\n- ExtensionsService interface: all 6 methods (GetExtension, GetAllExtensions, IsActive, Activate, InstallVsix, Uninstall) change from Effect.Effect<T, ExtensionsProblem> to Promise<T>\n- Extensions/Live.ts: replace Effect.pipe chains with try/catch wrapping TauriIPC.invoke, preserving the fallback-on-Activate-failure logic in plain try/catch\n- History/Live.ts: all 7 methods (GoBack, GoForward, CanGoBack, CanGoForward, Push, Clear, GetStack) convert to async/await\n\nRename barrel exports across History/History.ts, History/Live.ts, and History/Mock.ts:\n- LiveHistoryServiceLayer → LiveHistoryService, MockHistoryServiceLayer → MockHistoryService, dropping the 'Layer' suffix since no Layer.succeed wrapping remains\n- MockHistoryService is now a direct re-export of StubHistoryService instead of a Layer.succeed wrapper\n- Delete HistoryServiceTag export from History/History.ts barrel\n\nStrip orphaned Effect import from ExtensionsStub.ts and ExtensionsService.ts interface file.\n\nImpact: Zero Effect-TS references remain in any Wind service implementation. This completes the de-Effectification of Wind's IPC-bound service layer — every service binding is now a plain async/sync function.",
-			"SHA": "1621bf7158c50e152f22dfd869dabddff9207162"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T22:17:16Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				897,
-				133
-			],
-			"Message": "refactor(Wind): Strip Effect monad from remaining Wind service bindings\n\nComplete the de-Effectification of Wind service bindings across all 25 service domains, following the pattern established in Commits, Editor, and TextModelResolver (f97e5dd, ae82728, e71ed57).\n\n**Service interfaces:**\n- Clipboard, Environment, Label, Search, Storage, Themes, WorkingCopy: sync return types (string/boolean/void) with throw-on-error, no Effect/Effect<never>\n- Decorations, History, Keybinding, Language, Lifecycle, Model, MountainSync, Notification, Progress, QuickInput, Terminal, TextFile, Workspaces: async/Promise<T> signatures instead of Effect<T, Problem>\n- Panel, StatusBar, Telemetry, Workspaces: replace Effect Stream with ReadableStream + callback subscription (onViewsChanges/onItemsChanges/onActiveViewChanges)\n\n**Live implementations:**\n- Clipboard, Environment, Label, Search, Storage, Themes, WorkingCopy: export as plain service objects, fire-and-forget IPC promises via void/catch\n- Decorations, History, Keybinding, Language, Lifecycle, Model, Notification, Progress, QuickInput, Terminal, TextFile, Workspaces: async/await with try/catch wrapping TauriIPC.invoke\n- MountainSync: replace Effect Fiber with setInterval/clearInterval, sync now a plain async function\n- Panel/StatusBar: replace Stream.asyncInterrupt/Either with callback arrays returning unsubscribe functions\n- Telemetry: replace Effect.sync with async functions, Stream with ReadableStream\n\n**Dependency injection:**\n- Delete EnvironmentTag, FilesServiceTag, ModelServiceTag, PanelTag, StatusBarTag (fully removed)\n- Other Tag files (ClipboardServiceTag, LabelServiceTag, SearchServiceTag, etc.) preserved for consumers but service implementations no longer wrap via Layer.succeed\n- All Mock.ts files export the stub instance directly, removing Layer.succeed wrapper\n- All barrel exports renamed: *ServiceLayer → *Service (e.g. LiveClipboardServiceLayer → LiveClipboardService)\n\n**Impact:** Zero Effect-TS runtime overhead for all Wind service bindings. The Tauri bridge layer (Layers/Tauri.ts) and Effect/index.ts barrel re-exports updated to use the renamed exports. This completes the de-Effectification of Wind's IPC-bound service layer.",
-			"SHA": "ff60a1168fd4a26312c44c02b51cf3e62be268fe"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:59:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				907,
-				1
-			],
-			"Message": "chore(Wind): Sync commit.json with latest refactor message\n\nUpdate commit.json to reflect the actual message of the most recent commit (e71ed57b) — Prune orphaned imports and error helpers from de-Effectified services.\n\nThe file had fallen out of sync, still carrying the message from the prior f97e5ddf commit (Strip Effect monad from Commands service).",
-			"SHA": "f7c9aff429e42ea83dfcfa8d6154d944334f565d"
 		}
 	],
-	"TimeStamp": 1781544253665
+	"TimeStamp": 1781711629813
 }

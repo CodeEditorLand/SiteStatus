@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:44:44Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1517,
+				21
+			],
+			"Message": "refactor(Mountain): Extract shared notification relay/unregister helpers\n\nSixteen Cocoon-to-Mountain notification handler files contained nearly\nduplicated inline code — every output, progress, channel, and\nprovider-unregistration atom repeated the same three-step pattern\n(emit a Tauri sky:// event + dev_log, or extract a u32 handle +\nunregister + dev_log).\n\nCollapse all of them into two shared helpers under a new\n`Support/` submodule:\n\n- `RelayToSky` — calls `ApplicationHandle.emit(SkyEvent, Parameter)`\n  and optionally writes a dev-log line. Used by OutputAppend,\n  OutputClear, OutputCreate, OutputDispose, OutputShow,\n  OutputChannelClear, OutputChannelCreate, OutputChannelDispose,\n  OutputChannelShow, ProgressComplete, and ProgressUpdate — each now\n  a single delegation call.\n- `UnregisterByHandle` — reads a `handle` u64 from the parameter,\n  guards against zero, calls\n  `ProviderRegistration::UnregisterProvider`, and logs the provider\n  kind. Used by UnregisterAuthenticationProvider,\n  UnregisterDebugAdapter, UnregisterDebugConfigurationProvider,\n  UnregisterFileSystemProvider, UnregisterTaskProvider, and\n  UnregisterUriHandler.\n\n`UnregisterFileSystemProvider` and `UnregisterUriHandler` additionally\nlog their scheme field before delegating, preserving the traceability\ninformation that was unique to those atoms.\n\n21 files changed, 67 insertions, 231 deletions.\n\nNo behavioural changes — every handler produces the same Tauri\nsky:// event and the same dev-log output as before.",
+			"SHA": "3427a0c39e6129a8df9ff50b6b1015a70c4dd2e2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:41:36Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1513,
+				13
+			],
+			"Message": "feat(Mountain): Terminal serialization/revival, fill IPC gaps\n\nComplete the terminal window-reload persistence cycle and close multiple VS Code Workbench IPC compatibility gaps:\n\n**Terminal state persistence (window reload):**\n- Add `SerializeTerminalState` — snapshot all active PTYs to `ISerializedTerminalState[]` with `shellLaunchConfig`, `processDetails`, and replay metadata, called by `localPty:serializeTerminalState` just before reload.\n- Add `ReviveTerminalProcesses` — respawn shells from the snapshot array, forwarding each entry to `TerminalCreate` and emitting `sky://terminal/create` for the xterm panel. Skips entries with an empty executable.\n- Wire `localPty:getRevivedPtyNewId` to `GetNextTerminalIdentifier()` (no longer a no-op) so the workbench pre-allocates collision-free IDs before revival.\n\n**Configuration/Theme IPC completeness:**\n- Alias `configuration:lookup` → `ConfigurationGet` — needed by `IConfigurationService.getValue(key)` in the Workbench singleton.\n- Implement `configuration:inspect` — returns `{value, default, user, workspace, workspaceFolder, memory}` with the current effective value in both `value` and `default`, null for all scope overrides (correct for Land where no user/workspace JSON overrides exist).\n- Alias `themes:getColorTheme` → `ThemesGetActive` — `IThemeService.getColorTheme()` Workbench channel method.\n- Extend `ThemesGetActive` response with numeric `ColorThemeKind` enum (`type`: 1-4) and `semanticHighlighting: false` so tokenization and colour-picker internals have the expected shape.\n\n**Dialog unwrapping for Wind consumption:**\n- `UserInterface.ShowOpenDialog` — unwrap `{canceled, filePaths}` envelope to bare `string[]` so Wind's `Array.isArray(result)` guard finds the paths.\n- `UserInterface.ShowSaveDialog` — unwrap `{canceled, filePath}` envelope to bare path string so Wind's `typeof result === \"string\"` guard succeeds.\n\n**Path format fix in sandbox config:**\n- Convert `appRoot`, `homeDir`, `tmpDir`, `userDataDir`, `backupPath` from `file://` URLs to plain OS filesystem paths. VS Code's `URI.file(path)` receives these via `AbstractNativeEnvironmentService` and double-encodes a `file://` string, producing broken `path.join` bases.\n\n**Provider registration for VS Code ≥1.87 APIs:**\n- Add `register_inline_completion_item_provider`, `register_inline_edit_provider`, `register_multi_document_highlight_provider`, `register_mapped_edits_provider`, `register_document_paste_edit_provider`, `register_document_drop_edit_provider` — each wires through `CreateProviderEffect` into the existing ProviderRegistration map so the Language Feature dispatch layer can proxy `$provideXxx` requests back to Cocoon.\n\n**Terminal show/hide via gRPC provider path:**\n- Wire `$terminal:show`/`$terminal:hide` and `Terminal.Show`/`Terminal.Hide` through `TerminalProvider` — Cocoon's window namespace shim calls these when extensions invoke `terminal.show(preserveFocus)` or `terminal.hide()`, and both call sites now share one implementation.\n\n**Debug configuration provider cleanup:**\n- Add gRPC notification `unregister_debug_configuration_provider` with `UnregisterDebugConfigurationProvider` handler — mirrors `UnregisterDebugAdapter` for the DebugConfiguration slot, invoked when an extension disposes a `vscode.debug.registerDebugConfigurationProvider` registration.\n\n**Stub-ack additions:**\n- Add `log:registerLogger`/`log:createLogger` alongside the existing `logger:*` stubs — VS Code 1.87+ calls both prefixes and was crashing on every boot with \"registered but no dispatch arm\".\n\n13 files changed, 479 insertions, 23 deletions.",
+			"SHA": "7d6b949d24c36559cb084154ef6c4be20b9a716e"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-19T04:43:59Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
 			"SHA": "f05bb15337235ffc6fc2de4ac1988fe3a8d9e19a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T03:01:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
-				14
-			],
-			"Message": "feat(Mountain): Implement custom editor registry, wire file watcher and PTY resize, optimize hot paths\n\nComplete several IPC/RPC stubs with actual implementations:\n- Store ViewType-to-sidecarId mappings in CustomEditorProvider's global\n  once-locked registry, enabling proper cleanup on unregistration\n- Route watch_file gRPC to FileWatcherProvider::RegisterWatcher for real\n  FSEvents/inotify monitoring instead of a no-op stub\n- Route resize_terminal gRPC through TerminalProvider to resize the PTY\n  (delivers SIGWINCH to the shell) alongside the existing Tauri event\n- Add extensions:activate handler sending $activateByEvent to Cocoon so\n  Wind's ExtensionsService triggers activation programmatically\n\nRefine IPC dispatch and sidecar routing:\n- Emit sky://commands/executed after commands:execute dispatch so\n  telemetry collectors and command subscribers observe every command\n- Look up debug configuration provider from ApplicationState.Feature.Debug\n  for correct sidecar routing instead of hardcoding cocoon-main\n\nOptimize high-frequency and hot paths:\n- Add StorageWriteDebouncer with 100ms write coalescing, replacing\n  per-call tokio::spawn disk writes with batched single-writes\n- Strip osascript subprocess from nativeHost:getCursorScreenPoint,\n  returning (0,0) to eliminate ~50ms macOS process spawn per invocation\n- Gate logger info/debug/trace to opt-in vscode-log tag; forward\n  error/warn/critical to dev_log consistently\n- Replace SystemTime-based ID generation with atomic sequence counters\n  in Notification and WindowUI, eliminating syscall overhead\n\nUpdate Tauri ACL manifests with the new tray allow-set-icon-with-as-template\npermission.",
-			"SHA": "e2e1d1e1b9088429512644b8901afcf9dd8d2347"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:56:16Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
-				1
-			],
-			"Message": "perf(Mountain): Reduce command registration yield delay to 20ms\n\nThe 50ms `tokio::time::sleep` after extension activation was conservatively oversized since the `registerCommand` IPC channel drains in roughly 16ms. Lower the yield to a single 20ms frame, matching the actual batch-flush cadence of the Tauri event system.\n\nThis shaves 30ms from the extension activation hot path, accumulating measurably when multiple extensions register commands during startup.",
-			"SHA": "7c91748de9acede25cf29c983732453e7ffc2d4e"
 		}
 	],
-	"TimeStamp": 1781544274274
+	"TimeStamp": 1781711650976
 }
