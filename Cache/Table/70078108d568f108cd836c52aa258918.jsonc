@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:23:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				561,
-				1
-			],
-			"Message": "fix(Cocoon): Dispose partial extension context on activation failure\n\nWhen ActivateExtension throws mid-activation, an extension may have already pushed disposables onto context.subscriptions before the error. The old catch block deleted the extension from ActiveExtensionContexts without disposing those registered disposables, leaking watchers and providers.\n\nStore the partial RegisteredContext in ActiveExtensionContexts so DisposeExtensionContext iterates and calls .dispose() on every registered disposable, then removes the map entry. Shared cleanup now handles both successful and failed activation paths uniformly.",
-			"SHA": "2bc0675c8e91772a928c5df07b065f88f148de7a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:20:47Z",
+			"Date": "2026-06-12T21:47:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				561,
 				3
 			],
-			"Message": "feat(Cocoon): Track extension contexts for subscription disposal on deactivation; fix machineId fallback chain\n\nStore each activated extension's `ExtensionContext` in `ActiveExtensionContexts` so that when an extension is deactivated — via host re-initialization (`HandleInitializeExtensionHost`) or delta extension removal (`HandleDeltaExtensions`) — every disposable the extension registered via `context.subscriptions` is iterated and `.dispose()` called, preventing leaked watchers, status-bar items, and language providers from the prior host generation.\n\n**ActivateExtension.ts:**\n- Add `ActiveExtensionContexts` map keyed by extension id, populated at the `PromoteToActivated` step\n- Add `DisposeExtensionContext()` helper that clears `subscriptions` and drops the context entry\n- Capture `RegisteredContext` before `activate()` so it is available to `PromoteToActivated` even after a successful `activate()` call\n- Clean up `ActiveExtensionContexts` on activation failure alongside the existing `ActivatingExtensions`/`ActivatedExtensions` cleanup\n\n**Handler.ts:**\n- On host re-init: iterate all active contexts and dispose them before clearing the registry, mirroring the prior deactivateExtension logic but at the batch level\n- On delta removal: call `DisposeExtensionContext` and remove from `ActivatedExtensions` so a re-installed extension can activate fresh\n\n**Env/Namespace.ts:**\n- Fix the `machineId` fallback chain: `Env['machineId']` → `telemetryInfo.machineId` → `telemetry.machineId` → `'fiddee'`, restoring the correct priority order after a previous reordering broke field resolution\n\nExtension contexts are now correctly torn down on host lifecycle transitions, and the machineId field resolves from the richer `telemetryInfo` payload before falling back to the legacy `telemetry` object.",
-			"SHA": "2b90036c1bdac36e69436b05fea4b6c27be72836"
+			"Message": "refactor(Cocoon): Normalize Effect-TS pipe-chain patterns\n\nStandardize three call sites in Output, Webview, and Factory modules to use `.pipe()` chaining instead of nesting effects inside runner functions.\n\n**Channel.ts:** Extract the `Channel` variable before wrapping in `Effect.succeed()`, replacing an inline cast pattern that collapsed declaration and return. Insert a TODO(EFX-30) marker for the planned `Effect.gen` → `async/await` migration.\n\n**Webview/Panel.ts:** Convert `Effect.runPromise(Logger.Debug(...))` to `Logger.Debug(...).pipe(Effect.runPromise)` — idiomatic left-to-right Effect-TS composition.\n\n**Factory.ts:** Replace `Effect.runFork(Ref.update(...))` (fire-and-forget fiber) with `void Ref.update(...).pipe(Effect.runPromise).catch(() => {})`, ensuring the ActivePanelsRef registry cleanup runs to completion rather than being scheduled on a fiber that may be abandoned. The explicit `void` + `.catch` matches Cocoon's established fire-and-forget idiom for side effects that must complete synchronously.\n\nNo behavioral changes to any module.",
+			"SHA": "aa58914543fb46baadcd35fa8151c4510a76d30c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:06:44Z",
+			"Date": "2026-06-12T21:23:52Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⠀⠀⠀⠀⠀",
 				561,
-				19
+				1
 			],
-			"Message": "refactor(Cocoon): Strip Effect from webview IPC layer; wire cancellation, deferred activation, and subscription disposal\n\nReplace Effect-wrapped IPC calls across the webview panel subsystem (Panel, WebviewImplementation, WebviewPanelImplementation) with raw Promise-based methods, removing Effect.runFork/runPromise indirection from every $setWebviewHtml, $postMessage, and lifecycle notification. The EventStream Fire/Shutdown are now synchronous; Panel.Create returns the instance directly.\n\n**Extension lifecycle:** deactivateExtension now disposes all context.subscriptions before removing the extension from the activated set, preventing leaked watchers and status-bar items. The activation context is stored alongside the extension and referenced at deactivation time.\n\n**Deferred onStartupFinished:** After the first $activateByEvent batch settles, schedule a single 3-second-delay pass for extensions declaring only onStartupFinished, mirroring VS Code's deferred-startup convention.\n\n**withProgress cancellation:** Wire a progress.cancel notification handler in NotificationHandler that emits on a shared Emitter. WindowNamespace's withProgress subscribes to this emitter per-task, providing a real CancellationToken (isCancellationRequested / onCancellationRequested) backed by the progress handle. MountainClientService propagates caller CancellationToken firings to Mountain via cancelOperation, completing the cancellation path.\n\n**onCommand activation:** The gRPC server's executeCommand resolves onCommand:<id> activation events before dispatching to the registry, ensuring the owning extension's registerCommand has run.\n\n**SCM command projection:** SanitizeResourceState now projects repository back-references (rootUri, root, uri) to a __celRepositoryRoot string and passes through all JSON-safe scalars, so option-bag arguments like { preserveFocus: true, branch: \"main\" } survive the executeCommand round-trip.\n\n**Debug activation:** Fire onDebug, onDebugResolve:<type>, and onDebugAdapterProtocolTracker:<type> when a debug session starts.\n\n**Stable sessionId:** Fall back through telemetryInfo.sessionId → telemetry.sessionId → CocoonSessionId env var before generating a per-process id, preventing session desync on orphan recovery.\n\n**Heuristics proxy completeness:** Add has/getOwnPropertyDescriptor traps to WrapNamespaceWithHeuristics so in checks match the get trap. Fix MakeMultiStub's has trap to exclude Symbol keys.\n\n**gRPC error detail:** Include method name and stack trace in error responses instead of empty {}. Delete stale Orchestration/Old/Style/Services.ts — the last consumer of the deprecated TerminalServiceLayer.",
-			"SHA": "4d455d427651a4c9f331c305950ed8d00fba4688"
+			"Message": "feat(Cocoon): Filter stale-channel frames in bidirectional gRPC stream\n\nMountain stamps Envelope.ChannelId (uint64, field 5) on every frame it pushes through the bidirectional streaming pump. When a stream is reopened — after a connection reset or re-registration — the old Mountain process may still send straggler frames through the previous registry entry before it shuts down.\n\nCapture the first nonzero ChannelId seen on each stream as the session identity. Frames arriving with a nonzero ChannelId that does not match the established session id are discarded immediately with a dev-log entry. ChannelId \"0\" (absent) is treated as a wildcard for backward compatibility with older Mountain builds and client-originated frames.\n\nAlso include the session ChannelId in the stream-closed dev-log for diagnostics.",
+			"SHA": "661b375e7c7bd4a9cca703be91ec5d0980670a73"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:37:24Z",
+			"Date": "2026-06-12T21:22:14Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				565,
-				1
+				561,
+				6
 			],
-			"Message": "docs(Cocoon): Add npm badge, emoji headers, and getting-started sections to README\n\nPolish the Cocoon README with the project's npm package badge, emoji-decorated section headings (Getting Started, License, Changelog, Funding), and structured Prerequisites and Build/Install subsections. Fix the GitHub stars badge image to include an explicit title attribute and normalize the dependencies table alignment row.\n\nThese changes bring the README into alignment with FIDDEE documentation conventions established across the Land Element READMEs.",
-			"SHA": "ffe1c46780d7de9a72efcd8381bc21fa19f18228"
+			"Message": "feat(Cocoon): Implement willSave-as-REQUEST path; fix URI hydration and status bar paired colors\n\nAdd a `$willSaveDocument` REQUEST route in RequestRoutingHandler so Mountain can call Cocoon for TextEdits before persisting a document — the edits are returned in the response rather than fire-and-forget via `window.applyTextEdits`. Extract the listener collection logic from NotificationHandler into `CollectWillSaveDocumentEdits` with a 1.5s timeout cap on listener thenables; the notification path delegates to it and awaits before forwarding edits.\n\n**Bootstrap.ts:** Replace static stage-group arrays with a promise chain that links RPCServer → MountainConnection via `.then()`, letting the connect attempt start the moment the server settles instead of waiting for ModuleInterceptor too. Early-exit on RPCServer failure via `process.exit(1)` instead of `find`-based detection.\n\n**Env/Namespace.ts:** Hydrate every URI shape extensions hand to `openExternal` — string, real `vscode.Uri`, URI-like POJO, and the underscore-serialized wire form (`_scheme`, `_path`) — instead of casting with `String(Target)` which produces `[object Object]`. Implement `asExternalUri` that returns a real URI-compatible object with a `toString()` so extensions embedding the result in OAuth redirect URLs get a valid URL string. Respect Mountain's `isTelemetryEnabled` init payload when present.\n\n**Window/CreateStatusBarItem.ts:** Implement paired-theme-color semantics: when `statusBarItem.errorBackground` or `statusBarItem.warningBackground` is set, force the corresponding foreground (`errorForeground` / `warningForeground`) and serialize both as `{ id }` theme-color references instead of passing raw objects Mountain cannot resolve. Reject unsupported background theme IDs.\n\n**Window/Namespace.ts:** Extract `SendTreeRegister` with a retry that listens for `extensionHostInitialized` (plus a 2s fallback timer) so tree views registered before the Mountain connection is live still appear in the workbench. Fix `QuickPick.onDidChangeActive` vs `onDidChangeSelection` separation — each now has its own listener array, and assigning `items` resets the active item to the first entry and fires `onDidChangeActive` per VS Code semantics.",
+			"SHA": "9445a0082898d69fe8ebab1f92c68974af1b73c4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:20:50Z",
+			"Date": "2026-06-12T20:34:52Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				565,
+				561,
 				1
 			],
-			"Message": "fix(Cocoon): Lazy-load URI class and structurally classify extension errors\n\nThe top-level `await import(\"@codeeditorland/output/…/uri.js\")` in NotificationHandler could crash the module on failure, silently degrading all workspace URIs to `MakeUriStub` objects — breaking `URI.isUri()` checks inside extensions like `vscode.git`. Meanwhile, the rejection sniffer classified extension TypeErrors via a hardcoded extension-ID allowlist that both masked shim regressions inside listed extensions (e.g. GitLens, vscode-yaml) and failed to cover unlisted ones.\n\n**URI import (lazy):** Replace the module-level `await import` with `EnsureLazyURI()`, a guarded non-blocking import cache started at module load. `HydrateUri` now degrades to `MakeUriStub` only when the import is genuinely pending or has failed, and a deduplicated `CocoonDevLog` warn records the degradation exactly once per process lifetime.\n\n**Extension error classifier (structural):** Parse stack trace frames into path categories — extension roots (`~/.fiddee/extensions/`, `~/.land/extensions/`, `Dependency/…/extensions/`), Cocoon paths (`/Cocoon/`, `@codeeditorland/`), and neutral frames (`node:`, `<anonymous>`, bare filenames). An error is benign only when every path-bearing frame sits in an extension directory and none touch Cocoon source, replacing the fragile `Text.includes(\"DEVSENSE.phptools\") || …` chain with a self-maintaining structural rule.\n\nWorkspace folders are no longer silently dropped on URI import failure; extension error classification works for any extension without an allowlist update.",
-			"SHA": "1f2b19a9e6ec9c1945d648484674a3592de45f28"
+			"Message": "docs(Cocoon): Restructure README; normalize dash characters and section headings\n\nReorder the README document flow so the \"Getting Started\" section — including prerequisites, build instructions, dependency table, and debugging notes — appears before \"Security\" rather than after it. This aligns the Cocoon README with the standard project-documentation hierarchy (overview → features → architecture → setup → security → API reference).\n\nAlso normalize markdown formatting: replace typographic long dashes (—) with regular hyphens (-) throughout the feature bullet lists, and rename the \"Architecture\" heading to \"System Architecture\" for consistency with the broader Land documentation convention.\n\nNo runtime logic, identifiers, or module structure was modified.",
+			"SHA": "8a69dedc5ac5c3c2f0bfef75719c6648c043fdd3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T20:04:38Z",
+			"File": [
+				"⣿⡟⠀⠀⠀",
+				561,
+				194
+			],
+			"Message": "style(Cocoon): Remove blank lines after opening braces; normalize doc formatting\n\nRemove the blank line immediately following opening braces across all interface, type, enum, class, function, and conditional declarations in the Cocoon source tree, scripts, Proto definitions, services, handler modules, IPC layer, telemetry, type converters, webview panels, and tests — reversing the whitespace convention established in commit 553b7052.\n\nAlso normalize markdown formatting in DeepDive.md and README.md: realign tables with proper pipe-positioned column separators, reflow prose paragraphs to consistent line widths, and clean up table-of-contents indentation.\n\nNo runtime logic, identifier names, or module structure was modified.",
+			"SHA": "85e19690ff82aea5116568ba96185ef7a0cfebb7"
 		}
 	],
-	"TimeStamp": 1781711631756
+	"TimeStamp": 1781883304897
 }

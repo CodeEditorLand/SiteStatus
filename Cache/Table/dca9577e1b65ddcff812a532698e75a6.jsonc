@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:22:15Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				920,
-				26
-			],
-			"Message": "refactor(Wind): De-Effect-ify Bootstrap, Health, FileSystem, Workbench; add heritage resolver + ChannelEventBridge\n\nRemove Effect-TS dependency from four core Wind services, converting them to plain async/sync APIs:\n\n**Bootstrap** (`Effect/Bootstrap/`):\n- Replace `Effect.gen`/`Layer`/`Context.Tag` with a plain `makeBootstrap(Logger)` factory returning a `BootstrapService`. All six stages (`BootstrapStage.ts`) become `async (Log) => Promise<StageResult>` — no `withSpan`, no `yield*`.\n- Delete `BootstrapTag.ts`; `BootstrapLive` is now a `BootstrapService` instance, not a `Layer`.\n- `BootstrapMock` drops its `Layer.effect` wrapper — just a `BootstrapService` object.\n- `runBootstrap()` calls `BootstrapLive.run(options)` directly instead of composing a Telemetry layer.\n\n**Health** (`Effect/Health/`):\n- Convert all check methods from `Effect.Effect<>` to `async Promise<>`. The `monitorService` now returns a `HealthMonitorHandle { dispose }` via `setInterval`/`clearInterval` instead of an `Effect.repeat(Schedule.spaced)`.\n- Delete `HealthTag.ts`; `HealthLive`/`HealthMock` are `HealthService` instances.\n- Replace `EnvironmentTag.getInfo` with direct calls to `DetectPlatform()`/`DetectArchitecture()` from `EnvironmentHelper`.\n\n**FileSystem** (`FileSystem/`):\n- Remove `FileSystemProviderTag` (Context.GenericTag), `FileSystemProviderLive` (Layer), and the `getProvider: Effect.Effect<>` accessor from `FileSystemProviderService`. Consumers now import the default export `FileSystemProvider` and call `.provider` directly.\n- Update README examples to show plain `await FileSystemProvider.readFile(...)` instead of `yield* FileSystemProviderTag`.\n\n**Workbench** (`Workbench/`):\n- Rewrite `WorkbenchIntegrationImplementation` from Effect-TS (Ref, Queue, Stream, Effect.gen) to module-closure `let` variables + a listener-`Set` for state change observation. `stateChanges: Stream` becomes `onStateChange(Listener) => IDisposable`.\n- All methods are sync/async and throw `WorkbenchIntegrationError` on failure — no more `Effect.fail`.\n- Remove the `FileSystemProviderTag` dependency; import the FileSystem default export directly.\n\n**ResolveInterfaceCrossFile** (`Codegen/Resolve/`):\n- Add heritage-follow resolution: when an interface body is empty (the re-export pattern `interface X extends Y { }`), parse the `extends` clause, resolve each parent — same-file inline first, then via imports — with depth-capped recursion and visited-set deduplication.\n- Extract `ResolveNamedMembers` as a shared recursive core; `ResolveInterfaceCrossFile` delegates to it.\n\n**TauriMainProcessService** (`Service/`):\n- Buffer `_DevLogForward` entries for 100ms and flush as grouped `RenderDevLog` invokes (one per tag, newline-joined), capped at 20 entries per flush window with overflow counting. Prevents IPC storms during extension activation.\n- Introduce `ChannelEventBridge` — a declarative map from channel events to `sky://` Tauri event names (with optional reshape `Map` functions), replacing the earlier repetitive `if (channel === \"X\" && event === \"Y\")` guard blocks. Covers `localPty`, `terminal`, `extensions`, `localFilesystem`, `configuration`, `workspaces`, and `lifecycle`.\n\n**Barrel re-exports**:\n- `Effect/index.ts`: Alphabetize exported names; replace old `*Tag` exports with `*MonitorHandle`/`*Logger` types.\n- `Bootstrap/index.ts`, `Health/index.ts`, `Workbench/index.ts`, `Health.ts`, `Bootstrap.ts`: Align re-exports with the new plain-async surface — no Tag re-exports, no Layer re-exports.\n- `Layers/Tauri.ts`: Remove `BootstrapLive`, `HealthLive`, `ActivityBarLive` from the layer compositions since they are no longer Effect layers.\n- `Language/Live.ts`: Clarify doc comment that this layer is Wind-local only; add `performance.mark` traces on registration.\n\n**Impact**: Reduces Effect-TS surface to only IPC, Telemetry, and Sandbox services where its composability is still needed. Cuts bundle weight, simplifies debugging (plain async stack traces), and accelerates the migration of Wind toward framework-agnostic service patterns.",
-			"SHA": "0432636342797c3caab1099cf883e21ea04151c1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:34:44Z",
+			"Date": "2026-06-12T21:47:55Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				924,
-				2
+				919,
+				3
 			],
-			"Message": "style(Wind): Normalize README punctuation and build config indentation\n\nReplace em dashes (—) with hyphens (-) throughout README.md for consistent ASCII punctuation across the documentation. Reformat tsconfig.build.json from 2-space indentation to tab-indented with single-line array items, matching the project's convention established in tsconfig.json.\n\nNo behavioral changes — purely cosmetic formatting normalization across documentation and build configuration.",
-			"SHA": "ed1a42e950febefbd3b8d5a429195947fc413bfd"
+			"Message": "feat(Wind): Implement SwallowMap, RedirectBus, and IPCInterceptor for the Shim routing layer\n\nBuild on the Shim type system and activation gate to introduce the three core runtime components that intercept and redirect VS Code IPC calls to Land-native implementations.\n\n**Source/Shim/SwallowMap.ts** — Pattern-matching decision engine that classifies every method into SWALLOW (Land handles, VS Code never sees), PASSTHROUGH (VS Code handles normally), MIXED (both handle, Land's result wins), or DISCARD (silently dropped). Includes a comprehensive built-in default ruleset covering: StatusBar, SCM, Search, Terminal, Output, FileSystem, Notifications, Dialogs, QuickInput, Keybindings, Themes, Configuration, Telemetry (DISCARD), ExtensionsGallery, and Product. Rules are ordered from most-specific to least-specific with first-match-wins semantics, regex support, and optional runtime conditions.\n\n**Source/Shim/RedirectBus.ts** — Central routing bus for the shim architecture. Registered handlers match by method pattern (prefix or regex); first match processes the event. Supports `register`, `unregister`, `route`, `hasHandler`, and `clear` operations. Duplicate registrations update in place. Unmatched methods emit a console warning for debugging misconfigured rules.\n\n**Source/Shim/IPCInterceptor.ts** — Intercepts every Tauri `invoke(\"MountainIPCInvoke\", {method, params})` call before it reaches Mountain's DispatchMatch. Only intercepts MountainIPCInvoke commands; all other Tauri commands pass through unchanged. The fast-path short-circuits entirely when TierShim is None (enabling esbuild tree-shaking). Routes through the four SwallowMap actions with proper fire-and-forget semantics for MIXED mode.\n\nThis completes the Shim's routing infrastructure, enabling Land services to progressively intercept VS Code IPC calls as their Land-native implementations become available.",
+			"SHA": "f36e21721c4309b3ae18449223544f7b52913651"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:04:08Z",
-			"File": [
-				"⣿⡏⠀⠀⠀",
-				924,
-				300
-			],
-			"Message": "style(Wind): Strip extra blank lines inside interface/class bodies and between imports\n\nRemove ~1,200 blank lines that violated the project's formatting conventions across 300+ files in Source/. The changes fall into six categories:\n\n1. **Interface/class body blank lines**: Every exported interface, class, default-object, and exported-const-object that began with a blank line after `{` now has it removed — \"squaring\" the opening brace against the first member. Affected ~200 files across Bootstrap/Types, Codegen, Effect, FileSystem, Service, Telemetry, Types, and Workbench.\n\n2. **Import-group blank lines**: Blank lines separating two consecutive `import` statements (or `import type` statements) from the same module group are removed, collapsing multi-line import blocks into dense `import`-`import` runs. Exceptions preserved at semantic boundaries (e.g., Effect imports vs. local directory imports).\n\n3. **Discriminated union blank lines**: Blank lines between adjacent `| { _tag: ... }` branches in `*Problem` and `*State` type definitions are removed.\n\n4. **Missing blank lines in barrel exports**: `Mountain/index.ts`, `WorkbenchActivity/index.ts`, `WorkbenchCommand/index.ts` gain a blank line before `export type` sections after a series of value re-exports, matching the barrel convention in neighbouring modules.\n\n5. **Import ordering**: `BootstrapStage.ts` swaps `EnvironmentTag` above `EnvironmentInfo` to pair the Tag import with its type; `WorkbenchLayoutLive.ts`, `WorkbenchLifecycleLive.ts`, `WorkbenchNotificationLive.ts`, `WorkbenchProgressLive.ts`, `WorkbenchThemeLive.ts` fix `type` keyword placement and group imports consistently.\n\n6. **Build config**: `tsconfig.build.json` added with a focused compilation target (`Source/Build.ts`, Constants, Types, Effect/Layers); `tsconfig.json` exclude list expanded with 47 path entries to silence diagnostics in generated/polyfill/debug modules.\n\nNo behavioral changes.",
-			"SHA": "c458f3973e1db58d66720d262e758c6cf39d95b6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:14:09Z",
+			"Date": "2026-06-12T21:47:22Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				923,
-				4
+				916,
+				3
 			],
-			"Message": "style(Wind): Alphabetize barrel re-exports and normalize spacing\n\nSort the three barrel files (Configuration, Mountain, BootstrapStage) so that named re-exports within each logical category follow alphabetical order, matching the convention established in prior formatting passes.\n\n- **BootstrapStage.ts**: Move `EnvironmentTag` value import below its paired `EnvironmentInfo` type import; remove trailing blank line before the first default-export key.\n- **Configuration.ts**: Reorder 15 re-exported names — errors (Apply→Fetch→Validation), values (Create→Get→Make→Validate), live/mock implementations (ConfigurationLive→ConfigurationMock→…), type aliases (Configuration→ConfigurationService→…).\n- **Mountain.ts**: Reorder 11 re-exported names — errors (Connection→RPC→State→Sync), values (Create→Live→Mock), type aliases (Mountain→MountainConnectionState→…).\n- **Mountain/index.ts**: Add missing blank line separator between the error-types section end and the Live Implementation section header, consistent with the other 19 barrel files.\n\nNo behavioral changes — pure formatting alignment.",
-			"SHA": "9e54723c97df9f4f62359952ede73e25acdca4ad"
+			"Message": "feat(Wind): Introduce Shim system types and activation gate\n\nAdd the foundational types and activation infrastructure for the Land Shim system, which intercepts and redirects VS Code service calls to Land-native implementations via the TierShim env var.\n\n**Source/Shim/Type.ts** — Define the core type contract shared between Wind, Output, and Cocoon: `ShimLevel` (None/Proxy/Replace/Own/Preempt), `SwallowAction`, `RedirectTarget`, `SwallowRule`, `SwallowDecision`, `RedirectHandler`, `FlowDirection`, and `ShimEvent`. These types underpin the SwallowMap decision engine and RedirectBus routing.\n\n**Source/Shim/Gate.ts** — Implement the master activation switch that reads `TierShim` at module load and exports boolean flags (`IsEnabled`, `IsProxy`, `IsReplace`, `IsOwn`, `IsPreempt`) for tree-shaking via esbuild. Each activation level unlocks progressively more control: Proxy (audit-only), Replace (service substitution), Own (container ownership), Preempt (full BrowserMain interception).\n\n**Source/Effect/Layers/Test.ts** — Remove the now-obsolete `IPCMockLive` from both test layer stacks (TestLayer and TestWithTelemetryLayer). IPC mock is already a plain object imported directly; no longer part of the Effect Layer composition. Update doc comments to reflect that Configuration, Mountain, and IPC are all plain objects outside the layer stack.\n\nThis completes the cleanup following the IPC De-Effect-ification and establishes the type-safe foundation for the shim system's multi-tier interception strategy.",
+			"SHA": "d4987298b9edaead17c58bef82d6e20b1651c9d9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:13:30Z",
+			"Date": "2026-06-12T21:43:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				923,
-				1
+				913,
+				3
 			],
-			"Message": "style(Wind): Reorganize Mountain Effect barrel export order\n\nAdopt the standardized six-section ordering for `Source/Effect/Mountain/index.ts` following the barrel export convention established in b9b6b34d: (1) error types, (2) live implementation, (3) service interface, (4) mock implementation, (5) service tag alias, (6) type definitions.\n\nBlank lines are removed between error exports to group all four error classes consecutively. Each section is separated by a single blank line with a preceding comment header for navigability. The previous arrangement interspersed type exports before value exports; the new layout places all value exports (live + mock implementations) before type-level exports, matching the consumer lookup priority pattern used across the other 18 workbench barrel files.",
-			"SHA": "b19ef04ee8918bb0a88bd59be04654f5df54aeb0"
+			"Message": "refactor(Wind): Strip IPC from Electron layer, finalize barrel exports\n\nComplete the IPC de-Effect-ification cleanup. The three Electron layer stacks\n(ElectronBaseLayer, ElectronLiveLayer, ElectronDevLayer) no longer register\nIPCElectronLive — IPC is a plain object imported directly.\n\nRenames barrel exports to the plain-object convention: TauriIPCLive as IPCLive\nand MockIPCLive as IPCMockLive, replacing the old Effect-TS aliases\n(IPCElectronLive, IPCTag as IPC, IPCMockLive, IPCTauriLive). Promotes IPC\nerror classes from export type to export (now concrete Error subclasses).\nSurfaces new IPC helper types (IPCEvent, IPCEventListener, IPCEventStream,\nIPCCleanup) in the main Effect barrel.",
+			"SHA": "8c1067c411e40266ff73ea9c737a2187e8c168d6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:42:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				913,
+				5
+			],
+			"Message": "refactor(Wind): Finalize IPC De-Effect-ify — clean up barrel, delete Live/Tag, convert Mock\n\nComplete the IPC service migration away from Effect-TS, following the core conversion in 0aeaeb8a that rewrote the errors, interface, and implementation. This commit cleans up the Effect scaffolding that the prior conversion left behind.\n\n**Main barrel** (`Effect/IPC.ts`): Move error-class re-exports from inline definitions to the sub-barrel; replace default-import of Effect-TS Layer with direct implementation imports; add backward-compatibility aliases (`IPCTauriLive`, `IPCMockLive`) using `export { X as Y } from` syntax.\n\n**Deleted files**:\n- `Effect/IPC/Live.ts` — the `Layer.effect(IPCTag, …)` factory; no longer needed since the implementation is a plain object, not an Effect Layer.\n- `Effect/IPC/Tag/IPCTag.ts` — the `Context.GenericTag<IPCService>`; no longer needed since consumers import `TauriIPCLive` directly.\n\n**Mock** (`Effect/IPC/Mock.ts`): Convert from `Layer.succeed(IPCTag, {…})` to a plain `IPCService` object. All methods drop the curried `(_args) => …` Effect signature: `send` returns `void`, `invoke` returns `Promise`, `events` returns an `{ subscribe }` object, `once` takes a callback.\n\n**Sub-barrel** (`Effect/IPC/index.ts`): Remove Tag, Layer, and error-helper (`Create*`) re-exports. Add type exports for the new `IPCEvent`, `IPCEventListener`, `IPCEventStream`, `IPCCleanup` types.\n\n**Impact**: Eliminates the last Effect-TS dependency from Wind's IPC layer. Cuts ~80 lines of Effect boilerplate (Layer, Tag, factory helpers). All imports now come from plain TypeScript modules.",
+			"SHA": "fe858d9d20ff1f67eadca05a554d54fc0194c89c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:42:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				916,
+				3
+			],
+			"Message": "refactor(Wind): De-Effect-ify IPC service — convert errors, implementation, and interface to plain classes and async\n\nComplete the migration of the IPC service away from Effect-TS, the last major service area still using Effect wrappers. This follows the established De-Effect-ify pattern applied to ActivityBar, NetworkRestrictions, Bootstrap, Health, and FileSystem services.\n\n**Error types** (`IPCError.ts`): Convert `IPCInvokeError`, `IPCSendError`, and `IPCSubscriptionError` from interface-based factory functions (`CreateIPCInvokeError`, `CreateIPCSendError`, `CreateIPCSubscriptionError`) to actual `Error` subclasses with `_tag` discriminant via `extends Error`. Remove the factory functions and the aggregated default export — each class is now independently exported.\n\n**Interface** (`IPCService.ts`): Replace Effect-TS signatures — `send` returns `void` (was `Effect.Effect<void, IPCSendError>`), `invoke` returns `Promise<unknown>` (was `Effect.Effect<unknown, IPCInvokeError>`), `events` returns a plain `IPCEventStream` with a `subscribe(listener)` model (replacing `Stream.Stream`), and `once` takes a callback (replacing `Effect.Effect`). Introduce `IPCEvent`, `IPCEventListener`, `IPCCleanup`, and `IPCEventStream` types.\n\n**Implementation** (`TauriIPC.ts`): Rewrite from curried Effect-returning functions (`(channel) => (args) => Effect.try(...)`) to flat async/sync functions (`invoke(channel, args)`, `send(channel, args)`). Replace the `events` Stream-based subscription with a `Set<IPCEventListener>` model that auto-cleanses the Tauri listener when the last subscriber disposes. Convert `once` from `Effect.async` to `async/await` with auto-cleanup. Remove all Effect-TS imports.\n\n**Impact**: Eliminates the last Effect-TS dependency from Wind's IPC layer. Errors now produce standard `Error` stack traces for simpler debugging. The interface is plain TypeScript — no Effect imports needed by consumers.",
+			"SHA": "0aeaeb8a36734ce87a7361b0dfa519ace58e8506"
 		}
 	],
-	"TimeStamp": 1781711631432
+	"TimeStamp": 1781883304559
 }

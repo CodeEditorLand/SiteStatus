@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T01:56:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1739,
+				8
+			],
+			"Message": "refactor(Mountain): Normalize entry points to `Fn` and fix document sync IPC\n\nContinue the standardization of binary and service entry points by renaming descriptive function names (e.g., `ExtensionPopulate`, `CocoonStart`) to the universal `Fn` identifier across `AppLifecycle.rs` and `Entry.rs`. This aligns the main entry flow with the recent changes to `WindServiceHandlers`.\n\nCorrect the `Mountain` ↔ `Cocoon` IPC for `sky:model:contentChanged`. Ensure `Uri` existence is validated before accessing `Payload` fields to prevent null dereferences. Move the `cocoon-main` notification emission inside the valid block to guarantee extensions only receive updates for existing documents. Explicitly cast `Line` and `Character` to `u32` when constructing `PositionDTO` to satisfy strict Rust type requirements.\n\nUpdate `.gitignore` to correctly distinguish between the `Mountain` binary and the `Target/debug/Mountain/` artifact directory, preventing accidental commits of generated build files. Remove previously tracked `index.html` artifacts from the `Target` directory.",
+			"SHA": "2981699766b232f95ff57b662c457ef16797e679"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T01:21:12Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				1745,
+				89
+			],
+			"Message": "",
+			"SHA": "17dc9a00fe6ffc1d0feaba2e6c5735aca98df40a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T00:59:29Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				1692,
+				87
+			],
+			"Message": "",
+			"SHA": "1a2c20eb6537fd77be321ea3e04470b07e3dd4cf"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T00:32:33Z",
+			"File": [
+				"⡇⠀⠀⠀⠀",
+				1657,
+				156
+			],
+			"Message": "",
+			"SHA": "8846c77c5f57d9cf8c8b039b1ccfe0d5cb982dff"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-22T10:35:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "",
 			"SHA": "d54260e4ede053270aba03d438af776baa2e9cbc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:35:57Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1589,
-				8
-			],
-			"Message": "refactor(Mountain): Normalize IPC handler exports to Fn convention\n\nRename the three Cocoon IPC handler entry points from descriptive names (CocoonExtensionHostMessage, CocoonNotify, CocoonRequest) to the uniform `Fn` ident, and add the matching `as` aliases in the mod.rs re-exports so downstream callers are unaffected.\n\nAdd four new ExtensionHost IPC handlers also exporting as `Fn`:\n\n- **DebugServiceClose:** Emits `sky://exthost/debug-close` via Tauri's Emitter trait so Sky can react to debug-session teardown.\n- **DebugServiceReload:** Emits `SkyEvent::ExtHostDebugReload` as a typed event, giving Wind a signal to purge caches before Cocoon restarts.\n- **StarterCreate:** Returns a stub extension-host ID (`\"1\"`) to satisfy VS Code's extensionHostStarter:createExtensionHost protocol.\n- **StarterStart:** Returns the real Cocoon PID (via GetCocoonPid) or Mountain's own PID as fallback, enabling external debuggers to attach to the correct Node.js process.\n\nAll handler modules now follow a single convention: each file exposes `pub async fn Fn(...)` and is aliased at the mod.rs boundary. This eliminates naming guesswork when adding new IPC routes and keeps the interface consistent across all WindServiceHandlers.",
-			"SHA": "67e95cb626157a0f6e1a5b4f9d23dc35bebbf124"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T10:30:13Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1585,
-				4
-			],
-			"Message": "perf(Mountain): Cache getInstalled extension responses per type filter\n\nBuilding the serialized ILocalExtension[] array on every `extensions:getInstalled` IPC call re-serialized ~1.8 MB of extension metadata, visible as a multi-hundred-millisecond stall in the UI on startup. Add a `OnceLock`-backed static cache keyed by the three TypeFilter variants (None, System, User). The first call per type populates the cache; subsequent calls return the cached `Value` clone in <1 ms. Empty responses are not cached so a first-call timeout does not permanently poison the slot.\n\nAlso fix two reliability concerns in the same area:\n- **FileCloneNative:** Create the target parent directory via `tokio::fs::create_dir_all` before `fs::copy`. VS Code's local-history feature creates per-file history directories that may not exist yet, producing an OS-level ENOENT on clone.\n- **CocoonManagement IO forwarders:** Switch from `tokio::spawn` to `tauri::async_runtime::spawn` so the forwarder tasks live on Tauri's runtime handle and continue to be polled while the spawning async task is waiting elsewhere. Restructure the read loops from `while let Ok(Some(…))` to an explicit `loop` + `match` that handles EOF and read errors instead of silently dropping the pipe. Log a warning when a pipe handle is `None` (indicating `Stdio::piped()` was not configured), aiding debug of silent IO loss.\n\n**tauri.conf.json:** Add `Proto/Vine.proto` to the resource bundle so the .proto file is available at runtime from `Contents/Resources/` alongside the other bundled assets.",
-			"SHA": "a83e88eefa539b9b5bc7582822125fb8f7114d58"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:38:30Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1585,
-				9
-			],
-			"Message": "refactor(Mountain): Clean up dead vars and normalize scan paths lexically\n\nReplace the filesystem-backed `Canonicalize` closure in ScanPathConfigure\nwith `Normalize`, which resolves `..` segments lexically for non-existent\npaths - keeping extension scan-path log output clean regardless of path\nviability - while still calling `std::fs::canonicalize` for existing paths\nto resolve symlinks.\n\nDrop the stale `HandleSlot` accumulator in OutputChannelCoalesce (it was\nset but never meaningfully used after the previous refactor) and the\nunused `std::path::PathBuf` import in TryShipped.\n\nAdd stub IPC handlers for `browserView:*` (updateKeybindings, updateTheme,\nupdateConfiguration, openDevTools, closeDevTools -> Null;\ngetBrowserViews -> []), which Wind sends for Electron BrowserView\nmanagement but are no-ops under Tauri's single-webview architecture.\nRoute `extensionHostStarter:waitForExit` to a new async handler that\nresolves immediately with a stub exit-info so callers don't hang.\n\nFormatting-only: line-break Cocoon environment allow list one-per-entry,\ncollapse LocalhostUrl accessors, reflow WebviewWindowBuilder chain.",
-			"SHA": "167dfea1480a374254428bcbbafa11c6113041c5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:36:57Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1585,
-				7
-			],
-			"Message": "fix(Mountain): Serve webview panels via localhost plugin URL\n\nSecondary webview panels (settings, webview extensions, etc.) used `WebviewUrl::App(\"WebviewHost.html\")` which routes through tauri::manager — but Mountain's tauri.conf.json has no `frontendDist`, so Tauri has no bundled assets to serve, leaving those webviews blank.\n\nFix by loading them from the localhost plugin instead (`http://localhost:PORT/Mountain/WebviewHost`). A new `LocalhostUrl` singleton (OnceLock in `IPC/WindServiceHandlers/Utilities/LocalhostUrl.rs`) is populated once during `AppLifecycleSetup` and consumed in `create_webview_panel_impl` to build the external URL. Falls back to port 15536 if the singleton is unset.\n\nAlso extracts the inline Cocoon subprocess environment-building and I/O forwarding into named functions (`BuildCocoonEnvironment`, `SpawnCocoonIoForwarders`) in CocoonManagement.rs — pure refactor with no behavioral change, reducing method complexity from ~200 inline lines to two clear helpers.",
-			"SHA": "88be9db9ea1de55af0b96158021b2b77c7f86f6c"
 		}
 	],
-	"TimeStamp": 1781711647155
+	"TimeStamp": 1781883332546
 }

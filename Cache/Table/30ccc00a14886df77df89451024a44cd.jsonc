@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:24:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1856,
+				1
+			],
+			"Message": "chore(Mountain): Remove stale .commit-message.json artifact\n\nThe `.commit-message.json` file at the Mountain root was left behind from the commit message generation workflow and contains the message text of the most recent commit (3e14d7e8). This file has no purpose outside the generation pipeline and should not be tracked.\n\nUnstage and delete the artifact.",
+			"SHA": "b991e9aa7f464743fe1aa8efc9d545504871e0cf"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:23:20Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1855,
+				1
+			],
+			"Message": "feat(Mountain): Bridge WebSocket frames to MountainIPCInvoke dispatch\n\nRegister a default handler on the Mist handler registry that bridges every\ninbound `{ method, params }` WebSocket frame into the\n`crate::IPC::WindServiceHandlers::mountain_ipc_invoke` dispatch path — the\nsame Tauri command used by the Sky frontend — so the full\nWindServiceHandlers surface is reachable over the Mist WebSocket transport\nwithout per-method registration.\n\nThe handler normalises params into a Vec<Value> (Array passes through,\nNull becomes empty, scalars wrap into single-element) and delegates to the\nexisting mountain_ipc_invoke. The Mist secret is wrapped in Some() for\nconsistent optional semantics on ServeLocal.\n\nThis eliminates the staged handler-registration plan described in the\nprevious comment: the fallback makes every method available immediately.",
+			"SHA": "3e14d7e8b3d31fb0c80ff943a64015d2d7d3f3d0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:22:25Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1855,
+				2
+			],
+			"Message": "feat(Mountain): Add CancelOnDrop guard to provider forward calls\n\nReplace the direct `IPCProvider::SendRequestToSideCar` in `InvokeProvider`\nand `InvokeProviderMethod` with `ForwardCancellable`, a wrapper that runs\nthe Vine call on a detached `tokio::spawn` task guarded by a drop-triggered\nwatch signal. A new `CancelOnDrop` guard flips the signal when the calling\nfuture is dropped — from gRPC cancellation, typed-rail `CancelOperation`,\npeer disconnect, or any caller-side `select!` loss — so the detached task\ndelivers `CocoonService.CancelOperation` for the wire request id before\nexiting, terminating the side-car provider instead of computing a result\nnobody is waiting for.\n\nBoth provider-invocation paths now use `FnCancellable` from the Vine\nclient instead of the old blocking `SendRequestToSideCar`, eliminating\nthe `Arc<dyn IPCProvider>` / `Require()` dependency in both modules.",
+			"SHA": "c1eb47dc38cbaf90ea0132444cba790bf24f046b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:20:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1855,
+				6
+			],
+			"Message": "feat(Mountain): Mount CocoonService on shared port, invalidate extension install cache, pipe session ID to Cocoon\n\nMount `CocoonServiceServer` (typed `CocoonServiceImpl`) on the same tonic router as `MountainServiceServer` so both services share port 50051, replacing the previous unused-variable pattern. Derive `MAX_MESSAGE_SIZE` from `Vine::Client::Shared::MAX_MESSAGE_SIZE_BYTES` for lockstep configuration across the client-server boundary.\n\nCall `BumpScanGeneration()` on extension install and uninstall so that cached `extensions:getInstalled` responses from an earlier scan generation are invalidated, preventing stale builtins-only manifests from being served after user-path extensions are added or removed.\n\nInject `CocoonSessionId` into the Cocoon sidecar environment, carrying the same session UUID used for `telemetryInfo.sessionId` in initialization data. This lets `vscode.env.sessionId` resolve correctly in Cocoon before the extension-host handshake completes. Promote `SessionId()` from `fn` to `pub(crate) fn` for cross-module access.\n\nReplace the `dev_log`-based subscriber-lag warning in `VineSubscribeCommand` with a call to `Vine::Client::Shared::ReportNotificationLag`, upgrading a local log message to structured instrumentation that consumers can act upon.",
+			"SHA": "7723552a9ff1ccd21397cddd7058838a788c775e"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T18:06:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "feat(Mountain): Background extension merge, ETag/304 scheme serving, gRPC cancellation, dialog action items\n\n**Extension scanner background merge** — Release the builtins-only manifest to `ScanReady` waiters immediately, then merge supplementary user-path extensions in a background `spawn_blocking` task. After merge, bump the `getInstalled` scan generation to invalidate any builtins-only cache entries, notify Cocoon of the delta via `$deltaExtensions`, emit `sky://extensions/installed` events for Sky's sidebar refresh, and re-run configuration merge so contributed `configuration` defaults from late-discovered extensions are applied. Full-scan path also bumps generation before notifying waiters.\n\n**Conditional GET (ETag/304) for scheme file handler** — Add `IfNoneMatchSatisfied` / `BuildNotModified` / `EmbeddedETag` / `CacheControlFor` helpers across all three serving paths (os-abs mmap, embedded asset resolver, fs-mmap StaticRoot). Fingerprinted bundle assets (`.js`, `.css`, `.woff2` under `Static/`) get `public, max-age=31536000, immutable`; everything else uses `public, max-age=3600` with ETag revalidation. The former separate `exists()`/`is_file()` stat() pair per request is eliminated — the mmap `LoadOrInsert` open is the existence probe, with `NotFound` falling through directly. Extract the sequential `replacen`-based path normalization into `NormalizePath` for a single-pass rewrite (query/fragment strip, `/out/` prefix removal, `Static/node_modules/` remap).\n\n**Background DNS server bind** — Move the Hickory DNS server start from a synchronous blocking call to `tauri::async_runtime::spawn_blocking`, overlapping the port probe with the rest of `AppLifecycleSetup`. `DnsPort` managed state is registered inside the background task rather than after the synchronous bind, eliminating a serialisation point during boot.\n\n**Optimized `.env.Land` candidate search** — Probe `.env.Land` up the exe ancestry first (most-likely path for non-TTY launches), removing redundant duplicate probes from the repo-layout section. Switch from separate `exists()` then `LoadEnvFile()` to using the `LoadEnvFile` open result as the existence check, eliminating one `stat()` per candidate.\n\n**Generation-based getInstalled cache invalidation** — Replace `OnceLock<Value>` per type with `Mutex<Option<(u64, Value)>>` keyed to a monotonic `SCAN_GENERATION` counter. The scanner bumps the generation after any post-`ScanReady` map mutation, so a builtins-only response cached during the early notify window is rebuilt from the merged extension map on the next call.\n\n**Per-request gRPC cancellation** — Register every `process_cocoon_request` call in `ActiveOperations` with a `CancellationToken`, race the dispatch future against it via `tokio::select!`. `cancel_operation` fires the token, the dispatch is dropped, and a `-32800` (request cancelled) error response is returned. The entry is unregistered on all exit paths, keeping the map bounded by in-flight requests. Validation and deserialization errors now carry structured `error.data` with the method name and detail.\n\n**Cocoon message dialog action buttons** — Add `repeated string Items` to the `ShowMessageRequest` protobuf message and propagate through `ShowErrorMessage`, `ShowInformationMessage`, and `ShowWarningMessage` so Cocoon's extension host can present action-button labels alongside native dialogs.\n\n**README badge fix** — Remove the ProtocolBuffers icon from the gRPC badge row, switching to a plain tonic badge.",
 			"SHA": "f4b7bf896a2fc2df297913360d8e110279b69e5c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:39:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
-				1
-			],
-			"Message": "fix(Mountain): Unshadow logger:getLevel handler from broad NOOP arm\n\nlogger:getLevel was matched by a broad logger:* + setVisibility => Ok(Value::Null)\narm before the dedicated handler (returning log::max_level() as u32) was reached.\nRemove logger:getLevel from the NOOP arm so the dedicated handler can execute.\nVS Code's LogLevel API now receives the correct numeric value.",
-			"SHA": "0a7c3ddeb29c720a1794413424713be12baa38df"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:36:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
-				2
-			],
-			"Message": "feat(Mountain): Add glob normalization to FindInFiles, realign README template\n\nAdd `NormalizeGlobArgument` helper that normalizes include/exclude arguments\nin `FindInFiles` — accepting either a single glob string or `string[]` — and\nplumb `maxResults` from the 6th positional argument. Rename `isRegex` to\n`isRegExp` to match the VS Code search contract, and extract the trailing\noptions `Value` from remaining arguments instead of consuming only the first\npositional object.\n\nOverhaul the `README.md` with the standardized Land element documentation\ntemplate: combine technology icon badges with crate/version badges using\nem-quad spacing, simplify tables to bare pipe-only format, add a\nCompatibility section documenting inter-element gRPC and IPC dependencies,\nremove the duplicate NLnet funding paragraph, fix Mermaid diagram entity\nencoding (`&amp;` → `&`), and align heading terminology and list formatting\nwith Land conventions.",
-			"SHA": "4a291a9c6e8083e6c6d15cb21c47330c48215e40"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:23:34Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
-				1
-			],
-			"Message": "fix(Mountain): Harden boot init — cache machine ID, fallible URL construction, defensive windowId\n\nThree defensive hardening changes to `InitializationData` that prevent panics during rapid development restarts and eliminate a redundant disk read per boot.\n\nWrap the machine ID in a `OnceLock` so the second caller per boot (the extension-host init-data path) reads from memory instead of re-opening `machine-id.txt`.\n\nReplace the bare `unwrap()` on `ApplicationHandle.get_webview_window(\"main\")` with a `map`/`unwrap_or_else` fallback to `\"main\"`. During rapid Tauri restarts the webview window may not yet be registered, and this value is only a label sent to the frontend — a string default is harmless where a panic would abort the entire boot sequence.\n\nExtract `url::Url::from_directory_path` into a fallible `DirectoryUrl` helper that propagates via `CommonError::ConfigurationLoad` instead of calling `unwrap()`. Relative paths (common in dev environments without a real app bundle) previously panicked at all four call sites for `appRoot`, `globalStorageHome`, `workspaceStorageHome`, and `logsLocation`.\n\nNo behavioural change on production bundles where all paths are absolute and windows exist — the same values are produced, just without the panic risk on edge cases.",
-			"SHA": "8a9d7aa4844bc79a9847d17d6e9c10ad969ad7a1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:22:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
-				2
-			],
-			"Message": "perf(Mountain): Parallelize PostSetup boot stages, cache machine-id read\n\nThe sequential PostSetup lifecycle — config pass 1, extension scan, config re-merge, Vine gRPC bind, Cocoon start, Air start — wasted wall-clock time running independent work serially. The machine-ID file was also read from disk twice (sandbox config + extension-host init data) with no cache.\n\nRestructure the boot pipeline into three parallel stages using `tokio::join!`:\n- Stage 1: configuration pass 1 ∥ extension scan (no mutual dependency)\n- Stage 2: configuration re-merge (requires finished scan) ∥ Vine gRPC server bind (depends on neither)\n- Stage 3: Cocoon ∥ Air sidecar starts (both connect to Vine, neither depends on the other)\n\nAdd a `DirsReady` await before the first config merge so the background userdata-dir task has finished writing defaults and the trust-key injection before settings.json is read.\n\nCache the persistent machine ID in a `OnceLock` inside `InitializationData` so `ConstructSandboxConfiguration` and `ConstructExtensionHostInitializationData` read the file once per boot instead of twice.\n\nReduces the serialised boot path and eliminates one redundant disk read.",
-			"SHA": "e0c0c055d1e36c19a16aa70fe7fbab0b4d8c603e"
 		}
 	],
-	"TimeStamp": 1781711631351
+	"TimeStamp": 1781883304575
 }

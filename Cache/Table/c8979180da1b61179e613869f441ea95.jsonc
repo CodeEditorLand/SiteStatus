@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:42:04Z",
+			"Date": "2026-06-12T18:48:23Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				923,
+				44
+			],
+			"Message": "refactor(Wind): Standardize barrel export order and update tag docstrings\n\nReorganize all 18 workbench service barrel (index.ts) files into a consistent four-section ordering: (1) BridgeShape/Globals type exports and Live value export, (2) Interface type exports, (3) Tag type exports, (4) Problem type exports. Previously each module had a haphazard layout that mixed types and values without grouping convention.\n\nStandardize the LandWorkbench barrel (index.ts) to group CELWind globals first, then LandWorkbenchRuntime, then the Tags re-export barrel — matching the consumer-level priority for symbol lookup.\n\nReorder the Bootstrap barrel to follow a similar category grouping: live implementation, stages, service interface, mock, service tag, type definitions.\n\nNormalize import pairing in LandWorkbenchRuntime.ts — each Live import now sits immediately above its matching type import for the same service, improving scanning readability.\n\nReorder LandWorkbenchTags.ts re-exports so the friendly alias (e.g. `UserSettings`) precedes the tagged type (`UserSettingsServiceTag`), making the default name more visible in import completions.\n\nUpdate all 18 Tag files' JSDoc descriptions from the previous \"Context.Tag was removed\" phrasing to a generic \"available via the LandWorkbench registry\" — the Context.Tag removal is now historical, not a live description.\n\nNo runtime behavior changes — purely cosmetic reordering of exports and imports across 24 files.",
+			"SHA": "b9b6b34dc40c77d1eacb7f7a07dec39b6f9049b0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:24:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				924,
+				923,
+				1
+			],
+			"Message": "refactor(Wind): Eagerly run bootstrap Effect in runBootstrap\n\nThe previous `runBootstrap` returned an `Effect` for the caller to run, with type references via an inline `import()` annotation in the parameter list. This deferred-Effect pattern is inconsistent with the broader Layer-flattening initiative, where imperative entry points (cf. prior commits) have been converted to eager evaluation.\n\nFlatten the type imports to module-level named imports (`BootstrapOptions`, `BootstrapResult`), removing the inline `import()` path. Convert `runBootstrap` from a sync function returning `Effect` to an `async` function returning `Promise<BootstrapResult>`, wrapping the generator with `Effect.runPromise(Effect.gen(...).pipe(Effect.provide(BootstrapRunLayer)))`.\n\nCallers now consume a plain Promise instead of composing an Effect — no additional `.pipe(Effect.provide(...))` or `Effect.runPromise(...)` required at the call site.",
+			"SHA": "d79b7e445dfccbe18872b3d42e8c136265e0c405"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:23:59Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				923,
 				4
 			],
-			"Message": "feat(Wind): Route IPC channels through to Mountain and unify event constants\n\nRoute eight VS Code workbench IPC channels — `scm`, `debug`, `tasks`, `auth`, `language`, `languages`, `process`, `browserViewGroup`, `watcher`, `env`, and `history` — through the ChannelRouteMap to Mountain's native handlers, replacing their all-stub entries. The `watcher` channel's `watch`/`unwatch` methods reach Mountain's `file:watch`/`file:unwatch` arms, enabling the IFileWatcherService.\n\nConcrete changes:\n- **TauriMainProcessService**: Add 11 new `ChannelRouteMap` entries; remove stale stub blocks for `update`, `browserViewGroup`, and `watcher` (which are now fully routed); fix `utilityProcessWorker.createWorker` from a never-settling Promise to `Promise.resolve(undefined)` to prevent language-detection service init hangs; tighten stub resolution to only intercept commands explicitly named in the stub object, so partially-routed channels like `process` still pass unknown methods to Mountain\n- **FilesService.Watch**: Replace dead-code path-verification pattern with proper `IPCService.invoke(Channel.FileWatch)` / `Channel.FileUnwatch` calls, returning a `dispose` that actually sends the `unwatch` command\n- **EditorService**: Use the `SkyEvent.EditorActiveChanged` constant (`sky://editor/active-changed`) instead of the hardcoded string `editor:activeChanged`, and capture the `listen` unlisten callback for proper subscription cleanup\n- **Channel registry**: Add `AuthValidateToken: \"auth:validateToken\"` to support Mountain-side token validation\n\nRemoves the disposition-tracking and `_DevLogForward` diagnostics from the stub path since routed channels no longer hit stub code by accident.",
-			"SHA": "f7b0ce604af267552155df5d8216481a53c171d3"
+			"Message": "refactor(Wind): Remove LandWorkbenchLayer and finalize type-only tag barrel exports\n\nDelete the unused LandWorkbenchLayer.ts module that previously composed all 18 workbench services into an Effect Layer. With the prior commits migrating from ManagedRuntime + Layer to a plain-object registry (aa7933b2), this Layer definition has no consumers.\n\nConvert all 18 tag re-exports in LandWorkbenchTags.ts from value exports to `export type` — the tags are now purely type-level aliases following the Tag→type conversion in aa7933b2, so runtime re-exports are misleading.\n\nUpdate the LandWorkbench index.ts barrel: drop the LandWorkbenchLayer re-export, add the LandWorkbenchServices type alias, and surface the CELWind / InstallLandWorkbench globals alongside their type definitions. This completes the index's migration from the old Layer-based API surface to the direct registry accessor pattern.\n\nUpdate the EmitServiceCatalog doc comment to reflect that the autoloader no longer references LandWorkbenchLayer.\n\nThis is the fourth and final wave of the Layer-flattening initiative — no Effect composition artifacts remain in the LandWorkbench entry points.",
+			"SHA": "2cb7ee56f9e49e605888b79087a2b4ea18d8ea83"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:37:46Z",
+			"Date": "2026-06-12T18:23:00Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
+				"⠃⠀⠀⠀⠀",
 				924,
-				3
+				38
 			],
-			"Message": "feat(Wind): Enable IUpdateService channel route in TauriMainProcessService\n\nUncomment the `update` channel route mapping, connecting VS Code's `IUpdateService` IPC channel through the Tauri preload bridge to Mountain. This route was previously stubbed pending Mountain's update service implementation.\n\nAccompanying documentation updates:\n- Architecture.md: Add branded table header with Land logo and em-quad spaced heading, matching the README convention\n- DeepDive.md: Reframe opening sentence with Wind as the grammatical subject for clarity",
-			"SHA": "8c4f08013d189d4bfb3446c1d9e8d6ccae7d66d3"
+			"Message": "refactor(Wind): Strip Effect Context.Tag from workbench service tags and replace ManagedRuntime with plain registry\n\nRemove the final Effect abstraction layer from all 18 workbench services by converting each `Context.Tag` class into a simple type alias. The `LandWorkbenchRuntime` switches from `ManagedRuntime.make(LandWorkbenchLayer)` to an eagerly-constructed plain-object registry that imports each `*Live` implementation directly.\n\nConcrete changes:\n- **18 Tag files** (UserSettings, Activity, Clipboard, Command, ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout, Lifecycle, Notification, Product, Progress, Storage, Theme, Workspace): Replace `class XTag extends Context.Tag(...)` with `export type XTag = XService`. Drop the `Context` import, `const X = XTag` alias, and `default` export.\n- **LandWorkbenchRuntime**: Replace `ManagedRuntime` wrapping `LandWorkbenchLayer` with a `LandWorkbenchServices` interface + plain object. Each service field receives its `XLive` instance directly. The `Dispose` method no longer calls `ManagedRuntime.dispose()` — it only clears the global singleton.\n- **LandWorkbenchGlobal**: Replace `RunPromise`/`RunPromiseExit` Effect-based accessors with a direct `Services` property exposing the typed `LandWorkbenchServices` object. Drop the `LandWorkbenchLayer` import and the `Layer` export from `CELWindGlobalShape`.\n- **18 index.ts barrel files**: Change `export { ... }` to `export type { ... }` since the tags are now only type-level artifacts.\n\nAll 18 index.ts barrel files now emit only type declarations — no runtime Effect artifacts remain. This completes the third wave of the Layer-flattening initiative, following the live-implementation and Layer wrapper stripping in previous commits.",
+			"SHA": "aa7933b23ae1f73d154edf7a2e83a8f3e7342555"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:17:57Z",
+			"Date": "2026-06-12T18:22:10Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
+				"⠁⠀⠀⠀⠀",
 				924,
-				1
+				18
 			],
-			"Message": "docs(Wind): Overhaul README with comprehensive architecture and feature documentation\n\nRewrite the Wind README from a terse overview to a detailed reference documenting the complete service layer architecture. The previous README covered only basic mechanisms; the new version enumerates all 40+ Effect-TS services, documents the codegen pipeline, adds security and compatibility sections, and provides a full project structure tree with autogenerated Workbench* bridge entries.\n\nKey additions:\n- Compelling project epigraph framing Wind's replacement of untyped Electron IPC with typed Effect-TS services\n- \"Key Features\" section with emoji headers covering Effect-TS architecture, Preload shim, typed IPC, codegen pipeline, Mountain RPC, file system provider, telemetry, and layer composition\n- \"Core Architecture Principles\" table mapping principles (Compatibility, Modularity, Type Safety, Abstraction, Integration) to their key components\n- \"Connection paths\" table documenting all four IPC pathways (invoke, listen, direct import, TAURI bridge)\n- Expanded project structure tree including all Workbench* generated bridge modules, Codegen subdirectories, and Documentation/ entry\n- \"Security\" section with six enumerated security layers (type safety, IPC isolation, sandbox, network restrictions, DI, telemetry privacy)\n- \"Compatibility\" table showing integration targets (Sky, VS Code, Mountain, Cocoon, Tauri)\n- Updated dependency table (replacing @tauri-apps/plugin-dialog with typescript) and funding acknowledgement section",
-			"SHA": "93f2c2786695873cbab8fd625e7bed0971280641"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T15:12:23Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				924,
-				2
-			],
-			"Message": "chore(Wind): Remove tracked tsconfig.tsbuildinfo from version control\n\nThe .gitignore entry from 5217c99c prevented future tracking but left the\npreviously-committed tsconfig.tsbuildinfo file in the index. Stage a git rm\nof the file to fully untrack it.\n\nCompletes the build-artifact cleanup in the Wind submodule.",
-			"SHA": "111983f8ff46fadbab5cdf20bc29029dbdb062f2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T15:11:00Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				925,
-				1
-			],
-			"Message": "chore(Wind): Untrack and ignore tsconfig.tsbuildinfo (TypeScript incremental build cache)\n\nAdd explicit .gitignore entry for tsconfig.tsbuildinfo — the TypeScript incremental compilation cache file produced by tsc's --incremental flag. This binary-adjacent JSON file changes on every build and should never be version-controlled.\n\nContinues the ongoing cleanup of build artifacts in the Wind submodule (previously: *.d.ts, *.d.ts.map, Source/ESBuild.js, *Generated.ts).",
-			"SHA": "5217c99c5a7bd438d23b763f25bc19452dce1046"
+			"Message": "refactor(Wind): Strip Effect Layer wrappers from 18 workbench live implementations\n\nRemove the `Layer.succeed` / `Layer` import indirection layer from all workbench service live implementations — UserSettings, Activity, Clipboard, Command, ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout, Lifecycle, Notification, Product, Progress, Storage, Theme, and Workspace — replacing `export const XLive = Layer.succeed(Tag, makeX())` with direct `export const XLive = makeX()`.\n\nThis is the second wave of the Layer-flattening initiative (following 8814bfe1). Each file also drops the unused `Layer` import and the corresponding `*ServiceTag` import. The factory function `makeX()` already produces a valid service object matching its interface; wrapping it in a `Layer` provided no additional composition value since these services are consumed directly via the tag in Wind's dependency graph.\n\nRemoves 72 lines of boilerplate across 18 files. All exports remain available as named and default exports for backward compatibility.",
+			"SHA": "baabb3fa4406f6dcd2f875658d0d27b73fefbf79"
 		}
 	],
-	"TimeStamp": 1781711632432
+	"TimeStamp": 1781883305678
 }

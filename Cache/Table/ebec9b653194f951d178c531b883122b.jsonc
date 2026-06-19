@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:08:29Z",
+			"Date": "2026-04-29T05:25:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				267,
+				1
+			],
+			"Message": "docs(Output): Rewrite CHANGELOG to document v2.x release chain\n\nComprehensive CHANGELOG rewrite documenting Output's evolution from v0.0 through v2.2. Adds new sections for the three v2.x releases:\n\n- v2.2: ExposeWorkbenchAccessor transform, service-IIFE wrapping for bundled profile, Mountain→Cocoon buffer decoding, JSDoc nested comment fixes\n- v2.1: Polyfill hardening (6 Electron-to-Tauri shims, TauriMainProcessService IPC adapter, DevLog/Trace/telemetry)\n- v2.0: Source compilation migration from prebuilt artifacts to compiling from Dependency/Microsoft/Dependency/Editor/src\n\nRestructures older v1.x entries and adds inception details for v0.0-v0.2. Previously the changelog only documented up to v2.0 with minimal detail.",
+			"SHA": "214a9ffb6fc64120ec88a3635c37af8be60d74db"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T04:58:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				267,
 				3
 			],
-			"Message": "fix(Output): Fix ExposeWorkbenchAccessor import markers and add service error isolation\n\nTwo fixes to the ExposeWorkbenchAccessor transform that were causing SkyBridge bridges to silently fail:\n\n1. Import marker quote style: The transform was using single-quote import markers that matched stock VS Code source, but esbuild/Land's Output bundler rewrites quotes to double quotes in the post-bundle file. The marker mismatch caused `Source.includes(ImportMarker)` to return false, silently no-opping the entire `__CEL_SERVICES__` patch. All SkyBridge hooks (search registration, SCM, status bar, tree views) were offline because `__CEL_SERVICES__` stayed undefined.\n\n2. Service error isolation: Each `invokeFunction` is now wrapped in its own try-IIFE. Previously, a single failed service lookup (interface decorator missing in this profile, service not yet registered) would throw out of the entire `__CEL_SERVICES__` object literal, leaving the whole facade undefined. Now each service degrades to `null` individually, preserving all other bridges.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNodeModulesPath + expose IMarkerService)",
-			"SHA": "f55a02821a2d7acad85060cf17796f62fda700d9"
+			"Message": "feat(Output): Bridge localPty channel events through Tauri's sky:// event system\n\nAdd ChannelEventBridge to map VS Code's IPC channel.listen() calls to Tauri's native event system. The localPty channel now routes onProcessData, onProcessReady, and onProcessExit events from Mountain's PTY reader (sky://terminal/*) to the workbench's terminal service handlers with proper payload transformation.\n\nPreviously, channel.listen() returned a no-op handler that silently discarded all event subscriptions. This caused the terminal's xterm panel to stay blank despite Mountain emitting sky://terminal/data hundreds of times - the callback never fired because there was no connection between Tauri's event system and VS Code's channel event surface.\n\nThe bridge maps Mountain's `{id, data|pid|code}` payload shape to VS Code's expected `{id, event: ...}` format and wires the listener through Tauri's @tauri-apps/api/event.listen(). Terminals now render properly.",
+			"SHA": "471479a2554333d215fad46705e9873c5fa671a1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:03:39Z",
+			"Date": "2026-04-29T04:07:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				267,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
+			"SHA": "99efc02f89574f4e46a52eeb1611ac4103262602"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T04:01:14Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				267,
-				8
+				5
 			],
-			"Message": "feat(Output): Add RewritePerfBaselineWorker transform\n\nAdd a new build transform that fixes worker bootstrap crashes in the\nbundled editor's timer service. The transform replaces\n`timerService.js`'s `(function() { ... __name(fib, \"fib\"); ... }).toString()`\nperfBaseline worker source with a literal-string equivalent that omits\nthe cosmetic `__name(...)` decoration.\n\nSame OXC-mangling-truth fix as `RewriteNestedWorkerBootstrap`: when Vite\ninlines `timerService.js` into Sky's `_astro/partsSplash.*.js` chunk,\nthe chunk's `__name` helper gets mangled (e.g., `$4e`). The IIFE captured\nby `.toString()` carries the mangled `$4e` reference; the worker scope\nhas no `$4e` defined and crashes at module-eval with `ReferenceError:\nCan't find variable: $4e`. The literal-string replacement is\nmangler-immune.\n\nAlso update prepublishOnly.sh to gate debug profiles on `Debug=true`\ninstead of `NODE_ENV`. Tauri's `.env` file was silently overriding\nBuild.sh's `NODE_ENV=development` export, forcing `out-build` (mangled)\neven for debug builds that should pull from readable `out/`.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNestedWorkerBootstrap)",
-			"SHA": "14cc0d5941bd561c41c6d5ffd190256cc92eafb9"
+			"Message": "fix(Output): Add user extension retry + short-circuit Promise probes\n\nTwo fixes to the Output build pipeline:\n\n1. ExtensionScannerIPC: Mirror retry logic on user extensions scan path\n   The system extensions path had retry on empty response but user\n   extensions did not. Without it, an empty initial user-extensions\n   response silently passes 0 extensions through to viewsExtensionPoint\n   and ExtensionsRegistry, leaving every user extension contribution\n   (gitlens, clangd, commands, configuration, languages) unregistered.\n   Also switch to exponential backoff (100, 200, 400, 800, 1500ms) from\n   fixed 1000ms delays - Mountain's scan usually completes in ~500ms.\n\n2. TauriMainProcessService: Short-circuit Promise protocol probes\n   When VS Code resolves a channel-returned thenable, the JS runtime\n   accesses .then, .catch, .finally, constructor, valueOf, toString,\n   toJSON, @@iterator, @@asyncIterator on the proxy to determine if it's\n   a Promise. Each access became a channel call with the property name,\n   surfacing as \"Unknown IPC command: localPty:then\" on every workbench\n   wake. Returning undefined synchronously matches stock VS Code's\n   IChannel behaviour for unknown methods - the runtime sees a non-\n   thenable and stops probing. Saves ~15-25ms of round-trip per probe\n   and removes the noisiest IPC error in the dev log.\n\nRefs a28351b7240a5a722ebef039f3370ac90240818c (system ext retry)",
+			"SHA": "2924f2ae8bb3b41fa32ae0fd965804a80d548dfa"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T23:06:23Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				264,
-				10
-			],
-			"Message": "feat(Output): Add RewriteNodeModulesPath transform and expose IMarkerService\n\nAdd a new build transform and update an existing one:\n\n1. RewriteNodeModulesPath: Patch `vs/base/common/network.js`'s hardcoded paths (`vs/../../node_modules`, `vs/../../extensions`, etc.) to drop one `../` segment. Without this, the dev server resolves to `/Static/node_modules/` instead of `/Static/Application/node_modules/`, returns SPA `index.html` fallback, and all grammar/tokenization (textmate, oniguruma, language-detection) silently breaks across every extension.\n\n2. ExposeWorkbenchAccessor: Expose `IMarkerService` on `__CEL_SERVICES__.Markers` so SkyBridge can push extension diagnostics (rust-analyzer, TypeScript, ESLint) into the workbench. Mountain emits `sky://diagnostics/changed` events; the bridge now calls `Markers.changeOne(owner, uri, markers)` to paint red squiggles and populate the Problems panel.\n\nBoth transforms are idempotent and added to the BuildPipeline after RewriteNestedWorkerBootstrap.",
-			"SHA": "cf8dea549df816cc3b534beb9449f90bf678f69f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T21:54:01Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				261,
-				45
-			],
-			"Message": "feat(Output): Fix Monaco worker bootstrap crashes and add polyfill telemetry\n\nAdd two new build transforms that fix worker bootstrap crashes in the bundled editor:\n\n1. InjectWorkerBootstrapShim: Injects `__name`/`__defProp` shim into `webWorkerServiceImpl.js::getWorkerBootstrapUrl` blob factory so Monaco's language workers (TS/CSS/HTML/JSON services, semantic tokens) inherit the helpers in their module scope. Without this, workers crash with `ReferenceError: Can't find variable: $4e` when Vite/OXC mangling renames `__name` to `$4e`.\n\n2. RewriteNestedWorkerBootstrap: Replaces `polyfillNestedWorker.js`'s `(function... ).toString()` pattern with a literal JSON.stringified source that omits the cosmetic `__name(...)` decorations. The `.toString()` approach returns mangled source (`$4e`) which the blob worker can't evaluate since the identifier isn't defined in its scope.\n\n3. RewriteStaticBlockSelfRef: Replace hardcoded 2-file whitelist with auto-detection across all `vs/*.js` files - the whitelist silently failed because VS Code's out-build mangler emits different class names than expected.\n\n4. InstrumentVscodeGit: Add markers F (createModel done) and L (openRepository getRepositoryRoot done) for finer-grained Git extension activation diagnostics.\n\n5. Telemetry: Add global `__LAND_POLYFILL_TELEMETRY__` hook and wire it into ChildProcessPolyfill, IPCRendererShim, ProcessPolyfill, and SharedProcessProxy to route silently-caught failures to PostHog for monitoring.",
-			"SHA": "e0fda068f1befeb3a76f470689b34bd8378fe554"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T20:56:17Z",
+			"Date": "2026-04-29T03:40:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				266,
+				267,
 				1
 			],
-			"Message": "refactor(Output): Update RewriteStaticBlockSelfRef to auto-detect affected files and remove manual whitelist\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "4fab2bb7a34e298cf9ea9c00697fedeedbacb2ac"
+			"Message": "fix(Output): Add retry logic to user extension scan path\n\nThe system extension scan path had retry logic but user extension scan\ndid not. Without retry on the user path, an empty initial response\nsilently passes 0 user extensions through to viewsExtensionPoint and\nExtensionsRegistry, which means every user-extension contribution\n(gitlens panes, clangd views, commands, configuration, languages)\nstays unregistered for the rest of the session.\n\nAdd the same retry logic to `extensions:scanUserExtensions` as already\nexists for `extensions:scanSystemExtensions`. Also switch to exponential\nbackoff (100, 200, 400, 800, 1500ms) instead of fixed 1000ms delays,\nsince Mountain's scan usually completes in ~500ms and the longer delays\nwere just padding boot time.\n\nUser extensions now load properly at boot even if Mountain's async disk\nscan hasn't completed yet.",
+			"SHA": "a28351b7240a5a722ebef039f3370ac90240818c"
 		}
 	],
-	"TimeStamp": 1781711649764
+	"TimeStamp": 1781883346945
 }
