@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T19:12:00Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				2515,
+				66
+			],
+			"Message": "feat(Vine): Add Envelope.ChannelId, DashMap connection pool, and multiplexer reverse-RPC dispatch\n\nThree interconnected changes across the wire protocol, client concurrency model, and streaming multiplexer:\n\n**Proto — Envelope.ChannelId:** Add a `uint64 ChannelId = 5` field to the `Envelope` message, assigned by the side that owns the channel registry entry for this stream. Receivers compare this against the identifier observed at channel-open time to detect frames from a stale (pre-reconnect) channel. Zero signals no registry-assigned identifier. All multiplexer `Envelope` constructions set this to `0` — Mountain and Cocoon will populate it once the per-stream registry is wired.\n\n**Client — DashMap connection pool:** Replace `Arc<Mutex<HashMap<String, CocoonClient>>>` with `dashmap::DashMap<String, CocoonClient>`, eliminating the single global lock on every `SendRequest`, `SendNotification`, and `DisconnectFromSideCar` call. All client site lock/unlock patterns collapse to direct `DashMap` method calls (`.get()`, `.insert()`, `.remove()`, `.contains_key()`). The `RecordSideCarFailure` eviction path similarly drops its explicit lock. Import `dashmap` in `Shared.rs`; no other dependency changes.\n\n**Multiplexer — reverse-RPC dispatch:** The `ReadPump` previously dropped inbound `Payload::Request` frames as a no-op with a comment reserving future dispatch. This commit wires full dispatch: a process-wide `REQUEST_HANDLER` storage (`Mutex<Option<RequestHandlerFn>>`) with an `InstallRequestHandler` public API that Mountain calls at gRPC-service construction time. Each inbound request spawns a `tokio::spawn` task invoking the handler, pushing the returned `GenericResponse` back over the stream sink under the original correlation id. If no handler is installed, the frame is dropped with a warning (preserving backward compatibility with the unary fallback). Cancellation frames remain dropped — the unary path has no cancellation either, so accepting and dropping preserves equivalence.\n\n**Doc polish:** Normalise line-wrapping across all 40+ notification atoms, Library.rs, Multiplexer.rs, and all Client files to a consistent column width. No behavioural changes in doc-only files.\n\nNo breaking changes — `ChannelId=0` is backward compatible, `DashMap` preserves the same `HashMap`-compatible API surface, and the multiplexer default handler is `None`.",
+			"SHA": "e9d332c501a4ef2eebee6d05e58e0c3713c6fb02"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:48:13Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				2515,
+				78
+			],
+			"Message": "docs(Vine): Add pub fn doc comments and normalize extension host references\n\nAdd `///` doc comments on every public notification atom function across all 40+ Server notification atoms, closing the gap between module-level docs and each individual handler. Each comment captures the wire method, its purpose, Sky event destination, and any idiosyncratic behaviour (channel draining, handle disambiguation, shape canonicalisation).\n\nAlso add doc comments on all Client public functions (CheckSideCarHealth, ConnectToSideCar, DisconnectFromSideCar, IsClientConnected, IsShuttingDown, MarkShutdown, PublishNotification, SendNotification, SendRequest, SubscribeNotifications, SubscriberCount, TryConnectSingle, WaitForClientConnection) and both Support helpers (RelayToSky, UnregisterByHandle).\n\nNormalise remaining inline references from \"Cocoon\" to \"Extension Host\" throughout doc comments and constants (DefaultCocoonAddress, DEFAULT_COCOON_PORT, RegisterCommand, TerminalLifecycle, UnregisterScmProvider). Update the multiplexer reference from OpenChannelFromCocoon to OpenChannelFromSidecar in Library.rs to match the LAND-PATCH identifier. Strip `Vine::` prefix from module-level headers in Client/mod.rs and Server/mod.rs for consistency with the rest of the crate.\n\nNo behavioural changes — documentation and reference consistency only.",
+			"SHA": "e36bf0fc178fc9a626d758f6a449cbccfae36570"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T18:21:19Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Vine): Add action-button Items field to ShowMessageRequest\n\nExtend the ShowMessageRequest protobuf message with a repeated `Items` string field to carry optional action-button labels alongside the message text. This allows Mountain-side callers (or Cocoon) to present a message with user-selectable actions, enabling confirmation dialogs, choice prompts, and interactive notifications over the gRPC channel.\n\nThe generated Rust code in `Source/Generated/vine.rs` is regenerated from the proto, adding the `items: Vec<String>` field to the `ShowMessageRequest` struct with the corresponding prost annotation and wire tag.\n\nThe field is optional (empty vector) by default, preserving backward compatibility with existing callers that only send a plain message.",
 			"SHA": "a45249b1fdff37a15e592184cfbfbdc9c096b9f2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:35:59Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				2514,
-				1
-			],
-			"Message": "docs(Vine): Polish README formatting, emoji annotations, and badge cleanup\n\nReplace the grape emoji 🍇 with herb 🌿 to better represent Vine's role as the protocol layer (a vine plant rather than a fruit). Add emoji annotations (⛰️🦋🪁🌳) alongside every component reference — Mountain, Cocoon, Air, Grove — so readers visually associate names with roles at a glance. Add `title=\"Star\"` attribute to the GitHub stars badge for accessibility.\n\nRemove the standalone gRPC/tonic badge line (the crate badges already indicate the gRPC and tonic dependency; the removed badge duplicated information while occupying a full row). Add a CHANGELOG link to the Related Documentation section and add Grove to the sibling-project references so the complete component set is cross-linked.\n\nStrip `&#x2001;` spacing tokens from Mermaid diagram node labels (they are not rendered by the diagram engine and clutter the source). Remove the duplicate 'Project Maintainers' footer block at the very end of the file — the funding/attribution table above it already covers project stewardship.\n\nApply consistent backtick formatting to technology names throughout: `gRPC`, `tonic`, `Prost`, `Node.js`, `WASM`, `Tauri`. Rewrap paragraphs to a consistent width for readability.\n\nThe README now presents a cleaner, more scannable architectural reference with emoji-aided navigation and deduplicated metadata.",
-			"SHA": "d6ba6a4c3edd34c739bf071999215b0d25a26403"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:16:42Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				2514,
-				4
-			],
-			"Message": "fix(Vine): Cap retry backoff, evict dead clients, fix lost-wakeup\n\nClamp exponential retry backoff to 5 s (MAX_BACKOFF_MS) in\nConnectToSideCar to prevent the doubling series from reaching ~102 s at\nattempt 9, which would hold boot for over 3 min on a dead sidecar.\n\nEvict the pooled gRPC client from SIDECAR_CLIENTS in RecordSideCarFailure\nonce the failure count passes MAX_RETRY_ATTEMPTS, so the next caller\nreceives ClientNotConnected and triggers a fresh reconnect instead of\nhammering a dead channel.\n\nPin max_decoding_message_size and max_encoding_message_size on the\nCocoonClient in TryConnectSingle to match ValidateMessageSize, ensuring\nthe wire bound is enforced before the codec round-trip.\n\nAdd ReportNotificationLag to surface broadcast channel subscriber drops\nthat would otherwise be silently lost.\n\nRewrite WaitForClientConnection from a single notified() await to a\nshort-slice polling loop with RECHECK_INTERVAL_MS = 100 ms. The re-check\ncloses the lost-wakeup window: notify_waiters only wakes waiters already\nregistered, so a waiter that subscribes after the handshake fired would\notherwise block for the entire budget even though the client is in the\npool.",
-			"SHA": "81fc9d9313aff8d261d7d46c40d661600803062b"
 		}
 	],
-	"TimeStamp": 1781883304042
+	"TimeStamp": 1782051965640
 }

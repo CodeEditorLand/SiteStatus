@@ -2,6 +2,28 @@
 {
 	"Set": [
 		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-11T12:27:13Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
+			],
+			"Message": "Merge pull request #45 from CodeEditorLand/fix/FSSRV-uri-stat-readdir-empty-path\n\nfix(FSSRV): empty-path guards on WriteFile + ReadDirectory; URI strip on ReadDirectory",
+			"SHA": "135530358d390a87bc31554d454953b2c046b98b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-11T12:25:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
+			],
+			"Message": "Merge pull request #47 from CodeEditorLand/fix/WVIEW-resolv-editor-fallback-uri\n\nfix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with early error returns",
+			"SHA": "f3718d8a9e63c7bb170f17f09db2ef77ba3d3916"
+		},
+		{
 			"Author": "Auto",
 			"Date": "2026-05-11T02:44:31Z",
 			"File": [
@@ -33,29 +55,7 @@
 			],
 			"Message": "Merge pull request #46 from CodeEditorLand/fix/TVIEW-unreg-dispose-emit\n\nfix(TVIEW): wire tree.unregister + tree.dispose to provider; emit TreeViewDispose",
 			"SHA": "22734234c478e2281666ae644675fcab1aece7f7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:54:41Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				1
-			],
-			"Message": "fix(TVIEW): wire tree.unregister + tree.dispose to provider + emit TreeViewDispose\n\n`tree.unregister` / `tree.dispose` were no-ops: the effect body\nlogged the handle but never called the provider and never emitted a\nSkyEvent. The consequence:\n\n  - Provider registry in `Sky/Source/TreeView/TreeViewService.ts`\n    kept the `_dataProvider` slot live after the extension called\n    `vscode.window.registerTreeDataProvider(...).dispose()`. A\n    subsequent re-registration from the same extension (reload,\n    update) produced a duplicate registration warning from Sky and\n    the new provider was ignored.\n\n  - `getChildren()` calls on a disposed tree continued to hit the\n    old provider pointer, producing stale results or panics if the\n    provider had been GC'd from the Cocoon side.\n\nFix: call `provider.UnregisterTreeDataProvider(view_id)`, emit\n`SkyEvent::TreeViewDispose` (parity with the register arm's\n`TreeViewCreate`), and log both outcomes under the same `tree-view`\nand `grpc` tags used by the register arm.",
-			"SHA": "90a62cdda4de6b6184a0e80498676c96d39f3f4d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:51:24Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				1
-			],
-			"Message": "fix(FSSRV): add empty-path guard + URI strip to Stat, ReadDirectory, ReadFile\n\nFileSystem.Stat and FileSystem.ReadDirectory had no empty-path guard,\nunlike FileSystem.ReadFile which already had one (added in the\n`LooksLike404` classifier batch). An extension passing an empty string\nto `vscode.workspace.fs.stat` or `readDirectory` (probe-on-activate\npattern) hit PathBuf::from(\"\") which:\n  - On Stat: reached the OS with an empty path and returned a\n    platform-dependent error string that did NOT match any of the eight\n    known \"not found\" patterns in MountainVinegRPCService, so the\n    LooksLike404 guard logged it at grpc/error and incremented the\n    circuit-breaker counter.\n  - On ReadDirectory: same failure path, plus PathSecurity could emit\n    \"path outside workspace\" which was previously only guarded on the\n    ReadFile arm.\n\nFix: mirror the ReadFile guard verbatim on both Stat and ReadDirectory.\nThe \"resource not found\" suffix in the error string is the canonical\nkey the LooksLike404 classifier matches on, so these errors now\ndowngrade to grpc-verbose and use code -32004 like ReadFile does.\n\nStripFileUriScheme is already called on the path_str in both arms;\nthis commit makes that call consistent - the strip was missing on\nReadDirectory before the empty-path branch was added, leaving\nfile:///absolute/path inputs reaching the OS with the scheme intact\nand 404-ing with a literal \"file:\" prefix in the error.",
-			"SHA": "701563143aa3d55befc5f0b1adc173057a1dc30c"
 		}
 	],
-	"TimeStamp": 1781883353036
+	"TimeStamp": 1782052035677
 }

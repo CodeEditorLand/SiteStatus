@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:42:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				913,
+				5
+			],
+			"Message": "refactor(Wind): Finalize IPC De-Effect-ify — clean up barrel, delete Live/Tag, convert Mock\n\nComplete the IPC service migration away from Effect-TS, following the core conversion in 0aeaeb8a that rewrote the errors, interface, and implementation. This commit cleans up the Effect scaffolding that the prior conversion left behind.\n\n**Main barrel** (`Effect/IPC.ts`): Move error-class re-exports from inline definitions to the sub-barrel; replace default-import of Effect-TS Layer with direct implementation imports; add backward-compatibility aliases (`IPCTauriLive`, `IPCMockLive`) using `export { X as Y } from` syntax.\n\n**Deleted files**:\n- `Effect/IPC/Live.ts` — the `Layer.effect(IPCTag, …)` factory; no longer needed since the implementation is a plain object, not an Effect Layer.\n- `Effect/IPC/Tag/IPCTag.ts` — the `Context.GenericTag<IPCService>`; no longer needed since consumers import `TauriIPCLive` directly.\n\n**Mock** (`Effect/IPC/Mock.ts`): Convert from `Layer.succeed(IPCTag, {…})` to a plain `IPCService` object. All methods drop the curried `(_args) => …` Effect signature: `send` returns `void`, `invoke` returns `Promise`, `events` returns an `{ subscribe }` object, `once` takes a callback.\n\n**Sub-barrel** (`Effect/IPC/index.ts`): Remove Tag, Layer, and error-helper (`Create*`) re-exports. Add type exports for the new `IPCEvent`, `IPCEventListener`, `IPCEventStream`, `IPCCleanup` types.\n\n**Impact**: Eliminates the last Effect-TS dependency from Wind's IPC layer. Cuts ~80 lines of Effect boilerplate (Layer, Tag, factory helpers). All imports now come from plain TypeScript modules.",
+			"SHA": "fe858d9d20ff1f67eadca05a554d54fc0194c89c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:42:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				916,
+				3
+			],
+			"Message": "refactor(Wind): De-Effect-ify IPC service — convert errors, implementation, and interface to plain classes and async\n\nComplete the migration of the IPC service away from Effect-TS, the last major service area still using Effect wrappers. This follows the established De-Effect-ify pattern applied to ActivityBar, NetworkRestrictions, Bootstrap, Health, and FileSystem services.\n\n**Error types** (`IPCError.ts`): Convert `IPCInvokeError`, `IPCSendError`, and `IPCSubscriptionError` from interface-based factory functions (`CreateIPCInvokeError`, `CreateIPCSendError`, `CreateIPCSubscriptionError`) to actual `Error` subclasses with `_tag` discriminant via `extends Error`. Remove the factory functions and the aggregated default export — each class is now independently exported.\n\n**Interface** (`IPCService.ts`): Replace Effect-TS signatures — `send` returns `void` (was `Effect.Effect<void, IPCSendError>`), `invoke` returns `Promise<unknown>` (was `Effect.Effect<unknown, IPCInvokeError>`), `events` returns a plain `IPCEventStream` with a `subscribe(listener)` model (replacing `Stream.Stream`), and `once` takes a callback (replacing `Effect.Effect`). Introduce `IPCEvent`, `IPCEventListener`, `IPCCleanup`, and `IPCEventStream` types.\n\n**Implementation** (`TauriIPC.ts`): Rewrite from curried Effect-returning functions (`(channel) => (args) => Effect.try(...)`) to flat async/sync functions (`invoke(channel, args)`, `send(channel, args)`). Replace the `events` Stream-based subscription with a `Set<IPCEventListener>` model that auto-cleanses the Tauri listener when the last subscriber disposes. Convert `once` from `Effect.async` to `async/await` with auto-cleanup. Remove all Effect-TS imports.\n\n**Impact**: Eliminates the last Effect-TS dependency from Wind's IPC layer. Errors now produce standard `Error` stack traces for simpler debugging. The interface is plain TypeScript — no Effect imports needed by consumers.",
+			"SHA": "0aeaeb8a36734ce87a7361b0dfa519ace58e8506"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T21:41:32Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "refactor(Wind): De-Effect-ify ActivityBar and NetworkRestrictions errors/service\n\nRemove Effect-TS from the ActivityBar service and the NetworkRestrictions error types and service interface, continuing the migration of Wind toward framework-agnostic patterns.\n\n**ActivityBar** (`Effect/ActivityBar/`):\n- Convert from `Layer.effect`/`SubscriptionRef`/`Stream` to a plain in-memory store via `makeActivityBar(Logger)` factory. All CRUD methods become sync (`void`/`Item`) instead of `Effect.Effect<>`. Throws typed Error subclasses on failure.\n- Delete `ActivityBarTag.ts` (Context.Tag) — consumers import `ActivityBarLive` directly as a plain object.\n- Remove `itemsChanges` and `activeItemChanges` Stream properties from `ActivityBarService` interface — they had zero consumers (Sky reads activity state through `WorkbenchActivityLive`).\n- Remove the six `Make*` factory functions (`MakeCreateItem`, `MakeUpdateItem`, `MakeRemoveItem`, `MakeGetItem`, `MakeSetActiveItem`, `MakeSetBadge`, `MakeGetBadge`) from `ActivityBarHelper`; logic inlined into the implementation.\n- `ActivityBarLive` is now an `ActivityBarService` instance, not a `Layer`. `ActivityBarMockLive` similarly converted from `Layer.succeed` to a plain object.\n- Add `makeActivityBar(Log)` factory enabling custom logger injection; default logs via `performance.mark`.\n- Update barrel exports: remove Effect-TS references from doc examples, drop `ActivityBar` (Tag), add `makeActivityBar`.\n\n**NetworkRestrictions** (`Effect/NetworkRestrictions/`):\n- Convert `IPCBlockError` and `NetworkBlockError` from interface-based discriminated unions (factory returning `{ _tag, channel, reason, ... }`) to actual `Error` subclasses with `_tag` discriminant via `extends Error`. The `name` getter returns the class name; `cause` preserves the blocked channel/URL.\n- Convert `NetworkRestrictionsService` interface: all methods become sync — `checkURL` returns `boolean` instead of `Effect<boolean, NetworkBlockError>`, `blockURL`/`updateConfig` return `void` instead of `Effect<void>`, etc.\n\n**Impact**: Reduces Effect-TS surface by two more service areas and two error type definitions. Cuts 517 lines, simplifies debugging (plain Error stack traces), and removes unreachable reactive change-stream code paths.",
 			"SHA": "914a220a3d6827a9769efc2de53332d25df759f0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:22:15Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				920,
-				26
-			],
-			"Message": "refactor(Wind): De-Effect-ify Bootstrap, Health, FileSystem, Workbench; add heritage resolver + ChannelEventBridge\n\nRemove Effect-TS dependency from four core Wind services, converting them to plain async/sync APIs:\n\n**Bootstrap** (`Effect/Bootstrap/`):\n- Replace `Effect.gen`/`Layer`/`Context.Tag` with a plain `makeBootstrap(Logger)` factory returning a `BootstrapService`. All six stages (`BootstrapStage.ts`) become `async (Log) => Promise<StageResult>` — no `withSpan`, no `yield*`.\n- Delete `BootstrapTag.ts`; `BootstrapLive` is now a `BootstrapService` instance, not a `Layer`.\n- `BootstrapMock` drops its `Layer.effect` wrapper — just a `BootstrapService` object.\n- `runBootstrap()` calls `BootstrapLive.run(options)` directly instead of composing a Telemetry layer.\n\n**Health** (`Effect/Health/`):\n- Convert all check methods from `Effect.Effect<>` to `async Promise<>`. The `monitorService` now returns a `HealthMonitorHandle { dispose }` via `setInterval`/`clearInterval` instead of an `Effect.repeat(Schedule.spaced)`.\n- Delete `HealthTag.ts`; `HealthLive`/`HealthMock` are `HealthService` instances.\n- Replace `EnvironmentTag.getInfo` with direct calls to `DetectPlatform()`/`DetectArchitecture()` from `EnvironmentHelper`.\n\n**FileSystem** (`FileSystem/`):\n- Remove `FileSystemProviderTag` (Context.GenericTag), `FileSystemProviderLive` (Layer), and the `getProvider: Effect.Effect<>` accessor from `FileSystemProviderService`. Consumers now import the default export `FileSystemProvider` and call `.provider` directly.\n- Update README examples to show plain `await FileSystemProvider.readFile(...)` instead of `yield* FileSystemProviderTag`.\n\n**Workbench** (`Workbench/`):\n- Rewrite `WorkbenchIntegrationImplementation` from Effect-TS (Ref, Queue, Stream, Effect.gen) to module-closure `let` variables + a listener-`Set` for state change observation. `stateChanges: Stream` becomes `onStateChange(Listener) => IDisposable`.\n- All methods are sync/async and throw `WorkbenchIntegrationError` on failure — no more `Effect.fail`.\n- Remove the `FileSystemProviderTag` dependency; import the FileSystem default export directly.\n\n**ResolveInterfaceCrossFile** (`Codegen/Resolve/`):\n- Add heritage-follow resolution: when an interface body is empty (the re-export pattern `interface X extends Y { }`), parse the `extends` clause, resolve each parent — same-file inline first, then via imports — with depth-capped recursion and visited-set deduplication.\n- Extract `ResolveNamedMembers` as a shared recursive core; `ResolveInterfaceCrossFile` delegates to it.\n\n**TauriMainProcessService** (`Service/`):\n- Buffer `_DevLogForward` entries for 100ms and flush as grouped `RenderDevLog` invokes (one per tag, newline-joined), capped at 20 entries per flush window with overflow counting. Prevents IPC storms during extension activation.\n- Introduce `ChannelEventBridge` — a declarative map from channel events to `sky://` Tauri event names (with optional reshape `Map` functions), replacing the earlier repetitive `if (channel === \"X\" && event === \"Y\")` guard blocks. Covers `localPty`, `terminal`, `extensions`, `localFilesystem`, `configuration`, `workspaces`, and `lifecycle`.\n\n**Barrel re-exports**:\n- `Effect/index.ts`: Alphabetize exported names; replace old `*Tag` exports with `*MonitorHandle`/`*Logger` types.\n- `Bootstrap/index.ts`, `Health/index.ts`, `Workbench/index.ts`, `Health.ts`, `Bootstrap.ts`: Align re-exports with the new plain-async surface — no Tag re-exports, no Layer re-exports.\n- `Layers/Tauri.ts`: Remove `BootstrapLive`, `HealthLive`, `ActivityBarLive` from the layer compositions since they are no longer Effect layers.\n- `Language/Live.ts`: Clarify doc comment that this layer is Wind-local only; add `performance.mark` traces on registration.\n\n**Impact**: Reduces Effect-TS surface to only IPC, Telemetry, and Sandbox services where its composability is still needed. Cuts bundle weight, simplifies debugging (plain async stack traces), and accelerates the migration of Wind toward framework-agnostic service patterns.",
-			"SHA": "0432636342797c3caab1099cf883e21ea04151c1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:34:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				924,
-				2
-			],
-			"Message": "style(Wind): Normalize README punctuation and build config indentation\n\nReplace em dashes (—) with hyphens (-) throughout README.md for consistent ASCII punctuation across the documentation. Reformat tsconfig.build.json from 2-space indentation to tab-indented with single-line array items, matching the project's convention established in tsconfig.json.\n\nNo behavioral changes — purely cosmetic formatting normalization across documentation and build configuration.",
-			"SHA": "ed1a42e950febefbd3b8d5a429195947fc413bfd"
 		}
 	],
-	"TimeStamp": 1781883304893
+	"TimeStamp": 1782051968693
 }

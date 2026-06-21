@@ -2,6 +2,28 @@
 {
 	"Set": [
 		{
+			"Author": "dependabot[bot]",
+			"Date": "2026-05-27T02:11:49Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				155,
+				1
+			],
+			"Message": "build(deps): bump astro from 6.3.7 to 6.3.8\n\nBumps [astro](https://github.com/withastro/astro/tree/HEAD/packages/astro) from 6.3.7 to 6.3.8.\n- [Release notes](https://github.com/withastro/astro/releases)\n- [Changelog](https://github.com/withastro/astro/blob/main/packages/astro/CHANGELOG.md)\n- [Commits](https://github.com/withastro/astro/commits/astro@6.3.8/packages/astro)\n\n---\nupdated-dependencies:\n- dependency-name: astro\n  dependency-version: 6.3.8\n  dependency-type: direct:production\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "6a68dc5f0f3c8b66676d6bfb29c00f91fe9e533b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T18:17:48Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				155,
+				5
+			],
+			"Message": "fix(Sky): Route bridge handlers through live workbench services\n\n**Output channel payload normalisation** — Mountain's coalescer, the legacy per-append path, and Cocoon's forwarding each use different field names (`channel`/`name`/`handle`/`id`, `text`/`value`). `sky://output/create`, `append`, `clear`, `replace`, `show`, and `dispose` now read every field shape so the Output panel populates regardless of producer. `sky://output/show` prefers the live `IOutputService.showChannel()` for channel-targeted reveal before falling back to the generic workbench command.\n\n**Notification service integration** — `sky://notification/show` previously dispatched a CustomEvent only, reaching no visual surface in production. Drive `INotificationService.notify()` directly with proper severity string-to-number mapping so `showInformationMessage`/`showWarningMessage`/`showErrorMessage` actually surface toasts.\n\n**Monaco language switch** — `sky://languages/setDocumentLanguage` now calls `monaco.editor.setModelLanguage()` so highlighting and tokenisation switch in place without re-opening the file.\n\n**SCM shim robustness** — Derive per-repo display labels from `rootUri` basename for multi-repo workspaces (e.g. `Git (Mountain)` instead of duplicate `Git` headers). Replace static zero-value field shims with `IObservable`-shaped facades exposing live derived resource counts. Fire `provider.onDidChange` and `ResourceGroupsEmitter` after populating groups so the viewlet badge and title-bar count reflect real totals.\n\n**Progress service routing** — Route through `IProgressService.withProgress()` when available for native VS Code progress rendering, with a DOM-painted fallback during early boot. Cache pending messages for in-flight starts whose Report handle hasn't yet been captured.\n\n**Replay summary** — Include `scmGroups` and `scmResourceUpdates` fields in event-replay summary logging.",
+			"SHA": "daf83add5db20440ded7f50f2af39e5e3573eee1"
+		},
+		{
 			"Author": "Nikola Hristov",
 			"Date": "2026-05-26T17:20:32Z",
 			"File": [
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Sky): Relay diff information, view column, and terminal state events to Mountain IPC\n\nAdd three new bridge event relays that close remaining gaps between Sky's workbench integration layer and Cocoon extension event subscriptions:\n\n- **Diff information changes:** Subscribe to `onDidActiveEditorChange` and detect diff editor panes via duck-typing (`onDidUpdateDiff`, `getModifiedEditor`). Forward `getLineChanges()` delta on hook and each recomputation as `sky:editor:diffInformationChanged`, enabling extensions like GitLens and PR reviews to surface diff-relative inline annotations via `vscode.window.onDidChangeTextEditorDiffInformation`.\n\n- **View column changes:** Wire `onDidMoveEditor` per editor group to capture cross-group tab moves (split-view drag-and-drop, move-command). Emit `sky:editor:viewColumnChanged` with the destination group's 1-based index so `vscode.window.onDidChangeTextEditorViewColumn` fires accurately for layout-aware extensions.\n\n- **Terminal interaction state:** Parse OSC 633 ; B (command-input-begins) in the shell integration pipeline and flag the terminal as interacted-with. Notify Mountain once per terminal via `localPty:setInteracted` so `vscode.window.onDidChangeTerminalState` subscribers see `state.isInteractedWith` flip from false to true, matching VS Code's sticky interaction semantics.\n\nAll three channels use snapshot-style one-shot subscriptions at startup with safe teardown on editor switches and guarded try/catch wrappers so the render pipeline is never disrupted by a failing IPC call.",
 			"SHA": "080516fa01c61671f66c171f4dfdd4cb1c782262"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:14:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				155,
-				1
-			],
-			"Message": "feat(Sky): Relay terminal shell execution lifecycle via OSC 633 sequences\n\nExtend the Sky bridge terminal data pipeline to parse VS Code shell integration OSC 633 sequences beyond the existing cwd (;P) handler. Add `OscEndPattern` (;D[;<exitCode>]) and `OscCmdLinePattern` (;E;<commandLine>) regex parsers, plus a per-terminal `InflightExecution` Map that stashes the most recent commandLine and cwd for each terminal id.\n\nOn receiving OSC 633 ; C (output begins), fire `localPty:shellExecutionStart` via Mountain IPC with the captured commandLine and cwd. On OSC 633 ; D (command finished), fire `localPty:shellExecutionEnd` with exitCode, commandLine, and cwd. The in-flight snapshot is cleared of commandLine after the end event so the next execution re-populates fresh.\n\nCocoon extensions can now subscribe to `vscode.window.onDidStartTerminalShellExecution` and `onDidEndTerminalShellExecution` with accurate command context.",
-			"SHA": "8bf6245d60c90d63768563560deb8f774818acb3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:08:05Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				155,
-				1
-			],
-			"Message": "feat(Sky): Bridge editor lifecycle events to Mountain IPC\n\nForward four additional Monaco/workbench event streams through the Sky bridge layer so Cocoon extensions receive the corresponding VS Code API events:\n\n- `onDidScrollChange` fires at most ~16 fps (60 ms debounce) and emits `sky:editor:visibleRangesChanged` with the current visible ranges per editor — consumed by code lens providers, peek view, and minimap subscribers.\n- `onDidChangeConfiguration` emits `sky:editor:optionsChanged` carrying tabSize and insertSpaces so `vscode.window.onDidChangeTextEditorOptions` fires when the user toggles editor settings.\n- `onDidVisibleEditorsChange` (IEditorService) emits `sky:editor:visibleChanged` with the URI list of visible editors, preventing stale diagnostics from accumulating against closed tabs.\n- `onDidChangeActiveGroup`, `onDidAddGroup`, `onDidRemoveGroup`, and per-group `onDidModelChange` (IEditorGroupsService) emit `sky:editor:tabsChanged` with a full group/tab snapshot, enabling tab-level subscribers to react to open/close/move/pin.\n\nAll IPC calls are wrapped in try/catch and `.catch(() => {})` so the render pipeline is never interrupted by a failing Mountain call.",
-			"SHA": "aecea637cdce3eb2f2a2d597b1530a3d1fa1c8b9"
 		}
 	],
-	"TimeStamp": 1781883315850
+	"TimeStamp": 1782051975191
 }
