@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T12:49:30Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				765,
+				2
+			],
+			"Message": "fix(Output): Refactor drag and maximize commands to use typed window API\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "50f88d74a0a3bd374dfee91b10cc5532c1e276a9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T18:18:10Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				765,
+				1
+			],
+			"Message": "fix(Output): Use typed window API for drag/maximize with explicit label\n\nThe generic `InvokeWindowCommand(command:string)` dispatched bare `core.invoke` calls without the window `label` payload. Tauri 2.x's IPC dispatcher silently drops `plugin:window|start_dragging` invocations when no window label is provided and no window matches the implicit context — the overlay-titlebar window never moved. The typed JS API (`Window.startDragging()`, `Window.toggleMaximize()`) transparently injects the correct label from the caller's window handle.\n\nSplit `InvokeWindowCommand` into `StartDragging` and `ToggleMaximize`, each preferring the typed window API first, then falling back to raw `invoke` with an explicit `{ label }` payload. The label is resolved from `getCurrentWindow().label`, `getCurrentWebviewWindow().label`, or the literal `\"main\"` as last resort.\n\nBoth drag-initiation and titlebar double-click maximize now work reliably under Tauri 2.",
+			"SHA": "79a2a5f8b62f91f4c725b13521911fa62e697e61"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-26T17:56:15Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "fix(Output): Rename Tauri health commands to snake_case for Tauri 2\n\nTauri 2 passes the command name as the literal Rust function name without auto-camel conversion. The PascalCase names (`CocoonExtensionHostHealth`, `CocoonSearchServiceHealth`, `CocoonDebugServiceHealth`, `SharedProcessServiceHealth`) produced `Command not found` errors at runtime.\n\nRename to snake_case in the Shared Process proxy's `healthCheck()` to match the actual handler function names registered in Mountain's health command modules.\n\nAll four per-service health checks now resolve correctly under Tauri 2's strict command-name matching.",
 			"SHA": "c30a934e5ba5ac7fae7a30efecf0924e1ce67385"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T15:10:01Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				765,
-				13
-			],
-			"Message": "refactor(Output): Extract drag selectors at build time\n\nWebKit drops the Chromium-only `-webkit-app-region` declaration at CSS parse time, so runtime inspection of `CSSStyleRule.style.getPropertyValue(\"-webkit-app-region\")` returns `\"\"` for every rule under WKWebView. The runtime stylesheet-walking approach from the prior commit cannot work.\n\nRework InjectTauriDragRegion to scan VS Code's CSS source files on disk at build time, extracting every selector that declares `-webkit-app-region: drag|no-drag` via regex. The collected lists are baked into the workbench bundle as `globalThis.__LAND_DRAG_SELECTORS__` / `__LAND_NO_DRAG_SELECTORS__`. The runtime polyfill switches from walking stylesheets to iterating the prepared lists with `querySelectorAll`, with an early bail when both arrays are empty (transform not run).\n\nCompanion changes:\n- Remove the drag-region CSS inset (`left: 80px`) from MacTitlebarOffsetCSS since the HTML attribute polyfill handles the Tauri hit-test; stock drag-region geometry suffices\n- Add `padding-right: 0` assertion to the titlebar-container to prevent future stock CSS from introducing right-edge drift\n- Improve the fullscreen detector in MacTitlebarOffsetCSS (triple-signal: fullscreen API, matchMedia, window-vs-screen heuristic) and refactor initialisation to install stylesheet + detector together\n- Gate InjectPartZIndexCSS behind DisableUIFixes: the `isolation: isolate` rule can hide the in-window menubar, so operators diagnosing dropdown/clipping can skip it and return parts to stock stacking behaviour\n- Add InjectTauriDragRegion to both the bundle BuildPipeline and the patch ApplyPipeline",
-			"SHA": "905ac54afb0d1ebc6c1342cb5b258fab55b81934"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T14:17:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				757,
-				3
-			],
-			"Message": "refactor(Output): Replace hardcoded drag selectors with stylesheet-driven extraction\n\nRather than maintaining a brittle hardcoded list of titlebar drag and no-drag selectors in the polyfill itself, walk every accessible stylesheet rule at runtime to discover which elements VS Code already declares as `-webkit-app-region: drag` / `no-drag` and stamp the equivalent `data-tauri-drag-region` attribute.\n\n`Walk()` recurses into CSSMediaRule and CSSSupportsRule containers so OS-scoped and feature-gated rules (e.g. `@media (-webkit-min-device-pixel-ratio...)`) are picked up automatically. Selectors are cached after the first full pass and reused across MutationObserver callbacks; a second collection runs on `window.onload` to cover lazy-loaded extension stylesheets. Cross-origin sheets that throw on `cssRules` access are skipped defensively, and selector strings that fail `querySelectorAll` (e.g. `:has()` / `:where()` on older WebKit builds) are caught and skipped per-selector rather than aborting the pass.\n\nThis eliminates the need to manually update the polyfill whenever VS Code upstream changes its titlebar or sidebar drag-region markup — the polyfill now reflects whatever the stylesheets declare.\n\nMinor companion formatting: add blank-line separators in Editor and Terminal GPU layer CSS files for readability consistency with adjacent rule blocks.",
-			"SHA": "510588e3948874783f2e60f2f79ec8559f846e1d"
 		}
 	],
-	"TimeStamp": 1781883319407
+	"TimeStamp": 1782051977272
 }

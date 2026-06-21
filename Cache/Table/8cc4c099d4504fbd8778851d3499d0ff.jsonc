@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:26:07Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				358,
+				7
+			],
+			"Message": "refactor(Output): Convert Intercept proxies to async import, remove poll retry loops\n\nReplace synchronous `require()` with `await import()` across all six low-level Intercept proxies (AsyncProxy, CancellationProxy, DisposableProxy, EmitterFireProxy, ErrorHandlerProxy, TimingProxy), eliminating the 50-attempt × 100ms poll-based retry fallback in each. Since the activation sequence in `activateLowLevelHooks()` guarantees target modules are already loaded by the time these fire, dynamic import either resolves immediately or the proxy returns early.\n\nAlso: correct the ErrorHandlerProxy marker comment to `__LAND_SHIM_LOW_ERROR_HANDLER_PROXY__`, thread the `stopwatchModule` reference directly into TimingProxy's `patchStopWatch()` instead of re-requiring it, and add `Intercept/Index.ts` — a barrel file exporting all six proxies as default-exported async functions for unified import in the activation site.\n\nThis reduces boilerplate by ~120 lines of polling infrastructure and removes the last `require()` calls from the shim runtime, making the intercept layer fully ES-module-compatible.",
+			"SHA": "fe9476e466ee4553f105ec9679a13675af46c6b1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:19:20Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				357,
+				2
+			],
+			"Message": "feat(Output): Add unified LandDiagnostics tracer and wire low-level hooks into Init\n\nCreate `LandDiagnostics.ts`, a shared tracing pipeline that consolidates all shim hook reporting — both 🟠 low-level engine hooks (error, emitter, cancellation, disposable, async, timing) and 🔵 coverage-level audit entries. Each category gets a 512-entry ring buffer with a 30-second flush to Mountain via Tauri IPC `diagnostic:log`. Also adds `checkLandSwallowMap()` for fast event suppression (status bar and telemetry events) used by the Emitter.fire proxy.\n\nRefactor `Init.ts` to import `recordAuditEntry` and `forceFlush` from the new diagnostics module, replacing the local `recordAuditEntry` helper. Add `activateLowLevelHooks()` which dynamically imports all six Intercept proxy modules at `Own`/`Preempt` tiers — the runtime activation site for the low-level engine hooks added in ebe465d04. Restructure tier logic with clear 🔵 (coverage/Proxy/Replace) and 🟠 (low-level/Own/Preempt) sections.",
+			"SHA": "df86a1f7314aea016d58e0fc919dbe3d2a608b0e"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T22:17:14Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Output): Add deep-shim init module with tiered runtime strategies\n\nAdd `Source/Service/CEL/Land/Shim/Init.ts`, the runtime entry point\ninjected into VS Code workbench by the `InjectShimHook` TransformPlugin.\nWire it up in the Plugin index with import and re-export.\n\nThe shim init module is compiled by esbuild as a standalone file, copied\nto the VS Code target tree, then injected by InjectShimHook immediately\nafter `workbench.startup()` returns the `IInstantiationService`.\n\nThree tiered runtime strategies gated by `__LandTier_Shim__` esbuild define:\n- **Proxy** tier: wraps `ServiceCollection.get/set` with an audit wrapper,\n  logs every service resolution to an in-memory ring buffer (MAX 500), and\n  flushes a summary to Mountain via Tauri IPC every 30 seconds.\n- **Replace/Own/Preempt** tiers: patches `ServiceCollection.get` to return\n  a no-op `ITelemetryService` (intercepting service IDs matching \"telemetry\"\n  or \"itelemetry\"), silencing telemetry at the service resolution level.\n- **None** tier: dead code elimination — entire module body is a no-op.\n\nShim failures are always non-fatal (try/catch at the top-level call site\nand individual fire-and-forget operations) to maintain workbench stability.\n\nThis is the runtime complement to the compile-time injection site added\nin the parent commit (9b81aa2c7).",
 			"SHA": "07d07070ffac1ddfcad959db2a4037f2bebf9c3e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:55:20Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				345,
-				1
-			],
-			"Message": "feat(Output): Inject deep-shim hook into VS Code workbench main files\n\nAdd `InjectShimHook`, a new TransformPlugin that patches the VS Code\nworkbench entry points at compile time — `web.main.js` and\n`desktop.main.js` — to import and call `LandShimInit` immediately\nafter `IInstantiationService` is created, before any contribution\nregisters.\n\nThis is the compile-time injection site for Land's deep-shim layer,\nfollowing the same pattern as ExposeWorkbenchAccessor:\n\n- Two injection pass variants: one for the web target (shorter import\n  path), one for electron-browser/desktop (`../browser/` import prefix).\n- Gated by `TierShim` env var at compile time via `Enabled()`; when set\n  to `None` the transform is a no-op.\n- Idempotent via `__LAND_SHIM_HOOK__` marker — rerunning on an already-\n  patched tree returns `Unchanged`.\n\nThis is the first piece of the deep-shim pipeline; the shim module itself\n(`CEL/Land/Shim/Init.js`) is compiled by Output's esbuild step and copied\ninto the target tree by ApplyPipeline before this transform runs.",
-			"SHA": "9b81aa2c72abf722891ac194b5a0d29661572476"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:41:55Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				343,
-				1
-			],
-			"Message": "fix(Output): Resolve vscode-webview-resource:// via sync localhost rewrite\n\nMountain registers only `vscode-file://` as a custom Tauri scheme handler;\n`vscode-webview-resource://` is not registered, so async blob-fetch calls\nfor those URLs silently fail and the inner iframe never loads the assets.\n\nRemove `vscode-webview-resource://` from the `VSCODE_SCHEMES` array so\nthe async fetch path never attempts blob conversion for it. Instead, add\n`rewriteToLocalhost()` — a synchronous regex pass that converts every\n`vscode-webview-resource://` URL to its `http://localhost:18992/`\nequivalent before `document.write` executes. The `origWrite` wrapper now\napplies two independent string checks: first the localhost rewrite for\n`vscode-webview-resource://` URLs, then cached blob substitution for\n`vscode-file://` URLs, replacing the combined `needsRewriteHtml()` gate.\n\nThis keeps the synchronous contract of `document.write` while ensuring\nassets served via the unregistered scheme resolve to Mountain's actual\nlocalhost origin.",
-			"SHA": "fa1e57583caa72f6a714f601a3023630e2d589ee"
 		}
 	],
-	"TimeStamp": 1781883303508
+	"TimeStamp": 1782051964816
 }

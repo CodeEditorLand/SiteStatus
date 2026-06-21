@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T18:45:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "chore(Sky): Upgrade Astro and @astrojs/compiler-rs dependencies\n\nBump astro from 6.1.8 to 6.1.9 and @astrojs/compiler-rs from 0.1.7 to 0.1.8 in package.json. These are patch releases containing upstream bug fixes and performance improvements.",
+			"SHA": "a29752071da8a74ad52c469b8daa4515a0c17d1f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T18:18:42Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "refactor(Sky): Delegate build pipeline to Output plugins, move phase advancement into workbench.js\n\nMajor refactoring of Sky's astro.config.ts build pipeline:\n\n**Plugin delegation:** Inline Steps 1-7, 10-12, and 14 are now delegated to a plugin-based `BuildPipeline` and `ApplyPlugins` system under `Element/Output/Source/Plugin/`. This moves ~400 lines of copy/patch logic into reusable, testable plugins with a consistent interface. Steps 8, 8b, 9, and 13 remain inline (documented in comments) because they require Mountain-specific knowledge or spawn external commands.\n\n**Phase advancement relocation:** The `_A(phase)` function is now injected directly into workbench.js rather than living in a top-level Astro `<script>` block. This prevents Astro/Vite's chunk hoisting from blocking the async import and deferring phase advances past Mountain's 8s/23s fallback timers. Duplicate advances are safe since Mountain rejects backwards/same-phase transitions.\n\n**Removed ext-registry-probe:** The post-boot probe for `globalThis.monaco.extensions` always reported `monacoExtensionsApi:false` in modern VS Code (the API isn't on globalThis). Removed as noise; can be re-enabled via env-driven define if needed.\n\n**Other changes:** Gate missing browser bundle warnings behind `LAND_WARN_MISSING_BROWSER_BUNDLES=true` to keep default output clean. Add NodeModules and Addons configuration sections to the pipeline.",
+			"SHA": "4c3a80c40733108c47b2d6161f4a3595204a963c"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-22T17:25:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Sky): Optimize early paint, add PostHog throttling, fix lifecycle phase signaling\n\nThree optimizations for the Sky frontend:\n\n**Early paint flash elimination (Base.astro)**\nAdd inline CSS in the `<head>` that sets `#1e1e1e` background and `#d4d4d4` text before any external CSS loads. This prevents the white→purple→dark flash visible on every Tauri `Window.navigate()` reload by matching VS Code Dark+ theme during the first paint.\n\n**Client-side PostHog throttling (PostHogBridge.ts)**\nAdd per-event-name throttle (10s window, 2× max events/sec limit) before calling PostHog's `capture`. Dropped events are tracked and reported as a single `land:sky:throttle-dropped` event per window so volume loss is visible in the dashboard. Errors pass through unthrottled since they're rare and signal-rich.\n\n**Lifecycle phase signaling fix (Mountain.astro)**\nMove phase advancement (3→4) to a separate `<script>` block that executes BEFORE the workbench import, preventing it from being blocked or wiped by folder-open navigates. Fix the Tauri invoke signature from `mountain_ipc_invoke({command, args})` to `MountainIPCInvoke({method, params})` to match Mountain's actual API — the old signature caused silent deserialization failures and fell back to 8s/23s timers. Adjust timing: phase 3 fires immediately, phase 4 at 1500ms.\n\nThese changes eliminate the early paint flash, surface PostHog drop metrics, and ensure Mountain receives correct phase signals without relying on fallback timers.",
 			"SHA": "24e76da67762440ab4a808840c3eaa0957bc6e87"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T16:02:30Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				81,
-				3
-			],
-			"Message": "feat(Sky): Add round-trip IPC handlers and PostHog configuration\n\nThree Atom milestone implementations for the Sky frontend:\n\n**Atom T1: Round-trip IPC for editor operations**\nAdd `ResolveUiRequest` helper and register handlers for `sky://workspace/applyEdit` and `sky://window/showTextDocument`. These carry a `RequestIdentifier` that the frontend must resolve via the Mountain Tauri command, otherwise Mountain's 30s timeout fires. The applyEdit handler executes `workbench.action.applyThemeFromFile`; showTextDocument synthesizes a minimal TextEditor acknowledgment with uri and viewColumn.\n\n**Atom Q1: UI dialog round-trip replies**\nRefactor show-message-request, show-input-box-request, and show-quick-pick-request to use the new ResolveUiRequest pattern. Show-message-request now handles both legacy passive shapes and promise/pending shapes with RequestIdentifier. Add show-message-with-actions-request handler. Quick-pick dispatches a DOM event (`cel:quickpick:show`) for Sky components to render a real UI, with a 30s fallback timer to prevent Mountain timeouts.\n\n**Atom PH1/PH2: PostHog configuration via environment**\nRead PostHog API key, host, and settings from import.meta.env injected via astro.config.ts vite.define. Add client-side rate limiting (5 events/sec default) and configurable batch window (3000ms) to avoid PostHog's built-in rate limiter. Support distinct ID seeding and toggle for session recording/surveys.\n\n**Atom S1: Extension runtime dependency installer**\nAdd auto-installer in astro.config.ts that runs `npm install --production` inside each copied extension when its package.json declares runtime dependencies and node_modules is absent. Also warns when a browser entrypoint bundle is missing (requires `npm run compile-web-extensions-build`). Controlled via LAND_AUTO_INSTALL_EXTENSION_DEPS env var.",
-			"SHA": "8e1f50a879b4ba0d4ac6dd943436d57181d35c9c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T14:17:51Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				81,
-				2
-			],
-			"Message": "feat(Sky): Signal Mountain lifecycle phases from frontend to skip fallback timers\n\nAdd implementation in Mountain.astro to advance the workbench lifecycle phases (Restored at 0ms, Eventually at 2000ms) by invoking the Tauri IPC command `lifecycle:advancePhase` directly from the frontend. This allows Mountain to skip its built-in 8s/23s fallback timers and transition to interactive states as soon as the workbench is ready.\n\nThe implementation uses dynamic import for @tauri-apps/api/core since the workbench boots in a plain module context without a pre-resolved bundle. Calls are wrapped in try/catch with performance markers for observability.\n\nThis implements the Atom P3 milestone for optimized lifecycle management, enabling the sidebar to refresh live after VSIX install/uninstall without relying on Mountain's fallback timers.",
-			"SHA": "b87f1d2ab70b9d4897ef69a172d98a8e22a6cb6d"
 		}
 	],
-	"TimeStamp": 1781883342834
+	"TimeStamp": 1782052022699
 }

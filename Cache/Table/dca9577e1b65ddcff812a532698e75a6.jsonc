@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:48:56Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				921,
+				2
+			],
+			"Message": "feat(Wind): Barrel-export Shim system, fix AuditLog type narrowing\n\nAdd the missing barrel file (`Source/Shim/Index.ts`) that re-exports all Shim submodules — Type, Gate, SwallowMap, RedirectBus, IPCInterceptor, and AuditLog — with proper type-only vs value exports.\n\nAlso fix two issues in `Source/Shim/AuditLog.ts`: correct a double `static static` declaration to `static async`, and fix TypeScript optional-chaining on bracket-indexed access by casting `tauri?.[\"core\"]` through an intermediate `as Record<string, unknown>` before applying the safe-access `?.` operator. The redundant `return Promise.resolve()` is simplified to `return` since the async keyword already wraps the return path.\n\nTogether this completes the Shim system's public API surface, making it importable from external consumers (Cocoon, Sky) via a single barrel import.",
+			"SHA": "8ebd1f857db6c07eb66084ae11c833bcc627096c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:48:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				920,
+				1
+			],
+			"Message": "feat(Wind): Introduce AuditLog for Proxy-level service resolution monitoring\n\nAdd the AuditLog singleton — a ring-buffered audit trail for the TierShim=Proxy\nmode. Every ServiceCollection.get() and InstantiationService.invokeFunction()\ncall is timestamped and recorded with action type, resolution status, cache\nhit, and optional duration.\n\n**Source/Shim/AuditLog.ts** — Static class wrapping a 2000-entry ring buffer.\nProvides record(), flush(), summary(), getByService(), getByAction(),\ntopServices(), and sendToMountain() which serialises the batch to\nMountain's diagnostic log via Tauri IPC with fire-and-forget semantics.\nSupports clear() for testing.\n\nThis is the evidence-gathering component of the shim architecture. At the\nProxy level, it records every service access without interception, building\nthe data needed to decide which services can be safely swallowed or replaced\nat higher ShimLevels (Replace, Own, Preempt).",
+			"SHA": "33567c3217a5b7a634875b3e4b86a116437b7569"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T21:47:55Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "refactor(Wind): Strip IPC from Electron layer, finalize barrel exports\n\nComplete the IPC de-Effect-ification cleanup. The three Electron layer stacks\n(ElectronBaseLayer, ElectronLiveLayer, ElectronDevLayer) no longer register\nIPCElectronLive — IPC is a plain object imported directly.\n\nRenames barrel exports to the plain-object convention: TauriIPCLive as IPCLive\nand MockIPCLive as IPCMockLive, replacing the old Effect-TS aliases\n(IPCElectronLive, IPCTag as IPC, IPCMockLive, IPCTauriLive). Promotes IPC\nerror classes from export type to export (now concrete Error subclasses).\nSurfaces new IPC helper types (IPCEvent, IPCEventListener, IPCEventStream,\nIPCCleanup) in the main Effect barrel.",
 			"SHA": "8c1067c411e40266ff73ea9c737a2187e8c168d6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:42:54Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				913,
-				5
-			],
-			"Message": "refactor(Wind): Finalize IPC De-Effect-ify — clean up barrel, delete Live/Tag, convert Mock\n\nComplete the IPC service migration away from Effect-TS, following the core conversion in 0aeaeb8a that rewrote the errors, interface, and implementation. This commit cleans up the Effect scaffolding that the prior conversion left behind.\n\n**Main barrel** (`Effect/IPC.ts`): Move error-class re-exports from inline definitions to the sub-barrel; replace default-import of Effect-TS Layer with direct implementation imports; add backward-compatibility aliases (`IPCTauriLive`, `IPCMockLive`) using `export { X as Y } from` syntax.\n\n**Deleted files**:\n- `Effect/IPC/Live.ts` — the `Layer.effect(IPCTag, …)` factory; no longer needed since the implementation is a plain object, not an Effect Layer.\n- `Effect/IPC/Tag/IPCTag.ts` — the `Context.GenericTag<IPCService>`; no longer needed since consumers import `TauriIPCLive` directly.\n\n**Mock** (`Effect/IPC/Mock.ts`): Convert from `Layer.succeed(IPCTag, {…})` to a plain `IPCService` object. All methods drop the curried `(_args) => …` Effect signature: `send` returns `void`, `invoke` returns `Promise`, `events` returns an `{ subscribe }` object, `once` takes a callback.\n\n**Sub-barrel** (`Effect/IPC/index.ts`): Remove Tag, Layer, and error-helper (`Create*`) re-exports. Add type exports for the new `IPCEvent`, `IPCEventListener`, `IPCEventStream`, `IPCCleanup` types.\n\n**Impact**: Eliminates the last Effect-TS dependency from Wind's IPC layer. Cuts ~80 lines of Effect boilerplate (Layer, Tag, factory helpers). All imports now come from plain TypeScript modules.",
-			"SHA": "fe858d9d20ff1f67eadca05a554d54fc0194c89c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:42:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				916,
-				3
-			],
-			"Message": "refactor(Wind): De-Effect-ify IPC service — convert errors, implementation, and interface to plain classes and async\n\nComplete the migration of the IPC service away from Effect-TS, the last major service area still using Effect wrappers. This follows the established De-Effect-ify pattern applied to ActivityBar, NetworkRestrictions, Bootstrap, Health, and FileSystem services.\n\n**Error types** (`IPCError.ts`): Convert `IPCInvokeError`, `IPCSendError`, and `IPCSubscriptionError` from interface-based factory functions (`CreateIPCInvokeError`, `CreateIPCSendError`, `CreateIPCSubscriptionError`) to actual `Error` subclasses with `_tag` discriminant via `extends Error`. Remove the factory functions and the aggregated default export — each class is now independently exported.\n\n**Interface** (`IPCService.ts`): Replace Effect-TS signatures — `send` returns `void` (was `Effect.Effect<void, IPCSendError>`), `invoke` returns `Promise<unknown>` (was `Effect.Effect<unknown, IPCInvokeError>`), `events` returns a plain `IPCEventStream` with a `subscribe(listener)` model (replacing `Stream.Stream`), and `once` takes a callback (replacing `Effect.Effect`). Introduce `IPCEvent`, `IPCEventListener`, `IPCCleanup`, and `IPCEventStream` types.\n\n**Implementation** (`TauriIPC.ts`): Rewrite from curried Effect-returning functions (`(channel) => (args) => Effect.try(...)`) to flat async/sync functions (`invoke(channel, args)`, `send(channel, args)`). Replace the `events` Stream-based subscription with a `Set<IPCEventListener>` model that auto-cleanses the Tauri listener when the last subscriber disposes. Convert `once` from `Effect.async` to `async/await` with auto-cleanup. Remove all Effect-TS imports.\n\n**Impact**: Eliminates the last Effect-TS dependency from Wind's IPC layer. Errors now produce standard `Error` stack traces for simpler debugging. The interface is plain TypeScript — no Effect imports needed by consumers.",
-			"SHA": "0aeaeb8a36734ce87a7361b0dfa519ace58e8506"
 		}
 	],
-	"TimeStamp": 1781883304559
+	"TimeStamp": 1782051967328
 }

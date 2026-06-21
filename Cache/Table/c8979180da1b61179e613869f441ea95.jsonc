@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T19:12:48Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				923,
+				2
+			],
+			"Message": "style(Wind): Rename catch variable Error to Failure in Configuration\n\nRename the catch-bound variable from `Error` to `Failure` across ConfigurationHelper and ConfigurationImplementation to avoid shadowing the global `Error` constructor. The identifier `Error` in catch clauses resolves to the caught exception at runtime but creates confusion with the built-in `Error` type in scope, making the code harder to read and potentially masking TypeScript narrowing issues.\n\nAffected sites: the `MakeApply` closure in ConfigurationHelper (zoomLevel and userEnv catch blocks) and the `GetConfiguration` and `Replace` functions in ConfigurationImplementation (sandbox fallback, IPC fetch, and listener notification catch blocks).\n\nNo behavioral changes — purely cosmetic identifier renaming in catch parameters.",
+			"SHA": "ceb4575d9130d35ce5b4bad8e0955138776ca680"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T19:12:13Z",
+			"File": [
+				"⣿⡏⠀⠀⠀",
+				923,
+				300
+			],
+			"Message": "refactor(Wind): Strip Effect-TS from Configuration, Mountain, and bridges\n\nFifth and broadest wave of the Effect-stripping initiative. All service\ninterfaces that no longer participate in the Effect dependency graph are\nconverted from Effect-typed returns to plain sync/async signatures:\n\n- **Configuration & Mountain** (wave-4 refactors) → finalize interface\n  conversion: `get()`, `fetch()` return plain values / Promise instead of\n  `Effect.Effect`; `changes` / `connectionChanges` / `syncEvents` Streams\n  replaced with callback-based `onChange(...) / onConnectionChange(...) /\n  onSyncEvent(...)` returning `IDisposable`.\n- **18 workbench bridge services** (Activity, Clipboard, Command,\n  ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout,\n  Lifecycle, Notification, Product, Progress, Storage, Theme, Workspace)\n  → all `Effect.Effect<T, E>` returns become `T` (sync) or `Promise<T>`\n  (async); all `Stream.Stream<T, E>` subscriptions become callback-based\n  `{ dispose }` handles.\n- **All other IPC-backed services** (Commands, Decorations, Editor,\n  Extensions, Files, History, Keybinding, Label, Language, Lifecycle,\n  Model, Notification, Output, Progress, QuickInput, Search, Storage,\n  Terminal, TextFile, TextModelResolver, Themes, WorkingCopy, Workspaces)\n  → same Effect→plain conversion for interface + stub implementations.\n- **Configuration & Mountain tags** converted from `Context.Tag` classes\n  to `export type` aliases.\n- **Configuration & Mountain removed** from all three Effect layer stacks\n  (ElectronLayer, TauriLayer, TestLayer) — they are now plain singleton\n  services loaded by their implementation modules.\n- **Error types**: every `*Problem` discriminated union gains a companion\n  `*Error extends Error` class so callers can `throw` failures directly\n  rather than returning `Effect.Effect<_, Problem>`.\n- **ConfigurationHelper**: `MakeValidate` / `MakeApply` return plain\n  throw-returning functions instead of `Effect.Effect`.\n- **ChangeStream (Extensions)**: refactored from Effect-Stream to\n  Tauri `listen`-based callback subscription.\n- **NotificationStream (Vine)**: refactored from Effect Layer + Queue +\n  Stream to plain subscriber-array fan-out over a shared Tauri Channel.\n- **UserSettings**: `Read`, `ReadOptional`, `HasUserValue` return plain\n  values (throw on failure); `Write` returns `Promise<void>`; `Changes`\n  switches from `Stream.async` to callback subscription.\n- **FileSystem**: `provider` field added as direct `IFileSystemProvider`\n  access; all Effect-wrapped methods converted to async.\n- **BootstrapStage**: replaces `yield* (yield* Configuration).get` with\n  `ConfigurationLive.refresh()` / `MountainLive.connect()` direct calls.\n- **HealthImplementation**: replaces `yield* MountainTag` / `yield*\n  ConfigurationTag` with `MountainLive.version()` / `ConfigurationLive.get()`\n  direct calls.\n- **Config schema**: blank-line separator added after `import type` and\n  before first `readonly` member in 200+ interface declarations for\n  consistent formatting across all module categories.\n\nNo behavioral changes — all tests pass with the same caller semantics\nat the boundary (async functions, throw on error, callback dispose).\nThis completes the Effect-simplification pass that began in wave 1\n(baabb3fa) across the entire Wind services surface.",
+			"SHA": "170c8131f224e98c8608011a6a269061c92f974e"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T18:48:23Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "refactor(Wind): Remove LandWorkbenchLayer and finalize type-only tag barrel exports\n\nDelete the unused LandWorkbenchLayer.ts module that previously composed all 18 workbench services into an Effect Layer. With the prior commits migrating from ManagedRuntime + Layer to a plain-object registry (aa7933b2), this Layer definition has no consumers.\n\nConvert all 18 tag re-exports in LandWorkbenchTags.ts from value exports to `export type` — the tags are now purely type-level aliases following the Tag→type conversion in aa7933b2, so runtime re-exports are misleading.\n\nUpdate the LandWorkbench index.ts barrel: drop the LandWorkbenchLayer re-export, add the LandWorkbenchServices type alias, and surface the CELWind / InstallLandWorkbench globals alongside their type definitions. This completes the index's migration from the old Layer-based API surface to the direct registry accessor pattern.\n\nUpdate the EmitServiceCatalog doc comment to reflect that the autoloader no longer references LandWorkbenchLayer.\n\nThis is the fourth and final wave of the Layer-flattening initiative — no Effect composition artifacts remain in the LandWorkbench entry points.",
 			"SHA": "2cb7ee56f9e49e605888b79087a2b4ea18d8ea83"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:23:00Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				924,
-				38
-			],
-			"Message": "refactor(Wind): Strip Effect Context.Tag from workbench service tags and replace ManagedRuntime with plain registry\n\nRemove the final Effect abstraction layer from all 18 workbench services by converting each `Context.Tag` class into a simple type alias. The `LandWorkbenchRuntime` switches from `ManagedRuntime.make(LandWorkbenchLayer)` to an eagerly-constructed plain-object registry that imports each `*Live` implementation directly.\n\nConcrete changes:\n- **18 Tag files** (UserSettings, Activity, Clipboard, Command, ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout, Lifecycle, Notification, Product, Progress, Storage, Theme, Workspace): Replace `class XTag extends Context.Tag(...)` with `export type XTag = XService`. Drop the `Context` import, `const X = XTag` alias, and `default` export.\n- **LandWorkbenchRuntime**: Replace `ManagedRuntime` wrapping `LandWorkbenchLayer` with a `LandWorkbenchServices` interface + plain object. Each service field receives its `XLive` instance directly. The `Dispose` method no longer calls `ManagedRuntime.dispose()` — it only clears the global singleton.\n- **LandWorkbenchGlobal**: Replace `RunPromise`/`RunPromiseExit` Effect-based accessors with a direct `Services` property exposing the typed `LandWorkbenchServices` object. Drop the `LandWorkbenchLayer` import and the `Layer` export from `CELWindGlobalShape`.\n- **18 index.ts barrel files**: Change `export { ... }` to `export type { ... }` since the tags are now only type-level artifacts.\n\nAll 18 index.ts barrel files now emit only type declarations — no runtime Effect artifacts remain. This completes the third wave of the Layer-flattening initiative, following the live-implementation and Layer wrapper stripping in previous commits.",
-			"SHA": "aa7933b23ae1f73d154edf7a2e83a8f3e7342555"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:22:10Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				924,
-				18
-			],
-			"Message": "refactor(Wind): Strip Effect Layer wrappers from 18 workbench live implementations\n\nRemove the `Layer.succeed` / `Layer` import indirection layer from all workbench service live implementations — UserSettings, Activity, Clipboard, Command, ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout, Lifecycle, Notification, Product, Progress, Storage, Theme, and Workspace — replacing `export const XLive = Layer.succeed(Tag, makeX())` with direct `export const XLive = makeX()`.\n\nThis is the second wave of the Layer-flattening initiative (following 8814bfe1). Each file also drops the unused `Layer` import and the corresponding `*ServiceTag` import. The factory function `makeX()` already produces a valid service object matching its interface; wrapping it in a `Layer` provided no additional composition value since these services are consumed directly via the tag in Wind's dependency graph.\n\nRemoves 72 lines of boilerplate across 18 files. All exports remain available as named and default exports for backward compatibility.",
-			"SHA": "baabb3fa4406f6dcd2f875658d0d27b73fefbf79"
 		}
 	],
-	"TimeStamp": 1781883305678
+	"TimeStamp": 1782051971284
 }

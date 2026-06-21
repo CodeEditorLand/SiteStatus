@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-24T09:13:05Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "test(Maintain): Add integration tests for format literal scanning and Mountain patterns\n\nExpand `tests/Eliminate.rs` to cover critical edge cases identified during the implementation of implicit format capture detection. The new tests validate:\n\n1. **Format Literal Scanning**: Cases where variables are used only inside `format!(\"{Var}\")` or mixed explicit/implicit usage, ensuring the `CountReferences` visitor correctly identifies these as multi-use to prevent incorrect inlining.\n2. **Complex Inlining Chains**: Scenarios involving three-level binding chains (`A→B→C`), match expressions with early returns, and borrows of inline temporary expressions.\n3. **Real-World Mountain Patterns**: Specific reproductions of code found in `Mountain` (Key derivation, `TerminalProvider` JSON payloads, `ProvideHover` URI handling, and `Decrypt` match-block inlining) to guarantee the transformer handles actual backend logic safely.\n4. **Idempotency**: Verification that re-running the transformer on already-minimized code produces no further changes.\n\nThese additions solidify confidence in the `Eliminate` module's correctness before applying it to the core Rust backend.",
+			"SHA": "614b9e88eb0198feb73614f827faba1d4dfb8349"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-24T09:09:49Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				81,
+				2
+			],
+			"Message": "fix(Maintain): Correctly count Rust 1.58+ implicit format captures\n\nThe `Eliminate` module previously failed to detect variable usage inside Rust 1.58+ implicit format captures (e.g., `format!(\"{Var}\")`). Since `syn` treats macro token streams as opaque, the reference counter missed these occurrences, leading the transformer to incorrectly inline single-use bindings that were actually used inside format strings.\n\nImplement `CountIdentInFormatLiteral` to recursively scan `TokenTree::Literal` strings for `{Target}` patterns, handling format specifiers (`{Var:.2}`), debug flags (`{Var!r}`), and escaped braces (`{{Var}}`). This ensures mixed explicit/implicit usage (e.g., `println!(\"{}\", X); println!(\"{X}\")`) is correctly counted as multi-use.\n\nUpdate `tests/Eliminate.rs` with comprehensive integration tests covering implicit captures, chain inlining with format macros, and real-world patterns from the Mountain backend (Key derivation, DTO construction, decrypt flows).",
+			"SHA": "cdb0c9750f8385e3f46e828390ae57be951176c9"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-24T07:54:34Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Maintain): Add Eliminate module to inline single-use Rust let bindings\n\nIntroduce a new `Eliminate` module under the Maintain component that analyses Rust source files and inlines `let` bindings used exactly once, are non-mutated, and are not captured by closures. This mirrors the TypeScript Eliminate project but targets Rust ASTs via `syn` and `prettyplease`.\n\nThe module provides:\n- `Source/Eliminate/mod.rs` — Module root with documentation and re-exports.\n- `Source/Eliminate/CLI.rs` — Clap-based command-line interface for batch processing (with dry-run, verbose, and glob options).\n- `Source/Eliminate/Constant.rs` — Default glob pattern, max iterations, and initialiser size limit.\n- `Source/Eliminate/Definition.rs` — `Options` and `Stats` data structures.\n- `Source/Eliminate/Error.rs` — Custom error type wrapping IO, parse, and glob errors.\n- `Source/Eliminate/Fn.rs` — Top-level entry point that parses CLI arguments and runs the pipeline.\n- `Source/Eliminate/Logger.rs` — Initialises `env_logger` with a coloured format.\n- `Source/Eliminate/Process.rs` — File discovery (walkdir + globset) and orchestration of the transform per file.\n- `Source/Eliminate/Transform/` — Core AST transformation pipeline:\n    - `Collect.rs` — Scans blocks for structurally eligible `let` bindings.\n    - `Count.rs` — Counts references in subsequent statements (with shadow and closure detection).\n    - `Inline.rs` — `VisitMut` implementation that iteratively eliminates single-use bindings and wraps compound replacements in parentheses when needed.\n    - `Safe.rs` — Safety predicate: rejects `unsafe { … }` and oversized initialisers.\n    - `mod.rs` — Pipeline entry point: parse → iterate elimination → pretty-print.\n\nThe module is integrated into `Library.rs` via a new `pub mod Eliminate` and a branch in `main()` for the `eliminate` subcommand. Integration tests in `tests/Eliminate.rs` cover 25+ scenarios: simple inlining, chained bindings, shadowing, closure capture, safety constraints, and idempotency.\n\nThis addition improves codebase conciseness by removing unnecessary intermediate variables while respecting safety, size thresholds, and semantic correctness.",
 			"SHA": "6bdf13a8984a6e4cb25b88af566e77375f3feb50"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T06:26:04Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				65,
-				1
-			],
-			"Message": "Merge commit 'd0ebea2c0de3be797fbdf7daa66398bf6c80f197' into Current",
-			"SHA": "e34a948340e48a1419f23e9d486df6b6dc727eb8"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-24T02:27:40Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				65,
-				1
-			],
-			"Message": "",
-			"SHA": "d0ebea2c0de3be797fbdf7daa66398bf6c80f197"
 		}
 	],
-	"TimeStamp": 1781883319583
+	"TimeStamp": 1782051976387
 }

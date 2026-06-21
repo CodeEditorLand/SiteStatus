@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:06:44Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				561,
+				19
+			],
+			"Message": "refactor(Cocoon): Strip Effect from webview IPC layer; wire cancellation, deferred activation, and subscription disposal\n\nReplace Effect-wrapped IPC calls across the webview panel subsystem (Panel, WebviewImplementation, WebviewPanelImplementation) with raw Promise-based methods, removing Effect.runFork/runPromise indirection from every $setWebviewHtml, $postMessage, and lifecycle notification. The EventStream Fire/Shutdown are now synchronous; Panel.Create returns the instance directly.\n\n**Extension lifecycle:** deactivateExtension now disposes all context.subscriptions before removing the extension from the activated set, preventing leaked watchers and status-bar items. The activation context is stored alongside the extension and referenced at deactivation time.\n\n**Deferred onStartupFinished:** After the first $activateByEvent batch settles, schedule a single 3-second-delay pass for extensions declaring only onStartupFinished, mirroring VS Code's deferred-startup convention.\n\n**withProgress cancellation:** Wire a progress.cancel notification handler in NotificationHandler that emits on a shared Emitter. WindowNamespace's withProgress subscribes to this emitter per-task, providing a real CancellationToken (isCancellationRequested / onCancellationRequested) backed by the progress handle. MountainClientService propagates caller CancellationToken firings to Mountain via cancelOperation, completing the cancellation path.\n\n**onCommand activation:** The gRPC server's executeCommand resolves onCommand:<id> activation events before dispatching to the registry, ensuring the owning extension's registerCommand has run.\n\n**SCM command projection:** SanitizeResourceState now projects repository back-references (rootUri, root, uri) to a __celRepositoryRoot string and passes through all JSON-safe scalars, so option-bag arguments like { preserveFocus: true, branch: \"main\" } survive the executeCommand round-trip.\n\n**Debug activation:** Fire onDebug, onDebugResolve:<type>, and onDebugAdapterProtocolTracker:<type> when a debug session starts.\n\n**Stable sessionId:** Fall back through telemetryInfo.sessionId → telemetry.sessionId → CocoonSessionId env var before generating a per-process id, preventing session desync on orphan recovery.\n\n**Heuristics proxy completeness:** Add has/getOwnPropertyDescriptor traps to WrapNamespaceWithHeuristics so in checks match the get trap. Fix MakeMultiStub's has trap to exclude Symbol keys.\n\n**gRPC error detail:** Include method name and stack trace in error responses instead of empty {}. Delete stale Orchestration/Old/Style/Services.ts — the last consumer of the deprecated TerminalServiceLayer.",
+			"SHA": "4d455d427651a4c9f331c305950ed8d00fba4688"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T17:37:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				565,
+				1
+			],
+			"Message": "docs(Cocoon): Add npm badge, emoji headers, and getting-started sections to README\n\nPolish the Cocoon README with the project's npm package badge, emoji-decorated section headings (Getting Started, License, Changelog, Funding), and structured Prerequisites and Build/Install subsections. Fix the GitHub stars badge image to include an explicit title attribute and normalize the dependencies table alignment row.\n\nThese changes bring the README into alignment with FIDDEE documentation conventions established across the Land Element READMEs.",
+			"SHA": "ffe1c46780d7de9a72efcd8381bc21fa19f18228"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T17:20:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Cocoon): Implement lazy vscode require proxy, auth session routing, language ID detection, and streaming binding\n\nReplace four previously stubbed or hardcoded extension host paths with functional implementations that complete core VS Code API surface in Cocoon:\n\n- **VscodeModuleHooks (Extension Host):** The early `require('vscode')` handler — invoked when an extension loads before the API shim registers — previously returned an empty `{}`, silently discarding all subsequent property accesses. Replace with a lazy Proxy that reads through to `globalThis.__cocoonVscodeAPI` at every interception point (`get`, `has`, `ownKeys`, `getOwnPropertyDescriptor`), so extensions that capture the module reference early still see the full API once registration completes.\n- **Authentication Namespace:** Implement `authentication.getSession()` with local provider routing. When an in-process provider has been registered via `registerAuthenticationProvider`, the method queries its `getSessions` and `createSession` directly with proper scope matching; it falls back to the Mountain gRPC `Authentication.GetSession` RPC only when no local provider is found. Emits `auth.didChangeSessions` on successful session creation.\n- **Window Namespace (ShowTextDocument):** Replace the hardcoded `languageId: \"plaintext\"` with dynamic detection that first checks registered opened-document notifications (which carry the real languageId from Mountain) and falls back to an extension-to-languageId map (`.ts` → `typescript`, `.rs` → `rust`, etc.) parsed from the file URI.\n- **gRPC Server Service:** Bind `OpenChannelFromMountain` as the bidirectional streaming RPC in `createServiceImplementation`, completing the stream path that was previously documented as unbound. The `startBidirectionalStreaming` handler now has callers through the multiplexed service definition.\n- **Documentation:** Add the standard badge/header table wrapper to Architecture.md; reword DeepDive.md for clearer project context; delete the empty SynchronizationTodos.md placeholder.\n\nExtensions now see real authentication sessions, correct language IDs, and survive early module capture — three classes of stub-implementation bugs closed in one pass.",
 			"SHA": "c39e392cbd9bc5227df6d2fca4c9591f5075faa7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:17:40Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				566,
-				1
-			],
-			"Message": "docs(Cocoon): Overhaul README with architecture, security, and project structure docs\n\nRewrite the Cocoon README from a brief overview into comprehensive project documentation covering:\n\n- **Key Features** — Fiber supervision, vscode API shimming, process hardening, code generation pipeline, multi-transport communications (gRPC, WebSocket, IPC), bidirectional streaming, telemetry, and the dual-layer debug server.\n- **Core Architecture Principles** — Fiber isolation, API surface parity, defense in depth, and transport flexibility, each with key component references.\n- **Project Structure** — Full directory tree under Element/Cocoon/ mapping every module to its purpose.\n- **Security** — Seven-layer security table documenting process hardening, exception boundaries, parent liveness monitoring, SecurityPolicy, runtime validation, module interception, WebSocket authentication, and memory enforcement, plus a forward-looking roadmap for platform-native sandboxing.\n- **Compatibility** — Integration matrix covering Grove, VS Code, Mountain, Sky, and Output.\n- **In the Land Project** — Updated comparison table for Cocoon vs Grove extension hosts.\n\nAlso updates package version references, reformats code/component names with backtick highlights, adds Grove and Mountain links to the Related Projects section, and applies FIDDEE-standard em-quad spacing between text and emoji icons throughout.\n\nAll existing content is preserved and expanded with no regressions in coverage.",
-			"SHA": "611f5721f8c5d92fbc35c29ade5ba0f1bd37d64c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T15:12:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				566,
-				1
-			],
-			"Message": "style(Cocoon): Strip superfluous blank lines from ESBuild.js\n\nRemove the vertical whitespace separating every export declaration, object property, and block statement in the ESBuild configuration module. The blank lines served no structural purpose and added unnecessary scrolling distance between related items.\n\nThis is the remainder of the formatting pass started in commit f0954fef — flattening all internal blank lines in Source/ESBuild.js for a denser, more scannable layout with no functional change.",
-			"SHA": "a6494ff2525e17bedbbdf13cee56935e8b13ad2a"
 		}
 	],
-	"TimeStamp": 1781883306474
+	"TimeStamp": 1782051970781
 }
