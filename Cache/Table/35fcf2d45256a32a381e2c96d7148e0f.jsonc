@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T17:58:05Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				1191,
+				83
+			],
+			"Message": "fix(Cocoon): Build full TextDocument shim for all notification handlers\n\nNotification paths `$acceptVisibleEditorsChanged`, `$acceptVisibleRangesChanged`, `$acceptTextEditorOptionsChanged`, `$acceptTextEditorDiffInformation`, and `$acceptTextEditorViewColumn` previously emitted bare `{uri, fileName}` document stubs. Built-in extensions (vscode.git diff decorations, vscode.merge-conflict) iterate the resulting editors and call `.getText()`, `.lineAt()`, `.positionAt()` inside their `applyDecorations` callbacks — the bare stub produced `TypeError: r.getText is not a function`.\n\nAdd `BuildTextDocumentShim` in `Notification/Handler.ts` that returns a full `TextDocument`-shaped object backed by `DocumentContentCache`. Prefers the live entry from `__textDocuments` (the full-fidelity doc kept in sync by `$acceptModelChanged`) and falls back to a content-cache-backed shim implementing `getText`, `lineAt`, `positionAt`, `offsetAt`, `getWordRangeAtPosition`, and `validateRange`. Replace every inline `{document: {uri, fileName}}` stub in the notification dispatch with a `BuildTextDocumentShim` call.\n\nAlso fix `showTextDocument` in `Window/Namespace.ts` to always resolve the URI to a string before sending over IPC — passing the raw document object strips prototype methods (including `toString()`), and the workbench renders the editor tab as `[object Object]`. Add a cascade covering string, vscode.Uri, TextDocument shim, and POJO URI shapes.\n\nFix SCM group update routing in `Scm/Namespace.ts` by including `scmHandle` and `groupHandle` in the `update_scm_group` Mountain request. Without these, multi-repo workspaces sharing `scmId=\"git\"` had updates routed against the wrong provider — Mountain logged `scm_handle=None` and Sky's `ResolveScmShim` fell back to non-unique scmId lookup, silently dropping updates.\n\nRename telemetry config fields in `PostHog/Configuration.ts`: `OTLPEndpoint` → `Pipe`, `OTLPEnabled` → `Emit` for clearer naming.\n\nRegenerate RouteManifest adding two new Mountain RPC methods (`git.openChange`, `git.openFile`), bringing the method count from 140 to 142.",
+			"SHA": "1a408045f3e3915b132e6b2d8fd85f68a868ad8d"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-26T15:11:23Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "chore(Cocoon): Rebuild compiled output after RouteManifest regeneration\n\nRegenerate RouteManifest timestamp and rebuild all Target/ artifacts (JS bundles and source maps) following the preceding handler additions. Mountain method count remains at 140 — no new RPC methods were added in this pass.\n\nThe rebuild ensures the bootstrap, service, handler, and gRPC bundles in Target/ are consistent with the regenerated RouteManifest.",
 			"SHA": "c9dd1712e2c664fd1a599afe1a678ef4b7435552"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T09:08:21Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				1191,
-				66
-			],
-			"Message": "feat(Cocoon): Implement registry-backed vscode.comments namespace shim\n\nThe stock inline stub in EnsureVscodeAPI.ts for `vscode.comments` used empty no-op objects whose `createCommentController` returned a stateless shell where every `createCommentThread` call produced a fresh thread that silently dropped metadata. Extensions like GitHub Pull Requests and GitLens call `controller.createCommentThread(uri, range, comments)` on activation and later dereference the thread's `.comments`, `.state`, or `.label` — with the stub, those reads always returned undefined.\n\nReplace the stub with a dynamic import of a registry-backed `CommentsNamespace` factory in Source/Services/Handler/VscodeAPI/Comments/Namespace.ts. Each CommentController owns a `Map`-backed thread registry keyed on `UriStr:Line:Char`, with mutable thread state for comments, collapsibleState, canReply, contextValue, label, and state. Registration is idempotent — re-registration returns the existing instance, softening VS Code's duplicate-id throw.\n\nAlso regenerate RouteManifest to add three newly exposed Mountain RPC methods (`setStatusBarText`, `Task.Terminate`, `terminate_task`), bringing the count from 137 to 140.\n\nReal comment-pane UI rendering (gutter markers, inline balloons) requires Sky-side `ICommentService` exposure and remains deferred (Mountain-Crate-Split.md §#7b). The shim keeps the extension's internal thread list coherent so commenting workflows that emit notifications or track reaction handlers work end-to-end inside the extension host.",
-			"SHA": "e5b2a278b9ad980d7e49b9cfcd333bc0d00fa7e1"
 		}
 	],
-	"TimeStamp": 1782051994331
+	"TimeStamp": 1782148107143
 }

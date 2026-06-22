@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:43:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				913,
+				3
+			],
+			"Message": "refactor(Wind): Strip IPC from Electron layer, finalize barrel exports\n\nComplete the IPC de-Effect-ification cleanup. The three Electron layer stacks\n(ElectronBaseLayer, ElectronLiveLayer, ElectronDevLayer) no longer register\nIPCElectronLive — IPC is a plain object imported directly.\n\nRenames barrel exports to the plain-object convention: TauriIPCLive as IPCLive\nand MockIPCLive as IPCMockLive, replacing the old Effect-TS aliases\n(IPCElectronLive, IPCTag as IPC, IPCMockLive, IPCTauriLive). Promotes IPC\nerror classes from export type to export (now concrete Error subclasses).\nSurfaces new IPC helper types (IPCEvent, IPCEventListener, IPCEventStream,\nIPCCleanup) in the main Effect barrel.",
+			"SHA": "8c1067c411e40266ff73ea9c737a2187e8c168d6"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T21:42:54Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "refactor(Wind): Complete NetworkRestrictions De-Effect-ify — convert implementation to plain factory\n\nComplete the migration of the NetworkRestrictions service away from Effect-TS by converting the implementation from a `Layer.effect` providing a `Context.Tag` to a plain `makeNetworkRestrictions(Log)` factory function.\n\n**Implementation** (`NetworkRestrictionsImplementation.ts`):\n- Remove all Effect-TS imports (`Effect`, `Layer`, `Ref`, `Telemetry`) — the `Telemetry` dependency is replaced with a simple `NetworkRestrictionsLogger` callback (`performance.mark`-based default, no Effect surface).\n- Convert `Ref.make`/`Ref.get`/`Ref.set` state management to plain `let _config`, `let _blockedRequests`, `let _telemetryLevel` module-closure variables.\n- All methods become synchronous — `checkURL`/`checkIPCChannel` return `boolean` (throw `NetworkBlockError`/`IPCBlockError` on denial) instead of `Effect<boolean, Error>`; `blockURL`/`updateConfig`/`setTelemetryLevel` return `void` instead of `Effect<void>`.\n- Delete `NetworkRestrictionsTag.ts` entirely — no more `Context.Tag` or `Layer` export.\n\n**Barrel** (`NetworkRestrictions.ts`):\n- Remove Tag re-exports (`NetworkRestrictions`, `NetworkRestrictionsTag`).\n- Change `IPCBlockError`/`NetworkBlockError` from `export type` to `export` since they are now concrete `Error` subclasses (converted in the prior commit).\n- Add `makeNetworkRestrictions` export alongside the existing default `NetworkRestrictionsLive`.\n- Update doc examples to show plain `NetworkRestrictionsLive.checkURL(...)` instead of `yield* NetworkRestrictions`.\n\n**Impact**: Completes the final phase of the NetworkRestrictions De-Effect-ify (started in 914a220a). Removes the last Effect Layer and Tag from this service area, cutting ~160 lines and eliminating Ref/Effect.gen/Layer boilerplate in favor of straightforward synchronous code.",
 			"SHA": "3882d53b44779f78db060ce01bd44692004ffa46"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:24:23Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				918,
-				10
-			],
-			"Message": "refactor(Wind): De-Effect-ify ActivityBar and NetworkRestrictions errors/service\n\nRemove Effect-TS from the ActivityBar service and the NetworkRestrictions error types and service interface, continuing the migration of Wind toward framework-agnostic patterns.\n\n**ActivityBar** (`Effect/ActivityBar/`):\n- Convert from `Layer.effect`/`SubscriptionRef`/`Stream` to a plain in-memory store via `makeActivityBar(Logger)` factory. All CRUD methods become sync (`void`/`Item`) instead of `Effect.Effect<>`. Throws typed Error subclasses on failure.\n- Delete `ActivityBarTag.ts` (Context.Tag) — consumers import `ActivityBarLive` directly as a plain object.\n- Remove `itemsChanges` and `activeItemChanges` Stream properties from `ActivityBarService` interface — they had zero consumers (Sky reads activity state through `WorkbenchActivityLive`).\n- Remove the six `Make*` factory functions (`MakeCreateItem`, `MakeUpdateItem`, `MakeRemoveItem`, `MakeGetItem`, `MakeSetActiveItem`, `MakeSetBadge`, `MakeGetBadge`) from `ActivityBarHelper`; logic inlined into the implementation.\n- `ActivityBarLive` is now an `ActivityBarService` instance, not a `Layer`. `ActivityBarMockLive` similarly converted from `Layer.succeed` to a plain object.\n- Add `makeActivityBar(Log)` factory enabling custom logger injection; default logs via `performance.mark`.\n- Update barrel exports: remove Effect-TS references from doc examples, drop `ActivityBar` (Tag), add `makeActivityBar`.\n\n**NetworkRestrictions** (`Effect/NetworkRestrictions/`):\n- Convert `IPCBlockError` and `NetworkBlockError` from interface-based discriminated unions (factory returning `{ _tag, channel, reason, ... }`) to actual `Error` subclasses with `_tag` discriminant via `extends Error`. The `name` getter returns the class name; `cause` preserves the blocked channel/URL.\n- Convert `NetworkRestrictionsService` interface: all methods become sync — `checkURL` returns `boolean` instead of `Effect<boolean, NetworkBlockError>`, `blockURL`/`updateConfig` return `void` instead of `Effect<void>`, etc.\n\n**Impact**: Reduces Effect-TS surface by two more service areas and two error type definitions. Cuts 517 lines, simplifies debugging (plain Error stack traces), and removes unreachable reactive change-stream code paths.",
-			"SHA": "914a220a3d6827a9769efc2de53332d25df759f0"
 		}
 	],
-	"TimeStamp": 1782051968693
+	"TimeStamp": 1782148098370
 }

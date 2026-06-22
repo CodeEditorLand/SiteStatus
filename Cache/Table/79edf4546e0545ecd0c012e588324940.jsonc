@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T17:23:34Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1855,
+				1
+			],
+			"Message": "fix(Mountain): Harden boot init — cache machine ID, fallible URL construction, defensive windowId\n\nThree defensive hardening changes to `InitializationData` that prevent panics during rapid development restarts and eliminate a redundant disk read per boot.\n\nWrap the machine ID in a `OnceLock` so the second caller per boot (the extension-host init-data path) reads from memory instead of re-opening `machine-id.txt`.\n\nReplace the bare `unwrap()` on `ApplicationHandle.get_webview_window(\"main\")` with a `map`/`unwrap_or_else` fallback to `\"main\"`. During rapid Tauri restarts the webview window may not yet be registered, and this value is only a label sent to the frontend — a string default is harmless where a panic would abort the entire boot sequence.\n\nExtract `url::Url::from_directory_path` into a fallible `DirectoryUrl` helper that propagates via `CommonError::ConfigurationLoad` instead of calling `unwrap()`. Relative paths (common in dev environments without a real app bundle) previously panicked at all four call sites for `appRoot`, `globalStorageHome`, `workspaceStorageHome`, and `logsLocation`.\n\nNo behavioural change on production bundles where all paths are absolute and windows exist — the same values are produced, just without the panic risk on edge cases.",
+			"SHA": "8a9d7aa4844bc79a9847d17d6e9c10ad969ad7a1"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T17:22:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "fix(Mountain): Implement real idle detection and power-save blocker shims\n\nMTN-15/16: Query CGEventSourceSecondsSinceLastEventType on macOS for\nactual keyboard/mouse idle time. Returns 'idle' after 60s and millisecond\nprecision idle duration. Non-macOS falls back to 'unknown'/0.\n\nMTN-17: Increment power-save blocker IDs atomically so start/stop pair\ncorrectly. Stop always returns true.\n\nMTN-18/40: Parse URI into UriComponents {scheme, authority, path, query,\nfragment} for env:asExternalUri and env:resolveExternalUri. VS Code's\nUri.revive() destructures these fields — returning only {uri} caused\nundefined field errors.",
 			"SHA": "2efd9e2c634e11c19cf7126fd89c9ad32437d810"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:47:38Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
-				1
-			],
-			"Message": "perf(Mountain): Nest tokio::spawn for fully detached editor state notifications\n\nThe per-keystroke editor state notifications (selection, active editor, visible editors, tabs, ranges, options, diff, viewColumn) were already dispatched via `tokio::spawn` to move them off the IPC dispatch queue, but the outer spawn still owned the Vine gRPC future until `SendNotification::Fn` completed. Nest a second `tokio::spawn` inside each handler so the outer task returns immediately after scheduling the inner task, decoupling the IPC handler's completion from the gRPC call's execution entirely.\n\nEliminates the final serialization point in the editor:event dispatch pipeline for all 8 notification types.",
-			"SHA": "523b43a4c3eec376ddb65de8571a0b9a14246c3d"
 		}
 	],
-	"TimeStamp": 1782051971522
+	"TimeStamp": 1782148098928
 }

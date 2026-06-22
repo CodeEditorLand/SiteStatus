@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-10T20:21:36Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1768,
+				16
+			],
+			"Message": "fix(Mountain): Correct Send/Sync impls, fix Vine typo, simplify storage flush, and harden Cocoon spawn\n\nAdd `unsafe impl Send + Sync` for `MountainEnvironment` to satisfy trait bounds across async boundaries. Fix `cratecrate` typo in `MountainVinegRPCService` that broke gRPC request/notification forwarding. Simplify storage flush logic in `StorageDispatcher` and `mod.rs` by removing redundant `.ok().map()` chains and unwrapping locks directly. Correct debug session registration to use `RunTime.Environment.ApplicationState` path consistently.\n\nReplace `tokio::spawn` with `tauri::async_runtime::spawn` for Cocoon activation events and use `tokio::task::spawn_local` with safety comment for restart loop, since `LaunchAndManageCocoonSideCar` holds `parking_lot` guards across `.await` points and runs on Tauri's single-threaded runtime. Add `IsVisible:false` to sidecar and tree view provider registrations. Drop `path_resolver` early in Cocoon launch to avoid holding it across awaits. Clean up import paths across all WindServiceHandlers dispatchers and add missing `tauri::Emitter` where events are emitted.\n\nImpact: Resolves thread-safety violations, fixes gRPC client calls, eliminates lock-unwrap panics, and ensures Cocoon sidecar management runs on the correct executor.",
+			"SHA": "00ea3ea3348955d7ee80e8e98e59b5cbe397ddc3"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-10T14:37:24Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "feat(Mountain): Add URI resolution, extension reinstall, text document open, window title, and diagnostic marker handlers\n\nImplement missing IPC command handlers and a gRPC notification bridge to improve VS Code extension compatibility and editor integration.\n\nIPC additions in WindServiceHandlers:\n- `env:asExternalUri` / `env:resolveExternalUri` - pass-through URI resolution so extension-provided URIs work without a registered opener\n- `extensions:reinstall` - returns minimal ILocalExtension envelope preventing ExtensionManagementService retries (no gallery backend)\n- `text:open` / `workspace:openTextDocument` - relays open intent to Sky via Tauri event so Monaco loads the document and emits onDidOpenTextDocument\n- `window:setTitle` / `nativeHost:setTitle` - explicit title override from extensions or workbench title service\n- `nativeHost:setDocumentEdited` - visual dirty-dot proxy by prefixing window title with '•' since Tauri 2.x lacks NSWindow::setDocumentEdited\n- `language:getLanguages` / `languages:getLanguages` - returns hardcoded language identifier list for extension API compatibility\n\ngRPC addition in MountainVinegRPCService:\n- `markers.change` / `language.markers.change` - receives diagnostic marker updates from Cocoon and forwards to Mountain's DiagnosticManager via Environment.SetDiagnostics\n\nImpact: Closes gaps in extension host IPC surface, enables document opening from Cocoon, provides window title control, and wires diagnostic marker streaming from the extension host to the native backend.",
 			"SHA": "910b3cc89d4d2b685d05aaca35e150c51efdf03a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T12:45:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1768,
-				1
-			],
-			"Message": "feat(Mountain): Implement bidirectional streaming channel for Cocoon gRPC service\n\nThe `open_channel_from_mountain` RPC was a stub returning `Unimplemented` since the multiplexer wiring was deferred to a later patch. This change provides the full bidirectional streaming implementation so Cocoon can open a persistent stream and exchange Envelope frames with Mountain without falling back to unary endpoints.\n\nKey modifications:\n- Add `NEXT_CHANNEL_ID` atomic counter and `CHANNEL_REGISTRY` (DashMap) to track per-stream outbound senders\n- Implement stream handler that reads inbound frames and routes: Notification → GenericNotification::Dispatcher, Request → GenericRequest::Dispatcher with response sent back via the registered mpsc channel, Response → dropped (unexpected direction), Cancel → no-op\n- Spawn read pump as detached Tauri async task so the method returns the outbound stream immediately\n- Clean up registry entry on stream termination\n\nImpact: Enables low-latency bidirectional communication between Mountain and the Cocoon extension host, removing the need for polling or repeated unary calls for streaming workloads.",
-			"SHA": "4853ac85e2cc627cbd26e696a77b5d1ab9b93d61"
 		}
 	],
-	"TimeStamp": 1782051979697
+	"TimeStamp": 1782148102687
 }
