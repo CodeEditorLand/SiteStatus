@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T19:12:48Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				923,
+				2
+			],
+			"Message": "style(Wind): Rename catch variable Error to Failure in Configuration\n\nRename the catch-bound variable from `Error` to `Failure` across ConfigurationHelper and ConfigurationImplementation to avoid shadowing the global `Error` constructor. The identifier `Error` in catch clauses resolves to the caught exception at runtime but creates confusion with the built-in `Error` type in scope, making the code harder to read and potentially masking TypeScript narrowing issues.\n\nAffected sites: the `MakeApply` closure in ConfigurationHelper (zoomLevel and userEnv catch blocks) and the `GetConfiguration` and `Replace` functions in ConfigurationImplementation (sandbox fallback, IPC fetch, and listener notification catch blocks).\n\nNo behavioral changes — purely cosmetic identifier renaming in catch parameters.",
+			"SHA": "ceb4575d9130d35ce5b4bad8e0955138776ca680"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T19:12:13Z",
+			"File": [
+				"⣿⡏⠀⠀⠀",
+				923,
+				300
+			],
+			"Message": "refactor(Wind): Strip Effect-TS from Configuration, Mountain, and bridges\n\nFifth and broadest wave of the Effect-stripping initiative. All service\ninterfaces that no longer participate in the Effect dependency graph are\nconverted from Effect-typed returns to plain sync/async signatures:\n\n- **Configuration & Mountain** (wave-4 refactors) → finalize interface\n  conversion: `get()`, `fetch()` return plain values / Promise instead of\n  `Effect.Effect`; `changes` / `connectionChanges` / `syncEvents` Streams\n  replaced with callback-based `onChange(...) / onConnectionChange(...) /\n  onSyncEvent(...)` returning `IDisposable`.\n- **18 workbench bridge services** (Activity, Clipboard, Command,\n  ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout,\n  Lifecycle, Notification, Product, Progress, Storage, Theme, Workspace)\n  → all `Effect.Effect<T, E>` returns become `T` (sync) or `Promise<T>`\n  (async); all `Stream.Stream<T, E>` subscriptions become callback-based\n  `{ dispose }` handles.\n- **All other IPC-backed services** (Commands, Decorations, Editor,\n  Extensions, Files, History, Keybinding, Label, Language, Lifecycle,\n  Model, Notification, Output, Progress, QuickInput, Search, Storage,\n  Terminal, TextFile, TextModelResolver, Themes, WorkingCopy, Workspaces)\n  → same Effect→plain conversion for interface + stub implementations.\n- **Configuration & Mountain tags** converted from `Context.Tag` classes\n  to `export type` aliases.\n- **Configuration & Mountain removed** from all three Effect layer stacks\n  (ElectronLayer, TauriLayer, TestLayer) — they are now plain singleton\n  services loaded by their implementation modules.\n- **Error types**: every `*Problem` discriminated union gains a companion\n  `*Error extends Error` class so callers can `throw` failures directly\n  rather than returning `Effect.Effect<_, Problem>`.\n- **ConfigurationHelper**: `MakeValidate` / `MakeApply` return plain\n  throw-returning functions instead of `Effect.Effect`.\n- **ChangeStream (Extensions)**: refactored from Effect-Stream to\n  Tauri `listen`-based callback subscription.\n- **NotificationStream (Vine)**: refactored from Effect Layer + Queue +\n  Stream to plain subscriber-array fan-out over a shared Tauri Channel.\n- **UserSettings**: `Read`, `ReadOptional`, `HasUserValue` return plain\n  values (throw on failure); `Write` returns `Promise<void>`; `Changes`\n  switches from `Stream.async` to callback subscription.\n- **FileSystem**: `provider` field added as direct `IFileSystemProvider`\n  access; all Effect-wrapped methods converted to async.\n- **BootstrapStage**: replaces `yield* (yield* Configuration).get` with\n  `ConfigurationLive.refresh()` / `MountainLive.connect()` direct calls.\n- **HealthImplementation**: replaces `yield* MountainTag` / `yield*\n  ConfigurationTag` with `MountainLive.version()` / `ConfigurationLive.get()`\n  direct calls.\n- **Config schema**: blank-line separator added after `import type` and\n  before first `readonly` member in 200+ interface declarations for\n  consistent formatting across all module categories.\n\nNo behavioral changes — all tests pass with the same caller semantics\nat the boundary (async functions, throw on error, callback dispose).\nThis completes the Effect-simplification pass that began in wave 1\n(baabb3fa) across the entire Wind services surface.",
+			"SHA": "170c8131f224e98c8608011a6a269061c92f974e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:48:23Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				923,
+				44
+			],
+			"Message": "refactor(Wind): Standardize barrel export order and update tag docstrings\n\nReorganize all 18 workbench service barrel (index.ts) files into a consistent four-section ordering: (1) BridgeShape/Globals type exports and Live value export, (2) Interface type exports, (3) Tag type exports, (4) Problem type exports. Previously each module had a haphazard layout that mixed types and values without grouping convention.\n\nStandardize the LandWorkbench barrel (index.ts) to group CELWind globals first, then LandWorkbenchRuntime, then the Tags re-export barrel — matching the consumer-level priority for symbol lookup.\n\nReorder the Bootstrap barrel to follow a similar category grouping: live implementation, stages, service interface, mock, service tag, type definitions.\n\nNormalize import pairing in LandWorkbenchRuntime.ts — each Live import now sits immediately above its matching type import for the same service, improving scanning readability.\n\nReorder LandWorkbenchTags.ts re-exports so the friendly alias (e.g. `UserSettings`) precedes the tagged type (`UserSettingsServiceTag`), making the default name more visible in import completions.\n\nUpdate all 18 Tag files' JSDoc descriptions from the previous \"Context.Tag was removed\" phrasing to a generic \"available via the LandWorkbench registry\" — the Context.Tag removal is now historical, not a live description.\n\nNo runtime behavior changes — purely cosmetic reordering of exports and imports across 24 files.",
+			"SHA": "b9b6b34dc40c77d1eacb7f7a07dec39b6f9049b0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:24:34Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				923,
+				1
+			],
+			"Message": "refactor(Wind): Eagerly run bootstrap Effect in runBootstrap\n\nThe previous `runBootstrap` returned an `Effect` for the caller to run, with type references via an inline `import()` annotation in the parameter list. This deferred-Effect pattern is inconsistent with the broader Layer-flattening initiative, where imperative entry points (cf. prior commits) have been converted to eager evaluation.\n\nFlatten the type imports to module-level named imports (`BootstrapOptions`, `BootstrapResult`), removing the inline `import()` path. Convert `runBootstrap` from a sync function returning `Effect` to an `async` function returning `Promise<BootstrapResult>`, wrapping the generator with `Effect.runPromise(Effect.gen(...).pipe(Effect.provide(BootstrapRunLayer)))`.\n\nCallers now consume a plain Promise instead of composing an Effect — no additional `.pipe(Effect.provide(...))` or `Effect.runPromise(...)` required at the call site.",
+			"SHA": "d79b7e445dfccbe18872b3d42e8c136265e0c405"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T18:23:59Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "refactor(Wind): Remove LandWorkbenchLayer and finalize type-only tag barrel exports\n\nDelete the unused LandWorkbenchLayer.ts module that previously composed all 18 workbench services into an Effect Layer. With the prior commits migrating from ManagedRuntime + Layer to a plain-object registry (aa7933b2), this Layer definition has no consumers.\n\nConvert all 18 tag re-exports in LandWorkbenchTags.ts from value exports to `export type` — the tags are now purely type-level aliases following the Tag→type conversion in aa7933b2, so runtime re-exports are misleading.\n\nUpdate the LandWorkbench index.ts barrel: drop the LandWorkbenchLayer re-export, add the LandWorkbenchServices type alias, and surface the CELWind / InstallLandWorkbench globals alongside their type definitions. This completes the index's migration from the old Layer-based API surface to the direct registry accessor pattern.\n\nUpdate the EmitServiceCatalog doc comment to reflect that the autoloader no longer references LandWorkbenchLayer.\n\nThis is the fourth and final wave of the Layer-flattening initiative — no Effect composition artifacts remain in the LandWorkbench entry points.",
 			"SHA": "2cb7ee56f9e49e605888b79087a2b4ea18d8ea83"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:23:00Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				924,
-				38
-			],
-			"Message": "refactor(Wind): Strip Effect Context.Tag from workbench service tags and replace ManagedRuntime with plain registry\n\nRemove the final Effect abstraction layer from all 18 workbench services by converting each `Context.Tag` class into a simple type alias. The `LandWorkbenchRuntime` switches from `ManagedRuntime.make(LandWorkbenchLayer)` to an eagerly-constructed plain-object registry that imports each `*Live` implementation directly.\n\nConcrete changes:\n- **18 Tag files** (UserSettings, Activity, Clipboard, Command, ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout, Lifecycle, Notification, Product, Progress, Storage, Theme, Workspace): Replace `class XTag extends Context.Tag(...)` with `export type XTag = XService`. Drop the `Context` import, `const X = XTag` alias, and `default` export.\n- **LandWorkbenchRuntime**: Replace `ManagedRuntime` wrapping `LandWorkbenchLayer` with a `LandWorkbenchServices` interface + plain object. Each service field receives its `XLive` instance directly. The `Dispose` method no longer calls `ManagedRuntime.dispose()` — it only clears the global singleton.\n- **LandWorkbenchGlobal**: Replace `RunPromise`/`RunPromiseExit` Effect-based accessors with a direct `Services` property exposing the typed `LandWorkbenchServices` object. Drop the `LandWorkbenchLayer` import and the `Layer` export from `CELWindGlobalShape`.\n- **18 index.ts barrel files**: Change `export { ... }` to `export type { ... }` since the tags are now only type-level artifacts.\n\nAll 18 index.ts barrel files now emit only type declarations — no runtime Effect artifacts remain. This completes the third wave of the Layer-flattening initiative, following the live-implementation and Layer wrapper stripping in previous commits.",
-			"SHA": "aa7933b23ae1f73d154edf7a2e83a8f3e7342555"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:22:10Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				924,
-				18
-			],
-			"Message": "refactor(Wind): Strip Effect Layer wrappers from 18 workbench live implementations\n\nRemove the `Layer.succeed` / `Layer` import indirection layer from all workbench service live implementations — UserSettings, Activity, Clipboard, Command, ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout, Lifecycle, Notification, Product, Progress, Storage, Theme, and Workspace — replacing `export const XLive = Layer.succeed(Tag, makeX())` with direct `export const XLive = makeX()`.\n\nThis is the second wave of the Layer-flattening initiative (following 8814bfe1). Each file also drops the unused `Layer` import and the corresponding `*ServiceTag` import. The factory function `makeX()` already produces a valid service object matching its interface; wrapping it in a `Layer` provided no additional composition value since these services are consumed directly via the tag in Wind's dependency graph.\n\nRemoves 72 lines of boilerplate across 18 files. All exports remain available as named and default exports for backward compatibility.",
-			"SHA": "baabb3fa4406f6dcd2f875658d0d27b73fefbf79"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:05:32Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				924,
-				11
-			],
-			"Message": "refactor(Wind): Flatten Effect wrappers and harden Tauri IPC dispatch\n\nRemove indirection from editor state management, progress reporter, and text model resolver by replacing `Ref`/`Effect.runFork` with direct mutable variables and sync calls where asynchronous wrapping added no value. Simultaneously strengthen the Tauri IPC layer with proper listener lifecycle tracking, reliable node-deferred fallback, and error propagation.\n\n**Editor state (Live.ts):** Replace `Ref.unsafeMake`/`Ref.set`/`Ref.get` wrapping with bare `let`/`const` variables and `Effect.sync` accessors. The Tauri event listener subscription shifts from `Effect.runFork`/`Effect.promise` to raw `async`/`await import`, removing the imperative Effect allocation around a fundamentally imperative callback.\n\n**Progress service (WorkbenchProgressLive/Interface):** Make `Report` a sync `void` return — the upstream VS Code reporter is already synchronous — and change `Run`'s body callback to `Promise<A>` instead of `Effect.Effect<A, …>`. The bridge API (`window.createAsyncWorkbenchProgress`) expects an async function, so wrapping its return in `Effect.runPromise` was pure overhead.\n\n**Text model resolver (TextModelResolver/Live):** Replace `Effect.runFork` + `Effect.ignoreLogged` with `Effect.runPromise` + `.catch(() => {})`, avoiding a forked fiber with logged-ignore semantics for a fire-and-forget close.\n\n**Tauri IPC (TauriIPC.ts):** Implement proper `ChannelUnlisteners` tracking in a module-level `Map<string, () => void[]>` so that `removeAllListeners` actually detaches Tauri event listeners instead of accumulating them across window reloads. Fix `send` to always serialize args as `unknown[]` — prior special-casing of single-element arrays caused Mountain-side argument desync with TauriMainProcessService's contract.\n\n**Tauri main process service (TauriMainProcessService.ts):**\n- Remove `output` from `FireAndForgetChannels`: Mountain's `output:createOutputChannel` and `registerLogger` return handles that callers consume, so they must round-trip.\n- Add `NodeDeferred` tier: when Mountain returns `undefined` (no native handler registered) or throws, the call re-dispatches through the Node-tier cocoon:request path instead of surfacing the error or returning `undefined` to undefined-intolerant workbench consumers.\n- Propagate MistWS errors: instead of silently catching and falling back to Mountain, `Node`-tier calls now rethrow the error to maintain the Node-only contract. Other tiers trace the double-dispatch.\n- Rethrow Mountain invocation errors instead of returning `undefined`: callers expecting arrays or tuples see a rejected promise rather than `undefined` leaking into `.map`/`.forEach`.\n\n**Storage (StorageService Live/Interface):** Add `GetItems` (bulk read as `[key, value][]` tuples), `UpdateItems` (atomic insert/delete in one round-trip), and `Optimize` (flush the store) — wiring three new IPC channels against Mountain's `StorageProvider`.\n\n**Search (SearchService Live/Interface):** Accept `string | readonly string[]` for `include`/`exclude` glob patterns and normalize to `string[]` via `ToGlobArray` before sending to Mountain, matching the workbench's dual single-string/array contract.\n\n**Workspaces (Live.ts):** Extract inline coercion logic into a named `CoerceFolderArray` helper for readability.",
-			"SHA": "8814bfe130f9dbe578f886694c4cb249d3c5e427"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:34:46Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				924,
-				3
-			],
-			"Message": "feat(Wind): Route output dispose and working copy dirty checks through IPC\n\nWire two previously local-only operations through to Mountain's native handlers, and implement a proper SaveAll flow that iterates dirty files instead of issuing a single no-op command.\n\n- **OutputService.Dispose**: Replace local `ActiveChannels.delete()` with `IPCService.invoke(Channel.OutputDispose)`, notifying Mountain's `OutputChannelManager` so the output channel is properly cleaned up on the native side. Document the `output:dispose` IPC channel.\n- **TextFileService.SaveAll**: Query `workingCopy:getAllDirty` to retrieve the list of dirty URIs from Mountain, then issue one `output:save` per dirty file with `Effect.all({ concurrency: \"unbounded\" })`. This replaces the prior no-op that called `output:save` with no arguments.\n- **TextFileService.IsDirty**: Invoke `workingCopy:isDirty` via IPC instead of returning `Effect.succeed(false)`, giving callers an accurate dirty-state check per URI.\n- **README.md**: Add `title=\"Star\"` attribute to the GitHub star badge image element; remove the trailing em-quad from the `## System Architecture` heading to match the revised convention.",
-			"SHA": "c267104ad468e9ce43ec49c746cb5dc8a138eaea"
 		}
 	],
-	"TimeStamp": 1782148099497
+	"TimeStamp": 1782312428441
 }

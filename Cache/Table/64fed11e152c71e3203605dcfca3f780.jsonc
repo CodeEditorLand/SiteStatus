@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T07:59:29Z",
+			"Date": "2026-05-23T10:44:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1739,
-				13
+				1731,
+				3
 			],
-			"Message": "fix(Mountain): Propagate IPC errors and complete gRPC request handlers\n\nShifted all `WindServiceHandlers` to propagate I/O and path resolution errors instead of swallowing them. Updated `FileExistsNative`, `FileWriteNative`, `TextfileSave`, `ModelOpen`, `TextfileSave`, and `GetEnvironmentPaths` to return descriptive error messages. This prevents silent failures where VS Code interprets errors as 'not found' or flips documents into conflict states due to null metadata.\n\nCorrected `ShowMessageBox` to use `.body()` for detail text and fixed `QuickInputShowQuickPick` to return arrays for multi-select operations. Added missing gRPC handlers in `Storage`, `TreeView`, and `Workspace` for `Storage.GetItems`, `tree.reveal`, and `showTextDocument`, ensuring Cocoon can access extension state and UI features via the IPC layer.\n\nFixed a TOCTOU race in `ExtensionsGetInstalled` by subscribing to the `ScanReady` notification before executing the query. Added logic in `LoadFromCache` to treat empty extension lists as cache misses, forcing a live scan if the stub was generated prematurely. Updated `build.rs` to consistently write a valid `CacheBlob` struct for the manifest stub.\n\nThese changes ensure data integrity across the IPC layer, restore functionality for missing extension APIs, and prevent UI glitches caused by suppressed errors.",
-			"SHA": "416e8d7a0ddc284253f0b6080ad550338d89d9c2"
+			"Message": "refactor(Mountain): Adopt standardized argument helpers in FileSystem and Git handlers\n\nApply the newly introduced `JsonValueHelpers` utilities to the `FileSystem` (Managed and Native) and `Git` IPC handler modules. Replace verbose `Arguments.get(...).and_then(...).unwrap_or(...)` patterns with the type-safe `arg_string`, `arg_u64`, and `arg_bool_true` helper functions.\n\nSpecific updates include:\n- `FileMkdir.rs`: Standardize retrieval of the `recursive` flag.\n- `FileCloseFd.rs`: Standardize extraction of the file descriptor index.\n- `HandleExec.rs`: Standardize retrieval of the working directory path.\n\nAlign these handlers with the project-wide refactoring to reduce boilerplate, ensure consistent default value handling, and improve type safety across the Mountain backend's IPC surface.",
+			"SHA": "1896d3a7e0862b27b66d686e1e2e12c64a8b8b70"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T07:59:22Z",
+			"Date": "2026-05-23T10:42:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1739,
+				1731,
 				1
 			],
-			"Message": "fix(Mountain): Correct stub format for ExtensionsManifest in build script\n\nUpdate the `build.rs` script to write a valid `CacheBlob` JSON structure instead of a bare JSON array when generating the stub `extensions.manifest.json`. The `LoadFromCache` parser expects an object containing `version`, `count`, and `extensions` fields, whereas the previous implementation wrote `[]`, causing potential parsing mismatches or type errors during startup.\n\nThis ensures the Tauri build process generates a structurally correct manifest stub that aligns with the runtime data deserialization expectations, preventing crashes when the Sky-generated manifest is unavailable.",
-			"SHA": "8924f19f5908567bc989f640cbf8626ba937dacf"
+			"Message": "",
+			"SHA": "f1adcf0b1b391589d014547ebaabfb05c5161808"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T06:28:37Z",
+			"Date": "2026-05-23T10:42:29Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1739,
-				4
+				"⠁⠀⠀⠀⠀",
+				1731,
+				53
 			],
-			"Message": "refactor(Mountain): Standardize DTO naming and repair UTF-8 path handling\n\nAlign `ModelVersionIdentifier` to `ModelVersionId` in `MarkerDataDTO` and `DiagnosticProvider` to match existing PascalCase conventions and reduce verbosity.\n\nEnhance the `FileWriteNative` IPC handler to detect and decode base64-encoded buffers received from VS Code serialization paths, falling back to raw bytes if decoding fails. This resolves data corruption when saving files via certain extension workflows.\n\nRewrite `percent_decode` in `PathExtraction` to correctly reconstruct multi-byte UTF-8 sequences from percent-encoded URI components. The previous implementation cast decoded bytes directly to `char`, corrupting non-ASCII paths (e.g., CJK or accented characters) and causing silent ENOENT errors. The new approach accumulates raw bytes and performs a safe `from_utf8` conversion with a lossy fallback.\n\nThese changes ensure robust file operations with international paths and consistent data integrity across the IPC layer.",
-			"SHA": "1ee9d6c0f0082ba72857e78be4316b0abb8af829"
+			"Message": "refactor(Mountain): Standardize Wind service argument extraction\n\nIntroduce a centralized utility module `JsonValueHelpers` within `WindServiceHandlers` to provide type-safe, default-aware argument extraction helpers (`arg_string`, `arg_u64`, `arg_bool`, etc.). Replace ad-hoc `Arguments.get(n).and_then(...).unwrap_or(...)` patterns scattered across 40+ IPC handler modules with calls to these standardized helpers.\n\nThis change affects the entire `WindServiceHandlers` tree, including Cocoon, Git, Terminal, UI, and NativeHost namespaces. The `mod.rs` file is updated to export the new helper functions, and the main IPC dispatcher `mountain_ipc_invoke` is refactored to utilize them for command routing. This reduces boilerplate, ensures consistent default value handling, and improves type safety across the Mountain backend's IPC surface.",
+			"SHA": "c6d28d00faef4a321909bfa8755f46f72ccce346"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T06:03:46Z",
+			"Date": "2026-05-23T10:33:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1739,
-				1
+				1731,
+				11
 			],
-			"Message": "refactor(Mountain): Preserve binary integrity in HTTP response parsing\n\nThe `forward_http_request` helper in `Source/Binary/Build/Scheme.rs` was incorrectly converting HTTP response bodies to UTF-8 strings before parsing. This `String::from_utf8_lossy` operation corrupted binary content (images, WASM modules, etc.) by inserting replacement characters for non-UTF-8 sequences.\n\nUpdate `parse_http_response` to accept a raw byte slice (`&[u8]`) instead of a `&str`. Implement the header/body separation using `windows(4)` to locate the `\\r\\n\\r\\n` separator on raw bytes. Safely decode only the header section to UTF-8 (since HTTP headers are ASCII), while passing the body bytes directly to the result tuple.\n\nThis ensures binary assets proxied through the Mountain build tool remain intact and prevents data corruption during HTTP forwarding.",
-			"SHA": "977f678a3ae277ac8d8f21db1cbe3be48690a369"
+			"Message": "refactor(Mountain): Consolidate Cocoon forwarding logic and remove redundant handler modules\n\nEliminate the `Source/IPC/WindServiceHandlers` directory structure (Git, UI, and shared modules) which previously contained repetitive boilerplate for forwarding IPC commands to the Cocoon extension host. Replace the scattered, copy-paste implementations of payload serialization and gRPC invocation with a centralized `forward_to_cocoon` macro and `cocoon_payload` helper in `mod.rs`.\n\nThis refactoring unifies the handling logic for SCM, Debug, Tasks, and Authentication namespaces within the main IPC dispatcher (`mountain_ipc_invoke`). The new macro handles argument normalization (Null, single value, or array) and manages the `WaitForClientConnection` and `SendRequest` lifecycle consistently, reducing code duplication and improving maintainability. The deletion of individual handler files streamlines the Mountain backend architecture while preserving the functional bridge to the VS Code runtime in Cocoon.",
+			"SHA": "f6139fff82bc66bce7ac77abc19964d6ca44898e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T05:34:02Z",
+			"Date": "2026-05-23T10:13:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1739,
-				4
+				1741,
+				2
 			],
-			"Message": "feat(Mountain): Extend extension cache lifetime and refine SCM updates\n\nIncrease the maximum cache age for extension descriptors from 10 minutes to 24 hours. The previous window was too tight for local development workflows where the binary and cache are co-located; since builds regenerate the cache, a longer duration prevents unnecessary rescans without staleness risks.\n\nEnhance the `FileWriteNative` handler to suppress false-positive warnings when the Cocoon process is not yet connected during `FileWrite` operations. This prevents noise in the `vfs` log when saving files before the extension host is fully ready.\n\nAlign `UpdateScmGroup` logic to emit `scmId` alongside `providerId` in the payload to `sky://scm/updateGroup`. This ensures the Sky frontend can correctly resolve the SCM shim. Remove the fallback logic that attempted to invoke `UpdateSourceControlGroup` traits, as direct event emission is the reliable path.\n\nAdditionally, add `DebugServer`, `DebugServerPortMountain`, and `DebugServerPortCocoon` to the environment variable whitelist in `CocoonManagement` to support future debugging configurations.",
-			"SHA": "fc1e6daf52356219f8c954cc53b698a688432d94"
+			"Message": "fix(Mountain): Correct event naming and simplify language configuration payload\n\nRefactor `SetLanguageConfiguration` to emit the entire parameter object directly instead of reconstructing the payload with a single `language` field. This aligns the RPC handler with the generic notification pattern used by other Sky emit handlers.\n\nIn `WebviewLifecycle`, correct the event suffix mapping for the `postMessage` command. Change the target event string from the kebab-case `post-message` to the PascalCase `postMessage`. This resolves a naming inconsistency and aligns the Tauri event identifiers with the project-wide PascalCase naming convention established in previous refactorings.\n\nThese changes ensure consistent payload structures for language configuration and restore strict adherence to naming standards for webview IPC events.",
+			"SHA": "e5c08bc20068b79fa24a3c1d986c536cf8a9a1dc"
 		}
 	],
-	"TimeStamp": 1782148114686
+	"TimeStamp": 1782312442325
 }

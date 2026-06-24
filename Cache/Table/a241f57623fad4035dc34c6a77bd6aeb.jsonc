@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:34:47Z",
+			"Date": "2026-06-12T23:17:40Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1861,
+				1867,
+				17
+			],
+			"Message": "feat(Mountain): Add NativeBus for direct Rust handling of swallowed IPC methods\n\nIntroduce Source/Shim/NativeBus.rs — a dispatch layer that handles IPC methods intercepted by SwallowMap natively in Rust, bypassing the Cocoon gRPC round-trip entirely. Covers file I/O (`tokio::fs`), terminal PTY, search, dialogs, status bar, and telemetry discard.\n\nWiring changes: DispatchMatch.rs now calls NativeBus::handle for Mountain-targeted methods instead of returning a bare Null ack, and the Shim module entry point registers NativeBus as a public submodule. Scattered formatting cleanup across InvokeProvider, Gate, SwallowMap, and several IPC handlers strips single-line wrapping from straightforward method bodies to match project PascalCase conventions.\n\nThe NativeBus table documents the routed prefix-to-handler mapping, with unimplemented search and dialog handlers returning stub ack responses for future native integration.",
+			"SHA": "d1bbaa5a4aee20b182143bfd59060f9b463afbe4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:34:52Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1866,
 				1
 			],
-			"Message": "style(Mountain): Replace em dashes with hyphens in README.md\n\nConsistently replace all em dash characters (`—`) with standard hyphens (`-`) throughout the README.md, affecting the Feature list, Architecture table, Dependencies table, Security table, and Related Documentation links. The change moves from typographic punctuation to plain ASCII for consistency with the surrounding codebase documentation conventions.\n\nNo behavioral or semantic changes — prose style alignment only.",
-			"SHA": "c8f239f13c0c09ef81f4d73cf9180e840f67beed"
+			"Message": "docs(Mountain): Document Shim tiers and architecture in Arch.md\n\nAdd a new Shim Compatibility section to Documentation/GitHub/Architecture.md covering both tiers of the deep-shim interception system:\n\n- **Low-Level Shim** (🟠, TierShim=Own|Preempt): Engine prototype hooks for Error, Emitter, Cancel, Dispose, Async, Timing interception.\n- **Coverage Shim** (🔵, TierShim=Proxy|Replace): Service-level routing for IPC SwallowMap, DI proxy, and AuditLog.\n\nAlso links to the Shim documentation and notes the Source/Shim/ Rust module location. This completes the documentation coverage for the interception layer introduced across the last five commits on the Current branch.",
+			"SHA": "e4e3956cf47b55f13c8e072726535c21e3ca7160"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:04:43Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				1861,
-				90
-			],
-			"Message": "docs(Mountain): Add doc comments across RPC, Environment, and Vine modules\n\nAdd module-level `///` doc comments to every `pub mod` declaration in the\nCocoonService handler suite (Auth, Command, Debug, Extension, FileSystem,\nInitialization, Output, Provider, SCM, Secret, Task, Terminal, TreeView, Window,\nWorkspace — ~40 submodule files) and the remaining RPC services (Commands,\nConfiguration, Debug, EchoAction, Processes, SCM, Telemetry, Terminals, Types,\nVine, Windows, Workspace).\n\nAdd doc comments to Environment submodule declarations (DebugProvider, Feature-\nMethods, Utility, WebviewProvider), the ConfigurationProvider::Loading public\nre-export, and complete the TestProvider documentation pass with field-level\ndocs on TestRun, TestRunStatus, and TestResult structs plus blank-line\nseparators between enum variant docs across all TestProvider types.\n\nReplace `// TODO:` stubs in SecretProvider with structured docs noting the\nplanned Air integration and current NotImplemented return. Add section docs to\nSearchProvider::de_glob_list and UserInterfaceProvider::SendUserInterfaceRequest.\nTighten Vine module docs: replace \"Manages\"/\"Handles\" with \"Forwards\"/\n\"Dispatches\" on notification dispatchers, fix grammar in Client module docs.\n\nNon-docs: disable DevTools web inspector and clear trace logging in Info.plist;\nstrip lint blank lines from bootstrap-fork.js; fix shell-integration redirect\nsyntax; wrap README.md and Architecture.md to consistent 80-column prose.",
-			"SHA": "f0cb6d150f0b7848962fd194f992e0d48e326e8b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:14:15Z",
+			"Date": "2026-06-12T22:26:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1861,
-				14
+				1866,
+				6
 			],
-			"Message": "docs(Mountain): Add rustdoc comments to TerminalEnvCollection and TestProvider types, polish Vine module docs\n\nAdd field-level doc comments to `TestControllerState`, `TestProviderState`, and `TestResult` structs in the TestProvider module, and function-level doc comments to `Append`, `Prepend`, `Delete`, `Clear`, `SetPersistent`, and `SetDescription` in `TerminalEnvCollection`. Also add a short doc to the `ShellIntegration` submodule header in `Terminal/mod.rs`.\n\nRewrite Vine module documentation (`Vine/mod.rs`, `Vine/Server/mod.rs`, `Notification/mod.rs`, `Notification/Support/mod.rs`) to describe sidecar processes generically instead of singling out Cocoon, bringing the top-level module docs in line with the architecture's multi-sidecar design (`Air`, `Cocoon`). Tighten the `MountainVinegRPCService` module and struct doc comments to remove meta-instructional phrasing, and replace placeholder doc stubs (`\"Relays to sky.\"`, `\"Unregisters by handle.\"`) on `RelayToSky` and `UnregisterByHandle` with accurate descriptions.\n\nAdd meaningful doc to `TauriRendererEmitter::Emit` and improve `TauriRendererEmitter` struct doc to state its contract role as the `RendererEmitter` trait implementation for Tauri.",
-			"SHA": "799f5fcdd015b0a9b097b57aae83f14b73738cc7"
+			"Message": "feat(Mountain): Wire Shim interception into both IPC dispatch paths\n\nInsert the Shim layer at two entry points so swallowed methods are\nintercepted before reaching any domain handler:\n\n- **DispatchMatch.rs** — Shim pre-check in `mountain_ipc_invoke` reads\n  `Gate::is_enabled()` and `SwallowMap::should_swallow()` to decide\n  whether to return a Null ack (Mountain/None targets) or passthrough.\n\n- **CreateEffectForRequest/Shim.rs** — New domain module that gets first\n  crack at every gRPC method via `Try!(Shim)` in the dispatch chain,\n  placed before all other domain handlers. Returns a Null-ack effect for\n  swallowed methods or `None` to fall through.\n\nAlso clean up the remaining AI-internal annotations from the initial\nShim implementation: remove the 🟠🔵 color/tier table and the\n`.hermes/microsoft/` doc reference from `Shim/mod.rs`, drop \"Land\"\nqualifier from `SwallowMap.rs`, and deduplicate the repeated subsystem\nfeature declarations in `Cargo.toml`.\n\nThe interception layer is fully gated behind `TierShim` (default: `None`)\nand compiles to zero overhead via dead-code elimination.",
+			"SHA": "8e7ff15b9ef23c3c0a63203a1086dc97e0300645"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:13:15Z",
+			"Date": "2026-06-12T22:26:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1861,
+				1865,
 				2
 			],
-			"Message": "docs(Mountain): Add rustdoc comments to TerminalEnvCollection and polish Initialize docs\n\nAdd doc comments with variant/field descriptions to `MutatorType`, `Mutator`, and `ExtensionCollection` types in `TerminalEnvCollection`, and to the `Replace` free function. These types manage environment variable mutations registered by extensions, mirroring VS Code's `EnvironmentVariableMutatorType`.\n\nRewrite the `Initialize` module doc to be more concise: replace the section-title header with a direct `//!` summary, tighten the lifecycle section, and fix several half-edited doc phrases that were left in a transitional state from an earlier rewrite pass.",
-			"SHA": "24c3dc016be753a6999cb668743cacad67fbcddb"
+			"Message": "style(Mountain): Strip AI-internal annotations and reorganize Cargo features\n\nRemove emoji markers (🟠🔵) and the .hermes/microsoft/ doc reference path\nfrom the Shim module comment, keeping only the functional description of the\ngated interception layer. Relocate inline Shim tier explanatory comments from\nthe default features list in Cargo.toml.\n\nReorganize feature flags into logical groups — tier flags, subsystem\nfeatures, and the Shim gate — for better maintainability alongside the\nexisting declarations per project policy on source cleanliness.",
+			"SHA": "0b9e8f0ca5e36019d5a812f965861eb01b7d668e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:12:16Z",
+			"Date": "2026-06-12T22:20:44Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
-				1861,
-				300
+				"⠀⠀⠀⠀⠀",
+				1865,
+				5
 			],
-			"Message": "feat(Mountain): Wire bidirectional Vine streaming multiplexer and expand Sky replay coverage\n\nImplement `open_channel_from_cocoon` on `MountainVinegRPCService`, enabling bidirectional streaming between Cocoon and Mountain over the Vine protocol. The read pump dispatches inbound `Envelope` frames through the same paths as their unary counterparts (notification → send_cocoon_notification, request → process_cocoon_request, cancel → cancel_operation) and pushes responses back via `CHANNEL_REGISTRY`. A `ChannelId` field on `Envelope` lets receivers detect stale pre-reconnect frames.\n\nExpand `sky:replay-events` to rebuild output channels (create + buffered content, capped at 200 lines per channel), diagnostics markers per owner, and status bar entries — filling gaps where late SkyBridge listeners missed state that settled before boot. Add `language:cancelRequest` forwarding to Cocoon so the workbench can abort in-flight provider calls.\n\nRefactor both GenericNotification and GenericRequest dispatchers: Sky-emit handlers resolve through a `Lazy<HashMap>` lookup (eliminating sequential string matching); GenericRequest methods dispatch through a `Route` enum backed by a `HashMap`. Output channel state (name, buffer, visibility) is now tracked in `ApplicationState.Feature.OutputChannels` at every append/create/clear/show/dispose site, enabling the replay path and consistent visibility through Cocoon restarts. All Sky emits changed from `app.emit()` to `app.emit_to(\"main\")` for targeted delivery. Stale `CHANNEL_REGISTRY` entries are drained when a new Cocoon channel opens.\n\nAlso strip boilerplate doc sections (Dependencies, Dependents, VSCode Pattern Reference, Thread Safety, Error Handling Strategy) from IPC module doc comments and replace uniformative `/// fn`/`/// Data for struct` with actual descriptions across ~400 files.",
-			"SHA": "d592c9a7674e4b31ea27a36b59f1a77f574a536a"
+			"Message": "feat(Mountain): Add Shim module with Gate and SwallowMap for IPC interception\n\nEstablish the Rust-level foundation for the deep-shim interception layer introduced by the TierShim env-var in the prior commit. Two new modules live behind the `pub mod Shim` declaration in Library.rs:\n\n- **Gate** — Compile-time tier gate reading `env!(\"TierShim\")` (baked by build.rs via EmitTierDefaults), exporting boolean guards (`is_enabled`, `is_proxy`, `is_replace_or_deeper`, `is_own_or_preempt`, `is_preempt`) that drive `#[cfg]` gating throughout Mountain. Zero overhead at default `None` tier via dead-code elimination.\n\n- **SwallowMap** — Pattern-matching decision engine that maps IPC method names (e.g. `statusbar:`, `telemetry:`) to a `SwallowAction`/`RedirectTarget` pair, determining whether Mountain handles the call locally, forwards it to Wind/Cocoon/Output/Sky, or discards it entirely (telemetry). Rules are checked in insertion order; first match wins with a default `Passthrough → None` fallback.\n\nCargo.toml gains inline comments documenting the four active shim tiers and their corresponding Rust features. This completes the Rust-side routing infrastructure for the Land Shim plan.\n\nSee: `.hermes/microsoft/05-Mountain-Rust-Intercept.md`",
+			"SHA": "d22f305e382b83b58e9a6ac5f32ce87c7369afc3"
 		}
 	],
-	"TimeStamp": 1782148097683
+	"TimeStamp": 1782312426492
 }

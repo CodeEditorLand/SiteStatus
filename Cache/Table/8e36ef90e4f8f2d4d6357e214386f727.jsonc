@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:07:52Z",
+			"Date": "2026-05-19T04:19:09Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1503,
-				26
+				"⠀⠀⠀⠀⠀",
+				1510,
+				6
 			],
-			"Message": "feat(Mountain): Replace polling loops with async notifies and wire native IPC handlers\n\nRefactor extension scanning and sidecar connection logic to replace busy-wait polling with `tokio::sync::Notify` synchronization primitives. Introduce `ExtensionState.ScanReady` and per-sidecar connection notifiers to unblock callers (e.g., `extensions:getInstalled`, `WaitForClientConnection`) immediately upon state transition, eliminating 50ms polling intervals and reducing boot latency.\n\nImplement full handlers for the `nativeHost` lifecycle surface (Exit, Quit, Relaunch, Reload, KillProcess, Install/UninstallShellCommand) and filesystem watching (`file:watch`, `file:unwatch`). These replace previous stub acknowledgments, enabling proper process management and native file system event routing to extensions.\n\nOptimize high-frequency gRPC notification paths (`RegisterCommand`, `ProgressReport`, `DecorationTypeLifecycle`) by migrating from per-call task spawning to a single long-lived mpsc-backed batch flusher. This reduces IPC saturation and task overhead during extension boot by coalescing thousands of rapid updates into single frame-aligned events.\n\nUpdate `Entitlements.plist` to use block-style XML formatting and clarify sandbox exemptions for the non-sandboxed editor environment.",
-			"SHA": "41b8029154da51b0556aa59039f99e6a7751c31c"
+			"Message": "fix(Mountain): Add logsPath to sandbox config, clean up handlers\n\nAdd the required `logsPath` field to `ISandboxConfiguration` to prevent VS Code's `NativeWorkbenchEnvironmentService.logsHome` from resolving to `undefined`, which crashes the extension host with a `TypeError` in `path.join`. The path is derived from `AppDataDir/logs/<session-timestamp>`, created eagerly before constructing the sandbox object.\n\nRemove the `nativeHost:setDocumentEdited` handler body — `NSWindow::setDocumentEdited` is not exposed by Tauri 2.x's `WebviewWindow` API — and strip the unused `ping_timeout` field from `ConnectionHealthChecker` since health checks are now call-path-driven rather than timer-based.\n\nSimplify early-return control flow in `isPortFree` and `getTerminalProcessId` to reduce branch nesting and eliminate dead returns. Fix the `TerminalId` type in `ResizeTerminal` with an explicit `.into()` conversion.\n\nRedraw the README architecture diagram as a structured subsystem hierarchy (Binary/, Track/, RunTime/, IPC/, Vine/, RPC/) with accurate gRPC port annotations for the Cocoon (:50052) and Air (:50053) sidecars.\n\nAdd `MIRIFLAGS=-Zmiri-disable-isolation` to `.cargo/config.toml` to permit `_NSGetExecutablePath` calls during Miri testing.",
+			"SHA": "0644dc0e1c7ea10717d827c6f4bdbde334d3da45"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T00:58:05Z",
+			"Date": "2026-05-19T03:01:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1492,
-				4
+				1510,
+				1
 			],
-			"Message": "feat(Mountain): Implement dual-layer debug server and SCM diff handling\n\nUpgrade the `WebkitServer` debug utility into a configurable dual-layer diagnostics tool supporting independent activation for the Mountain (Rust) and Cocoon (Node.js) layers. Introduce a unified `DebugServer` environment variable to select mode (mountain, cocoon, both, or off) and distinct ports (default 9933/9934). Add new HTTP endpoints for layer discovery (`/health`, `/layers`), iframe inspection, workbench command invocation, and transparent HTTP proxying to the Cocoon extension host.\n\nImplement the `vscode.diff` and `$scm:openDiff` command handlers in `SCM.rs` to bridge the VS Code Git extension with the editor UI. When triggered, these commands now forward the request to the `sky://editor/diff` endpoint via the Effect system, ensuring the native backend correctly resolves the promise and opens the diff editor as expected.\n\nThese changes restore full debuggability across the full stack and enable native Git workflows by correctly handling the canonical diff command invoked by upstream VS Code extensions.",
-			"SHA": "6ae748d57faee496b259c4f513cf2c296f4dc585"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "f05bb15337235ffc6fc2de4ac1988fe3a8d9e19a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T03:01:18Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1510,
+				14
+			],
+			"Message": "feat(Mountain): Implement custom editor registry, wire file watcher and PTY resize, optimize hot paths\n\nComplete several IPC/RPC stubs with actual implementations:\n- Store ViewType-to-sidecarId mappings in CustomEditorProvider's global\n  once-locked registry, enabling proper cleanup on unregistration\n- Route watch_file gRPC to FileWatcherProvider::RegisterWatcher for real\n  FSEvents/inotify monitoring instead of a no-op stub\n- Route resize_terminal gRPC through TerminalProvider to resize the PTY\n  (delivers SIGWINCH to the shell) alongside the existing Tauri event\n- Add extensions:activate handler sending $activateByEvent to Cocoon so\n  Wind's ExtensionsService triggers activation programmatically\n\nRefine IPC dispatch and sidecar routing:\n- Emit sky://commands/executed after commands:execute dispatch so\n  telemetry collectors and command subscribers observe every command\n- Look up debug configuration provider from ApplicationState.Feature.Debug\n  for correct sidecar routing instead of hardcoding cocoon-main\n\nOptimize high-frequency and hot paths:\n- Add StorageWriteDebouncer with 100ms write coalescing, replacing\n  per-call tokio::spawn disk writes with batched single-writes\n- Strip osascript subprocess from nativeHost:getCursorScreenPoint,\n  returning (0,0) to eliminate ~50ms macOS process spawn per invocation\n- Gate logger info/debug/trace to opt-in vscode-log tag; forward\n  error/warn/critical to dev_log consistently\n- Replace SystemTime-based ID generation with atomic sequence counters\n  in Notification and WindowUI, eliminating syscall overhead\n\nUpdate Tauri ACL manifests with the new tray allow-set-icon-with-as-template\npermission.",
+			"SHA": "e2e1d1e1b9088429512644b8901afcf9dd8d2347"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T02:56:16Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1510,
+				1
+			],
+			"Message": "perf(Mountain): Reduce command registration yield delay to 20ms\n\nThe 50ms `tokio::time::sleep` after extension activation was conservatively oversized since the `registerCommand` IPC channel drains in roughly 16ms. Lower the yield to a single 20ms frame, matching the actual batch-flush cadence of the Tauri event system.\n\nThis shaves 30ms from the extension activation hot path, accumulating measurably when multiple extensions register commands during startup.",
+			"SHA": "7c91748de9acede25cf29c983732453e7ffc2d4e"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-05-18T02:52:37Z",
+			"Date": "2026-05-19T02:49:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1492,
+				1510,
 				1
 			],
 			"Message": "",
-			"SHA": "7de344c980125a4acd67895fe0730d84681ea75c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-18T00:30:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1492,
-				12
-			],
-			"Message": "refactor(Mountain): Rename application identity to FIDDEE\n\nUpdate the native backend to rebrand the editor from 'Land' to 'FIDDEE'. This involves a comprehensive change of product identifiers, folder names, URI schemes, and application metadata across configuration files and source code.\n\nIn `Info.plist`, update `ProductNameShort`, `ProductNameLong`, `ProductDataFolderName`, and `ProductUrlProtocol` to use 'FIDDEE' and 'fiddee'. Modify `tauri.conf.json` to change the bundle identifier to `fiddee.editor.binary` and the development team to 'FIDDEE'.\n\nUpdate internal references in `Entry.rs`, `Scheme.rs`, `CliParse.rs`, `InitializationData.rs`, and `WindServiceHandlers/mod.rs` to ensure the URI scheme, window titles, and VS Code `productConfiguration` fields correctly reflect the new identity. Adjust `PostHogPlugin/CaptureEvent.rs` to tag telemetry under 'fiddee'. Remove the deprecated `WebkitServer.rs` debug utility.\n\nThis change aligns the binary artifacts and runtime data with the new project branding while maintaining the existing architectural structure.",
-			"SHA": "37e1304709590ce001a8ffbb2707cf477074204b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-17T15:45:01Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1499,
-				13
-			],
-			"Message": "refactor(Mountain): Migrate domain configuration to land.playform.cloud\n\nReplace all instances of the `editor.land` domain with `land.playform.cloud` across the Mountain native backend. This includes updating the `README.md` documentation, `tauri.conf.json` security policies (CSP), and internal service configurations.\n\nUpdate the `Scheme`, `ServiceRegistry`, and `CertificateManager` modules to reference `code.land.playform.cloud` and `api.land.playform.cloud` as the primary hostnames for local service routing and TLS certificate generation. Align DNS command logic (`DnsCommands`) to resolve the new zone `land.playform.cloud` and its subdomains to `127.0.0.1` for the diagnostic panel.\n\nRefactor unit and integration tests in `certificate_tests.rs` and `service_registry_tests.rs` to assert behavior against the new domain strings, ensuring consistency across the build artifacts and runtime environment.",
-			"SHA": "87ada867c668fef848ce561612d365d9baab197f"
+			"SHA": "32a00801945f697b6a7504c419666c2c5ea56267"
 		}
 	],
-	"TimeStamp": 1782148122003
+	"TimeStamp": 1782312448276
 }

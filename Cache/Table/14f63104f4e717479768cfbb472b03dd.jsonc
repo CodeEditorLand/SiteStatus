@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T05:31:32Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				105,
-				2
-			],
-			"Message": "fix(eliminate): skip inlining when substitution site is inside a loop body\n\nAddresses finding C from issue #55.\n\nBefore this change, a binding used only inside a for/while/loop body was\ncounted as RefCount=1 and inlined, moving the initialiser expression\ninside the loop. This changes evaluation semantics: the initialiser now\nruns on every iteration instead of once before the loop. For\nside-effecting or expensive initialisers this is a behavioural change.\nFor move-only types it causes a compile error on the second iteration.\n\nCountReferences now returns a third value InLoop alongside InClosure.\nInLoop is true when the single reference to Target is found inside the\nbody of a for, while, or loop expression. EliminateBlock skips the\ncandidate when InLoop is true.\n\nThe existing LoopBodyCountedAsOne test is updated to document the new\nbehaviour: count remains 1 (we do not hoist the loop counter) but\nInLoop is now true, which prevents inlining.",
-			"SHA": "88a03f43adb323bcd1a0498158c616ca64c223c0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T05:17:57Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				105,
-				2
-			],
-			"Message": "fix(eliminate): skip inlining when free vars in Init are moved before substitution site\n\nFixes #56.\n\nBefore this change, a candidate like:\n\n  let display = var.clone();\n  ... var moved into struct field ...\n  devlog!(..., display, ...);\n\npassed every safety check (count=1, not in closure, not unsafe, not\noversized) and was inlined, placing var.clone() after the move, which\nproduces E0382.\n\nThe new IsFreeVarSafe function in Safe.rs collects all plain-identifier\nfree variables from Init, then scans the statements between the\ncandidate declaration and the substitution site. If any of those\nstatements contain a by-value use (pass to a function, struct field\nshorthand, or assignment) of a free variable, the candidate is skipped.\n\nThe check is conservative: it only looks at Expr::Path single-segment\nidentifiers, so it never produces false negatives for qualified paths or\nmethod receivers. It may produce false positives (keeping a binding that\nwould actually have been safe) but never produces a false negative that\nresults in a compile error.\n\nA regression test covering the exact get_file_info / get_configuration\npattern from Mountain/Source/Air/AirClient.rs is included in Inline.rs.",
-			"SHA": "f495f73bfda5e0a7422b4ae1f63f2c0ff71cd68c"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-25T02:35:57Z",
+			"Date": "2026-05-25T06:20:14Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				105,
 				1
 			],
-			"Message": "",
-			"SHA": "272f255c5bd1f37f9c1398251fa8bf5ec88c9112"
+			"Message": "fix(Eliminate/CLI): add Reformat field to Options literal in CLI.rs\n\nDefinition::Options gained a Reformat field in an earlier commit but\nCLI.rs constructs Options via a named-field struct literal and was not\nupdated, causing a missing-field compile error on every build.\n\nAdd Reformat: false to the CLI literal (preserve-layout is the safe\ndefault; users who want the old full-reformat behaviour can pass\n--reformat once a flag is wired, but for now the field defaults off).\n\nAlso add the corresponding --reformat CLI flag so power users can opt in\nto the previous prettyplease reformat behaviour from the command line.",
+			"SHA": "4fbae67f03f1baab14fdd42bc746ac7a6dd8db5a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T16:09:59Z",
+			"Date": "2026-05-25T06:08:48Z",
 			"File": [
-				"⣿⠁⠀⠀⠀",
+				"⠁⠀⠀⠀⠀",
 				105,
-				23
+				2
 			],
-			"Message": "test(Maintain): split integration tests into Syntactic and Integration suites\n\nSplit the original Eliminate integration tests into two binary-compatible\nsuites: Syntactic (for fast, string-based comparison) and Integration\n(for semantically-validating via rustc).  The integration suite now compiles\ntransformed snippets to validate semantic equivalence.\n\nThis separation allows for faster, more targeted testing of the elimination\nlogic (syntactic) versus real-world usage (integration) and improves\nmaintainability by modularising the test files.\n\nRename `tests/Eliminate.rs` → `tests/Eliminate/Syntactic.rs` and\nintroduce `tests/Eliminate/Integration.rs` with per-test files under\n`tests/Eliminate/Integration/`.  Both test suites are built by `cargo test`.",
-			"SHA": "ad03561e6603ff1f089e8e4fa4859c9a2ad3f24c"
+			"Message": "fix(Eliminate): span-free preserve path; keep Run intact for existing tests\n\nAll previous attempts used proc_macro2 span APIs (byte_range, start/end\nreturning LineColumn) which require the span-locations feature to be\nexplicitly enabled in Cargo.toml. That feature is only declared on\nproc-macro2 = \"1\" with no features, causing a compile error on stable.\n\nThis commit abandons span-based position mapping entirely.\n\nNew approach - completely span-free:\n  1. Run keeps its original body verbatim (prettyplease reformat path).\n     All 11 existing Inline.rs tests continue to pass unmodified because\n     they all go through Run and compare against prettyplease output.\n\n  2. RunPreserve is a new exported function that:\n     a. Parses to AST to identify candidates via Collect/Safe/Count.\n     b. For each confirmed candidate, renders the ORIGINAL let-stmt and\n        the ORIGINAL use-stmt to text via prettyplease (on a 1-stmt\n        dummy file). Uses simple string search to locate those exact\n        substrings in the working text.\n     c. SubstituteRef mutates a clone of the use-stmt in the AST, then\n        renders the SUBSTITUTED use-stmt to text the same way.\n     d. Replaces original-use-text with substituted-use-text, then\n        removes the let-stmt text (plus its trailing newline) from the\n        working string. No span APIs, no feature flags.\n\n  3. Process.rs is updated to call RunPreserve when Options.Reformat is\n     false (the new default), and Run when it is true.\n\nThis means:\n  - With default options (Reformat:false): comments, blank lines,\n    section banners, and indentation style are preserved verbatim.\n  - With Reformat:true: full prettyplease reformat as before.\n  - All existing tests pass unchanged.",
+			"SHA": "b7b16fe2e056abbe6fbb3cd37c5527e41ce351a1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T15:55:32Z",
+			"Date": "2026-05-25T05:58:38Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				81,
+				105,
 				1
 			],
-			"Message": "test(Maintain): Add comprehensive test cases for Eliminate pass transformations\n\nExpand test coverage in `tests/Eliminate.rs` with detailed assertions for expression inlining, macro handling, and real-world Mountain backend patterns. Key additions include:\n\n- Cast expression handling (`CastExprInlined`, `CastExprNeedsParen`)\n- JSON macro token handling (`DerefOnceLockIntoJsonMacro`, `TypeAnnotatedCollectIntoJsonMacro`)\n- Closure-local binding inlining (`ClosureLocalBindingsInlined`)\n- Match scrutinee inlining (`OptionBindingIntoMatchScrutinee`, `ChainIntoMatchDiscriminant`)\n- Async inlining patterns with `tokio::fs` and `json!` macro use\n- Safety assertions for multi-use variables and pre-clone handling (`RangeDoubleBoundKept`, `PreCloneForMoveClosureKept`)\n\nThese test cases validate the `Eliminate` transformer's behavior in complex expression contexts, including real-world patterns from the Mountain backend.",
-			"SHA": "eaa6a54c54224b010bbef7a8bfb2b892e96bf48f"
+			"Message": "fix(Eliminate): use line/column spans instead of byte_range() for stable compatibility\n\nbyte_range() requires the proc-macro2 \"span-locations\" feature to be\nexplicitly declared in Cargo.toml. Because Cargo.toml only has\nproc-macro2 = \"1\" with no explicit features, it is not guaranteed on\nstable. Use Span::start()/end() (LineColumn) instead, which are always\navailable via syn's transitive activation of span-locations, and convert\nto byte offsets via a line-start lookup table built once per parse.\n\nAlso removes the unused `Delta` variable that would produce a\ndeny(warnings) compile error.",
+			"SHA": "54e03281b228ce2904fa1958e7b7595a181bba06"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T05:46:32Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				105,
+				3
+			],
+			"Message": "fix(Eliminate): correct compilation errors - keep Inline.rs intact, implement preserve path in mod.rs only\n\nThe previous commit replaced Inline.rs wholesale with code that used\nnon-existent APIs and wrong call signatures, causing Build (stable) to\nfail. This commit:\n\n1. Restores Inline.rs exactly to the Current branch original - all\n   existing tests and the Substitutor/SubstituteRef architecture are\n   preserved intact.\n\n2. Rewrites mod.rs with a self-contained RunPreserve that drives the\n   existing Collect / Count / Safe / SubstituteRef APIs directly,\n   using proc_macro2::Span::byte_range() to map AST statement positions\n   back to source byte offsets for surgical text replacement.\n   No new imports beyond what syn/proc_macro2 already provide.\n\n3. Definition.rs: adds Reformat: bool (default false) only.",
+			"SHA": "4b135d7bf1ca6da2e500f21ae9f01029d10b85f6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T05:41:53Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				105,
+				3
+			],
+			"Message": "fix(Eliminate): preserve comments, blank lines and layout via text-level substitution\n\nPreviously Transform::Run always called prettyplease::unparse(&Ast) for\nany file where at least one binding was inlined. Because syn's AST does\nnot carry non-doc comment tokens, blank-line trivia, or indentation\ninformation, every such reprint permanently destroyed:\n\n- All // and /* */ comments not attached to an AST node (inline\n  comments, section banners, explanatory notes).\n- Every intentional blank line between items, between let statements,\n  and between match arms.\n- The original indentation style (tabs vs. 4-space).\n- Deliberately-named clone variables whose purpose was readability, by\n  synthesising .clone() call-sites that the author never wrote.\n\nFix strategy\n------------\nUse the AST pass only to *identify* which let bindings are safe to\ninline, then reconstruct those substitutions directly on the original\nsource text via a line-range map, leaving every other character\nunchanged.\n\n1. Definition.rs - add `Reformat: bool` (default false).  When true the\n   old prettyplease path is used as an opt-in \"aggressive normalise\"\n   mode, matching previous behaviour exactly.\n\n2. Transform/mod.rs - introduce `TextEdit` (byte-offset span + new\n   text), collect edits from the AST visitor, apply them to the\n   original source string in reverse order so offsets stay valid.\n   The Inline::Eliminator now accumulates TextEdit values rather than\n   mutating the AST in place when Options.Reformat is false.\n\n3. Transform/Inline.rs - split the mutation path: when collecting in\n   text-edit mode the visitor records (stmt_byte_range, replacement_src)\n   pairs produced by prettyplease on the *single affected statement*\n   only, rather than the whole file.\n\nCloses #60",
+			"SHA": "f0a3d4444def2f8a0ed4175d1817c4fbf86878ef"
 		}
 	],
-	"TimeStamp": 1782148103097
+	"TimeStamp": 1782312430912
 }

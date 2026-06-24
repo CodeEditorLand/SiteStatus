@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-05T10:35:01Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1731,
-				35
-			],
-			"Message": "refactor(Mountain): Complete parking_lot migration for ApplicationState and command modules\n\nMigrate the remaining std::sync::Mutex and tokio::sync::RwLock usage in Mountain's ApplicationState hierarchy to parking_lot equivalents. This completes the migration started in the previous commit, covering all feature state modules (Debug, Decorations, Diagnostics, Documents, Keybindings, LifecyclePhase, Markers, NavigationHistory, OutputChannels, TreeViews, Webviews, WorkingCopy), UI state, workspace state, configuration state, and extension registry.\n\nKey changes:\n- Replace Arc<StandardMutex<>> and Arc<tokio::sync::RwLock<>> with Arc<parking_lot::Mutex<>> and Arc<parking_lot::RwLock<>> across 20+ state modules\n- Remove MapLockError/MapLockErrorWithRecovery helpers and StateOperationResult — parking_lot panics on poison instead of returning Result, eliminating poison-error boilerplate\n- Simplify lock acquisition from guard.ok().and_then(|g| g.clone()) to direct .lock().clone() patterns\n- Update command handlers (Bootstrap, SCM commands), document save operations, extension scanner, file explorer, and shutdown logic to use the new locking API\n- Remove ErrorMapping crate's PoisonError mapping functions (now replaced by WithParkingLotMutex helper)\n- Fix VineHostImpl.UpdateScmGroupMarkers lock handling\n\nImpact: Consistent parking_lot usage across Mountain's entire state management layer, reduced lock contention overhead, and cleaner error handling paths without .ok().and_then() chains.",
-			"SHA": "6a285173d703deccb702306a329811b0b9e0f448"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-05T08:40:06Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1731,
-				11
-			],
-			"Message": "refactor(Mountain): Migrate std::sync::Mutex to parking_lot::Mutex and modernize lazy static initialization\n\nReplace standard library mutexes with parking_lot::Mutex across terminal state management, IPC connection pools, secure message channels, performance dashboard, and Cocoon process management. The parking_lot implementation provides faster lock acquisition and doesn't return Result from lock() (panics on poison instead), simplifying error handling throughout the codebase.\n\nSimultaneously replace lazy_static macros with once_cell::sync::Lazy for global registry initialization (feature flags, metrics, Cocoon state), adopting the more modern and maintenance-friendly pattern.\n\nKey changes:\n- TerminalState and TerminalStateDTO: Arc<Mutex<>> replaces Arc<StandardMutex<>> for PTY handles and terminal collections\n- TerminalProvider: Output buffer and terminal map locks simplified; removed MapLockErrorToCommonError mappings\n- ErrorMapping: Added WithParkingLotMutex helper for the new locking pattern\n- IPC Enhanced modules: ConnectionPool, MessageCompressor, PerformanceDashboard, SecureMessageChannel all updated\n- CocoonManagement: lazy_static replaced with once_cell::Lazy for COCOON_STATE and COCOON_HEALTH\n- Telemetry registries: FeatureFlags and Metrics global registries migrated to once_cell::Lazy\n- Vine client/server notification shims: Minor formatting normalization\n\nImpact: Reduced lock contention overhead, cleaner error handling paths (no more .ok().and_then() chains for mutex access), and modernized static initialization across Mountain's core subsystems.",
-			"SHA": "3b0c95e2986ddeebe6dfa24f4e7a1652a0d5d670"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-05T07:50:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1731,
-				1
-			],
-			"Message": "feat(Cargo): Add experimental tier flags for enhanced functionality\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "a4784b825cc0dd0995ae3023a3f5d22a112f50cb"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-05T07:39:34Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1731,
-				6
-			],
-			"Message": "style(Mountain): Clean up formatting and whitespace across core modules\n\nApply consistent formatting improvements across Mountain's application state, extension registry, file system effects, and gRPC service:\n\n- ExtensionRegistry: Condense WithCommands/GetCommands implementations, inline dev_log calls, remove excess whitespace\n- FeatureState: Move std::sync imports to module top, fix Default implementation formatting\n- Entry: Fix type annotation spacing for AppStateArcForClosure\n- FileSystem: Reformat base64 decode error handling, align comment wrapping\n- CreateEffectForRequest: Expand Try! macro arms for readability, wrap long comment lines\n- MountainVinegRPCService: Reflow cancellation warning comment, inline CreateErrorResponse call\n\nNo functional changes — purely mechanical formatting cleanup for consistency.",
-			"SHA": "153056369679d7c3dd6ecdbba393c7a08321c40a"
-		},
-		{
 			"Author": "Auto",
-			"Date": "2026-06-05T02:57:32Z",
+			"Date": "2026-06-08T03:33:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1731,
+				1765,
 				1
 			],
 			"Message": "",
-			"SHA": "5ac30cf1b3d71a461473c8a2f5e9f8b1fad83d4a"
+			"SHA": "93980d1c46309aa8cb5e91cf4c2f24c8faf509cb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-07T18:05:01Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				1765,
+				300
+			],
+			"Message": "style(Mountain): Apply consistent formatting across command handlers, IPC dispatchers, and environment providers\n\nStandardize whitespace and formatting across Mountain's command registration, language feature providers, SCM integration, tree view handlers, document provider, file watcher, keybinding commands, native host dialogs, and WindServiceHandlers dispatcher modules:\n\n- Remove extraneous blank lines after function signatures, struct definitions, impl blocks, and match arms across 200+ files\n- Normalize import organization: group use declarations, remove trailing blank lines\n- Condense single-statement methods and lock acquisition patterns to single-line format\n- Standardize dev_log! macro argument alignment and line breaks across provider handlers\n- Fix struct field spacing in DTOs and response types\n- Introduce UICommandDispatcher for decorations, commands, and extensions command routing\n- Refactor dispatcher modules to use consistent match expression formatting with inline arms\n\nNo functional changes — purely mechanical formatting cleanup for consistency across Mountain's command layer, IPC dispatchers, environment providers, and service handlers.",
+			"SHA": "f474716d305aedce20510fc893e59e4770458879"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-07T17:04:19Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				1764,
+				300
+			],
+			"Message": "style(Mountain): Apply consistent formatting across Air client, application state, providers, and RPC services\n\nStandardize whitespace and formatting across Mountain's Air integration layer, application state DTOs and internal modules, environment provider implementations, IPC command handlers, extension management, and Cocoon gRPC service handlers:\n\n- Remove extraneous blank lines after struct field definitions, impl blocks, and function signatures across 150+ files\n- Normalize import organization: group use declarations, remove trailing blank lines\n- Condense single-statement methods and lock acquisition patterns to single-line format\n- Standardize dev_log! macro argument alignment and line breaks across provider handlers\n- Fix struct field spacing in AirServiceTypesStub DTOs and ApplicationState DTOs\n- Add WorkingCopyDispatcher and WorkspaceDispatcher for WindServiceHandlers command routing\n- Remove unused allow attributes from Library.rs (non_snake_case, non_camel_case_types, etc.)\n\nNo functional changes — purely mechanical formatting cleanup for consistency across Mountain's Air client, application state persistence, extension scanner, memento loader, recovery utilities, serialization, text processing, command registration, provider traits, IPC handlers, and Cocoon gRPC service layer.",
+			"SHA": "ab55eef46fbe796248c0b1748ae09aa3d5e063c8"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-07T16:57:36Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1762,
+				36
+			],
+			"Message": "style(Mountain): Apply consistent formatting across RPC providers and service modules\n\nStandardize whitespace and formatting across Mountain's gRPC service layer, CocoonService providers, SCM, terminal, tree view, and telemetry modules:\n\n- Remove extraneous blank lines around imports, function bodies, and dev_log! macro invocations\n- Condense single-statement methods and lock acquisition patterns to single-line format\n- Normalize import organization: group use declarations, remove trailing blank lines\n- Standardize dev_log! argument alignment and line breaks across 30+ provider handlers\n- Fix struct field spacing in AirServiceTypesStub, ServiceMetrics, TraceSpan\n- Add new UrlDispatcher stub for URL command routing in WindServiceHandlers\n\nNo functional changes — purely mechanical formatting cleanup for consistency across Mountain's RPC layer, provider registry, SCM integration, terminal management, tree view coordination, and telemetry structures.",
+			"SHA": "b30988ec21f717b36a9fcf5449ebe76edf1399db"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-07T16:57:03Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				1761,
+				300
+			],
+			"Message": "style(Mountain): Apply consistent formatting across Mountain codebase\n\nStandardize whitespace and formatting across 300+ files in Mountain's source tree:\n\n- Normalize import organization: add blank lines after `use` declarations and before struct/impl blocks across DTOs, state modules, command handlers, and provider implementations\n- Standardize dev_log! macro invocations: consistent argument alignment and line breaks\n- Fix Binary/README.md: replace raw em-space with HTML entity `&#x2001;` for reliable rendering\n- Add missing newlines at end of files where absent\n- Introduce domain dispatchers in `IPC/WindServiceHandlers/Dispatcher/` for configuration, encryption, extensions, filesystem, git, IPC status, keybindings, language features, lifecycle, logging, menubar, model, navigation, native host, notifications, output, process, progress, quick input, search, sky, storage, terminal, text files, themes, tree views, updates, URLs, working copy, and workspace commands\n- Condense single-statement methods to single-line format where appropriate\n- Normalize lock acquisition patterns and guard binding across state modules\n\nNo functional changes — purely mechanical formatting cleanup for consistency across Mountain's application state, IPC layer, command registry, provider traits, and service handlers.",
+			"SHA": "4afc33b007321144b23d3935301f4eee40efb772"
 		}
 	],
-	"TimeStamp": 1782148104567
+	"TimeStamp": 1782312433632
 }

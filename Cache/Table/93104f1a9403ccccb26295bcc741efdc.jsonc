@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:48:13Z",
+			"Date": "2026-06-13T02:31:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				154,
+				157,
 				1
 			],
-			"Message": "style(Sky): Break long dynamic import lines in Electron Bootstrap\n\nThe dynamic `import()` call expressions in Bootstrap.ts exceeded the project's maximum line length. Wrap each long import argument — `runBootstrap` from Wind's Effect Bootstrap, the Extension Change Subscriber, and `InitializeWebSocket` from TauriMainProcessService — across two lines to match the project's formatting conventions.\n\nNo functional changes; code logic and execution order are preserved.",
-			"SHA": "97432a6833c9caad70131df5d02a00ef35c5aa88"
+			"Message": "docs(Sky): Update InstallTests JSDoc now that ITestService is exposed\n\n`Source/Function/Sky/Bridge/InstallTests.ts` previously documented that `ITestService` was absent from `globalThis.__CEL_SERVICES__`. The workbench accessor plugin now exposes `TestService` via `Output/Source/Service/CEL/Expose/Accessor.ts`, so the module-level doc comment is updated to reflect the current state and clarify that services are invoked directly when available.\n\nAlso normalizes an em-dash to an en-dash in the service-missing log message for consistency with surrounding convention.",
+			"SHA": "42318a959d1fefdbe269b9aed5470ead692b7661"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:24:35Z",
+			"Date": "2026-06-12T23:17:37Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				157,
+				9
+			],
+			"Message": "feat(Sky): Bridge test-runner channels and respect webview extension options\n\nAdd `Bridge/InstallTests.ts` to receive `sky://tests/*` events from Mountain/Cocoon — controller creation, run start/end, and per-item test results. Routes data to `cel:tests:*` DOM CustomEvents and probes `__CEL_SERVICES__?.TestService` for forward-compatible native Testing panel integration, logging a one-shot gap message when the service is absent.\n\nUpdate `InstallWebview.ts` to read extension-provided `options` from `createWebviewPanel` payloads, overriding hardcoded defaults for `retainContextWhenHidden`, `enableFindWidget`, `enableScripts`, `enableForms`, and `localResourceRoots`. Extensions that opt out of context retention (e.g. lightweight stateless panels) are no longer forced into the keep-alive path.\n\nFormat documentation tables consistently with en-dash separators and aligned column widths across Architecture.md and both READMEs. No functional change in the documentation edits.",
+			"SHA": "d7893913b5f69b09dea618c1cca1727b0a9376f2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:34:48Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				154,
-				3
-			],
-			"Message": "refactor(Sky): Drop redundant Effect.runPromise wrapper from Wind bootstrap\n\nThe `runBootstrap` export from `@codeeditorland/wind/Target/Effect/Bootstrap` already returns a Promise, making the `Effect.runPromise()` wrapper and the corresponding `Effect` import a redundant indirection layer.\n\nRemove the unused `Effect` import from both `Electron/Bootstrap.ts` and `Mountain.astro`, and replace the `Effect.runPromise(runBootstrap(...))` call in Mountain.astro with a plain `await runBootstrap(...)`. Also add an inline comment in `InstallProgressTerminalWorkspace.ts` documenting how cancellable progress routes through `IProgressService.withProgress` on the workbench side.\n\nThe bootstrap path is now one async indirection leaner with one fewer runtime dependency import.",
-			"SHA": "4a3290c96ab9823bbbff63d3051d4e62c5f6b0b7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:24:05Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				154,
-				1
-			],
-			"Message": "feat(Sky): Route cancellable progress Cancel button to extension host via Cocoon\n\nWire cancellable progress notifications through `IProgressService.withProgress` directly so its `onDidCancel` third argument forwards the Cancel button click to the extension host as a `cancellable:notify('progress.cancel', { handle })` invocation.\n\nAdd a `CancellableProgress` map (`Map<string, {Resolve, Report}>`) with `StartCancellableProgress`, `EndCancellableProgress`, and `NotifyProgressCancel` helpers. The start handler checks `cancellable === true` and, when the workbench service is available, routes through `withProgress` with a placeholder entry so mid-flight updates before the task callback runs still resolve correctly. The update, complete, and end handlers check the map first before falling through to the existing `ShowProgress`/`UpdateProgress`/`DismissProgress` helpers.\n\nThe existing `ShowProgress(id, title, cancellable)` helper receives the cancellable flag through its `IProgressOptions` parameter but does not surface the `onDidCancel` hook, leaving the notification Cancel button non-functional for progress started via SkyBridge. Routing cancellable entries through `withProgress` directly gives the extension host full visibility into user cancellation intent.",
-			"SHA": "0213fa8555c57ef9d1eeeba030bb70389e1b3e17"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:06:12Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				154,
+				156,
 				2
 			],
-			"Message": "perf(Sky): Parallelize extension scanning, inject modulepreload hints, enable terser minification\n\nOptimise the Astro build pipeline for both developer iteration speed and production load performance.\n\n**BakeExtensionManifest — dev-rebuild debounce and parallel root scanning:**\nAdd a module-level `LastScanAt` timestamp guard so hot-reload rebuilds that fire the `astro:build:done` hook more than once within 5 s skip re-scanning the extension directories entirely, cutting repeated I/O during fast edit-save cycles. Replace the sequential `for` loop over extension roots with `Promise.all(…map(ScanRoot))` so the two extension directories are scanned concurrently, reducing single-build wall-clock time.\n\n**InjectModulePreload — new Astro build integration:**\nRegister an `astro:build:done` hook (before CompressBundle, so injected links survive compression) that parses each workbench page's `<script type=\"module\">` entry chunks, walks their `__vite__mapDeps` reference arrays plus static and (for entry chunks) dynamic import paths, and emits one `<link rel=\"modulepreload\">` hint per transitive static dep, up to 40 links per page. Without this, the WKWebView discovers the boot chain (Preload → Polyfills → Bootstrap → Workbench → SkyBridge plus their static deps) one module-graph level at a time; the hints let the browser preload the full dependency tree before execution reaches each `import()` call.\n\n**Rollup terser minification:**\nEnable `minify: 'terser'` for production builds when the VS Code workbench is not bundled into the Rollup graph (i.e. `BundledActive` is false). In bundled mode the ~44 MB `vs/**` workbench chunk would add prohibitive time and `drop_console` would strip VS Code's own diagnostics, so minification is skipped. Clarify the sourcemap comment to document why `true` is used instead of `'hidden'`: WKWebView DevTools needs the `//# sourceMappingURL=` trailing comment to discover sibling `.map` files through the `land://` static server.",
-			"SHA": "64cdae903ed7825691e14f5e33543f285b44be09"
+			"Message": "docs(Sky): Document shim architecture and add element README\n\nAdd a \"Shim Compatibility\" section to the Architecture documentation covering Sky's role in the Land deep-shim interception system — the component receives events from Wind via bridge, with no shim-specific modules of its own. Covers both Low-Level (TierShim=Own|Preempt) and Coverage (TierShim=Proxy|Replace) tiers, noting zero overhead when TierShim is None.\n\nCreate a standalone README for the Sky repository that describes its role as the browser-side bridge layer managing the editor webview lifecycle, with a cross-reference to Architecture.md and the same shim compatibility table.",
+			"SHA": "a796ea91b41eb16ffb907a25e92730d10dcefeb0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:35:39Z",
+			"Date": "2026-06-12T21:47:59Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				154,
+				155,
 				1
 			],
-			"Message": "docs(Sky): Expand README, add Security and Compatibility sections\n\nAdd two new reference sections to the Sky README: a Security layer breakdown covering CSP, protocol boundary, WKWebView sandbox, dependency integrity, Astro build hardening, and Tauri CSP; and a Compatibility matrix linking Sky to its sibling components (Wind, Mountain, Cocoon, Output, Worker) plus VS Code extensions and Tauri v2.\n\nAlso add an `@codeeditorland/sky` npm package badge for package-registry discoverability and a `title=\"Star\"` attribute on the GitHub stars badge image for accessibility. Remove the orphaned trailing em-quad from the System Architecture heading, which had no emoji to pair with.\n\nThese additions make the README a more complete onboarding and reference document for Sky's role in the Land editor stack.",
-			"SHA": "64e3fcec5f7e37a1f8011baa92d1537a5e2425c5"
+			"Message": "fix(Sky): Strip VS Code icon codepoints from statusbar text\n\nStatusbar items forwarded from Cocoon via the Sky Bridge carry VS Code's `$(icon-name)` and `$(icon-name~spin)` codepoint syntax in their `text` field. Land has no Codicon icon font, so these markers render as raw literal text in the statusbar.\n\nStrip the `$(...)` and `$(...)~spin` pattern from the statusbar display text in `InstallStatusbar.ts`'s `BuildEntry` helper using a regex replace, preserving the semantic text content. The aria-label is left untouched since it already bypasses codepoint syntax.\n\nNo functional impact on existing statusbar entries — entries without codepoint markers pass through unchanged.",
+			"SHA": "c19da2d534f7a1d948f4d114e2f2bdb889607fd7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:41:32Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				155,
+				2
+			],
+			"Message": "feat(Sky): Bridge comment-thread channels from Mountain/Cocoon\n\nCocoon forwards extension-registered CommentController data to Mountain, which emits `sky://comments/thread-created` et al. Add a `Bridge/InstallComments.ts` module that:\n  - Dispatches `cel:comments:*` DOM CustomEvents for Sky-side consumers (future comment-pane widget, monaco contribution)\n  - Probes `__CEL_SERVICES__?.CommentService` and invokes `ICommentService` methods when available (forward-compatible — no code change needed once the workbench plugin exposes the service)\n  - Logs a deterministic one-shot gap message to Mountain's dev log when `ICommentService` is absent\n\nWire the installer into `Bridge.ts` alongside the existing progress/terminal/workspace relay. The four channels registered are: `thread-created`, `thread-disposed`, `updated`, and `controller-disposed`.\n\nNo functional impact on existing comment workflows — `ICommentService` is not yet exposed in `__CEL_SERVICES__`, so all thread data reaches the DOM event bus and the gap is visible in Mountain logs. Inline gutter balloons and the comment-pane will render once the workbench accessor plugin is updated.",
+			"SHA": "f521c4b2eed2b535ea0bac9e1acd7164c8484ac4"
 		}
 	],
-	"TimeStamp": 1782148097831
+	"TimeStamp": 1782312427784
 }

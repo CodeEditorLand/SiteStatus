@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:47:38Z",
+			"Date": "2026-06-12T18:22:25Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1855,
+				2
+			],
+			"Message": "feat(Mountain): Add CancelOnDrop guard to provider forward calls\n\nReplace the direct `IPCProvider::SendRequestToSideCar` in `InvokeProvider`\nand `InvokeProviderMethod` with `ForwardCancellable`, a wrapper that runs\nthe Vine call on a detached `tokio::spawn` task guarded by a drop-triggered\nwatch signal. A new `CancelOnDrop` guard flips the signal when the calling\nfuture is dropped — from gRPC cancellation, typed-rail `CancelOperation`,\npeer disconnect, or any caller-side `select!` loss — so the detached task\ndelivers `CocoonService.CancelOperation` for the wire request id before\nexiting, terminating the side-car provider instead of computing a result\nnobody is waiting for.\n\nBoth provider-invocation paths now use `FnCancellable` from the Vine\nclient instead of the old blocking `SendRequestToSideCar`, eliminating\nthe `Arc<dyn IPCProvider>` / `Require()` dependency in both modules.",
+			"SHA": "c1eb47dc38cbaf90ea0132444cba790bf24f046b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:20:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1855,
+				6
+			],
+			"Message": "feat(Mountain): Mount CocoonService on shared port, invalidate extension install cache, pipe session ID to Cocoon\n\nMount `CocoonServiceServer` (typed `CocoonServiceImpl`) on the same tonic router as `MountainServiceServer` so both services share port 50051, replacing the previous unused-variable pattern. Derive `MAX_MESSAGE_SIZE` from `Vine::Client::Shared::MAX_MESSAGE_SIZE_BYTES` for lockstep configuration across the client-server boundary.\n\nCall `BumpScanGeneration()` on extension install and uninstall so that cached `extensions:getInstalled` responses from an earlier scan generation are invalidated, preventing stale builtins-only manifests from being served after user-path extensions are added or removed.\n\nInject `CocoonSessionId` into the Cocoon sidecar environment, carrying the same session UUID used for `telemetryInfo.sessionId` in initialization data. This lets `vscode.env.sessionId` resolve correctly in Cocoon before the extension-host handshake completes. Promote `SessionId()` from `fn` to `pub(crate) fn` for cross-module access.\n\nReplace the `dev_log`-based subscriber-lag warning in `VineSubscribeCommand` with a call to `Vine::Client::Shared::ReportNotificationLag`, upgrading a local log message to structured instrumentation that consumers can act upon.",
+			"SHA": "7723552a9ff1ccd21397cddd7058838a788c775e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:06:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1855,
+				11
+			],
+			"Message": "feat(Mountain): Background extension merge, ETag/304 scheme serving, gRPC cancellation, dialog action items\n\n**Extension scanner background merge** — Release the builtins-only manifest to `ScanReady` waiters immediately, then merge supplementary user-path extensions in a background `spawn_blocking` task. After merge, bump the `getInstalled` scan generation to invalidate any builtins-only cache entries, notify Cocoon of the delta via `$deltaExtensions`, emit `sky://extensions/installed` events for Sky's sidebar refresh, and re-run configuration merge so contributed `configuration` defaults from late-discovered extensions are applied. Full-scan path also bumps generation before notifying waiters.\n\n**Conditional GET (ETag/304) for scheme file handler** — Add `IfNoneMatchSatisfied` / `BuildNotModified` / `EmbeddedETag` / `CacheControlFor` helpers across all three serving paths (os-abs mmap, embedded asset resolver, fs-mmap StaticRoot). Fingerprinted bundle assets (`.js`, `.css`, `.woff2` under `Static/`) get `public, max-age=31536000, immutable`; everything else uses `public, max-age=3600` with ETag revalidation. The former separate `exists()`/`is_file()` stat() pair per request is eliminated — the mmap `LoadOrInsert` open is the existence probe, with `NotFound` falling through directly. Extract the sequential `replacen`-based path normalization into `NormalizePath` for a single-pass rewrite (query/fragment strip, `/out/` prefix removal, `Static/node_modules/` remap).\n\n**Background DNS server bind** — Move the Hickory DNS server start from a synchronous blocking call to `tauri::async_runtime::spawn_blocking`, overlapping the port probe with the rest of `AppLifecycleSetup`. `DnsPort` managed state is registered inside the background task rather than after the synchronous bind, eliminating a serialisation point during boot.\n\n**Optimized `.env.Land` candidate search** — Probe `.env.Land` up the exe ancestry first (most-likely path for non-TTY launches), removing redundant duplicate probes from the repo-layout section. Switch from separate `exists()` then `LoadEnvFile()` to using the `LoadEnvFile` open result as the existence check, eliminating one `stat()` per candidate.\n\n**Generation-based getInstalled cache invalidation** — Replace `OnceLock<Value>` per type with `Mutex<Option<(u64, Value)>>` keyed to a monotonic `SCAN_GENERATION` counter. The scanner bumps the generation after any post-`ScanReady` map mutation, so a builtins-only response cached during the early notify window is rebuilt from the merged extension map on the next call.\n\n**Per-request gRPC cancellation** — Register every `process_cocoon_request` call in `ActiveOperations` with a `CancellationToken`, race the dispatch future against it via `tokio::select!`. `cancel_operation` fires the token, the dispatch is dropped, and a `-32800` (request cancelled) error response is returned. The entry is unregistered on all exit paths, keeping the map bounded by in-flight requests. Validation and deserialization errors now carry structured `error.data` with the method name and detail.\n\n**Cocoon message dialog action buttons** — Add `repeated string Items` to the `ShowMessageRequest` protobuf message and propagate through `ShowErrorMessage`, `ShowInformationMessage`, and `ShowWarningMessage` so Cocoon's extension host can present action-button labels alongside native dialogs.\n\n**README badge fix** — Remove the ProtocolBuffers icon from the gRPC badge row, switching to a plain tonic badge.",
+			"SHA": "f4b7bf896a2fc2df297913360d8e110279b69e5c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T17:39:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1855,
 				1
 			],
-			"Message": "perf(Mountain): Nest tokio::spawn for fully detached editor state notifications\n\nThe per-keystroke editor state notifications (selection, active editor, visible editors, tabs, ranges, options, diff, viewColumn) were already dispatched via `tokio::spawn` to move them off the IPC dispatch queue, but the outer spawn still owned the Vine gRPC future until `SendNotification::Fn` completed. Nest a second `tokio::spawn` inside each handler so the outer task returns immediately after scheduling the inner task, decoupling the IPC handler's completion from the gRPC call's execution entirely.\n\nEliminates the final serialization point in the editor:event dispatch pipeline for all 8 notification types.",
-			"SHA": "523b43a4c3eec376ddb65de8571a0b9a14246c3d"
+			"Message": "fix(Mountain): Unshadow logger:getLevel handler from broad NOOP arm\n\nlogger:getLevel was matched by a broad logger:* + setVisibility => Ok(Value::Null)\narm before the dedicated handler (returning log::max_level() as u32) was reached.\nRemove logger:getLevel from the NOOP arm so the dedicated handler can execute.\nVS Code's LogLevel API now receives the correct numeric value.",
+			"SHA": "0a7c3ddeb29c720a1794413424713be12baa38df"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:46:24Z",
+			"Date": "2026-06-12T17:36:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1855,
-				1
+				2
 			],
-			"Message": "fix(Mountain): Return LogLevel for logger:getLevel, cache TierIPC\n\n`logger:getLevel` was matching a stubbed null-returning arm in two places, but VS Code's Logger service expects a numeric LogLevel enum (Trace=0 through Critical=5). The TierIPC env var was read from the OS on every unknown command dispatch.\n\nRemove `logger:getLevel` from both null-returning stubs and add a dedicated handler returning `json!(log::max_level() as u32)`. Cache the TierIPC lookup in a `OnceLock` so the syscall and allocation run once.\n\nVS Code can now query the current log level through the VS Code LogLevel API. Fallthrough command dispatch overhead is reduced by one env lookup per call.",
-			"SHA": "f0488344a0976a0be537568a9a7c95485333821c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:43:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
-				3
-			],
-			"Message": "perf(Mountain): Fire-and-forget Cocoon notifications for editor state events\n\nConvert 8 synchronous SendNotification calls in the sky:editor:* handler group to `tokio::spawn` so selection, active, visible, tabs, ranges, options, diff, and viewColumn change notifications no longer block the IPC dispatch queue on Vine gRPC RTT. These fire at per-keystroke/scroll frequency and were a serial bottleneck in the command handler.\n\nAdd `sky://editor/active-changed` Tauri event emission as the canonical renderer-side event, enabling Wind's Editor layer to track active editor changes through native event channels rather than gRPC.\n\nAdd `tasks:` and `auth:` command guards to the tier-routing gates, forwarding both families to Cocoon when their tier flags indicate Node dispatch — consistent with the existing debug and encryption gates.\n\nIn InitializationData.rs, add `codeCachePath`, `autoDetectHighContrast`, `accessibilitySupport`, and `isInitialStartup` to ISandboxConfiguration — the bundled workbench accesses these without null guards, and their absence caused V8 code-cache load failures and INativeWindowConfiguration contract crashes.",
-			"SHA": "57366f3f7c60054355ffa963ed2d6455609db376"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:39:55Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
-				3
-			],
-			"Message": "docs(Mountain): Revise Architecture and DeepDive opening sections for direct narrative style\n\nReplace the meta-textual framing \"This document describes\" in Architecture.md with a direct statement that positions Mountain as the primary Tauri application. Reword the DeepDive.md opening paragraph to move the document's purpose into a supporting clause rather than the lead, bringing Mountain's concrete role as the VSCode service implementation layer to the forefront.\n\nEliminates redundant document-self-reference prose across both documentation files.",
-			"SHA": "dbc2afc52dc28939909ca893a87774ed13ea8169"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:25:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1854,
-				1
-			],
-			"Message": "fix(Mountain): Correct Rust API documentation URL in README\n\nThe Rust API docs link pointed to the generic `editor.land` domain rather than the dedicated `mountain.editor.land` subdomain. Both the main badge link and the API Reference section footer used the stale URL.\n\nUpdate both occurrences to `rust.documentation.mountain.editor.land` for proper subdomain routing and consistency with Mountain's dedicated documentation infrastructure.",
-			"SHA": "2ee444dd025535d2eaebf3e379d85f6bc214d436"
+			"Message": "feat(Mountain): Add glob normalization to FindInFiles, realign README template\n\nAdd `NormalizeGlobArgument` helper that normalizes include/exclude arguments\nin `FindInFiles` — accepting either a single glob string or `string[]` — and\nplumb `maxResults` from the 6th positional argument. Rename `isRegex` to\n`isRegExp` to match the VS Code search contract, and extract the trailing\noptions `Value` from remaining arguments instead of consuming only the first\npositional object.\n\nOverhaul the `README.md` with the standardized Land element documentation\ntemplate: combine technology icon badges with crate/version badges using\nem-quad spacing, simplify tables to bare pipe-only format, add a\nCompatibility section documenting inter-element gRPC and IPC dependencies,\nremove the duplicate NLnet funding paragraph, fix Mermaid diagram entity\nencoding (`&amp;` → `&`), and align heading terminology and list formatting\nwith Land conventions.",
+			"SHA": "4a291a9c6e8083e6c6d15cb21c47330c48215e40"
 		}
 	],
-	"TimeStamp": 1782148099295
+	"TimeStamp": 1782312427887
 }
