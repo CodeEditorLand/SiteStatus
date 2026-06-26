@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:17:14Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				355,
+				6
+			],
+			"Message": "feat(Output): Add six low-level intercept proxies for deep-shim Own/Preempt tiers\n\nIntroduce the runtime intercept layer — six proxy modules that monkey-patch VS Code internals at Startup/StartupServices time to provide Land-controlled diagnostics, suppression, and batching.\n\nAll six follow a consistent pattern:\n- Gate at TierShim = Own | Preempt (dead-code-eliminated by esbuild define otherwise)\n- Idempotent via globalThis marker (checks `__LAND_SHIM_LOW_*__`)\n- Poll-based retry (50 attempts × 100ms) if the target module is not yet loaded\n- Non-fatal error handling (try/catch everywhere — shim must never crash the workbench)\n\nProxies added:\n- AsyncProxy — intercepts `setTimeout0` from platform.ts with micro-batching (MAX_BATCH_SIZE=64), coalescing rapid microtasks to reduce layout thrash. Samples every 128th call for trace.\n- CancellationProxy — patches `CancellationTokenSource.prototype.cancel()` to record timestamp, stack trace, and cancellation order for diagnostic analysis.\n- DisposableProxy — wraps `DisposableStore.prototype.add()` and `dispose()` to assign unique tracking IDs and trace resource creation/disposal for leak detection.\n- EmitterFireProxy — intercepts `Emitter.prototype.fire()` from event.js, checks `checkLandSwallowMap` for event suppression, and applies sample-based tracing (1% production, 100% dev) via tick-counter throttle.\n- ErrorHandlerProxy — patches `errorHandler.onUnexpectedError()` to capture error message, stack, and name into LandErrorTrace before VS Code processes the error.\n- TimingProxy — wraps StopWatch construction, stop(), and elapsed() with microsecond-resolution timing via performance.now / process.hrtime fallback, uniquely identifying each instance.",
+			"SHA": "ebe465d04fcdb4715f44e51a60dd16aa4dda4a93"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:56:13Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				348,
+				1
+			],
+			"Message": "feat(Output): Wire InjectShimHook into the BuildPipeline plugin array\n\nRegister `InjectShimHook` in the `BuildPipeline` plugin sequence, slotting it immediately after `ExposeWorkbenchAccessor`. The hook is gated by the `TierShim` env var (None → no-op) and performs deep-shim injection — audit proxy, service replacement, or container ownership — depending on the configured shim level.\n\nThis completes the integration of the compile-time injection site (added in 9b81aa2c7) into the actual esbuild plugin pipeline that runs during Output builds. The shim init module (`CEL/Land/Shim/Init.js` from 07d07070f) is compiled, copied, and injected as part of `ApplyPipeline`; this wiring ensures the hook fires on every workbench build.\n\nSee: .hermes/microsoft/04-Atomic-Task-List.md",
+			"SHA": "b403f823fef6e20e6e8a294a7a55d564044e76e3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:55:53Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				348,
+				2
+			],
+			"Message": "feat(Output): Add deep-shim init module with tiered runtime strategies\n\nAdd `Source/Service/CEL/Land/Shim/Init.ts`, the runtime entry point\ninjected into VS Code workbench by the `InjectShimHook` TransformPlugin.\nWire it up in the Plugin index with import and re-export.\n\nThe shim init module is compiled by esbuild as a standalone file, copied\nto the VS Code target tree, then injected by InjectShimHook immediately\nafter `workbench.startup()` returns the `IInstantiationService`.\n\nThree tiered runtime strategies gated by `__LandTier_Shim__` esbuild define:\n- **Proxy** tier: wraps `ServiceCollection.get/set` with an audit wrapper,\n  logs every service resolution to an in-memory ring buffer (MAX 500), and\n  flushes a summary to Mountain via Tauri IPC every 30 seconds.\n- **Replace/Own/Preempt** tiers: patches `ServiceCollection.get` to return\n  a no-op `ITelemetryService` (intercepting service IDs matching \"telemetry\"\n  or \"itelemetry\"), silencing telemetry at the service resolution level.\n- **None** tier: dead code elimination — entire module body is a no-op.\n\nShim failures are always non-fatal (try/catch at the top-level call site\nand individual fire-and-forget operations) to maintain workbench stability.\n\nThis is the runtime complement to the compile-time injection site added\nin the parent commit (9b81aa2c7).",
+			"SHA": "07d07070ffac1ddfcad959db2a4037f2bebf9c3e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:55:20Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				345,
+				1
+			],
+			"Message": "feat(Output): Inject deep-shim hook into VS Code workbench main files\n\nAdd `InjectShimHook`, a new TransformPlugin that patches the VS Code\nworkbench entry points at compile time — `web.main.js` and\n`desktop.main.js` — to import and call `LandShimInit` immediately\nafter `IInstantiationService` is created, before any contribution\nregisters.\n\nThis is the compile-time injection site for Land's deep-shim layer,\nfollowing the same pattern as ExposeWorkbenchAccessor:\n\n- Two injection pass variants: one for the web target (shorter import\n  path), one for electron-browser/desktop (`../browser/` import prefix).\n- Gated by `TierShim` env var at compile time via `Enabled()`; when set\n  to `None` the transform is a no-op.\n- Idempotent via `__LAND_SHIM_HOOK__` marker — rerunning on an already-\n  patched tree returns `Unchanged`.\n\nThis is the first piece of the deep-shim pipeline; the shim module itself\n(`CEL/Land/Shim/Init.js`) is compiled by Output's esbuild step and copied\ninto the target tree by ApplyPipeline before this transform runs.",
+			"SHA": "9b81aa2c72abf722891ac194b5a0d29661572476"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T21:41:55Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "fix(Output): Resolve vscode-webview-resource:// via sync localhost rewrite\n\nMountain registers only `vscode-file://` as a custom Tauri scheme handler;\n`vscode-webview-resource://` is not registered, so async blob-fetch calls\nfor those URLs silently fail and the inner iframe never loads the assets.\n\nRemove `vscode-webview-resource://` from the `VSCODE_SCHEMES` array so\nthe async fetch path never attempts blob conversion for it. Instead, add\n`rewriteToLocalhost()` — a synchronous regex pass that converts every\n`vscode-webview-resource://` URL to its `http://localhost:18992/`\nequivalent before `document.write` executes. The `origWrite` wrapper now\napplies two independent string checks: first the localhost rewrite for\n`vscode-webview-resource://` URLs, then cached blob substitution for\n`vscode-file://` URLs, replacing the combined `needsRewriteHtml()` gate.\n\nThis keeps the synchronous contract of `document.write` while ensuring\nassets served via the unregistered scheme resolve to Mountain's actual\nlocalhost origin.",
 			"SHA": "fa1e57583caa72f6a714f601a3023630e2d589ee"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:23:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				343,
-				1
-			],
-			"Message": "fix(Output): Rewrite blob URL injection as synchronous two-phase pass\n\nThe async `rewriteHtml()` approach in `Document.prototype.write` deferred the original write until all fetch-and-blob conversions completed. Multi-write callers (extension reload, panel re-open) received an empty first write because the wrapper returned before calling `_origWrite`, followed by a duplicate document-open on the second write.\n\nReplace the single async pass with a synchronous two-phase strategy inside the injected blob URL rewrite script:\n- **Synchronous phase** (`rewriteCachedUrls`): substitutes every `vscode-file://` / `vscode-webview-resource://` URL that already has a cached `blob:` URL into each chunk via simple string replacement, then immediately calls `_origWrite.apply(this, args)`.\n- **Async patch phase** (`patchWrittenDocument`): after the write returns, fetches uncached URLs collected in the `pending` array and patches the already-written document — `<link>` href swaps and `<script>` clone replacement — so the bytes still execute.\n\nThis preserves the synchronous contract of `document.write` while still converting uncached URLs to blob: URLs as a deferred patch. The caller's own write/close sequence is untouched and multi-write sequences keep a single document-open.",
-			"SHA": "e029bf20a81a9f187648f18343ac1f1af11a8cc2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:22:08Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				343,
-				1
-			],
-			"Message": "fix(Output): Keep webview blob URL rewrite synchronous for document.write\n\n`document.write` is a synchronous API — deferring it with an async `rewriteHtml()` pass that waited on all fetch-and-blob conversions before calling the original `write()` broke multi-write callers (extension reload, panel re-open) by producing an empty first write and a double document-open.\n\nSplit the rewrite into two phases inside `pre/index.html`’s injected script:\n- **Synchronous phase** (`rewriteCachedUrls`): substitutes every `vscode-file://` / `vscode-webview-resource://` URL that already has a cached `blob:` URL into the HTML string via simple string replacement, then calls the original `document.write` immediately.\n- **Async patch phase** (`patchWrittenDocument` + `applyBlobUrl`): fetches uncached URLs after the write, then patches the already-written document — `<link>` gets a live `href` swap, `<script>` is replaced with a clone carrying the `blob:` `src` so the bytes actually execute.\n\nExtract `warnFetchFailure()` as a centralized helper so fetch errors (CORS rejection, missing scheme handler) surface via both the DEBUG_WV channel and `console.warn` instead of being silently swallowed.\n\nMulti-write callers now keep a single document-open and never re-fetch unchanged assets on repeated `setHtml()` calls.",
-			"SHA": "641f349075db774bbfd6f96191b31070e4b1b8ba"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:34:43Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				343,
-				1
-			],
-			"Message": "style(Output): Replace em-dashes with hyphens in README.md\n\nSubstitute typographic em-dashes (—) with plain ASCII hyphens (-) throughout the featured description quote, Key Features bullets, Rest OXC bullet list, Security table cells, API Reference entries, and Related Documentation links.\n\nThis aligns the README punctuation with the project's plain-ASCII convention, avoiding rendering issues across terminals, editors, and GFM viewers that may mishandle Unicode dashes.",
-			"SHA": "505949d504b0c753cdeae7126a1538d49d8c91df"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:04:27Z",
-			"File": [
-				"⣿⠇⠀⠀⠀",
-				343,
-				97
-			],
-			"Message": "style(Output): Strip redundant blank lines and tighten tsconfig exclude\n\nRemove blank lines inserted by the previous blanket-formatting pass — every import group, interface property, object entry, and function body in Source/Apply, Source/ESBuild, Source/Plugin, Source/Polyfill, and Source/Service now omits the vertical whitespace between consecutive sibling statements. The convention shifts to separating logical blocks only (e.g. between import groups vs. between every import).\n\nAdd explicit exclude paths to tsconfig.json for Source/Polyfill/Child/Process, Source/Polyfill/File/Protocol, Source/Polyfill/File/System, Source/Polyfill/IPC/Renderer, Source/Polyfill/Native/Module, Source/Polyfill/Shared/Process, Source/Polyfill/Process, Source/Service/Tauri/Main/Process, and Source/Plugin/Transform/Replace/Product — these directories contain runtime shims or platform-specific services whose ambient types should not participate in the Output package's own TypeScript compilation.\n\nReformat README.md tables with proper GFM alignment rows and reflow DeepDive.md paragraph breaks to match the 100-char line target, keeping documentation in sync with the refined style.\n\nZero semantic changes to runtime behaviour.",
-			"SHA": "f75492cb865a156ec8da995dc04866798a0022d2"
 		}
 	],
-	"TimeStamp": 1782312427546
+	"TimeStamp": 1782484731221
 }

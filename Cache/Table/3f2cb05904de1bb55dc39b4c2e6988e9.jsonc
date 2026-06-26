@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-10T13:00:32Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1768,
+				2
+			],
+			"Message": "feat(Mountain): Add Cocoon auto-restart with exponential backoff and gRPC notification handlers\n\nAdd automatic restart capability for the Cocoon extension host sidecar. When the health monitor detects a crash, it schedules a restart with exponential backoff (1, 2, 4, 8, 16 seconds) up to 5 attempts via a new mpsc channel wired into CocoonProcessState.\n\nAlso add supplementary workspace activation events for well-known root config files (Cargo.toml, package.json, tsconfig.json, go.mod, pyproject.toml, CMakeLists.txt) that fire exact-filename activation events after the manifest-based phase, ensuring extensions activate even when the workspace opens after the initial scan.\n\nExtend the Vine gRPC notification dispatcher with four new handlers:\n- languageClient.status / languageServer.status — forwards language server status to Sky via Tauri event\n- extension.activating — logs extension activation for observability\n- task.completed / tasks.completed — removes task from active executions and emits completion to Sky\n- debug.session.stopped / debug.stopped — unregisters debug session and emits stop event to Sky\n\nImpact: Improves Cocoon resilience with self-healing restarts, closes activation gaps for workspace-root extensions, and wires language server, task, and debug lifecycle events from Cocoon to the Sky UI layer.",
+			"SHA": "ac5b27c6a5931f91ea25c543529dbaa33e080743"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-10T12:57:03Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1768,
+				2
+			],
+			"Message": "feat(Mountain): Add URI resolution, extension reinstall, text document open, window title, and diagnostic marker handlers\n\nImplement missing IPC command handlers and a gRPC notification bridge to improve VS Code extension compatibility and editor integration.\n\nIPC additions in WindServiceHandlers:\n- `env:asExternalUri` / `env:resolveExternalUri` - pass-through URI resolution so extension-provided URIs work without a registered opener\n- `extensions:reinstall` - returns minimal ILocalExtension envelope preventing ExtensionManagementService retries (no gallery backend)\n- `text:open` / `workspace:openTextDocument` - relays open intent to Sky via Tauri event so Monaco loads the document and emits onDidOpenTextDocument\n- `window:setTitle` / `nativeHost:setTitle` - explicit title override from extensions or workbench title service\n- `nativeHost:setDocumentEdited` - visual dirty-dot proxy by prefixing window title with '•' since Tauri 2.x lacks NSWindow::setDocumentEdited\n- `language:getLanguages` / `languages:getLanguages` - returns hardcoded language identifier list for extension API compatibility\n\ngRPC addition in MountainVinegRPCService:\n- `markers.change` / `language.markers.change` - receives diagnostic marker updates from Cocoon and forwards to Mountain's DiagnosticManager via Environment.SetDiagnostics\n\nImpact: Closes gaps in extension host IPC surface, enables document opening from Cocoon, provides window title control, and wires diagnostic marker streaming from the extension host to the native backend.",
+			"SHA": "910b3cc89d4d2b685d05aaca35e150c51efdf03a"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-10T12:45:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "",
 			"SHA": "a65279d7fa404587b48c6e66a62c6c498f411324"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T01:28:15Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				1768,
-				94
-			],
-			"Message": "refactor(Mountain): Migrate domain from land.playform.cloud to editor.land and simplify lock handling across providers\n\nThis commit encompasses three major refactoring efforts across the Mountain codebase:\n\n1. Domain Migration: Replace all occurrences of `land.playform.cloud` with `editor.land` across documentation, configuration, DNS, TLS, scheme handlers, service registry, and test fixtures. This includes:\n   - README.md, Binary/README.md, and GitHub documentation files\n   - CertificateManager examples and documentation\n   - DNS zone records, forward allowlist, and resolution logic\n   - land:// scheme handler CORS origins and service registration\n   - ServiceRegistry examples and TLS_README.md\n   - Tauri CSP connect-src and homepage\n   - Entry point service registration (code.editor.land, api.editor.land)\n   - Certificate and service registry tests\n\n2. Lock Handling Simplification: Remove verbose `.map_err(CommonError::StateLockPoisoned)` error mapping from mutex/lock operations across 40+ provider files. The pattern:\n   ```rust\n   .lock().map_err(|e| CommonError::StateLockPoisoned { Context: e.to_string() })?\n   ```\n   is simplified to `.lock()` or `.lock().unwrap()` since lock poisoning is treated as a fatal invariant violation rather than a recoverable error. Affected providers include CommandProvider, ConfigurationProvider, DiagnosticProvider, DocumentProvider, FileWatcherProvider, KeybindingProvider, LanguageFeatureProvider, OutputProvider, SearchProvider, SCMProvider, StatusBarProvider, StorageProvider, TreeViewProvider, UserInterfaceProvider, WebviewProvider, WorkspaceProvider, and PathSecurity utility.\n\n3. WindServiceHandlers Dispatcher Refactor: Restructure IPC command dispatchers with:\n   - Updated import paths from `crate::Module` to `crate::IPC::WindServiceHandlers::Module`\n   - Runtime parameter changed from `&ApplicationRunTime` to `Arc<ApplicationRunTime>` for shared ownership\n   - New UICommandDispatcher.rs consolidating commands, extensions, and decorations handling\n   - Merge conflict resolution in ConfigurationDispatcher, LanguageDispatcher, SearchDispatcher, SkyDispatcher, TerminalDispatcher, WorkspaceDispatcher, and ReplayEvents\n\nAdditionally implements VineHost trait on MountainVinegRPCService with IPC provider, renderer emitter, command registry, SCM registration, language provider registration, and terminal management bridges.\n\nImpact: Unified domain branding, reduced boilerplate in state access patterns, and improved IPC dispatcher architecture for Effect-TS frontend integration.",
-			"SHA": "bdf82d1cf0879fd098fc74f9f7ddeb17ba08f356"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T00:17:32Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				1767,
-				300
-			],
-			"Message": "",
-			"SHA": "4cb130eeb041290ee8f1f2993803dad92cd75f0c"
 		}
 	],
-	"TimeStamp": 1782312432116
+	"TimeStamp": 1782484736605
 }

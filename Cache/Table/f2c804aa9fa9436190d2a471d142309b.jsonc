@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T14:38:37Z",
+			"Date": "2026-06-12T17:35:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				154,
 				1
 			],
-			"Message": "style(Sky): Use em-quad spacing between heading text and emoji\n\nReplace the regular space before the sun emoji in the README title with an em-quad (U+2001) space, matching the CodeEditorLand convention for consistent heading formatting across Land project documentation.\n\nNo functional change.",
-			"SHA": "eb330a63a63d066e08b7ca4a113ad38b03367ffc"
+			"Message": "docs(Sky): Expand README, add Security and Compatibility sections\n\nAdd two new reference sections to the Sky README: a Security layer breakdown covering CSP, protocol boundary, WKWebView sandbox, dependency integrity, Astro build hardening, and Tauri CSP; and a Compatibility matrix linking Sky to its sibling components (Wind, Mountain, Cocoon, Output, Worker) plus VS Code extensions and Tauri v2.\n\nAlso add an `@codeeditorland/sky` npm package badge for package-registry discoverability and a `title=\"Star\"` attribute on the GitHub stars badge image for accessibility. Remove the orphaned trailing em-quad from the System Architecture heading, which had no emoji to pair with.\n\nThese additions make the README a more complete onboarding and reference document for Sky's role in the Land editor stack.",
+			"SHA": "64e3fcec5f7e37a1f8011baa92d1537a5e2425c5"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T13:37:14Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				154,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "247eb645c1ed37f0cad07bd4494389d9a100c8c0"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-06-12T03:34:10Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				154,
-				1
-			],
-			"Message": "",
-			"SHA": "80d727bcca774e2230dae9346bb341f2f0c2f736"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T02:22:48Z",
+			"Date": "2026-06-12T17:19:19Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				154,
 				2
 			],
-			"Message": "chore(Sky): Rename product identifiers to fcd, restore README badges\n\nUpdate the server data folder name and Darwin bundle identifier in product.json from the legacy `fiddee` prefix to `fcd`, aligning with the current product branding. The README loses existing badges in its prior rewrite; restore the dark/light-themed GitHub badges table and replace the funding logos section with a proper HTML table using higher-quality NLnet and NGI0 Commons Fund SVG assets.\n\nAdditional formatting: rewrap long paragraphs and table rows at a consistent 80-100 character width throughout the README body for improved readability.",
-			"SHA": "159c27d881350a9f2b4d1e40a95f0799783e7ae9"
+			"Message": "refactor(Sky): Run SkyBridge sub-installers concurrently with error isolation\n\nRefactor `_InstallSkyBridgeOnce` in Bridge.ts so every sub-installer loads and executes concurrently instead of awaiting each in sequence, with per-installer error isolation that logs failures via `MountainIPCInvoke` without aborting the rest of the bridge setup.\n\n**Concurrent factory hydration** — Progress, Notification, Build, OutputChannels,\nand ApplyHtmlToWebview are now loaded via a single `Promise.all` call instead\nof sequential dynamic imports, reducing the time `_InstallSkyBridgeOnce` spends\nblocked on chunk fetches.\n\n**Idle-time diagnostics** — extract the two IIFE modules\n(`InstallCelDispatchTracking`, `InstallProbeServices`) from the top-level\nmodule scope into deferred functions hydrated at idle time via\n`requestIdleCallback` or a `setTimeout(0)` fallback inside\n`_InstallSkyBridgeOnce`, so their code never sits on the boot waterfall.\n\n**Parallel sub-installer batch** — wrap every bridge installer\n(EditorAndOutput, Statusbar, Commands, TasksAndDecorations, Search, Scm,\nProgressTerminalWorkspace, SimpleRelays, FanOut, Diagnostics, TreeView,\nDebug, Webview, EditorOperations, UiRequests + DeadChannelListeners) in\na `RunInstaller` thunk and run them all through `Promise.all`. One failed\ninstaller writes a `sky-bridge diagnostic:log` entry and the rest continue\nunaffected. Ordering dependencies (Statusbar's `SetOrUpdateEntry` →\nDeadChannelListeners) stay chained inside a single thunk. InstallUiRequests\nand InstallDeadChannelListeners move into this batch instead of running\nsequentially after inline completions.\n\n**Tab-flush coalescing in InstallEditorOperations** — wrap the existing\n`FlushTabs` snapshot push behind a 16ms debounce (`setTimeout`/`clearTimeout`)\nso the four events fired by a single editor tab click coalesce into one\nflush per frame. Replace the full `JSON.stringify(Snapshot)` dedupe key with\na lightweight NUL/unit-separator delimited string formed from group ids,\nactive flags, and tab label/uri pairs.\n\nSkyBridge initialization is faster, more resilient to individual installer\nfailures, and tab-snapshot IPC pushes are reduced by coalescing rapid events.",
+			"SHA": "b7c70675c86e7b4f3c282b325b8cf05d3468d24d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T00:06:53Z",
+			"Date": "2026-06-12T17:16:10Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				154,
+				5
+			],
+			"Message": "fix(Sky): Seal SkyBridge resource lifecycle — content listener teardown, timer cleanup, and dead code removal\n\n**InstallEditorOperations — content listener lifecycle**\n  - Move `ScrollFlushTimer` outside `onDidChangeActiveCodeEditor` so teardown can clear a pending scroll flush from the previous editor before wiring the new one.\n  - Add `LastFlushedVersion` map per URI: skip the `sky:model:contentChanged` IPC round-trip when an edit or undo leaves the model version unchanged, reducing redundant full-text transmissions.\n  - Capture content listener disposables in `ContentDisposables` so they can be torn down when the editor is removed, preventing stale closures from firing into Mountain after the editor is closed.\n  - Wire `onCodeEditorRemove` to unregister all per-editor bookkeeping — pending debounce timers, version tracking, and content listener — and reset the `__celContentListened` guard so a re-added editor rewires fresh.\n\n**InstallWebview — resolveView timeout and multi-key dispose cleanup**\n  - Guard the `cocoon:request('webview.resolveView', ...)` round-trip with a 10 s timeout that resolves (never rejects) and logs a diagnostic. A hung Cocoon request must not pin the resolver past the workbench's deadline and permanently fail the view — the parked view repaints when the extension's `sky://webview/set-html` arrives.\n  - Generalise the `sky://webview/dispose` handler: accept `panelId` or `handle` from the payload, then coerce the key across string/number shapes since Mountain's emitters vary by dispatch path. Clean up three registries — `__CEL_WEBVIEW_VIEWS_BY_HANDLE__`, `PendingWebviewHtmlByHandle`, and `PendingWebviewHtml` — plus reverse-look up the viewId through `WebviewViewResolvers` to clear the by-viewId cache as well.\n\n**InstallUiRequests — timer leak fix**\n  - Capture the `window.setTimeout(…, 60_000)` return value in `FallbackTimer` instead of letting it run loose. Clear `FallbackTimer` inside `ResolveOnce` so the timeout no longer fires after a button click resolves the prompt, preventing a stray `ResolveUiRequest(RequestId, null)` from overwriting the user's choice.\n\n**InstallTreeView — remove dead code paths**\n  - Strip the four `document.addEventListener('cel:tree-view:selectionChanged|collapse|expand|visibilityChanged', …)` handlers. These `cel:tree-view:*` events are never dispatched by anyone; direct subscription to the workbench's `ITreeView.onDid*` events in the registration handler is the sole canonical path.\n  - Remove the eager `void ProvideChildren(ViewId, undefined)` call on every registration: the workbench pulls children through the attached dataProvider when the pane actually renders, so priming every registration issues a `tree:getChildren` IPC round-trip at boot for panes that may never become visible.\n  - Remove the redundant `void ProvideChildren(ViewId, undefined)` from the refresh handler: `TreeView.refresh()` already re-queries the dataProvider's `getChildren`, which re-emits `cel:tree-view:items` for Sky-side observers — calling `ProvideChildren` again doubles every `tree:getChildren` IPC.\n\n**Bridge.ts — unload guard**\n  - Add a `window.addEventListener('unload', …)` that calls `__CEL_SKY_BRIDGE_CLEANUP__` when the page unloads, ensuring bridge-side disposables are invoked even if the workbench lifecycle path doesn't reach the cleanup call in normal navigation.",
+			"SHA": "16f7ac329b7c295c4544de390b2bcfaf376b1ecc"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T16:42:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				154,
 				1
 			],
-			"Message": "docs(Sky): Rewrite README with concise structure and consistent formatting\n\nReplace the verbose, HTML-heavy README with a clean markdown document organized into Overview, Architecture, Key Components, In the Land Project, Getting Started, API Reference, and Funding sections. Key improvements include:\n\n- Replace decorative HTML table headers and emoji spacers (U+2001) with simple markdown headings\n- Standardize Editor.Land domain casing across all links\n- Update the Mermaid diagram node labels to match new emoji (Sky ☀️, Wind 🌬️)\n- Convert the funding/logos HTML table to a concise markdown table with proper Asset-based SVG logos\n- Add formal NLnet NGI0 grant agreement number (No 101135429)\n- Remove verbose \"Interaction Flow\" walkthrough in favor of architectural summary\n- Simplify Getting Started section with clean markdown tables and compact examples\n\nThis makes the README more scannable, maintainable, and consistent with other Land project documentation.",
-			"SHA": "d74a0ce3d28054666805c9ef4780f61d716645fc"
+			"Message": "fix(Sky): Add missing diagnostic log for unmatched revealRange URI\n\nComplete the diagnostic logging added in the full-URI matching fix by emitting a \\`[SkyBridge] editor/revealRange: no editor matches <URI>\\` diagnostic when revealRange fails to resolve an editor. This operation was left without a logging path when the Matched tracking was introduced for the other editor operations, depriving operators of visibility into stale or mismatched URIs for scroll-reveal commands.",
+			"SHA": "896cf7258e7e08897d6f7f7c642c007f46287070"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T16:38:30Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				154,
+				5
+			],
+			"Message": "fix(Sky): Enforce full-URI editor matching to prevent cross-editor bleed\n\nReplace suffix-based editor lookup (`endsWith`) with strict full-URI equality in three SkyBridge operations — decoration set-ranges, text edits, and scroll-position. The suffix match caused commands targeting one file (e.g. `src/foo/index.ts`) to bleed into every other editor whose model shared the same basename (`src/bar/index.ts`, `test/index.ts`), resulting in misplaced decorations, applied edits, and scroll jumps across unrelated tabs.\n\nAlongside this core fix:\n- Correct the model service fallback in InstallEditorAndOutput from `ModelService` to `Models`.\n- Add `Matched` tracking with diagnostic logging via `MountainIPCInvoke` when no editor resolves, giving operators visibility into stale or mismatched URIs.\n- Refactor ProbeServices to use the `ToMountain` wrapper instead of raw `invoke(\"MountainIPCInvoke\", ...)` plus try/catch — reducing boilerplate and centralizing IPC calls.\n- Update Architecture.md and DeepDive.md: fix repository/issue links to point to the Land monorepo, correct opening descriptions, and add the standard maintainer footer to DeepDive.\n\nEditor operations now reliably target the intended editor by exact URI, and unmatched commands produce actionable diagnostics instead of silently affecting the wrong view.",
+			"SHA": "53afb5281516509009a741209f8eace64a9916fc"
 		}
 	],
-	"TimeStamp": 1782312429166
+	"TimeStamp": 1782484732548
 }

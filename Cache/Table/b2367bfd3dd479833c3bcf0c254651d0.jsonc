@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-04-22T02:09:37Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T17:25:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				81,
 				1
 			],
-			"Message": "",
-			"SHA": "0f42850e51ac1ae4e46ec9ad47fb9da8ce451a55"
+			"Message": "refactor(Sky): Consolidate polyfill imports to Output module\n\nChange polyfill imports from `@codeeditorland/wind/Target/Polyfills/*` to `@codeeditorland/output/Polyfill/*`. The Output directory now serves as the single source of truth for all polyfills, while Wind's locations remain as thin re-exports for backwards compatibility with Cocoon and lingering VS Code imports.\n\nThis ensures that any polyfill fix (e.g., colon-prefixed `MountainIPCInvoke` routing) lands in one place and every tier picks it up on rebuild without requiring separate fixes across multiple locations.",
+			"SHA": "61b8652f4782b9a98efafe1c76b1a6c65f3c1f71"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T00:39:28Z",
+			"Date": "2026-04-22T17:10:46Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				81,
+				4
+			],
+			"Message": "feat(Sky): Optimize early paint, add PostHog throttling, fix lifecycle phase signaling\n\nThree optimizations for the Sky frontend:\n\n**Early paint flash elimination (Base.astro)**\nAdd inline CSS in the `<head>` that sets `#1e1e1e` background and `#d4d4d4` text before any external CSS loads. This prevents the white→purple→dark flash visible on every Tauri `Window.navigate()` reload by matching VS Code Dark+ theme during the first paint.\n\n**Client-side PostHog throttling (PostHogBridge.ts)**\nAdd per-event-name throttle (10s window, 2× max events/sec limit) before calling PostHog's `capture`. Dropped events are tracked and reported as a single `land:sky:throttle-dropped` event per window so volume loss is visible in the dashboard. Errors pass through unthrottled since they're rare and signal-rich.\n\n**Lifecycle phase signaling fix (Mountain.astro)**\nMove phase advancement (3→4) to a separate `<script>` block that executes BEFORE the workbench import, preventing it from being blocked or wiped by folder-open navigates. Fix the Tauri invoke signature from `mountain_ipc_invoke({command, args})` to `MountainIPCInvoke({method, params})` to match Mountain's actual API — the old signature caused silent deserialization failures and fell back to 8s/23s timers. Adjust timing: phase 3 fires immediately, phase 4 at 1500ms.\n\nThese changes eliminate the early paint flash, surface PostHog drop metrics, and ensure Mountain receives correct phase signals without relying on fallback timers.",
+			"SHA": "24e76da67762440ab4a808840c3eaa0957bc6e87"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T16:02:30Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				81,
+				3
+			],
+			"Message": "feat(Sky): Add round-trip IPC handlers and PostHog configuration\n\nThree Atom milestone implementations for the Sky frontend:\n\n**Atom T1: Round-trip IPC for editor operations**\nAdd `ResolveUiRequest` helper and register handlers for `sky://workspace/applyEdit` and `sky://window/showTextDocument`. These carry a `RequestIdentifier` that the frontend must resolve via the Mountain Tauri command, otherwise Mountain's 30s timeout fires. The applyEdit handler executes `workbench.action.applyThemeFromFile`; showTextDocument synthesizes a minimal TextEditor acknowledgment with uri and viewColumn.\n\n**Atom Q1: UI dialog round-trip replies**\nRefactor show-message-request, show-input-box-request, and show-quick-pick-request to use the new ResolveUiRequest pattern. Show-message-request now handles both legacy passive shapes and promise/pending shapes with RequestIdentifier. Add show-message-with-actions-request handler. Quick-pick dispatches a DOM event (`cel:quickpick:show`) for Sky components to render a real UI, with a 30s fallback timer to prevent Mountain timeouts.\n\n**Atom PH1/PH2: PostHog configuration via environment**\nRead PostHog API key, host, and settings from import.meta.env injected via astro.config.ts vite.define. Add client-side rate limiting (5 events/sec default) and configurable batch window (3000ms) to avoid PostHog's built-in rate limiter. Support distinct ID seeding and toggle for session recording/surveys.\n\n**Atom S1: Extension runtime dependency installer**\nAdd auto-installer in astro.config.ts that runs `npm install --production` inside each copied extension when its package.json declares runtime dependencies and node_modules is absent. Also warns when a browser entrypoint bundle is missing (requires `npm run compile-web-extensions-build`). Controlled via LAND_AUTO_INSTALL_EXTENSION_DEPS env var.",
+			"SHA": "8e1f50a879b4ba0d4ac6dd943436d57181d35c9c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T14:17:51Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				81,
 				2
 			],
-			"Message": "feat(Sky): Subscribe to Mountain extension events for live sidebar updates\n\nAdd the ExtensionChangeSubscriber module that listens to Mountain's\n`sky://extensions/installed` and `sky://extensions/uninstalled` events\nand forwards them to the VS Code workbench's ExtensionEnablementService.\nThis enables the sidebar to refresh live after a VSIX install or uninstall\n— no workbench reload required.\n\nThe subscriber is imported and started in Bootstrap.ts as Wave 7 of the\nElectron boot sequence, only when LAND_ENABLE_WIND !== \"false\". It uses\nEffect.runFork for fire-and-forget semantics so the boot path never blocks\non a stream that by definition never completes. Missing refresh hooks are\nhandled gracefully with best-effort logging.\n\nThis implements the K2/K3 milestone for live extension state synchronization\nbetween Mountain and the Wind/Sky frontend.",
-			"SHA": "96d6019e641f2c2d82a8038c249e65717f25d1cd"
+			"Message": "feat(Sky): Signal Mountain lifecycle phases from frontend to skip fallback timers\n\nAdd implementation in Mountain.astro to advance the workbench lifecycle phases (Restored at 0ms, Eventually at 2000ms) by invoking the Tauri IPC command `lifecycle:advancePhase` directly from the frontend. This allows Mountain to skip its built-in 8s/23s fallback timers and transition to interactive states as soon as the workbench is ready.\n\nThe implementation uses dynamic import for @tauri-apps/api/core since the workbench boots in a plain module context without a pre-resolved bundle. Calls are wrapped in try/catch with performance markers for observability.\n\nThis implements the Atom P3 milestone for optimized lifecycle management, enabling the sidebar to refresh live after VSIX install/uninstall without relying on Mountain's fallback timers.",
+			"SHA": "b87f1d2ab70b9d4897ef69a172d98a8e22a6cb6d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T23:43:38Z",
+			"Date": "2026-04-22T12:58:21Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				80,
-				2
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "4be63e138023df836e2c51cdd08dd5b8330c8046"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T23:42:40Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				80,
-				2
-			],
-			"Message": "feat(Sky): Add LAND_ENABLE_WIND to conditionally skip Wind bootstrap\n\nIntroduce the `LAND_ENABLE_WIND` environment variable (Atom N2) that allows\nthe Electron workbench to bypass the Effect-TS service layer entirely.\n\nWhen set to \"false\" at build time, Vite inlines the comparison and the\nentire Wind import chain is tree-shaken from the production bundle. This\nenables \"Mountain + bare workbench\" integration tests and produces the\nsmallest shippable surface where gRPC/Tauri IPC isn't desired.\n\nThe flag is mirrored into Vite's `define` config with a default of \"true\"\nso Wind loads for all profiles that don't explicitly opt out.",
-			"SHA": "d2c55674c94e42aae489d001233c0a965329f97f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-21T22:55:59Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				80,
+				"⠀⠀⠀⠀⠀",
+				81,
 				1
 			],
-			"Message": "feat(Sky): Add LAND_SKIP_BUILTIN_EXTENSIONS to skip extension copy\n\nAdd support for the LAND_SKIP_BUILTIN_EXTENSIONS environment variable in CopyVSCode Step 13. When set to \"true\", the build process skips copying built-in VS Code extensions to the target directory. This enables the `debug-electron-minimal` and `release-electron-minimal` profiles (Atom J2) to produce bundles with zero built-in extensions on disk. Mountain's Scanner observes the same flag (Atom J3) and returns early for the built-in fallback paths at runtime, ensuring the runtime state matches the zero-on-disk configuration.\n\nAlso convert the PostHog telemetry request import from dynamic to top-of-file static binding, following the same pattern used for StripDanglingSourceMaps. Dynamic imports fail in `astro:build:done` because the Vite module runner has been closed by that stage.",
-			"SHA": "1b8e02be170a3264d9c898566d3542bf16e62cbe"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
+			"SHA": "4517367348002b06eb08f2c57db4e87f7eb63987"
 		}
 	],
-	"TimeStamp": 1782312453171
+	"TimeStamp": 1782484760479
 }

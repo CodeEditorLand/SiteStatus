@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T00:08:56Z",
+			"File": [
+				"⣿⠃⠀⠀⠀",
+				218,
+				55
+			],
+			"Message": "build(Output): Remove Configuration source directory\n\nDelete the entire Configuration/Source directory from the Output element. This includes ESBuild configs, TypeScript configs, build plugins, polyfills, and service modules.\n\nThe Output element should contain only the final bundled JS artifacts consumed by Cocoon at runtime, not source build configuration files. These configuration files should be regenerated from their source definitions during the build process.",
+			"SHA": "51de686e76fe8bbdaf8c8bca938d3d79fc793522"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T00:08:35Z",
+			"File": [
+				"⣿⠀⠀⠀⠀",
+				290,
+				55
+			],
+			"Message": "revert(Output): Restore Configuration build directory\n\nThe previous commit removed the Configuration directory as \"intermediate artifacts\", but these are actually source configuration files (ESBuild configs, TypeScript configs, build plugins, polyfills, and service modules) that define how the VS Code source is transformed for Land.\n\nThese files were incorrectly classified as intermediate build artifacts. They are essential source configurations that:\n- Define ESBuild bundling rules for CodeEditorLand/Editor and Microsoft/VSCode targets\n- Provide TypeScript compilation configs with proper path mappings\n- Implement build plugins for code transformation (IPC shims, CSS handling, electron replacements)\n- Supply browser polyfills (fs, child_process, ipcRenderer, etc.)\n- Define Tauri main process service stubs\n\nThe Output element requires these configuration files to produce the bundled JS artifacts consumed by Cocoon at runtime.",
+			"SHA": "9ea46755c9ab13a25e53afb3b1929eaf801db7ff"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T21:18:06Z",
+			"File": [
+				"⣿⣿⠇⠀⠀",
+				218,
+				106
+			],
+			"Message": "",
+			"SHA": "da8d5269012a9b2eb886c4ff868cde805e2cbecc"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T19:04:31Z",
+			"File": [
+				"⣿⣿⣿⣿⣿",
+				97,
+				104
+			],
+			"Message": "chore(Output): Remove Configuration build directory\n\nDelete the entire Configuration directory from Output element. These build configuration files (ESBuild configs, plugins, polyfills, service modules, tsconfigs) were intermediate artifacts that should be regenerated from source during the build process rather than persisted in the Output tree.\n\nThis reduces confusion between source build configs and output artifacts, and ensures the Output directory contains only the final bundled JS artifacts consumed by Cocoon at runtime.",
+			"SHA": "d0b23daeb49a7f2516c8b520bafccc22be4cc44f"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T18:46:22Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "fix(Output): Add playwright.__initialize stub and improve disposition telemetry\n\nAdd `__initialize` to the playwright stub to handle `PlaywrightChannelClient` constructor posting protocol version negotiation. This surfaced as `disposition=drift` in previous boot logs. Also add explicit `setExtensionGalleryManifest` stub for extension gallery metadata seeding.\n\nReplace the binary `present=true/false` stub-hit logging with three-state disposition: `value` (stub has real payload), `noop` (stub key intentionally undefined like telemetryAppender.log), and `drift` (channel stubbed but command missing - needs investigation). This helps developers distinguish between \"method intentionally returns undefined\" vs \"stub key missing from object\".",
 			"SHA": "b7dc4a7243028788d13edcd2f6f19fda6fc96eef"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:24:59Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				218,
-				3
-			],
-			"Message": "feat(Output): Add localGit routing and Batch 6 IPC channel stubs\n\nAdd the `localGit` channel route mapping to route VS Code's built-in Git extension IPC to Mountain's `git:*` subprocess handlers. This fixes the SourceControl panel hanging forever at load with `InvokeMountain(\"undefined:exec\")`.\n\nAdd Batch 6 medium-priority channel stubs for services stock VS Code exposes via the shared process that Land doesn't implement: test results storage, profile storage listener, checksum service, language packs, user data sync utilities/machines/resource provider, custom endpoint telemetry, tunnel services, web content extraction, playwright automation, and V8 profiling.\n\nAlso enhance `InvokeMountain` with per-invoke timing telemetry logged to the `tauri-invoke` tag, capturing round-trip duration including Tauri transport overhead. This differentiates slow Rust handlers (large `ipc done t_ns`) from starved webview channels (large `tauri-invoke elapsed_ms` but small Rust-side time).",
-			"SHA": "a79767ad78cd9de37302e3fddb58e95cffd93e79"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T16:55:03Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				218,
-				3
-			],
-			"Message": "perf(Output): Add telemetryAppender and mcpGalleryManifest stubs\n\nAdd two IPC channel stubs to eliminate the last remaining Tauri round-trips per session. The `telemetryAppender` stub (log/flush methods) removes 155 unnecessary IPC calls observed per boot in `channel-stub` output - by far the hottest miss. The `mcpGalleryManifest` stub removes the sole remaining `miss` per session for MCP gallery bootstrap.\n\nAlso fix _DevLogForward to send BOTH casings (Tag/Message + tag/message) to handle Tauri's param-case handling, with fallback to __TAURI_INTERNALS__.invoke for better compatibility.\n\nThese stubs short-circuit in the TS layer instead of crossing to Rust, improving renderer startup performance.",
-			"SHA": "d6c52e8824c430206d714a117284cadb5355159d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:57:08Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				218,
-				3
-			],
-			"Message": "feat(Output): Add DevLogForward to mirror IPC channel traffic to Mountain\n\nAdd a _DevLogForward helper function to TauriMainProcessService that mirrors IPC channel routing decisions into Mountain's dev-log file sink. This enables developers to trace TS-originated IPC traffic alongside Rust dev_log! output using LAND_DEV_LOG=channel-stub tail -f Mountain.dev.log.\n\nThe helper is invoked in three code paths: fire-and-forget channels (logger, output), stub hits (channel has a handler), and misses (no route, no stub). Each invocation logs the channel name, command, route prefix, and hit/miss status.\n\nThis is a fire-and-forget mechanism that never awaits or throws, matching the existing _Trace helper. It's a mirror of the helper already present in Wind's TauriMainProcessService.",
-			"SHA": "618100a9bddfce70247a0abee72adcbc42a5e133"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:33:12Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				218,
-				3
-			],
-			"Message": "fix(Output): Add missing diagnostics stub methods\n\nAdd `getWorkspaceFileExtensions` and fix `reportWorkspaceStats` stub shapes in TauriMainProcessService diagnostics channel.\n\nThe `languageDetectionWorker ServiceImpl.resolveWorkspaceLanguageIds` iterates `fileExtensions.extensions` directly and throws without this stub, causing renderer crashes when language detection runs. Also fixes `reportWorkspaceStats` from `undefined` to a proper object shape with configFiles, fileTypes, and launchConfigFiles arrays.\n\nThis ensures the diagnostics IPC channel returns valid shapes that VS Code's services expect.",
-			"SHA": "8131d76472e855192ba38169571d6c956eddc6b4"
 		}
 	],
-	"TimeStamp": 1782312450347
+	"TimeStamp": 1782484758249
 }

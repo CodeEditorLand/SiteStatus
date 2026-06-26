@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T20:04:38Z",
+			"File": [
+				"⣿⡟⠀⠀⠀",
+				561,
+				194
+			],
+			"Message": "style(Cocoon): Remove blank lines after opening braces; normalize doc formatting\n\nRemove the blank line immediately following opening braces across all interface, type, enum, class, function, and conditional declarations in the Cocoon source tree, scripts, Proto definitions, services, handler modules, IPC layer, telemetry, type converters, webview panels, and tests — reversing the whitespace convention established in commit 553b7052.\n\nAlso normalize markdown formatting in DeepDive.md and README.md: realign tables with proper pipe-positioned column separators, reflow prose paragraphs to consistent line widths, and clean up table-of-contents indentation.\n\nNo runtime logic, identifier names, or module structure was modified.",
+			"SHA": "85e19690ff82aea5116568ba96185ef7a0cfebb7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T19:12:04Z",
+			"File": [
+				"⣿⡟⠀⠀⠀",
+				561,
+				191
+			],
+			"Message": "style(Cocoon): Normalize blank-line spacing across interface, enum, function, and conditional blocks\n\nAdd a consistent blank line after opening braces in all interface, type, enum, class, and function declarations — as well as after ternary conditionals (`?`) and arrow-function bodies (`=>`) — to bring the entire codebase into a single whitespace convention.\n\nThe change touches ~180 files across the Cocoon source tree, Proto definitions, scripts, services, handler modules, IPC layer, telemetry, type converters, webview panels, and tests. No runtime logic, identifier names, or module structure was modified.\n\nEvery statement, expression, and declaration block now follows the same vertical spacing rule, eliminating intra-file inconsistencies that previously mixed compact and spaced styles within the same module.",
+			"SHA": "553b7052d4263309d3c2d5e9f59c883622e51d92"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T18:23:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "refactor(Cocoon): Strip Effect from webview IPC layer; wire cancellation, deferred activation, and subscription disposal\n\nReplace Effect-wrapped IPC calls across the webview panel subsystem (Panel, WebviewImplementation, WebviewPanelImplementation) with raw Promise-based methods, removing Effect.runFork/runPromise indirection from every $setWebviewHtml, $postMessage, and lifecycle notification. The EventStream Fire/Shutdown are now synchronous; Panel.Create returns the instance directly.\n\n**Extension lifecycle:** deactivateExtension now disposes all context.subscriptions before removing the extension from the activated set, preventing leaked watchers and status-bar items. The activation context is stored alongside the extension and referenced at deactivation time.\n\n**Deferred onStartupFinished:** After the first $activateByEvent batch settles, schedule a single 3-second-delay pass for extensions declaring only onStartupFinished, mirroring VS Code's deferred-startup convention.\n\n**withProgress cancellation:** Wire a progress.cancel notification handler in NotificationHandler that emits on a shared Emitter. WindowNamespace's withProgress subscribes to this emitter per-task, providing a real CancellationToken (isCancellationRequested / onCancellationRequested) backed by the progress handle. MountainClientService propagates caller CancellationToken firings to Mountain via cancelOperation, completing the cancellation path.\n\n**onCommand activation:** The gRPC server's executeCommand resolves onCommand:<id> activation events before dispatching to the registry, ensuring the owning extension's registerCommand has run.\n\n**SCM command projection:** SanitizeResourceState now projects repository back-references (rootUri, root, uri) to a __celRepositoryRoot string and passes through all JSON-safe scalars, so option-bag arguments like { preserveFocus: true, branch: \"main\" } survive the executeCommand round-trip.\n\n**Debug activation:** Fire onDebug, onDebugResolve:<type>, and onDebugAdapterProtocolTracker:<type> when a debug session starts.\n\n**Stable sessionId:** Fall back through telemetryInfo.sessionId → telemetry.sessionId → CocoonSessionId env var before generating a per-process id, preventing session desync on orphan recovery.\n\n**Heuristics proxy completeness:** Add has/getOwnPropertyDescriptor traps to WrapNamespaceWithHeuristics so in checks match the get trap. Fix MakeMultiStub's has trap to exclude Symbol keys.\n\n**gRPC error detail:** Include method name and stack trace in error responses instead of empty {}. Delete stale Orchestration/Old/Style/Services.ts — the last consumer of the deprecated TerminalServiceLayer.",
 			"SHA": "4d455d427651a4c9f331c305950ed8d00fba4688"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:37:24Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				565,
-				1
-			],
-			"Message": "docs(Cocoon): Add npm badge, emoji headers, and getting-started sections to README\n\nPolish the Cocoon README with the project's npm package badge, emoji-decorated section headings (Getting Started, License, Changelog, Funding), and structured Prerequisites and Build/Install subsections. Fix the GitHub stars badge image to include an explicit title attribute and normalize the dependencies table alignment row.\n\nThese changes bring the README into alignment with FIDDEE documentation conventions established across the Land Element READMEs.",
-			"SHA": "ffe1c46780d7de9a72efcd8381bc21fa19f18228"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:20:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				565,
-				1
-			],
-			"Message": "fix(Cocoon): Lazy-load URI class and structurally classify extension errors\n\nThe top-level `await import(\"@codeeditorland/output/…/uri.js\")` in NotificationHandler could crash the module on failure, silently degrading all workspace URIs to `MakeUriStub` objects — breaking `URI.isUri()` checks inside extensions like `vscode.git`. Meanwhile, the rejection sniffer classified extension TypeErrors via a hardcoded extension-ID allowlist that both masked shim regressions inside listed extensions (e.g. GitLens, vscode-yaml) and failed to cover unlisted ones.\n\n**URI import (lazy):** Replace the module-level `await import` with `EnsureLazyURI()`, a guarded non-blocking import cache started at module load. `HydrateUri` now degrades to `MakeUriStub` only when the import is genuinely pending or has failed, and a deduplicated `CocoonDevLog` warn records the degradation exactly once per process lifetime.\n\n**Extension error classifier (structural):** Parse stack trace frames into path categories — extension roots (`~/.fiddee/extensions/`, `~/.land/extensions/`, `Dependency/…/extensions/`), Cocoon paths (`/Cocoon/`, `@codeeditorland/`), and neutral frames (`node:`, `<anonymous>`, bare filenames). An error is benign only when every path-bearing frame sits in an extension directory and none touch Cocoon source, replacing the fragile `Text.includes(\"DEVSENSE.phptools\") || …` chain with a self-maintaining structural rule.\n\nWorkspace folders are no longer silently dropped on URI import failure; extension error classification works for any extension without an allowlist update.",
-			"SHA": "1f2b19a9e6ec9c1945d648484674a3592de45f28"
 		}
 	],
-	"TimeStamp": 1782312429178
+	"TimeStamp": 1782484731639
 }

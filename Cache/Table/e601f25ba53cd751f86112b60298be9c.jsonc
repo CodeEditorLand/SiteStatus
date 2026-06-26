@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T02:08:05Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1872,
+				10
+			],
+			"Message": "chore(Mountain): Reformat source files and rename product identifier to fcd\n\nApply code-style improvements across several Mountain subsystems — consolidate multi-line imports into single lines, add consistent blank-line separators in match arms, reflow doc comments to 100-char wrapping, and tighten brace placement around expression blocks. These are purely stylistic; no logic changes.\n\nRename the Tauri URI scheme protocol and PostHog event $app property from \"fiddee\" to \"fcd\", adopting the shorter product identifier. Touches Entry.rs (.register_asynchronous_uri_scheme_protocol) and CaptureEvent.rs (Event.insert_prop(\"$app\", ...)).\n\nAffected files: KeybindingState, GetUserKeybindings, RegisterExtensionKeybindings, CheckKeybindingConflicts, Bootstrap, Keybinding, SourceControlManagement, AirStart, CaptureEvent, Entry.",
+			"SHA": "f0610eefff4962308fab5c4fdb3e7db72bd713d4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T02:07:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1872,
+				4
+			],
+			"Message": "feat(Mountain): Add per-subsystem compile-time feature gating from tier env vars\n\nDeclare 14 subsystem Cargo features (Terminal, SCM, Debug, LanguageFeatures, Search, OutputChannel, NativeHost, TreeView, Storage, Model, FileSystem, Encryption, Tasks, Auth) in the default features set and implement the build.rs `EmitTierFeatures` pipeline. A new `emit_feature_from_tier` helper reads each `Tier*` key from `.env.Land` and emits `cargo:rustc-cfg=feature=\"...\"` when the value is neither `Disabled` nor `Node`, meaning the native Mountain handler is active.\n\nThe `IsDeclaredTierFeature` whitelist is extended to include all 14 subsystem names so unknown combinations surface as build warnings rather than silent no-ops.\n\nTogether with the existing per-subsystem `RouteTier` enum (NodeDeferred mode), this lets `#[cfg(feature = \"...\")]` gates guard native dispatch paths at compile time — a subsystem whose tier defaults to Node silently omits Mountain's handler code from the binary.\n\nAlso update Info.plist: remove Inspect flag, add ProductFlavor identifier, clear Record and Trace defaults. Rewrite README with badge tables, narrower paragraph wrapping, and a funding-section logo grid.",
+			"SHA": "5bcb63a34e206f5ecc46a4127b251323654015d4"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T00:06:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "refactor(Mountain): Modularize WindAdvancedSync and CocoonManagement into dedicated modules\n\nContinue the Mountain modularization effort by extracting monolithic implementations into focused single-responsibility modules across two subsystems:\n\nWindAdvancedSync (Source/IPC/WindAdvancedSync/):\n- 10 new modules covering the full document/Ui-state synchronization pipeline:\n  ApplyDocumentChange, BroadcastRealTimeUpdates, BroadcastUpdates,\n  CalculateSyncStatus, CheckForConflicts, New, StartPerformanceMonitoring,\n  StartSyncTask, SynchronizeDocuments, UpdateSyncStatus\n- Each module exposes a single public `Fn` entry point; WindAdvancedSync.rs\n  becomes a clean delegation layer (~200 lines down from ~900)\n- Circuit-breaker logic, conflict detection, and real-time broadcast fast-path\n  preserved in their respective modules\n\nCocoonManagement (Source/ProcessManagement/CocoonManagement/):\n- 19 new modules covering the complete Cocoon sidecar lifecycle:\n  BuildCocoonEnvironment, CocoonProcessState, ConnectToCocoonGrpc,\n  FindMatchingWorkspaceContainsPatterns, FireRootConfigActivationEvents,\n  FireWorkspaceContainsEvents, HardKillCocoon, LaunchAndManageCocoonSideCar,\n  MonitorCocoonHealthTask, PatternMatchesAnyEntry, ResolveBootstrapScript,\n  RestoreWebviewPanels, SeedOpenDocuments, SeedOpenTerminals,\n  SegmentMatch, SendInitializationHandshake, SingleSegmentMatch,\n  SpawnCocoonIoForwarders, SpawnRestartHandler, SpawnStartupActivationTask,\n  SweepStaleCocoon\n- Zombie-process sweep (Atom I6), exponential-backoff gRPC connect with\n  child-exit detection, workspaceContains pattern matching, and automatic\n  restart handler all extracted to independent, testable units\n- Original CocoonManagement.rs reduced from ~1700 lines to ~150 lines of\n  orchestration\n\nImpact: Drastically improves maintainability, enables independent unit testing\nof each subsystem component, and establishes consistent modular patterns for\nfuture Mountain development. Follows the same architectural approach as the\nprior URI scheme, debug provider, LSP feature, and Tauri IPC modularization.",
 			"SHA": "5ac832301cb2362a5be618b965ada8972baaf5d3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T22:55:15Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				1855,
-				74
-			],
-			"Message": "refactor(Mountain): Modularize URI schemes, debug provider, LSP features, IPC server, and Cocoon management into dedicated modules\n\nExtract monolithic implementations into focused single-responsibility modules across multiple Mountain subsystems:\n\nURI Scheme Handlers (Source/Binary/Build/Scheme/):\n- ForwardHttpRequest, LandSchemeHandler, MimeFromExtension, ParseHttpResponse,\n  VscodeFileSchemeHandlerInner, VscodeWebviewSchemeHandlerInner\n- Each handler now lives in its own file with clear public `Fn` entry points\n- Original Scheme.rs reduced from 1300+ lines to ~100 lines of delegation\n\nDebug Provider (Source/Environment/DebugProvider/):\n- ConnectPipeServerAdapter, ConnectServerAdapter, RegisterDebugAdapterDescriptorFactory,\n  RegisterDebugConfigurationProvider, SendCommand, SpawnExecutableAdapter,\n  StartDebugging, StopDebugging\n- Trait impl in DebugProvider.rs now delegates to per-method modules\n- Eliminates 1000+ line trait implementation block\n\nLSP Language Features (Source/Environment/LanguageFeatureProvider/FeatureMethods/):\n- 31 feature methods extracted (ProvideCompletions, ProvideHover, ProvideDefinition,\n  ProvideReferences, ProvideCodeActions, ProvideCodeLenses, ProvideDocumentSymbols,\n  ProvideWorkspaceSymbols, ProvideSignatureHelp, ProvideDocumentFormattingEdits,\n  ProvideDocumentRangeFormattingEdits, ProvideOnTypeFormattingEdits, ProvideRenameEdits,\n  PrepareRename, ProvideDocumentHighlights, ProvideDocumentLinks, ProvideFoldingRanges,\n  ProvideSelectionRanges, ProvideSemanticTokensFull, ProvideInlayHints,\n  ProvideInlineCompletionItems, ProvideFileDecoration, ProvideLinkedEditingRanges,\n  ProvideCallHierarchyIncomingCalls, ProvideCallHierarchyOutgoingCalls,\n  PrepareCallHierarchy, PrepareTypeHierarchy, ProvideTypeHierarchySupertypes,\n  ProvideTypeHierarchySubtypes)\n- Shared helpers InvokeProvider and InvokeProviderMethod also modularized\n- FeatureMethods.rs becomes a clean delegation layer\n\nTauri IPC Server (Source/IPC/TauriIPCServer/):\n- DecryptMessage, Dispose, InitializeDefaults, ProcessMessageQueue,\n  ReceiveMessage, SendMessage, StartHealthMonitoring, ValidatePermission\n- Core struct methods now single-line delegations\n\nCocoon Process Management (Source/ProcessManagement/CocoonManagement/):\n- 14 new modules covering full lifecycle: BuildCocoonEnvironment, CocoonProcessState,\n  ConnectToCocoonGrpc, FireRootConfigActivationEvents, FireWorkspaceContainsEvents,\n  HardKillCocoon, MonitorCocoonHealthTask, ResolveBootstrapScript,\n  RestoreWebviewPanels, SeedOpenDocuments, SeedOpenTerminals,\n  SendInitializationHandshake, SpawnCocoonIoForwarders, SpawnRestartHandler,\n  SpawnStartupActivationTask\n- Replaces ad-hoc inline logic with structured, testable units\n\nCocoon gRPC Service (Source/RPC/CocoonService/):\n- SpawnChannelReadPump extracted for bidirectional stream handling\n- CHANNEL_REGISTRY made pub(crate) for cross-module access\n\nImpact: Drastically improves maintainability, enables independent testing of each subsystem,\nand establishes consistent modular patterns for future Mountain development.",
-			"SHA": "d0e13211efcd644d4a27bec1eed37d26d224e298"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T22:40:23Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1782,
-				1
-			],
-			"Message": "refactor(Mountain): Introduce tier-based IPC routing with NodeDeferred mode\n\nReplace the boolean `tier_routes_to_node` with a three-state `RouteTier` enum (Mountain, Node, NodeDeferred) and add per-subsystem tier gates evaluated before Mountain-native arms. This implements the Routing-Schema.md tier resolution table so a single shell export (e.g. `export TierTerminal=Node`) reroutes an entire command family to Cocoon without a rebuild.\n\nKey changes:\n- New `resolve_route_tier` reads env var at runtime, falling back to baked const; unrecognised values default to Mountain for safety.\n- Tier gates added for Terminal, OutputChannel, Search, TreeView, Model, LanguageFeatures, Debug, Encryption, and NativeHost families.\n- `NodeDeferred` tier keeps Mountain arms for implemented commands while deferring unimplemented family members to Cocoon via the unknown-command catch-all.\n- Storage lifecycle null-acks (`storage:isUsed`, `storage:close`) now conditional on `TierStorage != Node` so they forward to Cocoon when storage lives there.\n- Duplicate null-ack entries consolidated; ack-only stub list extended.\n\nImpact: Operators can migrate subsystems to Node incrementally (starting with tasks/auth which already default Node) and teams can develop Mountain and Cocoon implementations in parallel behind the same command surface.",
-			"SHA": "824e85648d43b9059ced50e8f0fd3685b5e24e8d"
 		}
 	],
-	"TimeStamp": 1782312430378
+	"TimeStamp": 1782484733983
 }
