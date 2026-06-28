@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T06:13:01Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1576,
+				9
+			],
+			"Message": "refactor(Mountain): Extract CocoonService dispatchers; fix Send-ness in InitData; retry AppDataPrefix\n\nThe 1400+ line `process_mountain_request` and 600+ line `send_mountain_notification` handlers were inlined in `CocoonService/mod.rs`, making the file unwieldy and obscuring the gRPC service boundary. Extract both match blocks into dedicated `GenericRequest::Dispatcher` and `GenericNotification::Dispatcher` modules, reducing `mod.rs` by ~1900 lines.\n\nIn `InitializationData.rs`, the `MutexGuard` on `WorkspaceFolders` was held across an `.await` call, making the future non-`Send` and breaking `tauri::async_runtime::spawn`. Scope the guard to a block so it is dropped before any await point; extract logging scalars before moving `FoldersWire` into `WorkspaceDTO`.\n\nIn `AppDataPrefix.rs`, replace the `OnceLock<Option<String>>` that caches `None` forever (routing all dev logs to `/tmp` after the first failed resolution) with a two-phase system: `RESOLVED: OnceLock<String>` for the permanent prefix, and `RETRY: Mutex<bool>` that stays `true` on first failure so subsequent writes retry after Tauri has created the app-data directory.\n\nIn `WindServiceHandlers/mod.rs`, the previous boot-latency fix used a bare `return Ok(...)` inside a match arm, which exits the enclosing async block (not just the arm), changing the block's inferred return type from `()` to `Result<Value, _>` and breaking `Scheduler::Submit`'s `Output = ()` bound. Replace with an `if/else` expression that evaluates to `Ok(...)` in both branches.\n\nAlso fix a minor clippy-nit in `AliasPath.rs` by removing the redundant `.as_str()` call.",
+			"SHA": "47a603158ca0d368b2ae744ef8fd7edcf5ed7410"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:37:16Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1574,
+				4
+			],
+			"Message": "style(Mountain): Reflow long lines and brace placement across four files\n\nNormalize formatting in `UpdateValue.rs`, `WindServiceHandlers/mod.rs`, `InitializationData.rs`, and `CocoonService/mod.rs` to align with Rust style conventions. Changes are limited to comment reflow, static declaration compaction, method body compression, and brace positioning — no logic is altered.\n\nCleans up artifacts from prior commits where formatter passes were missed, keeping the codebase consistent.",
+			"SHA": "65f1cf26cfa85fc1639f84d0458df61276bfa44a"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-20T05:37:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "fix(Mountain): Reduce lock contention; notify Cocoon on config change\n\n**Lock contention fixes** — In `ScanAndPopulateExtensions`, replace the N-insert\nloop under `ScannedExtensions` lock with a single pointer-swap (`*Guard = All.clone()`),\nreducing lock hold time from 100–500 ms to a clone duration. In `DiagnosticProvider`,\nsnapshot the `DiagnosticsMap` under the lock then aggregate outside it, so concurrent\n`SetDiagnostics`/`ClearDiagnostics` calls are not blocked during serialization.\n\n**Cocoon config notification** — After a successful configuration value write in\n`UpdateValue`, fire a `configuration.change` Vine notification to `cocoon-main` so\nextensions' `ConfigCache` invalidates the affected key and re-primes on next access.\nWithout this, `workspace.getConfiguration().get(key)` returns stale cached data until\nthe next full re-merge notification.\n\n**Cleanup** — Group `SkyEvent` import into existing block in `UpdateValue`; collapse\n`TextfileSave` import paths; fix `AppMenu` and `FileWriteNative` formatting.",
 			"SHA": "7018ff29e26f00125ebe80f2482765bbdb842202"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:20:43Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1574,
-				2
-			],
-			"Message": "fix(Mountain): Fix StorageProvider race and Cocoon-connect boot latency\n\n**StorageWriteDebouncer race** — Reorder the flush loop to take the pending\nitem before clearing `FlushScheduled`, so a concurrent `Queue()` call\ncannot observe the flag as `false` and the slot as empty, scheduling a\nno-op flush.\n\n**Scope-correct debouncer** — Select `GetWorkspaceDebouncer` for workspace\nscopes instead of always routing through the global debouncer, preventing\na workspace bulk-save and global bulk-save from sharing the same pending\nslot.\n\n**Dev-log noise suppression** — Add `file:open`, `file:close`, and\n`textFile:save` to the low-level noise skip list. These fire once per file\nduring project-open cascades and once/second per dirty file for auto-save\nintent, polluting IPC logs without diagnostic value.\n\n**Cocoon-connect boot latency** — Remove the 3-second blocking\n`WaitForClientConnection` from `languages:getAll` and\n`languages:getEncodedLanguageId` handlers. Tokenizer calls\n`getEncodedLanguageId` synchronously on first editor open. With the old\nwait, the worker stalls for up to 3 s before Cocoon is available. Return an\nempty fallback array immediately when Cocoon isn't connected; the workbench\nretries on next keystroke.",
-			"SHA": "920f9dc6bbda677a2de6d3018582afbb14de5b26"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:13:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1574,
-				3
-			],
-			"Message": "fix(IPC): Enhance file write and save handlers to update metadata and notify configuration changes\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "37d18e0da89ec21186531428f1ddec68815699df"
 		}
 	],
-	"TimeStamp": 1782484755252
+	"TimeStamp": 1782655487668
 }

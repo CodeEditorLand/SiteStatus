@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:42:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				916,
+				3
+			],
+			"Message": "refactor(Wind): De-Effect-ify IPC service — convert errors, implementation, and interface to plain classes and async\n\nComplete the migration of the IPC service away from Effect-TS, the last major service area still using Effect wrappers. This follows the established De-Effect-ify pattern applied to ActivityBar, NetworkRestrictions, Bootstrap, Health, and FileSystem services.\n\n**Error types** (`IPCError.ts`): Convert `IPCInvokeError`, `IPCSendError`, and `IPCSubscriptionError` from interface-based factory functions (`CreateIPCInvokeError`, `CreateIPCSendError`, `CreateIPCSubscriptionError`) to actual `Error` subclasses with `_tag` discriminant via `extends Error`. Remove the factory functions and the aggregated default export — each class is now independently exported.\n\n**Interface** (`IPCService.ts`): Replace Effect-TS signatures — `send` returns `void` (was `Effect.Effect<void, IPCSendError>`), `invoke` returns `Promise<unknown>` (was `Effect.Effect<unknown, IPCInvokeError>`), `events` returns a plain `IPCEventStream` with a `subscribe(listener)` model (replacing `Stream.Stream`), and `once` takes a callback (replacing `Effect.Effect`). Introduce `IPCEvent`, `IPCEventListener`, `IPCCleanup`, and `IPCEventStream` types.\n\n**Implementation** (`TauriIPC.ts`): Rewrite from curried Effect-returning functions (`(channel) => (args) => Effect.try(...)`) to flat async/sync functions (`invoke(channel, args)`, `send(channel, args)`). Replace the `events` Stream-based subscription with a `Set<IPCEventListener>` model that auto-cleanses the Tauri listener when the last subscriber disposes. Convert `once` from `Effect.async` to `async/await` with auto-cleanup. Remove all Effect-TS imports.\n\n**Impact**: Eliminates the last Effect-TS dependency from Wind's IPC layer. Errors now produce standard `Error` stack traces for simpler debugging. The interface is plain TypeScript — no Effect imports needed by consumers.",
+			"SHA": "0aeaeb8a36734ce87a7361b0dfa519ace58e8506"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:41:32Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				916,
+				14
+			],
+			"Message": "refactor(Wind): Consolidate barrel exports and add ActivityBarItemUpdate type\n\nNormalize export ordering across four service barrels (ActivityBar, Bootstrap, Health, NetworkRestrictions) into consistent groups — errors, helpers, implementations, interfaces, types — replacing ad-hoc interleaving that made imports harder to audit.\n\n**Barrel re-exports** (`ActivityBar.ts`, `Bootstrap.ts`, `Health.ts`, `NetworkRestrictions.ts`, `ActivityBar/index.ts`, `Health/index.ts`):\n- Alphabetize export groups within their categories and place value exports before type exports.\n- Collapse separate value-only and type-only re-exports from the same module into combined export blocks.\n\n**ActivityBarItemUpdate type** (`ActivityBarService.ts`):\n- Introduce a dedicated `ActivityBarItemUpdate` partial type that explicitly permits `badge: undefined` for badge removal, replacing the broader `Partial<Omit<ActivityBarItem, \"id\">>` parameter in `updateItem`.\n- Update `ActivityBarImplementation.ts` and `ActivityBarMock.ts` signatures accordingly.\n\n**Minor cleanups**:\n- `BootstrapImplementation.ts`: Convert string concatenation to template literal.\n- `BootstrapStage.ts`: Collapse over-wide import back to single line.\n- `NetworkRestrictionsHelper.ts`: Prefix three unused loop variables (`Pattern`) with underscore to silence unused-variable diagnostics.\n- `HealthImplementation.ts`, `NetworkRestrictionsImplementation.ts`: Consistent method-signature formatting.\n\nNo behavioral changes — purely structural normalization and type precision.",
+			"SHA": "a3be484eb3db337d974c0d147372b0c20d05481d"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T21:24:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "refactor(Wind): De-Effect-ify Bootstrap, Health, FileSystem, Workbench; add heritage resolver + ChannelEventBridge\n\nRemove Effect-TS dependency from four core Wind services, converting them to plain async/sync APIs:\n\n**Bootstrap** (`Effect/Bootstrap/`):\n- Replace `Effect.gen`/`Layer`/`Context.Tag` with a plain `makeBootstrap(Logger)` factory returning a `BootstrapService`. All six stages (`BootstrapStage.ts`) become `async (Log) => Promise<StageResult>` — no `withSpan`, no `yield*`.\n- Delete `BootstrapTag.ts`; `BootstrapLive` is now a `BootstrapService` instance, not a `Layer`.\n- `BootstrapMock` drops its `Layer.effect` wrapper — just a `BootstrapService` object.\n- `runBootstrap()` calls `BootstrapLive.run(options)` directly instead of composing a Telemetry layer.\n\n**Health** (`Effect/Health/`):\n- Convert all check methods from `Effect.Effect<>` to `async Promise<>`. The `monitorService` now returns a `HealthMonitorHandle { dispose }` via `setInterval`/`clearInterval` instead of an `Effect.repeat(Schedule.spaced)`.\n- Delete `HealthTag.ts`; `HealthLive`/`HealthMock` are `HealthService` instances.\n- Replace `EnvironmentTag.getInfo` with direct calls to `DetectPlatform()`/`DetectArchitecture()` from `EnvironmentHelper`.\n\n**FileSystem** (`FileSystem/`):\n- Remove `FileSystemProviderTag` (Context.GenericTag), `FileSystemProviderLive` (Layer), and the `getProvider: Effect.Effect<>` accessor from `FileSystemProviderService`. Consumers now import the default export `FileSystemProvider` and call `.provider` directly.\n- Update README examples to show plain `await FileSystemProvider.readFile(...)` instead of `yield* FileSystemProviderTag`.\n\n**Workbench** (`Workbench/`):\n- Rewrite `WorkbenchIntegrationImplementation` from Effect-TS (Ref, Queue, Stream, Effect.gen) to module-closure `let` variables + a listener-`Set` for state change observation. `stateChanges: Stream` becomes `onStateChange(Listener) => IDisposable`.\n- All methods are sync/async and throw `WorkbenchIntegrationError` on failure — no more `Effect.fail`.\n- Remove the `FileSystemProviderTag` dependency; import the FileSystem default export directly.\n\n**ResolveInterfaceCrossFile** (`Codegen/Resolve/`):\n- Add heritage-follow resolution: when an interface body is empty (the re-export pattern `interface X extends Y { }`), parse the `extends` clause, resolve each parent — same-file inline first, then via imports — with depth-capped recursion and visited-set deduplication.\n- Extract `ResolveNamedMembers` as a shared recursive core; `ResolveInterfaceCrossFile` delegates to it.\n\n**TauriMainProcessService** (`Service/`):\n- Buffer `_DevLogForward` entries for 100ms and flush as grouped `RenderDevLog` invokes (one per tag, newline-joined), capped at 20 entries per flush window with overflow counting. Prevents IPC storms during extension activation.\n- Introduce `ChannelEventBridge` — a declarative map from channel events to `sky://` Tauri event names (with optional reshape `Map` functions), replacing the earlier repetitive `if (channel === \"X\" && event === \"Y\")` guard blocks. Covers `localPty`, `terminal`, `extensions`, `localFilesystem`, `configuration`, `workspaces`, and `lifecycle`.\n\n**Barrel re-exports**:\n- `Effect/index.ts`: Alphabetize exported names; replace old `*Tag` exports with `*MonitorHandle`/`*Logger` types.\n- `Bootstrap/index.ts`, `Health/index.ts`, `Workbench/index.ts`, `Health.ts`, `Bootstrap.ts`: Align re-exports with the new plain-async surface — no Tag re-exports, no Layer re-exports.\n- `Layers/Tauri.ts`: Remove `BootstrapLive`, `HealthLive`, `ActivityBarLive` from the layer compositions since they are no longer Effect layers.\n- `Language/Live.ts`: Clarify doc comment that this layer is Wind-local only; add `performance.mark` traces on registration.\n\n**Impact**: Reduces Effect-TS surface to only IPC, Telemetry, and Sandbox services where its composability is still needed. Cuts bundle weight, simplifies debugging (plain async stack traces), and accelerates the migration of Wind toward framework-agnostic service patterns.",
 			"SHA": "0432636342797c3caab1099cf883e21ea04151c1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:34:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				924,
-				2
-			],
-			"Message": "style(Wind): Normalize README punctuation and build config indentation\n\nReplace em dashes (—) with hyphens (-) throughout README.md for consistent ASCII punctuation across the documentation. Reformat tsconfig.build.json from 2-space indentation to tab-indented with single-line array items, matching the project's convention established in tsconfig.json.\n\nNo behavioral changes — purely cosmetic formatting normalization across documentation and build configuration.",
-			"SHA": "ed1a42e950febefbd3b8d5a429195947fc413bfd"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:04:08Z",
-			"File": [
-				"⣿⡏⠀⠀⠀",
-				924,
-				300
-			],
-			"Message": "style(Wind): Strip extra blank lines inside interface/class bodies and between imports\n\nRemove ~1,200 blank lines that violated the project's formatting conventions across 300+ files in Source/. The changes fall into six categories:\n\n1. **Interface/class body blank lines**: Every exported interface, class, default-object, and exported-const-object that began with a blank line after `{` now has it removed — \"squaring\" the opening brace against the first member. Affected ~200 files across Bootstrap/Types, Codegen, Effect, FileSystem, Service, Telemetry, Types, and Workbench.\n\n2. **Import-group blank lines**: Blank lines separating two consecutive `import` statements (or `import type` statements) from the same module group are removed, collapsing multi-line import blocks into dense `import`-`import` runs. Exceptions preserved at semantic boundaries (e.g., Effect imports vs. local directory imports).\n\n3. **Discriminated union blank lines**: Blank lines between adjacent `| { _tag: ... }` branches in `*Problem` and `*State` type definitions are removed.\n\n4. **Missing blank lines in barrel exports**: `Mountain/index.ts`, `WorkbenchActivity/index.ts`, `WorkbenchCommand/index.ts` gain a blank line before `export type` sections after a series of value re-exports, matching the barrel convention in neighbouring modules.\n\n5. **Import ordering**: `BootstrapStage.ts` swaps `EnvironmentTag` above `EnvironmentInfo` to pair the Tag import with its type; `WorkbenchLayoutLive.ts`, `WorkbenchLifecycleLive.ts`, `WorkbenchNotificationLive.ts`, `WorkbenchProgressLive.ts`, `WorkbenchThemeLive.ts` fix `type` keyword placement and group imports consistently.\n\n6. **Build config**: `tsconfig.build.json` added with a focused compilation target (`Source/Build.ts`, Constants, Types, Effect/Layers); `tsconfig.json` exclude list expanded with 47 path entries to silence diagnostics in generated/polyfill/debug modules.\n\nNo behavioral changes.",
-			"SHA": "c458f3973e1db58d66720d262e758c6cf39d95b6"
 		}
 	],
-	"TimeStamp": 1782484732071
+	"TimeStamp": 1782655466807
 }

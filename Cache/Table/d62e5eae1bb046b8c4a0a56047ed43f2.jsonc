@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T00:42:13Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1563,
+				4
+			],
+			"Message": "refactor(Mountain): Modularize extension host notification handlers into dedicated atoms\n\nExtract inline notification dispatch logic from the main IPC handler into dedicated atomic functions and sub-modules under `Source/RPC/CocoonService/GenericNotification/`. This completes the modularization strategy for the Cocoon bridge, decoupling the request parsing layer from the business logic execution.\n\nKey changes include:\n- **SkyEmit Module**: Introduce `SkyEmit.rs` to handle all `sky://` Tauri event emissions from the extension host. Consolidates logic for webview messages, status bar updates, output channel management, progress indicators, and `openExternal` into specific handler functions (`HandleWebviewPostMessage`, `HandleOutputAppend`, etc.).\n- **Atomic IPC Dispatch**: Replace inline `match` blocks for `cocoon:request`, `cocoon:notify`, and `extensionHostStarter` commands in `WindServiceHandlers/mod.rs` with calls to their respective atomic functions (e.g., `CocoonRequest`, `CocoonNotify`).\n- **Extension Host Reliability**: Refactor `extensionHostStarter:start` to delegate PID retrieval and `extensionHostDebugReload` to emit Tauri events via atomic wrappers, ensuring consistent error handling and separation of concerns.\n- **Modular Architecture**: Register the new `GenericNotification` (including `SkyEmit`, `Commands`, `LanguageProviders`) and `GenericRequest` modules in `Source/RPC/CocoonService/mod.rs`.\n\nThis refactoring reduces code duplication in the IPC layer, improves maintainability by grouping related UI bridge logic, and aligns the notification path with the request path's atomic function pattern.",
+			"SHA": "f7b87f51d861d81a15f5777511aa46a4f5e10974"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T00:40:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1561,
+				8
+			],
+			"Message": "refactor(Mountain): Modularize Cocoon RPC handlers and IPC dispatch layer\n\nRefactor the Mountain IPC and RPC layers to extract inline logic into dedicated, composable modules. This aligns with the modular architecture established in recent commits and improves maintainability for the Cocoon bridge and native service handlers.\n\nKey changes include:\n- **WindService Refactoring**: Replace inline platform-specific implementations in `WindServiceHandlers/mod.rs` with atomic function calls (e.g., `NativeMoveItemToTrash`, `NativeReadClipboardText`). This consolidates OS-specific logic (macOS osascript, Linux gio, Windows PowerShell) into reusable handlers for clipboard, trash, and ARM64 translation checks.\n- **Cocoon RPC Modularity**: Split the generic request/notification dispatcher into semantic sub-modules under `Source/RPC/CocoonService`. Introduced `GenericRequest` modules for `Commands`, `FileSystem`, `Secrets`, and `WindowDialogs`, and `GenericNotification` for language provider registration.\n- **IPC Abstraction**: The new RPC handlers strictly follow the `(RequestId, Params, &Env)` signature, decoupling request parsing from business logic and enabling typed `GenericResponse` construction without referencing `CocoonServiceImpl` directly.\n- **UI Bridge Enhancements**: The `WindowDialogs` module now routes `showTextDocument`, `saveAll`, and `webview` operations via Tauri events (`sky://...`), completing the bridge between the Rust backend and the Sky frontend.\n\nThese changes reduce code duplication, clarify the separation of concerns between the native backend and the extension host, and prepare the codebase for further extension host integration.",
+			"SHA": "edd0bb6051ae22a8f12017d144a03a2bcab8253f"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-20T00:39:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Mountain): Wire Mountain IPC commands into Tauri 2 ACL system\n\nMountain's native Tauri commands (e.g., `MountainProvideHover`, `MountainWorkspaceOpenFolder`, `DnsResolve`) were being rejected at runtime with \"Plugin not found\" errors because Tauri 2 requires explicit permission entries for all `#[tauri::command]` definitions.\n\nIntroduce `permissions/default.toml` to define the custom permission identifier `allow-mountain-commands`. This file aggregates the complete allow-list for every Mountain IPC handler defined in `Source/Binary/Main/Entry.rs`.\n\nUpdate `capabilities/default.json` to reference this new `default` permission set alongside existing `fs`, `log`, and core plugin permissions. Regenerate the ACL manifests and JSON schemas (`gen/schemas/`) to reflect the new permission identifiers.\n\nThis ensures the webview can invoke Mountain's native methods without failing the security check, completing the IPC bridge required for Wind/Sky to communicate with the Rust backend.",
 			"SHA": "bff5321e154a82323fa9e65a9e0aaa3ff6c0358b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:06:40Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1520,
-				1
-			],
-			"Message": "feat(Mountain): Inject Tauri IPC diagnostic script for early failure detection\n\nIntroduce a diagnostic initialization script in WindowBuild.rs that executes at document_start, prior to any application scripts. This script captures the state of Tauri's IPC bridge and global objects (window.__TAURI_INTERNALS__, window.__TAURI__, window.ipc) immediately upon injection.\n\nThe script populates a global window.__MOUNTAIN_TAURI_DIAG object with timestamps and boolean flags indicating the presence and functionality of core IPC methods. It also records lifecycle events (DOMContentLoaded, load) to help pinpoint timing-related race conditions.\n\nThis addition enables developers to verify the integrity of the Tauri runtime and capability scoping directly from the DevTools console if the editor fails to initialize, without relying on the full bundle loading or downstream error handling.",
-			"SHA": "b5d79001860a7305fbe97f13f69ce906bdded054"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:00:22Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1520,
-				5
-			],
-			"Message": "",
-			"SHA": "21065aa39c3c860d98d46791dc5ab3a3019fb968"
 		}
 	],
-	"TimeStamp": 1782484756796
+	"TimeStamp": 1782655490188
 }

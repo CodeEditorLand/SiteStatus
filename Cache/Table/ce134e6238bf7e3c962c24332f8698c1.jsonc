@@ -2,6 +2,28 @@
 {
 	"Set": [
 		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T05:31:32Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				105,
+				2
+			],
+			"Message": "fix(eliminate): skip inlining when substitution site is inside a loop body\n\nAddresses finding C from issue #55.\n\nBefore this change, a binding used only inside a for/while/loop body was\ncounted as RefCount=1 and inlined, moving the initialiser expression\ninside the loop. This changes evaluation semantics: the initialiser now\nruns on every iteration instead of once before the loop. For\nside-effecting or expensive initialisers this is a behavioural change.\nFor move-only types it causes a compile error on the second iteration.\n\nCountReferences now returns a third value InLoop alongside InClosure.\nInLoop is true when the single reference to Target is found inside the\nbody of a for, while, or loop expression. EliminateBlock skips the\ncandidate when InLoop is true.\n\nThe existing LoopBodyCountedAsOne test is updated to document the new\nbehaviour: count remains 1 (we do not hoist the loop counter) but\nInLoop is now true, which prevents inlining.",
+			"SHA": "88a03f43adb323bcd1a0498158c616ca64c223c0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T05:17:57Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				105,
+				2
+			],
+			"Message": "fix(eliminate): skip inlining when free vars in Init are moved before substitution site\n\nFixes #56.\n\nBefore this change, a candidate like:\n\n  let display = var.clone();\n  ... var moved into struct field ...\n  devlog!(..., display, ...);\n\npassed every safety check (count=1, not in closure, not unsafe, not\noversized) and was inlined, placing var.clone() after the move, which\nproduces E0382.\n\nThe new IsFreeVarSafe function in Safe.rs collects all plain-identifier\nfree variables from Init, then scans the statements between the\ncandidate declaration and the substitution site. If any of those\nstatements contain a by-value use (pass to a function, struct field\nshorthand, or assignment) of a free variable, the candidate is skipped.\n\nThe check is conservative: it only looks at Expr::Path single-segment\nidentifiers, so it never produces false negatives for qualified paths or\nmethod receivers. It may produce false positives (keeping a binding that\nwould actually have been safe) but never produces a false negative that\nresults in a compile error.\n\nA regression test covering the exact get_file_info / get_configuration\npattern from Mountain/Source/Air/AirClient.rs is included in Inline.rs.",
+			"SHA": "f495f73bfda5e0a7422b4ae1f63f2c0ff71cd68c"
+		},
+		{
 			"Author": "Auto",
 			"Date": "2026-05-25T02:35:57Z",
 			"File": [
@@ -33,29 +55,7 @@
 			],
 			"Message": "test(Maintain): Add comprehensive test cases for Eliminate pass transformations\n\nExpand test coverage in `tests/Eliminate.rs` with detailed assertions for expression inlining, macro handling, and real-world Mountain backend patterns. Key additions include:\n\n- Cast expression handling (`CastExprInlined`, `CastExprNeedsParen`)\n- JSON macro token handling (`DerefOnceLockIntoJsonMacro`, `TypeAnnotatedCollectIntoJsonMacro`)\n- Closure-local binding inlining (`ClosureLocalBindingsInlined`)\n- Match scrutinee inlining (`OptionBindingIntoMatchScrutinee`, `ChainIntoMatchDiscriminant`)\n- Async inlining patterns with `tokio::fs` and `json!` macro use\n- Safety assertions for multi-use variables and pre-clone handling (`RangeDoubleBoundKept`, `PreCloneForMoveClosureKept`)\n\nThese test cases validate the `Eliminate` transformer's behavior in complex expression contexts, including real-world patterns from the Mountain backend.",
 			"SHA": "eaa6a54c54224b010bbef7a8bfb2b892e96bf48f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T15:40:56Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				81,
-				2
-			],
-			"Message": "test(Maintain): Expand Eliminate tests for casts, derefs, and Mountain patterns\n\nExtend `tests/Eliminate.rs` with Batch-2 coverage to validate complex inlining scenarios identified during core backend optimization. The new tests verify:\n\n1. **Expression Handling**: Correct parenthesization of cast expressions in binary operations, dereferencing of `OnceLock` results into `json!` macros, and negated boolean guards.\n2. **Control Flow**: Inlining into match scrutinees, discriminants, and `if let` guards, including block expressions that manage mutex guards.\n3. **Async & Closures**: Collapsing single-use bindings inside async blocks and closure bodies (e.g., `.map()` iterators) where variables feed directly into struct literals.\n4. **Mountain Patterns**: Real-world reproductions from `Mountain` including exit code casting, clipboard text passing, terminal revival chains, and stat metadata extraction.\n5. **Safety Constraints**: Ensuring multi-use variables (e.g., range bounds, borrow aliases in `json!`) and pre-clone bindings for move closures are preserved.\n\nThese additions ensure the transformer safely handles the dense expression chains common in the Rust backend while respecting scope and lifetime constraints.",
-			"SHA": "154dbdfb2d3994b6cabd2f2590e95712e7d93689"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T09:13:05Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "test(Maintain): Add integration tests for format literal scanning and Mountain patterns\n\nExpand `tests/Eliminate.rs` to cover critical edge cases identified during the implementation of implicit format capture detection. The new tests validate:\n\n1. **Format Literal Scanning**: Cases where variables are used only inside `format!(\"{Var}\")` or mixed explicit/implicit usage, ensuring the `CountReferences` visitor correctly identifies these as multi-use to prevent incorrect inlining.\n2. **Complex Inlining Chains**: Scenarios involving three-level binding chains (`A→B→C`), match expressions with early returns, and borrows of inline temporary expressions.\n3. **Real-World Mountain Patterns**: Specific reproductions of code found in `Mountain` (Key derivation, `TerminalProvider` JSON payloads, `ProvideHover` URI handling, and `Decrypt` match-block inlining) to guarantee the transformer handles actual backend logic safely.\n4. **Idempotency**: Verification that re-running the transformer on already-minimized code produces no further changes.\n\nThese additions solidify confidence in the `Eliminate` module's correctness before applying it to the core Rust backend.",
-			"SHA": "614b9e88eb0198feb73614f827faba1d4dfb8349"
 		}
 	],
-	"TimeStamp": 1782484738926
+	"TimeStamp": 1782655473815
 }

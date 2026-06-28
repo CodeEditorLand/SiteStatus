@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:56:18Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				906,
+				2
+			],
+			"Message": "refactor(Wind): Strip Effect monad from Commands service\n\nRemove the Effect.Effect return types from the CommandsService interface and\nthe corresponding Effect pipeline wrappers in the Live implementation.\nRegisterCommand and UnregisterCommand become void-returning sync calls;\nExecuteCommand and GetCommands return native Promise<T> instead of\nEffect<T, CommandsProblem>.\n\nDelete the CommandsServiceTag, LiveCommandsServiceLayer, and\nCommandsOperationFailed error type. Replace MakeCommandsOperationFailed\nwith a plain MakeCommandsError helper. The module now exports\nCommandsServiceInstance directly.\n\nThis aligns with the ongoing de-Effectification of low-level Wind service\nbindings that delegate directly to Tauri IPC — async/await is sufficient\nwhere no composition or retry/scheduling guarantees are required.",
+			"SHA": "f97e5ddf7eb74491ef8992e16ab70c1d16ab2e03"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:54:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				906,
+				1
+			],
+			"Message": "refactor(Wind): Replace runtime process.env TierShim with compile-time esbuild define\n\nSubstitute the runtime `process.env[\"TierShim\"]` lookup at module load with a `declare const __LandTier_Shim__` that esbuild replaces at build time via its `define` substitution mechanism. The previous approach prevented esbuild from dead-code-eliminating the Shim module when TierShim=None, since `process.env` is a dynamic reference the bundler cannot statically evaluate.\n\nAdd the `declare const` block following the established pattern in Cocoon's Main.ts, and document the full propagation chain: `.env.Land → TierEnvironment.sh → CocoonEsbuildDefine → esbuild config → __LandTier_Shim__ → this module`.\n\nThis enables esbuild to tree-shake the entire Shim subsystem (Type, Gate, SwallowMap, RedirectBus, IPCInterceptor, AuditLog) when TierShim is None, producing a smaller bundle with no behavioral change at runtime.",
+			"SHA": "a91438b84876ddfcdd79078b588a46efe445be48"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T21:50:45Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Wind): Barrel-export Shim system, fix AuditLog type narrowing\n\nAdd the missing barrel file (`Source/Shim/Index.ts`) that re-exports all Shim submodules — Type, Gate, SwallowMap, RedirectBus, IPCInterceptor, and AuditLog — with proper type-only vs value exports.\n\nAlso fix two issues in `Source/Shim/AuditLog.ts`: correct a double `static static` declaration to `static async`, and fix TypeScript optional-chaining on bracket-indexed access by casting `tauri?.[\"core\"]` through an intermediate `as Record<string, unknown>` before applying the safe-access `?.` operator. The redundant `return Promise.resolve()` is simplified to `return` since the async keyword already wraps the return path.\n\nTogether this completes the Shim system's public API surface, making it importable from external consumers (Cocoon, Sky) via a single barrel import.",
 			"SHA": "8ebd1f857db6c07eb66084ae11c833bcc627096c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:48:24Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				920,
-				1
-			],
-			"Message": "feat(Wind): Introduce AuditLog for Proxy-level service resolution monitoring\n\nAdd the AuditLog singleton — a ring-buffered audit trail for the TierShim=Proxy\nmode. Every ServiceCollection.get() and InstantiationService.invokeFunction()\ncall is timestamped and recorded with action type, resolution status, cache\nhit, and optional duration.\n\n**Source/Shim/AuditLog.ts** — Static class wrapping a 2000-entry ring buffer.\nProvides record(), flush(), summary(), getByService(), getByAction(),\ntopServices(), and sendToMountain() which serialises the batch to\nMountain's diagnostic log via Tauri IPC with fire-and-forget semantics.\nSupports clear() for testing.\n\nThis is the evidence-gathering component of the shim architecture. At the\nProxy level, it records every service access without interception, building\nthe data needed to decide which services can be safely swallowed or replaced\nat higher ShimLevels (Replace, Own, Preempt).",
-			"SHA": "33567c3217a5b7a634875b3e4b86a116437b7569"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:47:55Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				919,
-				3
-			],
-			"Message": "feat(Wind): Implement SwallowMap, RedirectBus, and IPCInterceptor for the Shim routing layer\n\nBuild on the Shim type system and activation gate to introduce the three core runtime components that intercept and redirect VS Code IPC calls to Land-native implementations.\n\n**Source/Shim/SwallowMap.ts** — Pattern-matching decision engine that classifies every method into SWALLOW (Land handles, VS Code never sees), PASSTHROUGH (VS Code handles normally), MIXED (both handle, Land's result wins), or DISCARD (silently dropped). Includes a comprehensive built-in default ruleset covering: StatusBar, SCM, Search, Terminal, Output, FileSystem, Notifications, Dialogs, QuickInput, Keybindings, Themes, Configuration, Telemetry (DISCARD), ExtensionsGallery, and Product. Rules are ordered from most-specific to least-specific with first-match-wins semantics, regex support, and optional runtime conditions.\n\n**Source/Shim/RedirectBus.ts** — Central routing bus for the shim architecture. Registered handlers match by method pattern (prefix or regex); first match processes the event. Supports `register`, `unregister`, `route`, `hasHandler`, and `clear` operations. Duplicate registrations update in place. Unmatched methods emit a console warning for debugging misconfigured rules.\n\n**Source/Shim/IPCInterceptor.ts** — Intercepts every Tauri `invoke(\"MountainIPCInvoke\", {method, params})` call before it reaches Mountain's DispatchMatch. Only intercepts MountainIPCInvoke commands; all other Tauri commands pass through unchanged. The fast-path short-circuits entirely when TierShim is None (enabling esbuild tree-shaking). Routes through the four SwallowMap actions with proper fire-and-forget semantics for MIXED mode.\n\nThis completes the Shim's routing infrastructure, enabling Land services to progressively intercept VS Code IPC calls as their Land-native implementations become available.",
-			"SHA": "f36e21721c4309b3ae18449223544f7b52913651"
 		}
 	],
-	"TimeStamp": 1782484731150
+	"TimeStamp": 1782655466252
 }

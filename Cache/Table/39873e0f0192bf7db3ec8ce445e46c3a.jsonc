@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T23:06:40Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1520,
+				1
+			],
+			"Message": "feat(Mountain): Inject Tauri IPC diagnostic script for early failure detection\n\nIntroduce a diagnostic initialization script in WindowBuild.rs that executes at document_start, prior to any application scripts. This script captures the state of Tauri's IPC bridge and global objects (window.__TAURI_INTERNALS__, window.__TAURI__, window.ipc) immediately upon injection.\n\nThe script populates a global window.__MOUNTAIN_TAURI_DIAG object with timestamps and boolean flags indicating the presence and functionality of core IPC methods. It also records lifecycle events (DOMContentLoaded, load) to help pinpoint timing-related race conditions.\n\nThis addition enables developers to verify the integrity of the Tauri runtime and capability scoping directly from the DevTools console if the editor fails to initialize, without relying on the full bundle loading or downstream error handling.",
+			"SHA": "b5d79001860a7305fbe97f13f69ce906bdded054"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T23:00:22Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1520,
+				5
+			],
+			"Message": "",
+			"SHA": "21065aa39c3c860d98d46791dc5ab3a3019fb968"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-19T22:40:56Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "perf(Mountain): Cache OS properties and Rosetta; track active document\n\nReduce redundant OS syscalls and system-info queries while keeping Cocoon's\nactiveTextEditor shim in sync when Wind opens a document.\n\n**Cached OS Properties (OSProperties.rs):**\nWrap sysinfo::System-based OS attribute collection (type, release, arch,\nCPU topology) behind a OnceLock, extracting the computation into a\ncompute_os_properties() helper. Spawning sw_vers/uname and refreshing CPU\ndata on every IPC call was wasting ~10 ms per invocation.\n\n**Cached Rosetta Detection (mod.rs):**\nMove the sysctl.proc_translated subprocess behind a OnceLock — a process\neither runs under Rosetta 2 or it does not for its entire lifetime.\n\n**Active Document Tracking (ModelOpen.rs):**\nAfter opening a document, call SetActiveDocumentURI on the application\nstate and fire a fire-and-forget gRPC notification\nwindow.didChangeActiveTextEditor to Cocoon so its\nvscode.window.activeTextEditor shim updates immediately.\n\n**Terminal Layout Persistence (mod.rs):**\nRefactor localPty:getTerminalLayoutInfo and\nlocalPty:setTerminalLayoutInfo to use\nGetStorageValue(true, ...)/UpdateStorageValue(true, ...) on\nStorageProvider, eliminating manual JSON serialization and improving\nerror resilience.\n\nImpact: Reduced IPC latency for OS queries, correct active editor state\nfor extensions, simpler terminal layout persistence code.",
 			"SHA": "2a0e335eb7bc17b03b24d928c97dfd124542cd12"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:46:15Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1517,
-				2
-			],
-			"Message": "feat(Mountain): Wire terminal layout persistence and cache color scheme detection\n\nComplete the terminal state restoration cycle and optimize startup performance by implementing missing IPC handlers and caching expensive OS queries.\n\n**Terminal Layout Persistence:**\nImplement `localPty:getTerminalLayoutInfo` and `localPty:setTerminalLayoutInfo` to bridge the workbench's terminal panel state. These handlers now delegate to the `StorageProvider` service to read/write the `terminal:layoutInfo` key, enabling the restoration of active tabs and dimensions after window reloads (replacing previous `Value::Null` no-ops).\n\n**Color Scheme Caching:**\nIntroduce a `OnceLock` cache for the `NativeGetColorScheme` result. The underlying `detect_dark_mode` function now executes only once per process lifetime, reducing the ~5–15 ms OS syscall overhead on subsequent calls during boot and window focus events. This aligns Mountain's behavior with stock VS Code's expectation that users restart the editor to apply system theme changes.\n\nImpact: Terminal layouts persist across reloads; cold-start performance improves for theme detection calls.",
-			"SHA": "123d5b073d0bdec64ccbae19fe9b245979ea5141"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:44:44Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1517,
-				21
-			],
-			"Message": "refactor(Mountain): Extract shared notification relay/unregister helpers\n\nSixteen Cocoon-to-Mountain notification handler files contained nearly\nduplicated inline code — every output, progress, channel, and\nprovider-unregistration atom repeated the same three-step pattern\n(emit a Tauri sky:// event + dev_log, or extract a u32 handle +\nunregister + dev_log).\n\nCollapse all of them into two shared helpers under a new\n`Support/` submodule:\n\n- `RelayToSky` — calls `ApplicationHandle.emit(SkyEvent, Parameter)`\n  and optionally writes a dev-log line. Used by OutputAppend,\n  OutputClear, OutputCreate, OutputDispose, OutputShow,\n  OutputChannelClear, OutputChannelCreate, OutputChannelDispose,\n  OutputChannelShow, ProgressComplete, and ProgressUpdate — each now\n  a single delegation call.\n- `UnregisterByHandle` — reads a `handle` u64 from the parameter,\n  guards against zero, calls\n  `ProviderRegistration::UnregisterProvider`, and logs the provider\n  kind. Used by UnregisterAuthenticationProvider,\n  UnregisterDebugAdapter, UnregisterDebugConfigurationProvider,\n  UnregisterFileSystemProvider, UnregisterTaskProvider, and\n  UnregisterUriHandler.\n\n`UnregisterFileSystemProvider` and `UnregisterUriHandler` additionally\nlog their scheme field before delegating, preserving the traceability\ninformation that was unique to those atoms.\n\n21 files changed, 67 insertions, 231 deletions.\n\nNo behavioural changes — every handler produces the same Tauri\nsky:// event and the same dev-log output as before.",
-			"SHA": "3427a0c39e6129a8df9ff50b6b1015a70c4dd2e2"
 		}
 	],
-	"TimeStamp": 1782484757170
+	"TimeStamp": 1782655490955
 }

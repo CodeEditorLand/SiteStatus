@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T00:15:48Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				368,
+				3
+			],
+			"Message": "perf(Output): Reduce IPC logging to fix channel saturation causing input lag\n\nThe per-invoke `_DevLogForward` calls on every successful `MountainIPCInvoke` were doubling IPC traffic during extension boot (dozens of file:stat/readFile/extensions:getInstalled calls per second). This saturated Tauri's invoke channel (175-280ms queue depth observed) and starved the WebKit message channel that carries both IPC replies AND keystrokes on macOS.\n\nObserved symptom: user types in editor, nothing visible happens, switches focus, then queued keystrokes flush into the newly-focused element (\"characters appearing automatically in chat input\").\n\nChanges:\n- Remove success-case `tauri-invoke` logging in InvokeMountain (failures still forward)\n- Remove fire-and-forget channel stub logging (logger/status-bar fire dozens/sec)\n- Only log stub-hit for `drift` disposition (command not covered by existing stub)\n\nRust-side `[DEV:IPC] invoke:/done:` lines already carry the same data at ns precision and are filterable via `Trace=ipc`.",
+			"SHA": "2588fe4706490748982b01d181db632c39bb3114"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T23:34:39Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				368,
+				12
+			],
+			"Message": "fix(Output): Disable EditContext and refine WKWebView input polyfills\n\nAdd ForceTextAreaInput transform that flips Monaco's `editor.editContext`\ndefault from `true` to `false`, routing keyboard input through the legacy\n`<textarea class=\"inputarea\">` rather than the EditContext API. WKWebView's\nEditContext support is flaky enough that focused divs silently swallow\nkeystrokes - users see the cursor blink but typing produces nothing.\n\nRefine WorkbenchInteractivityCSS polyfill (V2):\n- Remove blanket `visibility: visible` and `opacity: 1` on workbench parts.\n  These forced invisible click-capturing rectangles over the editor that\n  absorbed clicks before Monaco's mousedown handler fired, presenting as\n  \"I clicked the editor but typing doesn't work\".\n- Add explicit `pointer-events: auto` rules for Monaco's textarea input\n  chain (.overflow-guard, .lines-content, .inputarea) to survive stacking\n  context interactions with our `InjectPartZIndexCSS` `isolation:isolate`.\n\nRefine WorkbenchPaintPrime polyfill (V2):\n- Remove `keydown` and `focus` capture-phase listeners. Each keystroke\n  triggered a synchronous `FindPartAncestor` + forced reflow BEFORE the\n  event reached Monaco's textarea, and the oninput queue could drop the\n  keystroke. Keeping only `pointerdown` still primes paint on first click\n  without breaking the input path.\n\nAdd LandDisableAll gate: when `process.env.Disable` is `\"true\"`, skip all\ntransform plugins and run only Copy plugins. Produces \"vanilla VS Code on\nTauri\" useful for bisecting whether regressions are in our polyfills or\nin upstream/Tauri/WKWebView.",
+			"SHA": "44e160c6b8a8de6aaa693bc8e4b6e3fcd56d49c6"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-30T23:34:25Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "",
 			"SHA": "fc91741983660b9ae401dd22f9fbfa1fa3a1301f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T05:00:23Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				255,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "151dce184be08ba55c2f5dc406c5ff914a82ea70"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T04:54:25Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				255,
-				15
-			],
-			"Message": "feat(Output): Expand workbench service exposure and add config/storage overlays\n\nAdd 21 new service handles to ExposeWorkbenchAccessor for Wind consumption:\nConfiguration, Storage, Lifecycle, Theme, WorkbenchTheme, Keybinding,\nNotification, File, Dialog, FileDialog, Clipboard, ContextKey, Host,\nExtension, Workspace, Product, Progress, Editor, EditorGroups, TextFile,\nActivity, Title, PaneComposite, ViewDescriptor, Layout.\n\nAdd two new transforms enabling Wind to inject runtime overrides without\ndisk persistence:\n- InjectConfigurationOverlay: consults `globalThis.__CEL_OVERRIDE_CONFIG__`\n  before upstream's default→user→workspace→folder chain in\n  IConfigurationService.getValue(). Bag is opt-in; unset preserves\n  upstream behavior.\n- InjectStorageOverlay: consults `globalThis.__CEL_OVERRIDE_STORAGE__` on\n  every AbstractStorageService.{get,getBoolean,getNumber,getObject} call.\n  Composite key `<scope>:<key>` disambiguates across\n  APPLICATION/PROFILE/WORKSPACE scopes.\n\nOther changes:\n- RewriteWorkerURLs: generalize pattern from specific file paths to\n  `*WorkerMain.ts` / `*Iframe.html` glob so future worker types are\n  covered automatically. Also handle `.ts`→`.js` suffix mapping.\n- StaticToDynamicImport: skip rewrite when `Pack` env var is set (bundled\n  profiles), since Vite needs static imports to walk the graph for CSS\n  extraction and tree-shaking.\n- ESBuild: add `.css` to copy-loader to avoid esbuild's default CSS\n  parser silently dropping modern syntax (@property, container queries).",
-			"SHA": "b20d23f9eed8c644fca5b50dc734a87d1fb03f53"
 		}
 	],
-	"TimeStamp": 1782484753273
+	"TimeStamp": 1782655494404
 }
