@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:48:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				561,
+				2
+			],
+			"Message": "chore(Cocoon): Annotate Window dialog modules with EFX-30 migration TODO\n\nAdd `TODO(EFX-30)` markers to the JSDoc module headers of `Dialog.ts` and `File/Dialogs.ts`, flagging their `Effect.gen` wrappers for conversion to `async/await` once the callers in `Window/Index.ts` migrate.\n\nNo runtime changes — documentation only.",
+			"SHA": "602f2030b48e3b64828c7a65f230b197393ae689"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:47:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				561,
+				3
+			],
+			"Message": "refactor(Cocoon): Normalize Effect-TS pipe-chain patterns\n\nStandardize three call sites in Output, Webview, and Factory modules to use `.pipe()` chaining instead of nesting effects inside runner functions.\n\n**Channel.ts:** Extract the `Channel` variable before wrapping in `Effect.succeed()`, replacing an inline cast pattern that collapsed declaration and return. Insert a TODO(EFX-30) marker for the planned `Effect.gen` → `async/await` migration.\n\n**Webview/Panel.ts:** Convert `Effect.runPromise(Logger.Debug(...))` to `Logger.Debug(...).pipe(Effect.runPromise)` — idiomatic left-to-right Effect-TS composition.\n\n**Factory.ts:** Replace `Effect.runFork(Ref.update(...))` (fire-and-forget fiber) with `void Ref.update(...).pipe(Effect.runPromise).catch(() => {})`, ensuring the ActivePanelsRef registry cleanup runs to completion rather than being scheduled on a fiber that may be abandoned. The explicit `void` + `.catch` matches Cocoon's established fire-and-forget idiom for side effects that must complete synchronously.\n\nNo behavioral changes to any module.",
+			"SHA": "aa58914543fb46baadcd35fa8151c4510a76d30c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:23:52Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				561,
+				1
+			],
+			"Message": "feat(Cocoon): Filter stale-channel frames in bidirectional gRPC stream\n\nMountain stamps Envelope.ChannelId (uint64, field 5) on every frame it pushes through the bidirectional streaming pump. When a stream is reopened — after a connection reset or re-registration — the old Mountain process may still send straggler frames through the previous registry entry before it shuts down.\n\nCapture the first nonzero ChannelId seen on each stream as the session identity. Frames arriving with a nonzero ChannelId that does not match the established session id are discarded immediately with a dev-log entry. ChannelId \"0\" (absent) is treated as a wildcard for backward compatibility with older Mountain builds and client-originated frames.\n\nAlso include the session ChannelId in the stream-closed dev-log for diagnostics.",
+			"SHA": "661b375e7c7bd4a9cca703be91ec5d0980670a73"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T21:22:14Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "docs(Cocoon): Restructure README; normalize dash characters and section headings\n\nReorder the README document flow so the \"Getting Started\" section — including prerequisites, build instructions, dependency table, and debugging notes — appears before \"Security\" rather than after it. This aligns the Cocoon README with the standard project-documentation hierarchy (overview → features → architecture → setup → security → API reference).\n\nAlso normalize markdown formatting: replace typographic long dashes (—) with regular hyphens (-) throughout the feature bullet lists, and rename the \"Architecture\" heading to \"System Architecture\" for consistency with the broader Land documentation convention.\n\nNo runtime logic, identifiers, or module structure was modified.",
 			"SHA": "8a69dedc5ac5c3c2f0bfef75719c6648c043fdd3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:04:38Z",
-			"File": [
-				"⣿⡟⠀⠀⠀",
-				561,
-				194
-			],
-			"Message": "style(Cocoon): Remove blank lines after opening braces; normalize doc formatting\n\nRemove the blank line immediately following opening braces across all interface, type, enum, class, function, and conditional declarations in the Cocoon source tree, scripts, Proto definitions, services, handler modules, IPC layer, telemetry, type converters, webview panels, and tests — reversing the whitespace convention established in commit 553b7052.\n\nAlso normalize markdown formatting in DeepDive.md and README.md: realign tables with proper pipe-positioned column separators, reflow prose paragraphs to consistent line widths, and clean up table-of-contents indentation.\n\nNo runtime logic, identifier names, or module structure was modified.",
-			"SHA": "85e19690ff82aea5116568ba96185ef7a0cfebb7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:12:04Z",
-			"File": [
-				"⣿⡟⠀⠀⠀",
-				561,
-				191
-			],
-			"Message": "style(Cocoon): Normalize blank-line spacing across interface, enum, function, and conditional blocks\n\nAdd a consistent blank line after opening braces in all interface, type, enum, class, and function declarations — as well as after ternary conditionals (`?`) and arrow-function bodies (`=>`) — to bring the entire codebase into a single whitespace convention.\n\nThe change touches ~180 files across the Cocoon source tree, Proto definitions, scripts, services, handler modules, IPC layer, telemetry, type converters, webview panels, and tests. No runtime logic, identifier names, or module structure was modified.\n\nEvery statement, expression, and declaration block now follows the same vertical spacing rule, eliminating intra-file inconsistencies that previously mixed compact and spaced styles within the same module.",
-			"SHA": "553b7052d4263309d3c2d5e9f59c883622e51d92"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:23:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				561,
-				1
-			],
-			"Message": "fix(Cocoon): Dispose partial extension context on activation failure\n\nWhen ActivateExtension throws mid-activation, an extension may have already pushed disposables onto context.subscriptions before the error. The old catch block deleted the extension from ActiveExtensionContexts without disposing those registered disposables, leaking watchers and providers.\n\nStore the partial RegisteredContext in ActiveExtensionContexts so DisposeExtensionContext iterates and calls .dispose() on every registered disposable, then removes the map entry. Shared cleanup now handles both successful and failed activation paths uniformly.",
-			"SHA": "2bc0675c8e91772a928c5df07b065f88f148de7a"
 		}
 	],
-	"TimeStamp": 1782655466860
+	"TimeStamp": 1782748805673
 }

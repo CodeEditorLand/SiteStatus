@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-14T00:52:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1490,
+				1
+			],
+			"Message": "refactor(Mountain): Remove static runtime environment configuration from Info.plist\n\nStrip the `LSEnvironment` dictionary and associated `Disable` and `Trace` flags from `Info.plist`. These static configurations, which defined critical gRPC ports (`NetworkMountainPort`, `NetworkCocoonPort`) and execution tiers (e.g., `TierRemoteProcedureCall`, `TierExtensionActivation`), were re-introduced in the previous commit but are being removed to transition the runtime environment setup away from static plist injection.\n\nRetain the `CFBundleIconFile` entry to ensure the application icon is correctly resolved by macOS. This change prepares the native backend to source its runtime configuration exclusively from the `Mountain` environment variable system or dynamic initialization logic, reducing coupling with the application bundle's metadata and aligning with the flexible configuration strategy required for multi-platform deployment.",
+			"SHA": "d29b58488ebff9a89e854038127b6ca2c6dadcb6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-14T00:14:59Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1490,
+				15
+			],
+			"Message": "feat(Mountain): Restore experimental feature flags and runtime environment config\n\nReintroduce the `grove` and `cocoon` feature flags in `Cargo.toml` to enable conditional compilation for the future native extension host (Grove) and the current extension host sidecar (Cocoon). These flags are required by the build system's tier-gating logic.\n\nRestore the `LSEnvironment` dictionary in `Info.plist` containing critical runtime configuration values, including network ports for Mountain and Cocoon, product identifiers, and tier definitions (e.g., `TierRemoteProcedureCall`, `TierExtensionActivation`). This reverses the removal performed in previous commits, re-establishing the static environment injection required for the macOS application to bootstrap its sidecar connections.\n\nConcurrently, enhance documentation in the `Track/Effect/CreateEffectForRequest` module. Add comprehensive module-level comments and method tables to all RPC handler files (Documents, FileSystem, Git, LanguageFeatures, Languages, Search, StatusBar, TreeView, UserInterface, Webview, Workspace). These comments detail the specific RPC methods handled, the underlying `MountainEnvironment` trait providers used, and the execution model for each request type.",
+			"SHA": "511f9b624577e1447543ef14f5d12723316a452c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-13T23:00:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1490,
+				1
+			],
+			"Message": "build(Mountain): Enable experimental feature flags for terminals and debug protocol\n\nUpdate the default feature set in `Cargo.toml` to conditionally enable `terminals`, `debug-protocol`, `scm-support`, `child-processes`, and `Development` alongside existing `Cocoon`, `Mist`, and `Air` integrations. This consolidates the build configuration to activate support for terminal emulation, debugging capabilities, source control management, and child process handling by default.\n\nRemove the now-unused `grove` and `cocoon` feature placeholders from the list, aligning the feature registry with the current implementation status. This prepares the native backend for upcoming component integration while maintaining the explicit `Telemetry` and `Test` flags for optional toggling.",
+			"SHA": "a2869e478f35c9bc90a23edc28e7a95f066f88a9"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-13T22:38:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "fix(Mountain): Wrap webview scheme handler closure in AssertUnwindSafe\n\nUpdate the `catch_unwind` invocation in `VscodeWebviewSchemeHandler` within `Scheme.rs` to explicitly wrap the closure in `AssertUnwindSafe`. The previous implementation omitted this trait requirement, causing compilation failures when attempting to catch panics inside the async closure passed to the panic handler.\n\nThis restores the ability to gracefully handle panics within the VS Code webview asset loading path, ensuring that errors in MIME resolution or file reading return HTTP 500 responses rather than crashing the editor process. The change aligns `VscodeWebviewSchemeHandler` with the established panic recovery pattern used in `VscodeFileSchemeHandler`.",
 			"SHA": "01422c257e48f4a9f8a8fb32093daf2a7d283073"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:16:54Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				1
-			],
-			"Message": "fix(Mountain): Consolidate panic recovery logic in scheme handlers\n\nMigrate the panic recovery implementation in `VscodeWebviewSchemeHandler` to match the established pattern in `VscodeFileSchemeHandler`. The previous implementation attempted to use `catch_unwind` but failed to handle the `AssertUnwindSafe` trait requirement and redundantly implemented the result matching logic inside the closure.\n\nUpdate `VscodeWebviewSchemeHandler` to use `catch_unwind` with `AssertUnwindSafe` for the closure wrapper and move the `match` result handling and `dev_log` error reporting to the function scope. This ensures that panics within the webview asset loading path (e.g., in MIME type resolution or file reading) are caught, logged with backtrace details, and converted to HTTP 500 responses without crashing the editor process.\n\nAlign the import structure in `Scheme.rs` to group `panic` imports correctly. This change unifies the error handling strategy for both file and webview scheme handlers, ensuring consistent graceful degradation across the native backend's asset serving layer.",
-			"SHA": "139de360adc2c0b17a5adbef32cee1d8d6e06c54"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:10:11Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				2
-			],
-			"Message": "fix(Mountain): Migrate VS Code webview scheme handler to internal panic wrapper\n\nMove the VS Code webview scheme handler logic into a private `_VscodeWebviewSchemeHandler` function and wrap the public entry point with `std::panic::catch_unwind`. This mirrors the protective pattern recently implemented for the file scheme handler to prevent editor crashes caused by panics crossing the Objective-C FFI boundary.\n\nConcurrently, remove the `LSEnvironment` dictionary from `Info.plist`. These runtime configuration values (including network ports and feature tiers) were previously stored in the property list but are now generated and injected at build time via `build.rs` and `Scheme.rs`. Removing the dead XML nodes cleans up the configuration file and aligns the binary structure with the current build process.\n\nThis change ensures graceful error recovery for webview asset requests and resolves configuration drift by centralizing environment setup in the Rust build logic.",
-			"SHA": "230ca02557a152875ce896802af0b4c5ec9d5929"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:05:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				1
-			],
-			"Message": "fix(Mountain): Wrap scheme handlers in panic catch to prevent editor crash\n\nAdd `std::panic::catch_unwind` guards around `_VscodeFileSchemeHandler` and `_VscodeWebviewSchemeHandler` to prevent the entire editor process from aborting. These handlers run inside the `wkwebview` Objective-C FFI boundary, where panics crossing the `extern \"C\"` limit cause immediate process termination.\n\nThe implementation catches panics, logs the error message and current thread backtrace via the `lifecycle` dev_log, and returns a standard HTTP 500 Internal Server Error response instead. This ensures that bugs in memory mapping (mmap) or MIME type handling within the asset loading path result in a graceful failure rather than a full application crash.",
-			"SHA": "478ca92acb177ec84b73c6e5faf4f56c4d4b5ddf"
 		}
 	],
-	"TimeStamp": 1782655496549
+	"TimeStamp": 1782748854866
 }

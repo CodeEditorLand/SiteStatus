@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-11T22:55:15Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				1855,
+				74
+			],
+			"Message": "refactor(Mountain): Modularize URI schemes, debug provider, LSP features, IPC server, and Cocoon management into dedicated modules\n\nExtract monolithic implementations into focused single-responsibility modules across multiple Mountain subsystems:\n\nURI Scheme Handlers (Source/Binary/Build/Scheme/):\n- ForwardHttpRequest, LandSchemeHandler, MimeFromExtension, ParseHttpResponse,\n  VscodeFileSchemeHandlerInner, VscodeWebviewSchemeHandlerInner\n- Each handler now lives in its own file with clear public `Fn` entry points\n- Original Scheme.rs reduced from 1300+ lines to ~100 lines of delegation\n\nDebug Provider (Source/Environment/DebugProvider/):\n- ConnectPipeServerAdapter, ConnectServerAdapter, RegisterDebugAdapterDescriptorFactory,\n  RegisterDebugConfigurationProvider, SendCommand, SpawnExecutableAdapter,\n  StartDebugging, StopDebugging\n- Trait impl in DebugProvider.rs now delegates to per-method modules\n- Eliminates 1000+ line trait implementation block\n\nLSP Language Features (Source/Environment/LanguageFeatureProvider/FeatureMethods/):\n- 31 feature methods extracted (ProvideCompletions, ProvideHover, ProvideDefinition,\n  ProvideReferences, ProvideCodeActions, ProvideCodeLenses, ProvideDocumentSymbols,\n  ProvideWorkspaceSymbols, ProvideSignatureHelp, ProvideDocumentFormattingEdits,\n  ProvideDocumentRangeFormattingEdits, ProvideOnTypeFormattingEdits, ProvideRenameEdits,\n  PrepareRename, ProvideDocumentHighlights, ProvideDocumentLinks, ProvideFoldingRanges,\n  ProvideSelectionRanges, ProvideSemanticTokensFull, ProvideInlayHints,\n  ProvideInlineCompletionItems, ProvideFileDecoration, ProvideLinkedEditingRanges,\n  ProvideCallHierarchyIncomingCalls, ProvideCallHierarchyOutgoingCalls,\n  PrepareCallHierarchy, PrepareTypeHierarchy, ProvideTypeHierarchySupertypes,\n  ProvideTypeHierarchySubtypes)\n- Shared helpers InvokeProvider and InvokeProviderMethod also modularized\n- FeatureMethods.rs becomes a clean delegation layer\n\nTauri IPC Server (Source/IPC/TauriIPCServer/):\n- DecryptMessage, Dispose, InitializeDefaults, ProcessMessageQueue,\n  ReceiveMessage, SendMessage, StartHealthMonitoring, ValidatePermission\n- Core struct methods now single-line delegations\n\nCocoon Process Management (Source/ProcessManagement/CocoonManagement/):\n- 14 new modules covering full lifecycle: BuildCocoonEnvironment, CocoonProcessState,\n  ConnectToCocoonGrpc, FireRootConfigActivationEvents, FireWorkspaceContainsEvents,\n  HardKillCocoon, MonitorCocoonHealthTask, ResolveBootstrapScript,\n  RestoreWebviewPanels, SeedOpenDocuments, SeedOpenTerminals,\n  SendInitializationHandshake, SpawnCocoonIoForwarders, SpawnRestartHandler,\n  SpawnStartupActivationTask\n- Replaces ad-hoc inline logic with structured, testable units\n\nCocoon gRPC Service (Source/RPC/CocoonService/):\n- SpawnChannelReadPump extracted for bidirectional stream handling\n- CHANNEL_REGISTRY made pub(crate) for cross-module access\n\nImpact: Drastically improves maintainability, enables independent testing of each subsystem,\nand establishes consistent modular patterns for future Mountain development.",
+			"SHA": "d0e13211efcd644d4a27bec1eed37d26d224e298"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-11T22:40:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1782,
+				1
+			],
+			"Message": "refactor(Mountain): Introduce tier-based IPC routing with NodeDeferred mode\n\nReplace the boolean `tier_routes_to_node` with a three-state `RouteTier` enum (Mountain, Node, NodeDeferred) and add per-subsystem tier gates evaluated before Mountain-native arms. This implements the Routing-Schema.md tier resolution table so a single shell export (e.g. `export TierTerminal=Node`) reroutes an entire command family to Cocoon without a rebuild.\n\nKey changes:\n- New `resolve_route_tier` reads env var at runtime, falling back to baked const; unrecognised values default to Mountain for safety.\n- Tier gates added for Terminal, OutputChannel, Search, TreeView, Model, LanguageFeatures, Debug, Encryption, and NativeHost families.\n- `NodeDeferred` tier keeps Mountain arms for implemented commands while deferring unimplemented family members to Cocoon via the unknown-command catch-all.\n- Storage lifecycle null-acks (`storage:isUsed`, `storage:close`) now conditional on `TierStorage != Node` so they forward to Cocoon when storage lives there.\n- Duplicate null-ack entries consolidated; ack-only stub list extended.\n\nImpact: Operators can migrate subsystems to Node incrementally (starting with tasks/auth which already default Node) and teams can develop Mountain and Cocoon implementations in parallel behind the same command surface.",
+			"SHA": "824e85648d43b9059ced50e8f0fd3685b5e24e8d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-11T22:30:15Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1782,
+				24
+			],
+			"Message": "feat(Mountain): Implement SCM commands, workspace lifecycle, search cancellation, and IPC handlers\n\nReplace stub implementations across Source Control Management, workspace\nmanagement, and text search with functional logic that integrates with\ngit subprocesses, the ApplicationState registry, and Sky workbench events.\n\nSource Control Management:\n- Add RepositoryCwd resolver (first workspace folder) for git working\ndirectory.\n- Implement CheckoutSCMBranch via `git checkout` with stderr surfacing.\n- Implement ExecuteSCMCommand for commit/push/pull/fetch via shared\nRunGit runner (PID registry + 30s timeout).\n- Implement GetSCMBranches via `git branch -a` with tab-separated format\nfor current-branch marker and upstream tracking.\n- Implement GetSCMCommitHistory via `git log` with pretty format yielding\nhash, author, ISO date, parents, subject.\n- Implement StageSCMResource via `git add --` / `git restore --staged --`\nwith file:// URI and raw path support.\n- Register all SCM commands in Bootstrap.\n\nWorkspace lifecycle (`.code-workspace`):\n- CreateUntitledWorkspace writes empty workspace to app-data\n`.untitled-workspaces` and returns VS Code identifier shape.\n- DeleteUntitledWorkspace canonicalises target and enforces containment\ninside untitled directory (rejects outside paths silently).\n- EnterWorkspace parses serialised vscode.Uri or bare string, reads\nworkspace JSON, resolves relative folder paths against workspace file\ndirectory, replaces workspace folders via UpdateWorkspaceFoldersAndBroadcast,\nemits `sky://workspace/enter` for workbench reload.\n- Extract handlers to dedicated modules; both canonical and domain\ndispatchers call the same functions.\n\nSearch cancellation:\n- Add SearchCancellationFlags (AtomicBool per search_id) to FeatureState.\n- FindInFiles mints search_id, registers flag, threads `__searchId` into\noptions payload.\n- TextSearchProvider polls flag per walker entry (synchronous ripgrep\nwalk never hits await points; task abort alone is insufficient).\n- search:cancel sets cooperative flag then aborts task handle.\n\nExtensions gallery offline mode:\n- extensions:search returns proper IGalleryQueryResult envelope.\n- extensions:getCoreTranslation returns null (fallback to bundled).\n- extensions:download returns explicit error instead of TypeError.\n- extensions:getManifest extracted to dedicated handler.\n\nOther improvements:\n- FileWatcherIgnore adds \"Target\" (capitalized) for Rust cargo output\n(case-sensitive matcher).\n- CommandSaveDocument rewritten: fires document.willSave at Cocoon\n(bounded 1.5s), delegates save to Sky via sky://workspace/save, notifies\n$acceptModelSaved for onDidSaveTextDocument.\n- CommandCloseDocument forwards to Sky via sky://command/execute for\nworkbench.action.closeActiveEditor.\n- Keybinding commands registered in Entry.\n- localPty:listProcesses returns real IProcessDetails[] from live PTY\nregistry.\n- process:getMemoryInfo returns resident-set KB via sysinfo.\n- languages:getLanguages merges builtin baseline with extension\ncontributes.languages ids.\n- WhenClause.NormalizeKeyExpression uses VS Code canonical modifier\norder (ctrl shift alt cmd) for chord-aware equality.\n\nImpact: SCM viewlet, workspace picker, Extensions view, Search view, and\nkeybinding system now operate on live data instead of stubs.",
+			"SHA": "446ab75631fcfd22480366604d7cd05da20a2f6e"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-11T22:01:22Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "feat(Mountain): Implement comprehensive keybinding system with when-clause evaluation\n\nIntroduce a full keybinding resolution pipeline across three priority layers:\n- Extension contributions (static `contributes.keybindings`)\n- Dynamic registry (`keybinding:add` / `RegisterExtensionKeybindings`)\n- User overrides (`keybindings.json` in app config dir)\n\nEach rule carries a `source` tag (`extension:<id>`, `dynamic[:<id>]`, `user`) so\nconsumers can apply source-weighted precedence. Negative commands (`-command`)\nact as unbind rules at the user layer.\n\nAdd `Environment::Utility::WhenClause` — a complete VS Code–compatible parser\nand evaluator for context-key when clauses (boolean logic, comparisons, regex\n`=~`, list membership `in`/`not in`). Mountain receives context snapshots over\nIPC; Sky owns the live context store. Wire methods `keybinding:resolve` and\n`keybinding:evaluateWhen` expose resolution and evaluation to the renderer.\n\nExtend `CommandProvider` to forward renderer-side commands\n(`workbench.action.*`, `editor.action.*`, `vscode.*`) to Sky via the\n`sky://command/execute` Tauri event so VS Code's own `CommandsRegistry`\nexecutes them. Only Mountain-private commands (`getTelemetrySenderObject`,\n`testing.clearTestResults`) remain local no-ops.\n\nAdd output channel lifecycle IPC (`output:create`, `output:replace`,\n`output:dispose`) with Sky event emission for panel registration.\n\nSearchProvider gains glob include/exclude, hidden-file, symlink, and max-results\noptions matching VS Code's `ITextSearchOptions` shape.\n\nAll dynamic keybindings are tagged with their owning extension identifier,\nenabling precise unregistration on extension deactivation via\n`RemoveKeybindingsBySource`. Resolution sorts rules by (source weight,\nwhen-clause specificity) for deterministic conflict handling.",
 			"SHA": "554f2511752f00f8dc9ce2891768fc49c2207c25"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T21:46:28Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1770,
-				5
-			],
-			"Message": "",
-			"SHA": "386836fa3c58af094e310439684ded461822179b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T20:46:46Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1770,
-				8
-			],
-			"Message": "",
-			"SHA": "b4b421f2e94fa7799414fe0612d4810f62fb06fb"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T18:01:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1768,
-				1
-			],
-			"Message": "",
-			"SHA": "52b901a3411b6b25dc02023f56c974e9bcacd0b5"
 		}
 	],
-	"TimeStamp": 1782655469628
+	"TimeStamp": 1782748814641
 }

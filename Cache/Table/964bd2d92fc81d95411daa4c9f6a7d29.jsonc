@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:59:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				907,
+				1
+			],
+			"Message": "chore(Wind): Sync commit.json with latest refactor message\n\nUpdate commit.json to reflect the actual message of the most recent commit (e71ed57b) — Prune orphaned imports and error helpers from de-Effectified services.\n\nThe file had fallen out of sync, still carrying the message from the prior f97e5ddf commit (Strip Effect monad from Commands service).",
+			"SHA": "f7c9aff429e42ea83dfcfa8d6154d944334f565d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:59:11Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				907,
+				6
+			],
+			"Message": "refactor(Wind): Prune orphaned imports and error helpers from de-Effectified services\n\nRemove three Make*Error helper functions (MakeCommandsError, MakeEditorProblem, MakeResolverProblem) from Live implementations — they were used only in Effect error-channel conversion logic that was already stripped in the prior de-Effectification commits (ae82728, f97e5dd). They became dead code when the corresponding service methods switched from Effect.Effect<T, Problem> to native sync/Promise<T> signatures.\n\nDrop three unused type imports (CommandsProblem, EditorProblem, TextModelResolverProblem) from the interface declaration files — these type-only imports referenced the old Effect error types that are no longer part of any method signature.\n\nFix import paths in TextModelResolver/Live.ts from ../../Model/ to ../Model/, correcting a path that resolved to the nonexistent Source/Model/ instead of the actual Source/Effect/Model/.",
+			"SHA": "e71ed57bf80034ee3c443ee007143d4395253582"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:58:02Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				907,
+				5
+			],
+			"Message": "refactor(Wind): Strip Effect monad from Editor and TextModelResolver services\n\nContinue the de-Effectification of low-level Wind service bindings, following the pattern established in the Commands service (f97e5dd). Both EditorService and TextModelResolverService convert their Effect.Effect return types to native sync/Promise signatures.\n\nEditorService:\n- Sync getters (GetActiveEditor, GetVisibleEditors, GetSelections) return plain values instead of Effect<..., EditorProblem>.\n- Async methods (OpenEditor, CloseEditor, etc.) return Promise<T> instead of Effect<T, EditorProblem>.\n- Delete the EditorServiceTag reference and Layer.succeed wrapper from Live.ts. Export LiveEditorServiceLayer as the plain service object.\n- Replace the tagged union EditorProblem type with plain Error via MakeEditorProblem.\n\nTextModelResolverService:\n- Interface methods (Resolve, HasModel, Reload) return Promise<T> instead of Effect<T, TextModelResolverProblem>.\n- Delete TextModelResolverServiceTag and Layer.succeed wrapper from Live.ts. Export LiveTextModelResolverServiceLayer as the plain service object.\n- Bridge the ModelService (which still uses Effect) via Effect.runPromise wrappers (OpenModel, GetModel, CloseModel) at the top of the module, isolating Effect imports to a single bridge boundary.\n- Replace MakeResolverProblem tagged union with plain Error.\n\nThis reduces runtime overhead from Effect pipeline construction for these thin Tauri IPC wrappers where no composition, retry, or scheduling guarantees are required.",
+			"SHA": "ae827284cc4b3c44f88e7069e3b369a5092b1afc"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T21:56:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "refactor(Wind): Replace runtime process.env TierShim with compile-time esbuild define\n\nSubstitute the runtime `process.env[\"TierShim\"]` lookup at module load with a `declare const __LandTier_Shim__` that esbuild replaces at build time via its `define` substitution mechanism. The previous approach prevented esbuild from dead-code-eliminating the Shim module when TierShim=None, since `process.env` is a dynamic reference the bundler cannot statically evaluate.\n\nAdd the `declare const` block following the established pattern in Cocoon's Main.ts, and document the full propagation chain: `.env.Land → TierEnvironment.sh → CocoonEsbuildDefine → esbuild config → __LandTier_Shim__ → this module`.\n\nThis enables esbuild to tree-shake the entire Shim subsystem (Type, Gate, SwallowMap, RedirectBus, IPCInterceptor, AuditLog) when TierShim is None, producing a smaller bundle with no behavioral change at runtime.",
 			"SHA": "a91438b84876ddfcdd79078b588a46efe445be48"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:50:45Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				906,
-				9
-			],
-			"Message": "refactor(Wind): Prune orphaned ActivityBar module files\n\nFollowing the barrel-export cleanup in 339051da, delete the remaining 9 ActivityBar source files that were left on disk. The Shim system's SwallowMap now routes ActivityBar IPC calls at the proxy layer, rendering this Effect-based service module unreachable.\n\nRemove the full Source/Effect/ActivityBar/ subtree: types, errors, implementation, helpers, mock layer, and barrel index. No imports reference these files from any remaining Wind source.",
-			"SHA": "fc419e316de17b25c7c674c41ca7a55d60667653"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:50:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				921,
-				1
-			],
-			"Message": "refactor(Wind): Remove defunct ActivityBar Effect module and barrel exports\n\nThe ActivityBar Effect service module — types, errors, implementations, and mock — was built for direct VS Code workbench integration that Land no longer uses. The Shim system's SwallowMap now routes ActivityBar IPC calls at the proxy layer, and the WorkbenchLayout bridge references \"ActivityBar\" only as a layout-section string constant, not the deleted service.\n\nDelete the entire `Source/Effect/ActivityBar/` subtree (9 files) and strip the corresponding type, implementation, and error exports from the Effect barrel (`Source/Effect/index.ts`). This eliminates 13 lines of stale re-exports that would block tree-shaking and confuse consumers.\n\nNo callers remain — confirmed by content search across the Wind source tree.",
-			"SHA": "339051dadd7191f894987c4f464182fdca241302"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:48:56Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				921,
-				2
-			],
-			"Message": "feat(Wind): Barrel-export Shim system, fix AuditLog type narrowing\n\nAdd the missing barrel file (`Source/Shim/Index.ts`) that re-exports all Shim submodules — Type, Gate, SwallowMap, RedirectBus, IPCInterceptor, and AuditLog — with proper type-only vs value exports.\n\nAlso fix two issues in `Source/Shim/AuditLog.ts`: correct a double `static static` declaration to `static async`, and fix TypeScript optional-chaining on bracket-indexed access by casting `tauri?.[\"core\"]` through an intermediate `as Record<string, unknown>` before applying the safe-access `?.` operator. The redundant `return Promise.resolve()` is simplified to `return` since the async keyword already wraps the return path.\n\nTogether this completes the Shim system's public API surface, making it importable from external consumers (Cocoon, Sky) via a single barrel import.",
-			"SHA": "8ebd1f857db6c07eb66084ae11c833bcc627096c"
 		}
 	],
-	"TimeStamp": 1782655466252
+	"TimeStamp": 1782748803097
 }

@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:24:36Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				916,
+				3
+			],
+			"Message": "refactor(Wind): Complete NetworkRestrictions De-Effect-ify — convert implementation to plain factory\n\nComplete the migration of the NetworkRestrictions service away from Effect-TS by converting the implementation from a `Layer.effect` providing a `Context.Tag` to a plain `makeNetworkRestrictions(Log)` factory function.\n\n**Implementation** (`NetworkRestrictionsImplementation.ts`):\n- Remove all Effect-TS imports (`Effect`, `Layer`, `Ref`, `Telemetry`) — the `Telemetry` dependency is replaced with a simple `NetworkRestrictionsLogger` callback (`performance.mark`-based default, no Effect surface).\n- Convert `Ref.make`/`Ref.get`/`Ref.set` state management to plain `let _config`, `let _blockedRequests`, `let _telemetryLevel` module-closure variables.\n- All methods become synchronous — `checkURL`/`checkIPCChannel` return `boolean` (throw `NetworkBlockError`/`IPCBlockError` on denial) instead of `Effect<boolean, Error>`; `blockURL`/`updateConfig`/`setTelemetryLevel` return `void` instead of `Effect<void>`.\n- Delete `NetworkRestrictionsTag.ts` entirely — no more `Context.Tag` or `Layer` export.\n\n**Barrel** (`NetworkRestrictions.ts`):\n- Remove Tag re-exports (`NetworkRestrictions`, `NetworkRestrictionsTag`).\n- Change `IPCBlockError`/`NetworkBlockError` from `export type` to `export` since they are now concrete `Error` subclasses (converted in the prior commit).\n- Add `makeNetworkRestrictions` export alongside the existing default `NetworkRestrictionsLive`.\n- Update doc examples to show plain `NetworkRestrictionsLive.checkURL(...)` instead of `yield* NetworkRestrictions`.\n\n**Impact**: Completes the final phase of the NetworkRestrictions De-Effect-ify (started in 914a220a). Removes the last Effect Layer and Tag from this service area, cutting ~160 lines and eliminating Ref/Effect.gen/Layer boilerplate in favor of straightforward synchronous code.",
+			"SHA": "3882d53b44779f78db060ce01bd44692004ffa46"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:24:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				918,
+				10
+			],
+			"Message": "refactor(Wind): De-Effect-ify ActivityBar and NetworkRestrictions errors/service\n\nRemove Effect-TS from the ActivityBar service and the NetworkRestrictions error types and service interface, continuing the migration of Wind toward framework-agnostic patterns.\n\n**ActivityBar** (`Effect/ActivityBar/`):\n- Convert from `Layer.effect`/`SubscriptionRef`/`Stream` to a plain in-memory store via `makeActivityBar(Logger)` factory. All CRUD methods become sync (`void`/`Item`) instead of `Effect.Effect<>`. Throws typed Error subclasses on failure.\n- Delete `ActivityBarTag.ts` (Context.Tag) — consumers import `ActivityBarLive` directly as a plain object.\n- Remove `itemsChanges` and `activeItemChanges` Stream properties from `ActivityBarService` interface — they had zero consumers (Sky reads activity state through `WorkbenchActivityLive`).\n- Remove the six `Make*` factory functions (`MakeCreateItem`, `MakeUpdateItem`, `MakeRemoveItem`, `MakeGetItem`, `MakeSetActiveItem`, `MakeSetBadge`, `MakeGetBadge`) from `ActivityBarHelper`; logic inlined into the implementation.\n- `ActivityBarLive` is now an `ActivityBarService` instance, not a `Layer`. `ActivityBarMockLive` similarly converted from `Layer.succeed` to a plain object.\n- Add `makeActivityBar(Log)` factory enabling custom logger injection; default logs via `performance.mark`.\n- Update barrel exports: remove Effect-TS references from doc examples, drop `ActivityBar` (Tag), add `makeActivityBar`.\n\n**NetworkRestrictions** (`Effect/NetworkRestrictions/`):\n- Convert `IPCBlockError` and `NetworkBlockError` from interface-based discriminated unions (factory returning `{ _tag, channel, reason, ... }`) to actual `Error` subclasses with `_tag` discriminant via `extends Error`. The `name` getter returns the class name; `cause` preserves the blocked channel/URL.\n- Convert `NetworkRestrictionsService` interface: all methods become sync — `checkURL` returns `boolean` instead of `Effect<boolean, NetworkBlockError>`, `blockURL`/`updateConfig` return `void` instead of `Effect<void>`, etc.\n\n**Impact**: Reduces Effect-TS surface by two more service areas and two error type definitions. Cuts 517 lines, simplifies debugging (plain Error stack traces), and removes unreachable reactive change-stream code paths.",
+			"SHA": "914a220a3d6827a9769efc2de53332d25df759f0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:22:15Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				920,
+				26
+			],
+			"Message": "refactor(Wind): De-Effect-ify Bootstrap, Health, FileSystem, Workbench; add heritage resolver + ChannelEventBridge\n\nRemove Effect-TS dependency from four core Wind services, converting them to plain async/sync APIs:\n\n**Bootstrap** (`Effect/Bootstrap/`):\n- Replace `Effect.gen`/`Layer`/`Context.Tag` with a plain `makeBootstrap(Logger)` factory returning a `BootstrapService`. All six stages (`BootstrapStage.ts`) become `async (Log) => Promise<StageResult>` — no `withSpan`, no `yield*`.\n- Delete `BootstrapTag.ts`; `BootstrapLive` is now a `BootstrapService` instance, not a `Layer`.\n- `BootstrapMock` drops its `Layer.effect` wrapper — just a `BootstrapService` object.\n- `runBootstrap()` calls `BootstrapLive.run(options)` directly instead of composing a Telemetry layer.\n\n**Health** (`Effect/Health/`):\n- Convert all check methods from `Effect.Effect<>` to `async Promise<>`. The `monitorService` now returns a `HealthMonitorHandle { dispose }` via `setInterval`/`clearInterval` instead of an `Effect.repeat(Schedule.spaced)`.\n- Delete `HealthTag.ts`; `HealthLive`/`HealthMock` are `HealthService` instances.\n- Replace `EnvironmentTag.getInfo` with direct calls to `DetectPlatform()`/`DetectArchitecture()` from `EnvironmentHelper`.\n\n**FileSystem** (`FileSystem/`):\n- Remove `FileSystemProviderTag` (Context.GenericTag), `FileSystemProviderLive` (Layer), and the `getProvider: Effect.Effect<>` accessor from `FileSystemProviderService`. Consumers now import the default export `FileSystemProvider` and call `.provider` directly.\n- Update README examples to show plain `await FileSystemProvider.readFile(...)` instead of `yield* FileSystemProviderTag`.\n\n**Workbench** (`Workbench/`):\n- Rewrite `WorkbenchIntegrationImplementation` from Effect-TS (Ref, Queue, Stream, Effect.gen) to module-closure `let` variables + a listener-`Set` for state change observation. `stateChanges: Stream` becomes `onStateChange(Listener) => IDisposable`.\n- All methods are sync/async and throw `WorkbenchIntegrationError` on failure — no more `Effect.fail`.\n- Remove the `FileSystemProviderTag` dependency; import the FileSystem default export directly.\n\n**ResolveInterfaceCrossFile** (`Codegen/Resolve/`):\n- Add heritage-follow resolution: when an interface body is empty (the re-export pattern `interface X extends Y { }`), parse the `extends` clause, resolve each parent — same-file inline first, then via imports — with depth-capped recursion and visited-set deduplication.\n- Extract `ResolveNamedMembers` as a shared recursive core; `ResolveInterfaceCrossFile` delegates to it.\n\n**TauriMainProcessService** (`Service/`):\n- Buffer `_DevLogForward` entries for 100ms and flush as grouped `RenderDevLog` invokes (one per tag, newline-joined), capped at 20 entries per flush window with overflow counting. Prevents IPC storms during extension activation.\n- Introduce `ChannelEventBridge` — a declarative map from channel events to `sky://` Tauri event names (with optional reshape `Map` functions), replacing the earlier repetitive `if (channel === \"X\" && event === \"Y\")` guard blocks. Covers `localPty`, `terminal`, `extensions`, `localFilesystem`, `configuration`, `workspaces`, and `lifecycle`.\n\n**Barrel re-exports**:\n- `Effect/index.ts`: Alphabetize exported names; replace old `*Tag` exports with `*MonitorHandle`/`*Logger` types.\n- `Bootstrap/index.ts`, `Health/index.ts`, `Workbench/index.ts`, `Health.ts`, `Bootstrap.ts`: Align re-exports with the new plain-async surface — no Tag re-exports, no Layer re-exports.\n- `Layers/Tauri.ts`: Remove `BootstrapLive`, `HealthLive`, `ActivityBarLive` from the layer compositions since they are no longer Effect layers.\n- `Language/Live.ts`: Clarify doc comment that this layer is Wind-local only; add `performance.mark` traces on registration.\n\n**Impact**: Reduces Effect-TS surface to only IPC, Telemetry, and Sandbox services where its composability is still needed. Cuts bundle weight, simplifies debugging (plain async stack traces), and accelerates the migration of Wind toward framework-agnostic service patterns.",
+			"SHA": "0432636342797c3caab1099cf883e21ea04151c1"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T20:34:44Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "style(Wind): Strip extra blank lines inside interface/class bodies and between imports\n\nRemove ~1,200 blank lines that violated the project's formatting conventions across 300+ files in Source/. The changes fall into six categories:\n\n1. **Interface/class body blank lines**: Every exported interface, class, default-object, and exported-const-object that began with a blank line after `{` now has it removed — \"squaring\" the opening brace against the first member. Affected ~200 files across Bootstrap/Types, Codegen, Effect, FileSystem, Service, Telemetry, Types, and Workbench.\n\n2. **Import-group blank lines**: Blank lines separating two consecutive `import` statements (or `import type` statements) from the same module group are removed, collapsing multi-line import blocks into dense `import`-`import` runs. Exceptions preserved at semantic boundaries (e.g., Effect imports vs. local directory imports).\n\n3. **Discriminated union blank lines**: Blank lines between adjacent `| { _tag: ... }` branches in `*Problem` and `*State` type definitions are removed.\n\n4. **Missing blank lines in barrel exports**: `Mountain/index.ts`, `WorkbenchActivity/index.ts`, `WorkbenchCommand/index.ts` gain a blank line before `export type` sections after a series of value re-exports, matching the barrel convention in neighbouring modules.\n\n5. **Import ordering**: `BootstrapStage.ts` swaps `EnvironmentTag` above `EnvironmentInfo` to pair the Tag import with its type; `WorkbenchLayoutLive.ts`, `WorkbenchLifecycleLive.ts`, `WorkbenchNotificationLive.ts`, `WorkbenchProgressLive.ts`, `WorkbenchThemeLive.ts` fix `type` keyword placement and group imports consistently.\n\n6. **Build config**: `tsconfig.build.json` added with a focused compilation target (`Source/Build.ts`, Constants, Types, Effect/Layers); `tsconfig.json` exclude list expanded with 47 path entries to silence diagnostics in generated/polyfill/debug modules.\n\nNo behavioral changes.",
 			"SHA": "c458f3973e1db58d66720d262e758c6cf39d95b6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:14:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				923,
-				4
-			],
-			"Message": "style(Wind): Alphabetize barrel re-exports and normalize spacing\n\nSort the three barrel files (Configuration, Mountain, BootstrapStage) so that named re-exports within each logical category follow alphabetical order, matching the convention established in prior formatting passes.\n\n- **BootstrapStage.ts**: Move `EnvironmentTag` value import below its paired `EnvironmentInfo` type import; remove trailing blank line before the first default-export key.\n- **Configuration.ts**: Reorder 15 re-exported names — errors (Apply→Fetch→Validation), values (Create→Get→Make→Validate), live/mock implementations (ConfigurationLive→ConfigurationMock→…), type aliases (Configuration→ConfigurationService→…).\n- **Mountain.ts**: Reorder 11 re-exported names — errors (Connection→RPC→State→Sync), values (Create→Live→Mock), type aliases (Mountain→MountainConnectionState→…).\n- **Mountain/index.ts**: Add missing blank line separator between the error-types section end and the Live Implementation section header, consistent with the other 19 barrel files.\n\nNo behavioral changes — pure formatting alignment.",
-			"SHA": "9e54723c97df9f4f62359952ede73e25acdca4ad"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:13:30Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				923,
-				1
-			],
-			"Message": "style(Wind): Reorganize Mountain Effect barrel export order\n\nAdopt the standardized six-section ordering for `Source/Effect/Mountain/index.ts` following the barrel export convention established in b9b6b34d: (1) error types, (2) live implementation, (3) service interface, (4) mock implementation, (5) service tag alias, (6) type definitions.\n\nBlank lines are removed between error exports to group all four error classes consecutively. Each section is separated by a single blank line with a preceding comment header for navigability. The previous arrangement interspersed type exports before value exports; the new layout places all value exports (live + mock implementations) before type-level exports, matching the consumer lookup priority pattern used across the other 18 workbench barrel files.",
-			"SHA": "b19ef04ee8918bb0a88bd59be04654f5df54aeb0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:12:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				923,
-				2
-			],
-			"Message": "style(Wind): Rename catch variable Error to Failure in Configuration\n\nRename the catch-bound variable from `Error` to `Failure` across ConfigurationHelper and ConfigurationImplementation to avoid shadowing the global `Error` constructor. The identifier `Error` in catch clauses resolves to the caught exception at runtime but creates confusion with the built-in `Error` type in scope, making the code harder to read and potentially masking TypeScript narrowing issues.\n\nAffected sites: the `MakeApply` closure in ConfigurationHelper (zoomLevel and userEnv catch blocks) and the `GetConfiguration` and `Replace` functions in ConfigurationImplementation (sandbox fallback, IPC fetch, and listener notification catch blocks).\n\nNo behavioral changes — purely cosmetic identifier renaming in catch parameters.",
-			"SHA": "ceb4575d9130d35ce5b4bad8e0955138776ca680"
 		}
 	],
-	"TimeStamp": 1782655467082
+	"TimeStamp": 1782748805900
 }

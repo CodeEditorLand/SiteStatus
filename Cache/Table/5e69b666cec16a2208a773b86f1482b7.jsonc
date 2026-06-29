@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:08:42Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
+			],
+			"Message": "fix(Mountain): Forward editor state change notifications to Cocoon extension host\n\nAdd five missing Vine notification relays so VS Code API subscribers inside the Node.js extension host observe changes Mountain already delivers to the renderer:\n\n- **ThemesSet.rs**: Fan `$acceptActiveColorTheme` on theme switch, computing the workbench theme kind (Light/Dark/HighContrast) from the theme id. Without this, `vscode.window.onDidChangeActiveColorTheme` never fires for Node-resident extensions (GitLens, Roo Code, rust-analyzer).\n\n- **WindServiceHandlers/mod.rs**: Relay four Sky-detected editor state changes as Cocoon notifications: `$acceptVisibleEditorsChanged` (`onDidChangeVisibleTextEditors`), `$acceptTabsChanged` (`onDidChangeTabs`/`onDidChangeTabGroups`), `$acceptVisibleRangesChanged` (`onDidChangeTextEditorVisibleRanges`), and `$acceptTextEditorOptionsChanged` (`onDidChangeTextEditorOptions`). Each forwards the Sky-provided payload directly.\n\n- **Diagnostics.rs**: After every `SetDiagnostics`/`ClearDiagnostics` call, fan `$acceptDiagnosticsChanged` back to Cocoon with the owner and affected URIs so `vscode.languages.onDidChangeDiagnostics` subscribers in peer extensions observe the change. For clears, emit an empty URI list — consumers should re-query `getDiagnostics(uri)`.\n\n- **DebugLifecycle.rs**: For `debug.addBreakpoints`/`debug.removeBreakpoints` only, fan `$onDidChangeBreakpoints` with added/removed/changed arrays so `vscode.debug.onDidChangeBreakpoints` fires in all extensions, not just the one that made the mutation.\n\nCompletes the Mountain-to-Cocoon notification pipeline for theme, editor, diagnostics, and debug breakpoint surfaces that were previously renderer-only.",
+			"SHA": "dd925de41e8f4558f960cb99f6d1a78674eba4e7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T21:53:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				2
+			],
+			"Message": "fix(Mountain): Relay executed command notifications to Cocoon extension host\n\nDual-emit `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, so that `vscode.commands.onDidExecuteCommand` callbacks fire inside extensions running in the Node.js extension host. The existing Tauri-emit only reaches the renderer (Sky); Cocoon has no Tauri runtime to subscribe to those events.\n\nCocoon's `Services/Handler/Notification/Handler.ts` maps `$acceptCommandExecuted` to an internal emitter that the `Commands/Namespace.ts` `onDidExecuteCommand` subscriber listens to. The Vine notification is fire-and-forget — failure is non-fatal since the renderer-side observers have already been notified via the Tauri event.\n\nAlso add the `tauri::Emitter` trait import in `CreateEffectForRequest/Commands.rs` to satisfy the compiler for the Tauri event emit.",
+			"SHA": "eeb3d39b739ebe9019b39f18ad4415ad9ad0fcb2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T21:37:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
+			],
+			"Message": "fix(Mountain): Forward previously unhandled IPC notifications\n\nAdd four notification handlers that were missing from the IPC dispatch tables, completing the Cocoon-to-Mountain-to-renderer pipeline:\n\n- **ScanPathConfigure**: Scan `~/.land/extensions` alongside the FIDDEE user directory so pre-migration installs (Roo Code, rust-analyzer, etc.) remain discoverable. The path is only pushed when the directory exists, making the addition harmless on clean installs.\n\n- **Debug.rs**: Forward `debug.dap-response` from Cocoon (inline-implementation adapters) to the workbench via `sky://debug/dap-message`, enabling the RawDebugSession sequencer to correlate DAP responses by `request_seq`.\n\n- **StatusBar.rs**: Handle `setStatusBarText` mutations from extension StatusBarItem `text()` setters. Without this arm, status bar text freezes after the initial create, never reflecting runtime updates.\n\n- **Task.rs**: Relay `terminate_task`/`Task.Terminate` to the extension host task service, allowing `vscode.tasks.executeTask(...).terminate()` to stop running tasks. Falls back gracefully with a dev_log warning when no task provider is available.",
+			"SHA": "23b235d68ce4fa03776183d9f8a9ac8bcb98b9f2"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-25T20:45:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "build(Mountain): Differentiate development build identifiers from release\n\nRename the crate binary, library, package, Tauri productName, and bundle identifier to a verbose development build descriptor encoding the full toolchain configuration (Node 22, VS Code dependency, debug profile, esbuild compiler). This prevents the development build's binary name and macOS bundle ID from colliding with the release build, enabling side-by-side installation and testing.\n\nExpand the Tauri resource bundle to include all Sky deployment variant directories (Browser, BrowserProxy, Bundled, Electron, Favicon, Isolation, Manifest.json, Mountain) that were previously omitted, ensuring the development build can serve every editor UI target.",
 			"SHA": "960cc2f2c87bbd38613db3e6da10c856b2ae0dd3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:10:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				19
-			],
-			"Message": "feat(Mountain): Implement EnvironmentVariableCollection and tier defaults\n\nAdd TerminalEnvCollection — a global registry for per-extension environment variable mutations matching VS Code's `EnvironmentVariableCollection` API (Replace/Append/Prepend/Delete/Clear/SetPersistent/SetDescription). Seven `terminal.envCollection.*` Vine notification handlers in MountainVinegRPCService dispatch Cocoon's requests to the registry via TerminalEnvCollectionDispatch. At every PTY spawn, TerminalProvider collects the inherited process env, applies all registered mutators via ApplyToEnv, and layers shell-integration vars on top, ensuring extensions like language servers see the environment they requested.\n\nAdd `tree.refresh` and `outputChannel.replace` Vine notification relays: the former forwards TreeDataProvider.onDidChangeTreeData events to Sky as `sky://tree-view/refresh`; the latter provides atomic output channel buffer replacement that avoids the visual flash of separate clear+append.\n\nExpand the tier routing infrastructure by adding compile-time defaults and Info.plist entries for 14 additional subsystems (Auth, Debug, Encryption, ExtensionHost, LanguageFeatures, Model, NativeHost, OutputChannel, SCM, Search, Storage, Tasks, Terminal, TreeView, WebSocket) and extending LandFixTier::LogResolvedTiers to emit all 16 tier values at boot for full routing observability.\n\nTidy formatting across AppLifecycle, Entry, RunGit, Reload, mod.rs, CocoonManagement, Dispatcher, build.rs, and bash.sh with no semantic changes.",
-			"SHA": "abba8a235310b01bca76aa32de8fe2de37a9a9af"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T13:49:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1742,
-				8
-			],
-			"Message": "feat(Mountain): Add per-subsystem tier routing and reload-safe panels\n\nIntroduce the tier routing framework that allows each IPC subsystem to be dispatched to either Mountain-native or Cocoon Node.js at compile time (via build.rs EmitTierDefaults) or at runtime (via env var overrides). Routing constants for Terminal, SCM, Debug, LanguageFeatures, Search, OutputChannel, NativeHost, TreeView, Storage, Model, Tasks, Auth, Encryption, ExtensionHost, and WebSocket are baked at build time; the `tier_routes_to_node` helper in mod.rs evaluates the tier and forwards matching commands to Cocoon's gRPC surface. Storage and SCM commands gain tier-gated arms first.\n\nImplement webview panel state persistence across `nativeHost:reload`: before the renderer reload, ask Cocoon to serialize all registered webview panels via `ExtHostWebviewPanels$serializeAllWebviewPanels` and store the snapshot in global storage under `__webview_panel_state__`. After Cocoon restarts and extensions re-activate, deserialize each panel entry via `ExtHostWebviewPanels$deserializeWebviewPanel` and clear the cache to prevent double-restore on subsequent reloads.\n\nAdd optional Mist WebSocket transport in Entry.rs: when `TierWebSocket=Mist`, a localhost JSON-RPC WebSocket binds on port 5051 for high-frequency IPC (storage updates, decorations, model changes) that bypasses the Tauri-invoke + gRPC double hop. The secret and port are exposed via environment variables for Cocoon/Sky workbench configuration consumption.\n\nApply a 30-second wall-clock timeout to git subprocess execution (RunGit.rs) so a hung git process — stalled on a credential prompt, index lock, or unresponsive network mount — releases the Mountain effect slot via the registry-aware PID killer rather than blocking indefinitely.\n\nAdd crash-safe memento hydration at boot (AppLifecycle.rs): the `MementoLoader` reads global.json, quarantines corrupted files to `.corrupted.<ts>` siblings, and populates the in-memory map from an empty baseline so a partial write from a prior crash doesn't panic the boot path.\n\nFix a minor formatting issue in bash shell integration (`2> /dev/null` to `2>/dev/null`).",
-			"SHA": "db5e7784a51c6f267aa6a9c90624ad8346577df2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T13:48:47Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1742,
-				2
-			],
-			"Message": "fix(Mountain): Align configuration notification payload with Cocoon expectations\n\nFix two discrepancies between Mountain and its downstream consumers:\n\n- The configuration change Vine notification sent `\"key\": key` (single string), but Cocoon's Configuration.ts expects `\"keys\": [key]` (array) to correctly invalidate cached config entries. Align the payload so extensions like rust-analyzer and ESLint receive accurate change events.\n- The document retrieval call in launch-time model hydration used the outdated `GetAllDocuments()` method; update to `GetAll()` to match current Documents API.\n\nBoth issues were introduced during earlier refactoring phases and went undetected because they only manifest at specific integration points.",
-			"SHA": "b4ddf6a32ede0b762c1e4116dce6dd3b38313493"
 		}
 	],
-	"TimeStamp": 1782655481923
+	"TimeStamp": 1782748834322
 }
