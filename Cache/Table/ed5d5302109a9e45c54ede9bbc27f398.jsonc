@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-05-23T02:40:38Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T08:12:51Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				155,
+				4
+			],
+			"Message": "refactor(Sky): Remove aggressive retry logic from extension bridge layers\n\nEliminate complex retry mechanisms and polling loops across multiple bridge installation modules that were previously used to compensate for workbench service initialization race conditions. In InstallInlineCompletions, InstallScm, InstallSearch, and InstallTreeView, replace exponential backoff and event-listener rescue paths with direct service acquisition and synchronous execution.\n\nThe previous implementations guarded against early-arriving IPC events by deferring registration or re-attempting connection until specific services (LanguageFeatures, SCM, Search, TreeView) became available. This approach introduced significant code complexity, unbounded execution paths, and potential resource leaks.\n\nThis change assumes the workbench bootstrap sequence has been stabilized elsewhere, allowing the bridge layers to execute registration logic immediately upon invocation. Failed registrations now fail fast and silently rather than entering retry cycles, aligning with the architecture's expectation that service availability is guaranteed by the time bridge installation functions are called.\n\nThe simplification reduces bundle size, removes hidden asynchronous delays in feature activation, and makes the bridge logic strictly deterministic and easier to reason about.",
+			"SHA": "9c424d95afa5fdc1f65032b0835eeb557289f8dd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T08:09:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				153,
+				155,
 				1
 			],
-			"Message": "",
-			"SHA": "612b1847fdd8fcdf54d6ed3bec04f4c528524220"
+			"Message": "refactor(Sky): Simplify diagnostic bridge logic and remove forced view initialization\n\nThe previous implementation in `InstallDiagnostics.ts` attempted to force-open the Problems panel on every diagnostic batch if it was not visible, using throttling to avoid spam. This approach was brittle, caused unnecessary UI state changes, and relied on `openView` to trigger `reInitialize()`.\n\nRevise the bridge to strictly match VS Code's reactive model: rely on `IMarkerService.changeOne` to update state and let the `MarkersView` handle visibility events naturally. Remove the `openView` logic, throttling, and per-batch visibility checks entirely. The panel now only opens if the user explicitly requests it.\n\nAdditionally, streamline the UI intervention to a single, one-time check: if the panel is already open when diagnostics arrive, clear any persisted `activeFile` filter to ensure all markers are visible immediately. This mirrors upstream behavior and prevents the \"count shows but panel empty\" issue caused by stale filters without forcing the panel open.\n\nThis reduces side effects, eliminates unnecessary IPC overhead, and ensures diagnostic updates are purely data-driven until user interaction is required.",
+			"SHA": "3f25af2676d30ddaa95e7ef1e60b2e1e59e21a9c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T02:26:52Z",
+			"Date": "2026-05-23T08:01:20Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				155,
+				2
+			],
+			"Message": "fix(Sky): Restore missing progress end handler and webview dispose relay\n\nAddress two critical gaps in the Sky bridge layer that caused resource leaks and stale UI states. First, implement the missing handler for `sky://progress/end`, which is emitted by Mountain's Wind-IPC progress handlers to signal completion. Without this, progress bars initiated by the backend would never dismiss in the UI. Second, reintroduce the `sky://webview/dispose` event listener. This handler, previously located in InstallTasksAndDecorations and accidentally removed, is essential for cleaning up DOM nodes and removing panel handles from the global registry when extensions call `panel.dispose()`. Failure to handle this event led to accumulating stale DOM nodes and memory leaks in long-running extension sessions.\n\nThese changes ensure proper lifecycle management for progress indicators and webview panels, aligning Sky's event handling with the Mountain backend's IPC contract.",
+			"SHA": "660f2f37e06d0b5d08401fd7ade8257adecbf1e5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T07:59:14Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				155,
+				8
+			],
+			"Message": "fix(Sky): Consolidate bridge event routing, fix SCM registration race, and correct completion text handling\n\nSeveral critical gaps in the Sky bridge layer have been addressed to ensure reliable IPC between the UI and Mountain, and correct behavior for extension-host features.\n\nIn InstallEditorOperations, consolidate two separate subscriptions on `onDidChangeActiveCodeEditor` into a single handler. The previous dual-listener setup caused the `sky:editor:activeChanged` IPC to fire twice on every editor switch, doubling downstream load and causing unbounded listener accumulation when selection listeners were not properly disposed.\n\nIn InstallScm, resolve a race condition where `sky://scm/registerGroup` events arriving too early would permanently lose SCM groups due to missing Emitter/URI services. Introduce a `TryRegisterScmGroupWithRetry` mechanism with exponential backoff to guarantee group registration. Additionally, correct the `splice` call signature to pass the resources array directly, as the custom wrapper handles the internal spread, preventing \"iterable\" errors on empty states.\n\nIn InstallInlineCompletions, fix corruption in non-snippet completions. The logic previously wrapped all text in `{ snippet }`, causing literal `$` and `\\` characters to be interpreted as snippet syntax. Now, text is only wrapped when `isSnippet` is explicitly true.\n\nIn InstallDeadChannelListeners, InstallEditorAndOutput, and InstallStatusbar, add the missing `invoke` import from `@tauri-apps/api/core` to enable the Tauri command layer required for the bridge relays.\n\nFinally, in BakeExtensionManifest, prevent dev-mode hangs by writing only to `BundlePath` (skipping `DebugPath`) when no extensions are found. This ensures the empty stub in the `.app` bundle does not trigger a timeout in the live extension host during development, allowing it to fall back to a runtime scan safely.\n\nThese changes eliminate double-firing events, prevent memory leaks, fix SCM visibility issues, correct completion rendering, and stabilize the build process for empty extension environments.",
+			"SHA": "1c848470a27833378b38c6651b381cc9ddfc417d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T07:05:43Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				153,
-				0
+				155,
+				1
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "b44e6ff0076cbeaf8c10723d65d4e8baaf1d2b9a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T00:59:21Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				153,
-				5
-			],
-			"Message": "save\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "efe53521eab8dea536a2fdb32525fc49173c4cb9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T00:59:21Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				153,
-				4
-			],
-			"Message": "",
-			"SHA": "92f6d667edbd792ca1263a81e0acb6a2690c51d1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T00:32:10Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				153,
-				4
-			],
-			"Message": "",
-			"SHA": "a537576093a8eaf1041b66563060062ac0e5175c"
+			"Message": "fix(Sky): Support named-key payloads and register resolver for custom editors\n\nThe previous implementation in InstallWebview incorrectly assumed positional arguments for custom editor payloads. After the Cocoon extension host switched to named-key payloads (containing `viewType`, `options`, and `selector`), the editor failed to register custom editor capabilities because `Args[1]` was empty.\n\nUpdate the payload parsing logic to defensively handle both the new named-key format and the legacy positional format. Extract `viewType`, `options`, and `selector` from the primary payload fields, falling back to the `args` array only if necessary.\n\nAdditionally, register the custom editor with `IEditorResolverService` using a `priority.option` fallback. This ensures the VS Code activation event (`onCustomEditor:*`) fires correctly when manifest-based registration is delayed due to lazy extension activation. The resolver includes a safe `createEditorInput` implementation that defers to the builtin factory to prevent crashes if the resolver is invoked before the extension is fully ready.\n\nThese changes restore full functionality for custom editors (e.g., Markdown preview, image viewers) and ensure proper lifecycle management during extension activation.",
+			"SHA": "2bda9da6327242388b0ffc821ce7d5cd2f383fa9"
 		}
 	],
-	"TimeStamp": 1782748815132
+	"TimeStamp": 1782917460749
 }

@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T10:36:22Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1208,
+				1
+			],
+			"Message": "fix(Cocoon): Remove file event stub overrides that silenced real Vine events\n\nSix stub file lifecycle event handlers (`onWillCreateFiles`, `onWillDeleteFiles`, `onWillRenameFiles`, `onDidCreateFiles`, `onDidDeleteFiles`, `onDidRenameFiles`) on the Workspace namespace were returning no-op disposables, overriding the real `EventSubscriber` implementations already provided by the spread of `BuildDocumentEventMembers` into the workspace object.\n\nExtensions subscribing to these events — including GitLens and similar file-system-aware extensions — were silently receiving dead handlers that emitted nothing. Remove the stubs so the live events flow through. Mountain now fires `willCreate`/`willDelete`/`willRename` notifications to Cocoon via Vine before the VFS mutation lands on disk, giving watchers correct pre-mutation signal.",
+			"SHA": "a44ce732e7fee7aa9f09c22146df31eedab6301f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T10:30:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1208,
+				1
+			],
+			"Message": "fix(Cocoon): Reorder bootstrap stages so RPCServer binds before MountainConnection\n\nThe Stage 3 MountainConnection gRPC probe previously ran ahead of Stage 5 RPCServer in the bootstrap pipeline. This meant Mountain's 20-second gRPC retry budget saw port 50052 unbound on every attempt — the server never started within the connect window, causing persistent bootstrap failures.\n\nSwap the execution order in `makeBootstrap` so RPCServer binds port 50052 first, then MountainConnection's gRPC client connects to a live listener. With the ordering fixed, reduce retry caps proportionally: TCP probe drops from 10 to 3 attempts (300ms timeout, 100ms gap → ~1.2s worst case), gRPC connect from 15 to 5 attempts (500ms backoff → ~7.5s worst case). The old aggressive caps were papering over the sequencing bug.\n\nUpdate all related inline documentation to reflect the new stage ordering and rationale.",
+			"SHA": "4eaa3135556e509319e9b956145bb6272007202e"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-22T08:45:28Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "build(deps): bump protobufjs from 8.4.1 to 8.4.2\n\nBumps [protobufjs](https://github.com/protobufjs/protobuf.js) from 8.4.1 to 8.4.2.\n- [Release notes](https://github.com/protobufjs/protobuf.js/releases)\n- [Changelog](https://github.com/protobufjs/protobuf.js/blob/master/CHANGELOG.md)\n- [Commits](https://github.com/protobufjs/protobuf.js/compare/protobufjs-v8.4.1...protobufjs-v8.4.2)\n\n---\nupdated-dependencies:\n- dependency-name: protobufjs\n  dependency-version: 8.4.2\n  dependency-type: direct:production\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
 			"SHA": "6dda738f19ae88fcb1bd0817606619df423b7cc2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T08:39:06Z",
-			"File": [
-				"⣿⠁⠀⠀⠀",
-				1208,
-				264
-			],
-			"Message": "build(Cocoon): Minify ESBuild configs and add Bootstrap bundle\n\nMinify all Configuration/ESBuild/*.js, Configuration/Mountain/Config.js, and Source/ESBuild.js from pretty-printed tab-indented format to single-line compact form. This reduces their footprint in the Configuration/ directory and prevents config-only modules from inflating source map coverage reports.\n\nAdd a new Bootstrap ESBuild configuration under Source/Configuration/ESBuild/Config/Bootstrap/Config.ts that inlines every npm dependency into a single self-contained bundle. Unlike the Target build which uses packages:external, the Bootstrap bundle is deployed inside the .app at Contents/Resources/Cocoon/Target/Bootstrap/Implementation/Cocoon/Main.js where no node_modules directory exists. All Cocoon runtime deps (effect, @grpc/grpc-js, …) are pure JavaScript, making full inlining safe — only Node.js built-ins (node:*) and the vscode/electron stubs are kept external.\n\nWire BootstrapConfig through the ESBuild index.ts re-export and add its build step to prepublishOnly.sh.\n\nRegenerate the RouteManifest timestamp (2026-05-22T08:30:17Z) and rebuild all Target/ compiled artifacts to reflect the reformatted configuration sources. 388 Mountain RPC methods registered, 0 bespoke routes.",
-			"SHA": "6fcf0a02cb21132000ce5de730bfb7b0018241b0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T07:49:53Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1173,
-				41
-			],
-			"Message": "style(Cocoon): Normalise config JS to tab indentation with trailing commas\n\nRestore tab indentation across all Configuration/ESBuild/*.js, Configuration/Mountain/Config.js, and Source/ESBuild.js, reversing the 2-space normalisation from the previous style pass (3bc8d83). Alongside the indentation change:\n\n- Restore trailing commas to all array and object literals across every config file.\n- Reorder imports so re-exports (`export *`) appear before local imports in Cocoon.js and index.js, matching the convention used by sibling config files.\n- Flatten Environment Constant.js named exports to a single-line block.\n- Wrap `__name` helper calls and long template expressions with consistent multi-line formatting at soft line widths (Compile Config.js, Mountain Config.js).\n\nRegenerate the RouteManifest timestamp (2026-05-22T07:31:17Z) and rebuild all Target/ compiled artifacts to reflect the reformatted configuration sources. No functional changes to build logic, RPC method registration (still 135 Mountain methods), or runtime behaviour.",
-			"SHA": "7a468ec779910c9ba74090f444f30ffed6ec766f"
 		}
 	],
-	"TimeStamp": 1782748840758
+	"TimeStamp": 1782917464869
 }

@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-05-19T08:09:34Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T00:37:37Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
+				"⠃⠀⠀⠀⠀",
 				142,
-				1
+				7
 			],
-			"Message": "Merge pull request #514 from CodeEditorLand/dependabot/npm_and_yarn/astrojs/ts-plugin-1.10.9\n\nbuild(deps-dev): bump @astrojs/ts-plugin from 1.10.8 to 1.10.9",
-			"SHA": "2debee134f3c0aa0b6b3b3b9355f80daa2194cd0"
-		},
-		{
-			"Author": "dependabot[bot]",
-			"Date": "2026-05-19T08:09:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				142,
-				1
-			],
-			"Message": "build(deps-dev): bump @astrojs/ts-plugin from 1.10.8 to 1.10.9\n\nBumps [@astrojs/ts-plugin](https://github.com/withastro/astro/tree/HEAD/packages/language-tools/ts-plugin) from 1.10.8 to 1.10.9.\n- [Release notes](https://github.com/withastro/astro/releases)\n- [Changelog](https://github.com/withastro/astro/blob/main/packages/language-tools/ts-plugin/CHANGELOG.md)\n- [Commits](https://github.com/withastro/astro/commits/@astrojs/ts-plugin@1.10.9/packages/language-tools/ts-plugin)\n\n---\nupdated-dependencies:\n- dependency-name: \"@astrojs/ts-plugin\"\n  dependency-version: 1.10.9\n  dependency-type: direct:development\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
-			"SHA": "51370682f62dd7dabad954a9dbdb2d3ebd9adfb2"
+			"Message": "refactor(Sky): Route all diagnostic logs through MountainIPCInvoke instead of console\n\nReplaced all `console.info`, `console.log`, and `console.warn` calls within the Sky Bridge initialization and runtime error handlers with explicit IPC invocations to `MountainIPCInvoke` (method: `diagnostic:log`). This includes error handling for command execution, editor/SCM operations, statusbar updates, file/text searches, and event dispatch failures.\n\nPreviously, these logs were either printed to the browser console or suppressed with empty `try/catch` blocks if the console object was unavailable or replaced. This led to a loss of critical diagnostic data during runtime errors, especially in environments where the standard console is not accessible or is redacted.\n\nBy routing these messages through the `diagnostic:log` IPC method, errors and status updates are now consistently captured by the native `Mountain` host environment. This ensures full visibility into bridge lifecycle issues, race conditions, and handler failures, facilitating better debugging and telemetry collection. Specific logging contexts (e.g., 'sky-bridge') and structured error messages (including stack traces or error descriptions where available) are preserved in the native log stream.\n\nNon-error informational logs (e.g., bridge disable status or registration completion) are now explicitly routed to `process.stdout` where available to ensure they are still captured by the Cocoon stdout parser, maintaining parity with previous behavior while standardizing the core logging path.",
+			"SHA": "caa7e639da81bc96073ad13523fa9c9fb1b735f9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T04:06:32Z",
+			"Date": "2026-05-19T23:39:49Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				142,
+				5
+			],
+			"Message": "chore(Sky): Remove IPv6 localhost allowance from Content Security Policy\n\nRevert the inclusion of `http://[::1]:*` in the CSP `connect-src` directive across all editor entry points (Browser, BrowserProxy, Electron, Mountain, and index). The recent addition of the 127.0.0.1 wildcard rule (`http://127.0.0.1:*`) already satisfies the requirement to allow connections to the local OTLP exporter (port 4318) when `Inspect` is enabled.\n\nThe duplicate IPv6 allowance was unnecessary given the specific localhost configuration of the Tauri dev server and could potentially broaden the attack surface on platforms where IPv6 loopback resolution behaves inconsistently. This ensures a minimal and secure CSP definition while maintaining full functionality for local tracing and inspection.",
+			"SHA": "c92f48a856787975e50c335a1ee641dcd04ce88f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T23:05:54Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				142,
 				1
 			],
-			"Message": "docs(Sky): Redraw architecture diagram to reflect actual component layout\n\nThe previous Mermaid graph used flat generic labels (`Pages`, `Workbenches`, `WorkbenchImpl`) that did not correspond to the real source tree structure or runtime data flow. Reorganize into nested subgraphs matching the actual `pages/` and `Workbench/` directory hierarchy, add the `Function/Sky/Bridge.ts` (`SkyBridge`) event channel layer, and rewrite all edges to show the true routing path from env-driven variant selector through page entry points to workbench implementations.\n\nClarify the Wind subgraph as the in-process service layer with explicit references to `Preload.ts` and the 40+ service `TauriLiveLayer`. Rename the external dependency box from generic `External` to the published `@codeeditorland/output` package. Correct the Tauri/Mountain IPC flow to show bidirectional `sky://` event emission and `tauri::invoke` command dispatch.\n\nThis makes the diagram a faithful reference for contributors navigating Sky's component graph.",
-			"SHA": "78873e2a472dae40858a628e25f0d5023d7dd931"
+			"Message": "feat(Sky): Add retry logic for Tauri IPC bridge initialization\n\nReplace the immediate-exit check for `__TAURI__` globals in `Source/Workbench/Bundled/Electron/Layout.astro` with a 5-second polling loop. The previous implementation failed to find the invoke handle during race conditions between ES-module execution and Wry's content-script injection, causing lifecycle phase advances to be silently dropped and leaving the editor unable to invoke Mountain actions (Open Folder, dialogs, terminal).\n\nIntroduce `ResolveInvoke` and `WaitForInvoke` to bridge the gap across two specific race scenarios: module evaluation outpacing bridge injection and differing `window.__TAURI__` namespace structures in forked Tauri builds. On failure, emit a specific console error and a `land:bundled:electron:tauri-missing` performance mark; on success, log `land:bundled:electron:tauri-resolved`.\n\nEnsure `lifecycle:advancePhase(3)` reliably triggers upon webview restoration, preventing the \"Sky did not advance to Restored within 8s\" log spam and enabling immediate interaction with native OS features.",
+			"SHA": "ce9eea79f1ba8c22ae40e5c082b25932e5aec4ea"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-05-19T02:51:33Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T22:59:29Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
+				"⠁⠀⠀⠀⠀",
 				142,
-				1
+				5
 			],
 			"Message": "",
-			"SHA": "86a07022d88633c1465ca55ed1054af34d55fe58"
+			"SHA": "45cdf204d9c28c15c03b709ff9b279b9ac0da87e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:01:32Z",
+			"Date": "2026-05-19T21:45:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				142,
 				1
 			],
-			"Message": "refactor(Sky): Introduce manualChunks for non-bundled profile\n\nSplit the massive `partsSplash` chunk in non-bundled build profiles (e.g., debug-electron) into parallel-fetchable segments. The previous configuration kept the entire Effect-TS runtime, Wind service layer, and telemetry stack in a single file, hindering V8 parsing and browser preloading.\n\nImplement a conditional `manualChunks` strategy that isolates:\n- `effect-rt`: The Effect-TS runtime (~800 KB)\n- `wind-effect-gen`: Stable, large codegen layer\n- `sky-telemetry`: PostHog/OTLP bridges (off critical path)\n- `sky-debug`: Diagnostic harnesses\n\nCrucially, this strategy is skipped for the bundled profile. Merging chunks there would break the strict initialization order between `workbench.js` and `workbench.desktop.main.js`, causing the FS provider chain to fail due to incorrect `isElectron` mode detection.\n\nThis change optimizes load times for debug profiles while preserving the critical runtime contract required for the bundled distribution.",
-			"SHA": "f11f53d5ba2325fc6e56d64ec48f2f9f0bf08920"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
+			"SHA": "44b539eee117d166cf1a2d7cb069635914c84a34"
 		}
 	],
-	"TimeStamp": 1782748820622
+	"TimeStamp": 1782917463512
 }
