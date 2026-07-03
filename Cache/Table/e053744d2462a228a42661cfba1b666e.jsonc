@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T06:28:33Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				155,
-				5
-			],
-			"Message": "fix(Sky): Prevent double-dispatch in bridge relays and fix Problems panel initialization\n\nRemove redundant SimpleRelay registrations in InstallDebug, InstallTasksAndDecorations, and InstallWebview that caused double-dispatch of events (e.g., `cel:debug:addBreakpoints`) by firing both the generic DOM relay and the specific service handler.\n\nIn InstallDiagnostics, refactor the bridge to resolve the \"count shows but panel empty\" issue by ensuring the Problems panel initializes correctly on every diagnostic batch, not just the first. This includes: (1) Throttling `ViewsSvc.openView` calls to 1Hz during rapid updates; (2) Reviving `relatedInformation` URI strings to objects so labels render correctly; (3) Persistently clearing the `activeFile` filter if it was previously set; and (4) Removing the one-shot guard to handle late-activating language servers like rust-analyzer.\n\nAdditionally, fix a memory leak in InstallEditorOperations by properly disposing of selection change listeners when the active editor switches, and correct the array mutation in InstallScm to use spread syntax for `splice` to avoid nested array insertion.\n\nThese changes ensure strict event routing, prevent unbounded listener accumulation, and guarantee diagnostic consistency across all file types and language server states.",
-			"SHA": "f8b6900822907dcd4cb2be8fa336f9685966a70a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T06:03:40Z",
+			"Date": "2026-05-23T10:13:15Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				155,
 				1
 			],
-			"Message": "fix(Sky): Force Problems panel initialization to sync early markers\n\nResolve the issue where diagnostic markers arrive before the Problems panel view is instantiated, causing a mismatch between the problem count in the status bar and the empty panel. The previous implementation failed to trigger `MarkersView.reInitialize()` because `getViewWithId` returned null if the `ViewPaneContainer` wasn't yet created.\n\nRefactor the one-time success path in `InstallDiagnostics.ts` to explicitly call `ViewsSvc.openView` with `false` to reveal the panel and force initialization without stealing focus. This ensures subscriptions activate and the view reflects the current marker state. Additionally, clear any persisted `activeFile` filter from the Memento that could otherwise hide markers when the view finally renders. Comprehensive logging via `MountainIPCInvoke` is added to track the first push state, filter stats, and initialization success or failure.",
-			"SHA": "d6ea32bec4c1067b36608254022b3abf1e809044"
+			"Message": "feat(Sky): Implement webview reveal, setTitle, and setIconPath bridges\n\nExtend the `InstallWebview` bridge layer in Sky to handle runtime panel updates and focus management. Register listeners for `sky://webview/setTitle`, `sky://webview/setIconPath`, and `sky://webview/reveal` to intercept extension calls.\n\nThe `setTitle` and `setIconPath` handlers dispatch DOM events for UI synchronization and invoke native methods on parked webview entries. The `reveal` handler implements logic to open views via the `Views` service for view IDs or focus specific webview panels by handle, respecting the `preserveFocus` flag.\n\nAdditionally, restore the `sky://webview/dispose` registration which was previously relocated, ensuring panels are correctly cleaned up to prevent stale DOM node accumulation. These additions complete the lifecycle control surface for the webview component layer.",
+			"SHA": "aaa182cebde41b5e0030065feb8eeab066223325"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T05:33:52Z",
+			"Date": "2026-05-23T09:35:53Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				155,
-				3
+				2
 			],
-			"Message": "feat(Sky): Integrate extension manifest baking and bundle compression\n\nIntroduce two new Astro integrations in Sky to optimize the build pipeline for the Rust/Tauri architecture. BakeExtensionManifest scans user and system extension directories at build time, resolves NLS localization strings, and generates a static JSON manifest for Mountain to consume at runtime, eliminating the need for dynamic scanning. CompressBundle applies Brotli compression to text-based assets in the final output, respecting modification timestamps to avoid redundant processing.\n\nBoth integrations are conditionally enabled in astro.config.ts based on the build mode. This reduces the runtime overhead for the editor startup and decreases the final application bundle size for distribution.",
-			"SHA": "68df4ab4f20dabc5861fa23522397ddbefa22311"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-23T02:40:38Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				153,
-				1
-			],
-			"Message": "",
-			"SHA": "612b1847fdd8fcdf54d6ed3bec04f4c528524220"
+			"Message": "refactor(Sky): Standardize IPC method naming and add webview option bridge\n\nUpdate IPC method identifiers in `InstallEditorAndOutput.ts` to use the new lowercase `file:` namespace (`file:writeFile`, `file:rename`, `file:delete`) instead of the previous `FileSystem.` prefix. This aligns the bridge layer with the updated Mountain backend protocol conventions.\n\nIn `InstallWebview.ts`, implement the `sky://webview/setOptions` bridge listener to handle runtime configuration updates (e.g., `enableScripts`, `localResourceRoots`). The handler resolves the target webview panel from the global registry and invokes the native `setOptions` method, supporting both Cocoon-originated requests and direct notifications.\n\nThese changes streamline the IPC contract and ensure webview lifecycle operations are handled synchronously and deterministically within the Sky component layer.",
+			"SHA": "faa9c2543f6c806b9af5ef86198469a660b4e7d1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T02:26:52Z",
+			"Date": "2026-05-23T09:25:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				153,
-				0
+				155,
+				1
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "b44e6ff0076cbeaf8c10723d65d4e8baaf1d2b9a"
+			"Message": "fix(Sky): Distinguish custom URI stringification from default Object methods\n\nUpdate the URI reconstruction logic in `InstallScm.ts` to safely parse string representations of URI objects. The previous check `typeof UriField.toString === \"function\"` was insufficient as it returned true for the default `Object.prototype.toString`, causing non-URI objects to be incorrectly passed to `Services.URI.parse`.\n\nAdd an explicit check ensuring `UriField.toString` is not the inherited default method. This prevents false positives during Source Control Manager bridge operations where generic objects might erroneously trigger URI parsing, ensuring only legitimate URI instances with custom stringification are processed.\n\nThis aligns with the recent refactoring of bridge layers to remove retry loops, requiring deterministic and accurate type handling during immediate service execution.",
+			"SHA": "7f22e3facc226ce9809831cf28a73e43ddf703eb"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T09:19:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				155,
+				1
+			],
+			"Message": "fix(Sky): Invalidate build cache when manifest count is zero\n\nAdjust the `BakeExtensionManifest` build logic to treat an empty extension cache as a stale state. Previously, the build system relied solely on file modification times, which caused hangs if a cached manifest recorded zero extensions but the binary bundle still existed.\n\nRetrieve the cached manifest content and parse its `count` field. If the count is missing or zero, flag the cache as a stub. Modify the `AnyNewer` check to invalidate the cache when `CacheStub` is true, forcing a regeneration of the manifest rather than using a stale empty record.\n\nThis prevents the build process from incorrectly skipping regeneration when no extensions are present, ensuring the live extension host receives accurate metadata and falls back to runtime scanning as intended.",
+			"SHA": "0d44e5000fc6ce302b3ab76f36d70aeab0dd3b7a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T08:17:33Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				155,
+				2
+			],
+			"Message": "refactor(Sky): Eliminate retry loops and forced UI state in diagnostics and tree view bridges\n\nRemove aggressive retry mechanisms and forced panel manipulation from `InstallDiagnostics.ts` and `InstallTreeView.ts` to align with the stabilized workbench bootstrap sequence.\n\nIn `InstallDiagnostics`, delete the logic that forced the Problems panel open or cleared the `activeFile` filter upon diagnostic arrival. The bridge now strictly reacts to `IMarkerService` changes without assuming or manipulating visibility, relying on the `MarkersView` to handle state naturally.\n\nIn `InstallTreeView`, strip out the exponential backoff retry logic, pending attach queues, and delayed hook installation. The `AttachDataProvider` now executes synchronously; if the `TreeView` service is unavailable, the registration fails immediately rather than entering a polling loop. This assumes the workbench services are ready when bridge functions are invoked.\n\nThese changes reduce bundle size, eliminate hidden asynchronous delays, and remove complex error-handling paths that previously masked upstream initialization timing issues.\n\nCloses: Aligns with previous simplification of extension bridge layers.",
+			"SHA": "14346f54c84b5c160190b4af3340e78dec9e7601"
 		}
 	],
-	"TimeStamp": 1782917461284
+	"TimeStamp": 1783088672249
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T17:20:32Z",
+			"Date": "2026-05-31T12:58:07Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				155,
-				6
+				"⠀⠀⠀⠀⠀",
+				154,
+				1
 			],
-			"Message": "fix(Sky): Route output panel through real IOutputService and fix multi-repo SCM registry\n\n**Output panel routing** — the `sky://output/append`, `clear`, and `replace` handlers previously wrote to `__CEL_WORKBENCH__.logger.log()` (the workbench diagnostic console sink), which never painted the Output panel. Re-route through `__CEL_SERVICES__.Output.getChannel().append()` — the real `IOutputService` exposed in `Accessor.ts` — so output channel content actually appears in the panel. The in-memory `OutputChannels` map is retained as a snapshot fallback. A try/catch guard prevents any failing append from crashing the bridge.\n\n**Multi-repo SCM deduplication** — vscode.git's multi-repo workspace (e.g. Land/Dependency/Microsoft submodules) calls `createSourceControl` once per repository, all with `scmId=\"git\"` but unique numeric handles. Keying the `ScmShimRegistry` by bare `scmId` collapsed every repo into a single workbench provider, causing visible group duplication (\"Merge Changes / Untracked / Merge Changes\"). Key by `scmId#handle` so each repository gets its own provider, and update `TryUnregisterScmProvider` and `ResolveScmShim` to use handle-first lookup with a safe `scmId` fallback.\n\n**IPC deduplication** — the `visibleChanged` and `tabsChanged` bridge handlers fire multiple times per user action because the workbench dispatches overlapping internal events (active editor change, group focus, tab reorder). Add snapshot serialization and early-return guards that suppress duplicate payloads before reaching `MountainIPCInvoke`, eliminating redundant `$acceptVisibleEditorsChanged` callbacks and tab/diagnostic listener re-runs in Cocoon.\n\n**Telemetry env var rename** — shorten `OTLPEndpoint`/`OTLPEnabled` to `Pipe`/`Emit` in both `OTELBridge.ts` and `astro.config.ts` Vite defines for cleaner ergonomics.",
-			"SHA": "a90a4516cef82066f9962a908f0e5e199f92bd5c"
+			"Message": "style(Sky): Reformat README.html to use self-closing tags and stacked inline content\n\nConvert void elements (img, source) to self-closing `/>` in the hero section,\nfunding table, and logo rows. Wrap emoji spacers and inline text on\nseparate lines within heading, anchor, and strong tags.\n\nThis normalizes the HTML formatting to satisfy the project's linting rules\nwithout changing any rendered content.",
+			"SHA": "1e708a8522e9b1a16b5b9ce73feac22db25cd24c"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-31T03:26:15Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				154,
+				1
+			],
+			"Message": "",
+			"SHA": "f792679186b1bcfc741c53b3bf747a56054c39c9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T15:16:21Z",
+			"Date": "2026-05-30T12:33:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				154,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
+			"SHA": "de320fcd3ed12f7716372c91acb970713f2cc2b0"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-30T02:44:15Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				155,
 				1
 			],
-			"Message": "feat(Sky): Refresh Extensions view after install/uninstall\n\nAfter Mountain emits `extensions:install` (VsixInstaller success) or `extensions:uninstall`, the Extensions view sidebar stays stale because VS Code's `IExtensionGalleryService` install pipeline does not expose a public hook that fires from outside Cocoon's process boundary.\n\nAdd `Commands.executeCommand` to the `ServicesProbe` structural interface and wire `RefreshExtensionsView` — a guard that invokes `workbench.extensions.action.refreshExtension`, the same command the toolbar \"Refresh\" button triggers. Internally it calls `IExtensionsWorkbenchService.queryLocal()`, which re-reads `IExtensionManagementService.getInstalled()` and rebuilds the view model. Called after both `sky://extensions/installed` and `sky://extensions/uninstalled` handlers, with a try/catch wrapper so a failing command never disrupts the DOM CustomEvent dispatch reserved for Wind orchestration listeners.\n\nThe Extensions sidebar now reflects newly installed or removed extensions live without requiring a workbench reload.",
-			"SHA": "81da5ccf80f101a9b6801c4554d64888dadfa9ba"
+			"Message": "",
+			"SHA": "3908599b869f063de5c1cb4379cec5cd2f5de366"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T08:10:15Z",
+			"Date": "2026-05-29T13:55:48Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				155,
+				154,
 				2
 			],
-			"Message": "feat(Sky): Relay diff information, view column, and terminal state events to Mountain IPC\n\nAdd three new bridge event relays that close remaining gaps between Sky's workbench integration layer and Cocoon extension event subscriptions:\n\n- **Diff information changes:** Subscribe to `onDidActiveEditorChange` and detect diff editor panes via duck-typing (`onDidUpdateDiff`, `getModifiedEditor`). Forward `getLineChanges()` delta on hook and each recomputation as `sky:editor:diffInformationChanged`, enabling extensions like GitLens and PR reviews to surface diff-relative inline annotations via `vscode.window.onDidChangeTextEditorDiffInformation`.\n\n- **View column changes:** Wire `onDidMoveEditor` per editor group to capture cross-group tab moves (split-view drag-and-drop, move-command). Emit `sky:editor:viewColumnChanged` with the destination group's 1-based index so `vscode.window.onDidChangeTextEditorViewColumn` fires accurately for layout-aware extensions.\n\n- **Terminal interaction state:** Parse OSC 633 ; B (command-input-begins) in the shell integration pipeline and flag the terminal as interacted-with. Notify Mountain once per terminal via `localPty:setInteracted` so `vscode.window.onDidChangeTerminalState` subscribers see `state.isInteractedWith` flip from false to true, matching VS Code's sticky interaction semantics.\n\nAll three channels use snapshot-style one-shot subscriptions at startup with safe teardown on editor switches and guarded try/catch wrappers so the render pipeline is never disrupted by a failing IPC call.",
-			"SHA": "080516fa01c61671f66c171f4dfdd4cb1c782262"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:14:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				155,
-				1
-			],
-			"Message": "feat(Sky): Relay terminal shell execution lifecycle via OSC 633 sequences\n\nExtend the Sky bridge terminal data pipeline to parse VS Code shell integration OSC 633 sequences beyond the existing cwd (;P) handler. Add `OscEndPattern` (;D[;<exitCode>]) and `OscCmdLinePattern` (;E;<commandLine>) regex parsers, plus a per-terminal `InflightExecution` Map that stashes the most recent commandLine and cwd for each terminal id.\n\nOn receiving OSC 633 ; C (output begins), fire `localPty:shellExecutionStart` via Mountain IPC with the captured commandLine and cwd. On OSC 633 ; D (command finished), fire `localPty:shellExecutionEnd` with exitCode, commandLine, and cwd. The in-flight snapshot is cleared of commandLine after the end event so the next execution re-populates fresh.\n\nCocoon extensions can now subscribe to `vscode.window.onDidStartTerminalShellExecution` and `onDidEndTerminalShellExecution` with accurate command context.",
-			"SHA": "8bf6245d60c90d63768563560deb8f774818acb3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:08:05Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				155,
-				1
-			],
-			"Message": "feat(Sky): Bridge editor lifecycle events to Mountain IPC\n\nForward four additional Monaco/workbench event streams through the Sky bridge layer so Cocoon extensions receive the corresponding VS Code API events:\n\n- `onDidScrollChange` fires at most ~16 fps (60 ms debounce) and emits `sky:editor:visibleRangesChanged` with the current visible ranges per editor — consumed by code lens providers, peek view, and minimap subscribers.\n- `onDidChangeConfiguration` emits `sky:editor:optionsChanged` carrying tabSize and insertSpaces so `vscode.window.onDidChangeTextEditorOptions` fires when the user toggles editor settings.\n- `onDidVisibleEditorsChange` (IEditorService) emits `sky:editor:visibleChanged` with the URI list of visible editors, preventing stale diagnostics from accumulating against closed tabs.\n- `onDidChangeActiveGroup`, `onDidAddGroup`, `onDidRemoveGroup`, and per-group `onDidModelChange` (IEditorGroupsService) emit `sky:editor:tabsChanged` with a full group/tab snapshot, enabling tab-level subscribers to react to open/close/move/pin.\n\nAll IPC calls are wrapped in try/catch and `.catch(() => {})` so the render pipeline is never interrupted by a failing Mountain call.",
-			"SHA": "aecea637cdce3eb2f2a2d597b1530a3d1fa1c8b9"
+			"Message": "build(Sky): Bump Astro from 6.3.8 to 6.4.2\n\nUpgraded the Astro framework from version 6.3.8 to 6.4.2 to incorporate upstream bug fixes and performance improvements. This dependency update was triggered by automated Dependabot checks targeting the Land/Element/Sky package.\n\nNo breaking changes expected as this is a minor patch-level increment within the 6.x major version line. The upgrade maintains compatibility with existing build pipeline configurations including Playform compression plugins, Vite 8.0.14, and TypeScript 6.0.3.",
+			"SHA": "8e20f8ed743e5724590d2cc9206193d63ef27fe8"
 		}
 	],
-	"TimeStamp": 1782917459531
+	"TimeStamp": 1783088670920
 }

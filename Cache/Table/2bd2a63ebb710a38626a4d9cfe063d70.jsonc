@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:47:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				919,
+				3
+			],
+			"Message": "feat(Wind): Implement SwallowMap, RedirectBus, and IPCInterceptor for the Shim routing layer\n\nBuild on the Shim type system and activation gate to introduce the three core runtime components that intercept and redirect VS Code IPC calls to Land-native implementations.\n\n**Source/Shim/SwallowMap.ts** — Pattern-matching decision engine that classifies every method into SWALLOW (Land handles, VS Code never sees), PASSTHROUGH (VS Code handles normally), MIXED (both handle, Land's result wins), or DISCARD (silently dropped). Includes a comprehensive built-in default ruleset covering: StatusBar, SCM, Search, Terminal, Output, FileSystem, Notifications, Dialogs, QuickInput, Keybindings, Themes, Configuration, Telemetry (DISCARD), ExtensionsGallery, and Product. Rules are ordered from most-specific to least-specific with first-match-wins semantics, regex support, and optional runtime conditions.\n\n**Source/Shim/RedirectBus.ts** — Central routing bus for the shim architecture. Registered handlers match by method pattern (prefix or regex); first match processes the event. Supports `register`, `unregister`, `route`, `hasHandler`, and `clear` operations. Duplicate registrations update in place. Unmatched methods emit a console warning for debugging misconfigured rules.\n\n**Source/Shim/IPCInterceptor.ts** — Intercepts every Tauri `invoke(\"MountainIPCInvoke\", {method, params})` call before it reaches Mountain's DispatchMatch. Only intercepts MountainIPCInvoke commands; all other Tauri commands pass through unchanged. The fast-path short-circuits entirely when TierShim is None (enabling esbuild tree-shaking). Routes through the four SwallowMap actions with proper fire-and-forget semantics for MIXED mode.\n\nThis completes the Shim's routing infrastructure, enabling Land services to progressively intercept VS Code IPC calls as their Land-native implementations become available.",
+			"SHA": "f36e21721c4309b3ae18449223544f7b52913651"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:47:22Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				916,
+				3
+			],
+			"Message": "feat(Wind): Introduce Shim system types and activation gate\n\nAdd the foundational types and activation infrastructure for the Land Shim system, which intercepts and redirects VS Code service calls to Land-native implementations via the TierShim env var.\n\n**Source/Shim/Type.ts** — Define the core type contract shared between Wind, Output, and Cocoon: `ShimLevel` (None/Proxy/Replace/Own/Preempt), `SwallowAction`, `RedirectTarget`, `SwallowRule`, `SwallowDecision`, `RedirectHandler`, `FlowDirection`, and `ShimEvent`. These types underpin the SwallowMap decision engine and RedirectBus routing.\n\n**Source/Shim/Gate.ts** — Implement the master activation switch that reads `TierShim` at module load and exports boolean flags (`IsEnabled`, `IsProxy`, `IsReplace`, `IsOwn`, `IsPreempt`) for tree-shaking via esbuild. Each activation level unlocks progressively more control: Proxy (audit-only), Replace (service substitution), Own (container ownership), Preempt (full BrowserMain interception).\n\n**Source/Effect/Layers/Test.ts** — Remove the now-obsolete `IPCMockLive` from both test layer stacks (TestLayer and TestWithTelemetryLayer). IPC mock is already a plain object imported directly; no longer part of the Effect Layer composition. Update doc comments to reflect that Configuration, Mountain, and IPC are all plain objects outside the layer stack.\n\nThis completes the cleanup following the IPC De-Effect-ification and establishes the type-safe foundation for the shim system's multi-tier interception strategy.",
+			"SHA": "d4987298b9edaead17c58bef82d6e20b1651c9d9"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T21:43:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "refactor(Wind): De-Effect-ify IPC service — convert errors, implementation, and interface to plain classes and async\n\nComplete the migration of the IPC service away from Effect-TS, the last major service area still using Effect wrappers. This follows the established De-Effect-ify pattern applied to ActivityBar, NetworkRestrictions, Bootstrap, Health, and FileSystem services.\n\n**Error types** (`IPCError.ts`): Convert `IPCInvokeError`, `IPCSendError`, and `IPCSubscriptionError` from interface-based factory functions (`CreateIPCInvokeError`, `CreateIPCSendError`, `CreateIPCSubscriptionError`) to actual `Error` subclasses with `_tag` discriminant via `extends Error`. Remove the factory functions and the aggregated default export — each class is now independently exported.\n\n**Interface** (`IPCService.ts`): Replace Effect-TS signatures — `send` returns `void` (was `Effect.Effect<void, IPCSendError>`), `invoke` returns `Promise<unknown>` (was `Effect.Effect<unknown, IPCInvokeError>`), `events` returns a plain `IPCEventStream` with a `subscribe(listener)` model (replacing `Stream.Stream`), and `once` takes a callback (replacing `Effect.Effect`). Introduce `IPCEvent`, `IPCEventListener`, `IPCCleanup`, and `IPCEventStream` types.\n\n**Implementation** (`TauriIPC.ts`): Rewrite from curried Effect-returning functions (`(channel) => (args) => Effect.try(...)`) to flat async/sync functions (`invoke(channel, args)`, `send(channel, args)`). Replace the `events` Stream-based subscription with a `Set<IPCEventListener>` model that auto-cleanses the Tauri listener when the last subscriber disposes. Convert `once` from `Effect.async` to `async/await` with auto-cleanup. Remove all Effect-TS imports.\n\n**Impact**: Eliminates the last Effect-TS dependency from Wind's IPC layer. Errors now produce standard `Error` stack traces for simpler debugging. The interface is plain TypeScript — no Effect imports needed by consumers.",
 			"SHA": "0aeaeb8a36734ce87a7361b0dfa519ace58e8506"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:41:32Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				916,
-				14
-			],
-			"Message": "refactor(Wind): Consolidate barrel exports and add ActivityBarItemUpdate type\n\nNormalize export ordering across four service barrels (ActivityBar, Bootstrap, Health, NetworkRestrictions) into consistent groups — errors, helpers, implementations, interfaces, types — replacing ad-hoc interleaving that made imports harder to audit.\n\n**Barrel re-exports** (`ActivityBar.ts`, `Bootstrap.ts`, `Health.ts`, `NetworkRestrictions.ts`, `ActivityBar/index.ts`, `Health/index.ts`):\n- Alphabetize export groups within their categories and place value exports before type exports.\n- Collapse separate value-only and type-only re-exports from the same module into combined export blocks.\n\n**ActivityBarItemUpdate type** (`ActivityBarService.ts`):\n- Introduce a dedicated `ActivityBarItemUpdate` partial type that explicitly permits `badge: undefined` for badge removal, replacing the broader `Partial<Omit<ActivityBarItem, \"id\">>` parameter in `updateItem`.\n- Update `ActivityBarImplementation.ts` and `ActivityBarMock.ts` signatures accordingly.\n\n**Minor cleanups**:\n- `BootstrapImplementation.ts`: Convert string concatenation to template literal.\n- `BootstrapStage.ts`: Collapse over-wide import back to single line.\n- `NetworkRestrictionsHelper.ts`: Prefix three unused loop variables (`Pattern`) with underscore to silence unused-variable diagnostics.\n- `HealthImplementation.ts`, `NetworkRestrictionsImplementation.ts`: Consistent method-signature formatting.\n\nNo behavioral changes — purely structural normalization and type precision.",
-			"SHA": "a3be484eb3db337d974c0d147372b0c20d05481d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:24:36Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				916,
-				3
-			],
-			"Message": "refactor(Wind): Complete NetworkRestrictions De-Effect-ify — convert implementation to plain factory\n\nComplete the migration of the NetworkRestrictions service away from Effect-TS by converting the implementation from a `Layer.effect` providing a `Context.Tag` to a plain `makeNetworkRestrictions(Log)` factory function.\n\n**Implementation** (`NetworkRestrictionsImplementation.ts`):\n- Remove all Effect-TS imports (`Effect`, `Layer`, `Ref`, `Telemetry`) — the `Telemetry` dependency is replaced with a simple `NetworkRestrictionsLogger` callback (`performance.mark`-based default, no Effect surface).\n- Convert `Ref.make`/`Ref.get`/`Ref.set` state management to plain `let _config`, `let _blockedRequests`, `let _telemetryLevel` module-closure variables.\n- All methods become synchronous — `checkURL`/`checkIPCChannel` return `boolean` (throw `NetworkBlockError`/`IPCBlockError` on denial) instead of `Effect<boolean, Error>`; `blockURL`/`updateConfig`/`setTelemetryLevel` return `void` instead of `Effect<void>`.\n- Delete `NetworkRestrictionsTag.ts` entirely — no more `Context.Tag` or `Layer` export.\n\n**Barrel** (`NetworkRestrictions.ts`):\n- Remove Tag re-exports (`NetworkRestrictions`, `NetworkRestrictionsTag`).\n- Change `IPCBlockError`/`NetworkBlockError` from `export type` to `export` since they are now concrete `Error` subclasses (converted in the prior commit).\n- Add `makeNetworkRestrictions` export alongside the existing default `NetworkRestrictionsLive`.\n- Update doc examples to show plain `NetworkRestrictionsLive.checkURL(...)` instead of `yield* NetworkRestrictions`.\n\n**Impact**: Completes the final phase of the NetworkRestrictions De-Effect-ify (started in 914a220a). Removes the last Effect Layer and Tag from this service area, cutting ~160 lines and eliminating Ref/Effect.gen/Layer boilerplate in favor of straightforward synchronous code.",
-			"SHA": "3882d53b44779f78db060ce01bd44692004ffa46"
 		}
 	],
-	"TimeStamp": 1782917453528
+	"TimeStamp": 1783088666303
 }

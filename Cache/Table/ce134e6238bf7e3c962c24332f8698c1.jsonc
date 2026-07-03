@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T06:25:30Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				105,
+				2
+			],
+			"Message": "Merge pull request #57 from CodeEditorLand/fix/eliminate-free-var-move-safety\n\nfix(eliminate): skip inlining when free vars in Init are moved before substitution site",
+			"SHA": "464c558711f67cc07a618cffa4b900e2e356fbe4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T06:20:14Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				105,
+				1
+			],
+			"Message": "fix(Eliminate/CLI): add Reformat field to Options literal in CLI.rs\n\nDefinition::Options gained a Reformat field in an earlier commit but\nCLI.rs constructs Options via a named-field struct literal and was not\nupdated, causing a missing-field compile error on every build.\n\nAdd Reformat: false to the CLI literal (preserve-layout is the safe\ndefault; users who want the old full-reformat behaviour can pass\n--reformat once a flag is wired, but for now the field defaults off).\n\nAlso add the corresponding --reformat CLI flag so power users can opt in\nto the previous prettyplease reformat behaviour from the command line.",
+			"SHA": "4fbae67f03f1baab14fdd42bc746ac7a6dd8db5a"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-25T06:08:48Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "fix(Eliminate): correct compilation errors - keep Inline.rs intact, implement preserve path in mod.rs only\n\nThe previous commit replaced Inline.rs wholesale with code that used\nnon-existent APIs and wrong call signatures, causing Build (stable) to\nfail. This commit:\n\n1. Restores Inline.rs exactly to the Current branch original - all\n   existing tests and the Substitutor/SubstituteRef architecture are\n   preserved intact.\n\n2. Rewrites mod.rs with a self-contained RunPreserve that drives the\n   existing Collect / Count / Safe / SubstituteRef APIs directly,\n   using proc_macro2::Span::byte_range() to map AST statement positions\n   back to source byte offsets for surgical text replacement.\n   No new imports beyond what syn/proc_macro2 already provide.\n\n3. Definition.rs: adds Reformat: bool (default false) only.",
 			"SHA": "4b135d7bf1ca6da2e500f21ae9f01029d10b85f6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T05:41:53Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				105,
-				3
-			],
-			"Message": "fix(Eliminate): preserve comments, blank lines and layout via text-level substitution\n\nPreviously Transform::Run always called prettyplease::unparse(&Ast) for\nany file where at least one binding was inlined. Because syn's AST does\nnot carry non-doc comment tokens, blank-line trivia, or indentation\ninformation, every such reprint permanently destroyed:\n\n- All // and /* */ comments not attached to an AST node (inline\n  comments, section banners, explanatory notes).\n- Every intentional blank line between items, between let statements,\n  and between match arms.\n- The original indentation style (tabs vs. 4-space).\n- Deliberately-named clone variables whose purpose was readability, by\n  synthesising .clone() call-sites that the author never wrote.\n\nFix strategy\n------------\nUse the AST pass only to *identify* which let bindings are safe to\ninline, then reconstruct those substitutions directly on the original\nsource text via a line-range map, leaving every other character\nunchanged.\n\n1. Definition.rs - add `Reformat: bool` (default false).  When true the\n   old prettyplease path is used as an opt-in \"aggressive normalise\"\n   mode, matching previous behaviour exactly.\n\n2. Transform/mod.rs - introduce `TextEdit` (byte-offset span + new\n   text), collect edits from the AST visitor, apply them to the\n   original source string in reverse order so offsets stay valid.\n   The Inline::Eliminator now accumulates TextEdit values rather than\n   mutating the AST in place when Options.Reformat is false.\n\n3. Transform/Inline.rs - split the mutation path: when collecting in\n   text-edit mode the visitor records (stmt_byte_range, replacement_src)\n   pairs produced by prettyplease on the *single affected statement*\n   only, rather than the whole file.\n\nCloses #60",
-			"SHA": "f0a3d4444def2f8a0ed4175d1817c4fbf86878ef"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T05:36:38Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				106,
-				2
-			],
-			"Message": "fix(eliminate): preserve inline comments and blank lines via span-based text patching\n\nFixes the root cause of the formatting regression reported in the issue.\n\nBefore this change, Transform::Run called prettyplease::unparse on the\nentire syn::File whenever any elimination occurred. prettyplease only\nsees the AST; it has no view of inline // comments, blank lines, or\noriginal spacing trivia. Every touched file was fully reprinted in\nprettyplease canonical style, which removed comments and restructured\nwhitespace across regions of the file that had nothing to do with the\neliminated bindings.\n\nThis change replaces the full reprint with a span-based text-patch\napproach:\n\n1. Run::Run now takes the original source string and the post-elimination\n   AST side-by-side.\n2. A new Patch module collects the byte-span of each removed let\n   statement and the byte-span of the use site where the initialiser\n   was substituted, sourced from proc_macro2 span start/end offsets on\n   the original parsed tokens.\n3. PatchSource applies those edits as a sorted, non-overlapping set of\n   byte-range replacements against the original source string, leaving\n   every other byte - including comments, blank lines, and all\n   formatting trivia - untouched.\n4. If span information is unavailable (proc_macro2 built without\n   span-locations feature, or spans are call_site), the pipeline falls\n   back to prettyplease so behaviour is never worse than before.\n\nThe fallback path keeps all existing tests passing without modification.\nNew tests in Patch.rs verify the splice logic directly.",
-			"SHA": "5a183b72104fb140900f03aba2e46a4efca42e06"
 		}
 	],
-	"TimeStamp": 1782917457820
+	"TimeStamp": 1783088669613
 }

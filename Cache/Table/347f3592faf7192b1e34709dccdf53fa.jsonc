@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:29:57Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				155,
-				3
-			],
-			"Message": "fix(Sky): Replace bare specifier with relative path in workbench layouts\n\nThe three workbench layout entry points (Bundled Electron, standalone Electron, and Mountain Tauri) each imported the Sky bridge via the `@codeeditorland/sky` package specifier. When the build pipeline does not alias `@codeeditorland/sky` to the Sky source directory, this bare specifier can cause module resolution failures or produce duplicate copies of the bridge module in the bundle.\n\nReplace all three imports with explicit relative paths that resolve directly to `Function/Sky/Bridge.js` within the Sky source tree, ensuring deterministic module resolution across every workbench bootstrap path.",
-			"SHA": "a55b46df905fa8d512b45cb05d6cc3caf30ce51a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:08:57Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				155,
-				6
-			],
-			"Message": "fix(Sky): Bridge extension IPC flows to workbench service layer\n\nRegister decoration types directly with ICodeEditorService in InstallTasksAndDecorations so that setDecorationsByType paints extension decorations (ESLint squiggles, GitLens blame, Error Lens) instead of silently dropping them. The previous DOM-event-only relay left Monaco's renderer with no registered styling.\n\nSwitch from the deprecated setDecorations to setDecorationsByType in InstallEditorOperations, matching the \"ext\" description used during type registration.\n\nWire panel-mode webview lifecycle in InstallWebview by subscribing to onMessage, onWillDispose, and onDidActiveEditorChange and forwarding them back to Cocoon via cocoon:notify, so extensions receive postMessage, dispose, and viewState events. Set disableServiceWorker: true (WKWebView refuses SW registration on vscode-webview://), add stable origin per viewType for session storage, and replay pending HTML from the race window before openWebview resolves. Resolve postMessage by handle (panel) in addition to viewId (sidebar).\n\nAdd sky://output/replace handler in InstallEditorAndOutput for atomic output channel buffer replacement matching upstream's replace() semantics, and honour preserveFocus on sky://output/show.\n\nRelay sky://tree-view/refresh from Cocoon to the workbench's ITreeView.refresh() in Bridge.ts, triggering fresh getChildren round-trips back to extensions.\n\nTogether these changes close the gap between Sky's bridge layer and the workbench service layer — decorations now paint, webview panels are interactive, output channels update atomically, and tree views respond to data changes.",
-			"SHA": "52c452ced426f97e3693796a3488eca42c56d028"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T13:48:05Z",
+			"Author": "Auto",
+			"Date": "2026-05-29T02:50:59Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				155,
 				1
 			],
 			"Message": "",
-			"SHA": "a334ff9a555433d7c686664263b418224c57b5a2"
+			"SHA": "885f795ba6a66c3aad94a4ed97198e7ff71c5d55"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T13:48:05Z",
+			"Date": "2026-05-28T18:38:53Z",
+			"File": [
+				"⣿⠁⠀⠀⠀",
+				155,
+				34
+			],
+			"Message": "build(Sky): Extract bridge handlers into modular installers and harden build pipeline\n\nRefactor the monolithic `Bridge.ts` into discrete installer modules (Commands, EditorOperations, Scm, Webview, etc.) while introducing idempotent install guards and standardized error-surrounding try/catch blocks. The extraction preserves the existing dependency-injection shape (`Register`, `GetServices`, `Invoke`) so downstream call sites require no changes.\n\nStrengthen the Astro build pipeline: `BakeExtensionManifest` now scans `~/.land/extensions`, `~/.fiddee/extensions`, and `~/.vscode/extensions` with NLS-resolution fallback, writing both debug and production manifest paths while skipping stale cache hits. `CompressBundle` applies brotli compression (quality 11) to `_astro` and `Static/Application` artifacts, skipping files smaller than 1 KB or with < 5 % savings.\n\nHardened `astro.config.ts` with Vite define backfills for missing profile/color-scheme/terminal fields, performance-mark checkpoints spanning workbench boot phases, and robust extension auto-install logging. Output channel handlers now prefer `IOutputService.showChannel()` for targeted reveals, and notification relays drive `INotificationService.notify()` directly for production toast visibility.",
+			"SHA": "e7bd6f220ab05562878801bac301061173aedf06"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-27T02:22:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				155,
 				1
 			],
-			"Message": "feat(Sky): Relay treeView.reveal to workbench view panel\n\nCocoon extensions calling `vscode.treeView.reveal(element)` dispatch a\n`sky://tree-view/reveal` URI that must open and focus the corresponding tree\nview panel in the workbench. Add a relay handler in InstallSimpleRelays that\nfires a `cel:tree-view:reveal` DOM event and invokes `Views.openView(viewId)`\non the workbench service layer.\n\nThe handler is guarded by a null check on viewId and a try/catch so the\nrelay pipeline is never interrupted when the workbench is not yet initialised.\nStale optional chaining on `openView` cleaned up (the outer try/catch already\ncovers rejection).",
-			"SHA": "651bca38044971374a08dd5fab01e2cea093595a"
+			"Message": "Merge pull request #522 from CodeEditorLand/dependabot/npm_and_yarn/astro-6.3.8\n\nbuild(deps): bump astro from 6.3.7 to 6.3.8",
+			"SHA": "4f4cb5171e1f0137974bd1d928ec02a8ec4ca780"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:23:47Z",
+			"Author": "dependabot[bot]",
+			"Date": "2026-05-27T02:11:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				155,
 				1
 			],
-			"Message": "feat(Sky): Relay OSC 633 shell integration sequences from terminal data\n\nParse VS Code shell integration escape sequences (OSC 633) from terminal\noutput in the Sky bridge layer and forward them to Mountain via\nMountainIPCInvoke so Cocoon extensions can read\n`terminal.shellIntegration.cwd` and detect shell integration activation.\n\nOSC 633 ; A (prompt start) triggers `localPty:setShellIntegrationActive`\nonce per terminal; OSC 633 ; P ; cwd=<path> triggers `localPty:setCwd` on\neach CWD update. Parsing is guarded by a Set to avoid redundant activation\nnotifications and wraps all Tauri IPC in try/catch so terminal data\nrendering is never interrupted.\n\nExtends `InstallProgressTerminalWorkspace` in the Sky/Bridge layer.",
-			"SHA": "42861a8462195fc313ca33f8e651cac53423a0ac"
+			"Message": "build(deps): bump astro from 6.3.7 to 6.3.8\n\nBumps [astro](https://github.com/withastro/astro/tree/HEAD/packages/astro) from 6.3.7 to 6.3.8.\n- [Release notes](https://github.com/withastro/astro/releases)\n- [Changelog](https://github.com/withastro/astro/blob/main/packages/astro/CHANGELOG.md)\n- [Commits](https://github.com/withastro/astro/commits/astro@6.3.8/packages/astro)\n\n---\nupdated-dependencies:\n- dependency-name: astro\n  dependency-version: 6.3.8\n  dependency-type: direct:production\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "6a68dc5f0f3c8b66676d6bfb29c00f91fe9e533b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T18:17:48Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				155,
+				5
+			],
+			"Message": "fix(Sky): Route bridge handlers through live workbench services\n\n**Output channel payload normalisation** — Mountain's coalescer, the legacy per-append path, and Cocoon's forwarding each use different field names (`channel`/`name`/`handle`/`id`, `text`/`value`). `sky://output/create`, `append`, `clear`, `replace`, `show`, and `dispose` now read every field shape so the Output panel populates regardless of producer. `sky://output/show` prefers the live `IOutputService.showChannel()` for channel-targeted reveal before falling back to the generic workbench command.\n\n**Notification service integration** — `sky://notification/show` previously dispatched a CustomEvent only, reaching no visual surface in production. Drive `INotificationService.notify()` directly with proper severity string-to-number mapping so `showInformationMessage`/`showWarningMessage`/`showErrorMessage` actually surface toasts.\n\n**Monaco language switch** — `sky://languages/setDocumentLanguage` now calls `monaco.editor.setModelLanguage()` so highlighting and tokenisation switch in place without re-opening the file.\n\n**SCM shim robustness** — Derive per-repo display labels from `rootUri` basename for multi-repo workspaces (e.g. `Git (Mountain)` instead of duplicate `Git` headers). Replace static zero-value field shims with `IObservable`-shaped facades exposing live derived resource counts. Fire `provider.onDidChange` and `ResourceGroupsEmitter` after populating groups so the viewlet badge and title-bar count reflect real totals.\n\n**Progress service routing** — Route through `IProgressService.withProgress()` when available for native VS Code progress rendering, with a DOM-painted fallback during early boot. Cache pending messages for in-flight starts whose Report handle hasn't yet been captured.\n\n**Replay summary** — Include `scmGroups` and `scmResourceUpdates` fields in event-replay summary logging.",
+			"SHA": "daf83add5db20440ded7f50f2af39e5e3573eee1"
 		}
 	],
-	"TimeStamp": 1782917459817
+	"TimeStamp": 1783088671196
 }

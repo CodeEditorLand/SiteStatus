@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:41:32Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				916,
+				14
+			],
+			"Message": "refactor(Wind): Consolidate barrel exports and add ActivityBarItemUpdate type\n\nNormalize export ordering across four service barrels (ActivityBar, Bootstrap, Health, NetworkRestrictions) into consistent groups — errors, helpers, implementations, interfaces, types — replacing ad-hoc interleaving that made imports harder to audit.\n\n**Barrel re-exports** (`ActivityBar.ts`, `Bootstrap.ts`, `Health.ts`, `NetworkRestrictions.ts`, `ActivityBar/index.ts`, `Health/index.ts`):\n- Alphabetize export groups within their categories and place value exports before type exports.\n- Collapse separate value-only and type-only re-exports from the same module into combined export blocks.\n\n**ActivityBarItemUpdate type** (`ActivityBarService.ts`):\n- Introduce a dedicated `ActivityBarItemUpdate` partial type that explicitly permits `badge: undefined` for badge removal, replacing the broader `Partial<Omit<ActivityBarItem, \"id\">>` parameter in `updateItem`.\n- Update `ActivityBarImplementation.ts` and `ActivityBarMock.ts` signatures accordingly.\n\n**Minor cleanups**:\n- `BootstrapImplementation.ts`: Convert string concatenation to template literal.\n- `BootstrapStage.ts`: Collapse over-wide import back to single line.\n- `NetworkRestrictionsHelper.ts`: Prefix three unused loop variables (`Pattern`) with underscore to silence unused-variable diagnostics.\n- `HealthImplementation.ts`, `NetworkRestrictionsImplementation.ts`: Consistent method-signature formatting.\n\nNo behavioral changes — purely structural normalization and type precision.",
+			"SHA": "a3be484eb3db337d974c0d147372b0c20d05481d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:24:36Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				916,
+				3
+			],
+			"Message": "refactor(Wind): Complete NetworkRestrictions De-Effect-ify — convert implementation to plain factory\n\nComplete the migration of the NetworkRestrictions service away from Effect-TS by converting the implementation from a `Layer.effect` providing a `Context.Tag` to a plain `makeNetworkRestrictions(Log)` factory function.\n\n**Implementation** (`NetworkRestrictionsImplementation.ts`):\n- Remove all Effect-TS imports (`Effect`, `Layer`, `Ref`, `Telemetry`) — the `Telemetry` dependency is replaced with a simple `NetworkRestrictionsLogger` callback (`performance.mark`-based default, no Effect surface).\n- Convert `Ref.make`/`Ref.get`/`Ref.set` state management to plain `let _config`, `let _blockedRequests`, `let _telemetryLevel` module-closure variables.\n- All methods become synchronous — `checkURL`/`checkIPCChannel` return `boolean` (throw `NetworkBlockError`/`IPCBlockError` on denial) instead of `Effect<boolean, Error>`; `blockURL`/`updateConfig`/`setTelemetryLevel` return `void` instead of `Effect<void>`.\n- Delete `NetworkRestrictionsTag.ts` entirely — no more `Context.Tag` or `Layer` export.\n\n**Barrel** (`NetworkRestrictions.ts`):\n- Remove Tag re-exports (`NetworkRestrictions`, `NetworkRestrictionsTag`).\n- Change `IPCBlockError`/`NetworkBlockError` from `export type` to `export` since they are now concrete `Error` subclasses (converted in the prior commit).\n- Add `makeNetworkRestrictions` export alongside the existing default `NetworkRestrictionsLive`.\n- Update doc examples to show plain `NetworkRestrictionsLive.checkURL(...)` instead of `yield* NetworkRestrictions`.\n\n**Impact**: Completes the final phase of the NetworkRestrictions De-Effect-ify (started in 914a220a). Removes the last Effect Layer and Tag from this service area, cutting ~160 lines and eliminating Ref/Effect.gen/Layer boilerplate in favor of straightforward synchronous code.",
+			"SHA": "3882d53b44779f78db060ce01bd44692004ffa46"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T21:24:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "style(Wind): Normalize README punctuation and build config indentation\n\nReplace em dashes (—) with hyphens (-) throughout README.md for consistent ASCII punctuation across the documentation. Reformat tsconfig.build.json from 2-space indentation to tab-indented with single-line array items, matching the project's convention established in tsconfig.json.\n\nNo behavioral changes — purely cosmetic formatting normalization across documentation and build configuration.",
 			"SHA": "ed1a42e950febefbd3b8d5a429195947fc413bfd"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:04:08Z",
-			"File": [
-				"⣿⡏⠀⠀⠀",
-				924,
-				300
-			],
-			"Message": "style(Wind): Strip extra blank lines inside interface/class bodies and between imports\n\nRemove ~1,200 blank lines that violated the project's formatting conventions across 300+ files in Source/. The changes fall into six categories:\n\n1. **Interface/class body blank lines**: Every exported interface, class, default-object, and exported-const-object that began with a blank line after `{` now has it removed — \"squaring\" the opening brace against the first member. Affected ~200 files across Bootstrap/Types, Codegen, Effect, FileSystem, Service, Telemetry, Types, and Workbench.\n\n2. **Import-group blank lines**: Blank lines separating two consecutive `import` statements (or `import type` statements) from the same module group are removed, collapsing multi-line import blocks into dense `import`-`import` runs. Exceptions preserved at semantic boundaries (e.g., Effect imports vs. local directory imports).\n\n3. **Discriminated union blank lines**: Blank lines between adjacent `| { _tag: ... }` branches in `*Problem` and `*State` type definitions are removed.\n\n4. **Missing blank lines in barrel exports**: `Mountain/index.ts`, `WorkbenchActivity/index.ts`, `WorkbenchCommand/index.ts` gain a blank line before `export type` sections after a series of value re-exports, matching the barrel convention in neighbouring modules.\n\n5. **Import ordering**: `BootstrapStage.ts` swaps `EnvironmentTag` above `EnvironmentInfo` to pair the Tag import with its type; `WorkbenchLayoutLive.ts`, `WorkbenchLifecycleLive.ts`, `WorkbenchNotificationLive.ts`, `WorkbenchProgressLive.ts`, `WorkbenchThemeLive.ts` fix `type` keyword placement and group imports consistently.\n\n6. **Build config**: `tsconfig.build.json` added with a focused compilation target (`Source/Build.ts`, Constants, Types, Effect/Layers); `tsconfig.json` exclude list expanded with 47 path entries to silence diagnostics in generated/polyfill/debug modules.\n\nNo behavioral changes.",
-			"SHA": "c458f3973e1db58d66720d262e758c6cf39d95b6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:14:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				923,
-				4
-			],
-			"Message": "style(Wind): Alphabetize barrel re-exports and normalize spacing\n\nSort the three barrel files (Configuration, Mountain, BootstrapStage) so that named re-exports within each logical category follow alphabetical order, matching the convention established in prior formatting passes.\n\n- **BootstrapStage.ts**: Move `EnvironmentTag` value import below its paired `EnvironmentInfo` type import; remove trailing blank line before the first default-export key.\n- **Configuration.ts**: Reorder 15 re-exported names — errors (Apply→Fetch→Validation), values (Create→Get→Make→Validate), live/mock implementations (ConfigurationLive→ConfigurationMock→…), type aliases (Configuration→ConfigurationService→…).\n- **Mountain.ts**: Reorder 11 re-exported names — errors (Connection→RPC→State→Sync), values (Create→Live→Mock), type aliases (Mountain→MountainConnectionState→…).\n- **Mountain/index.ts**: Add missing blank line separator between the error-types section end and the Live Implementation section header, consistent with the other 19 barrel files.\n\nNo behavioral changes — pure formatting alignment.",
-			"SHA": "9e54723c97df9f4f62359952ede73e25acdca4ad"
 		}
 	],
-	"TimeStamp": 1782917453827
+	"TimeStamp": 1783088666636
 }

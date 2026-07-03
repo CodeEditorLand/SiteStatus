@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T22:22:38Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1517,
+				1
+			],
+			"Message": "feat(Mountain): Wire workspace save/saveAs/saveAll through to Sky\n\nAdd three IPC handler arms to the Workspace dispatch table in CreateEffectForRequest so Cocoon's vscode.workspace.save() and related extension API calls reach the workbench textfile service running in Sky.\n\n- `Workspace.Save` — extracts the URI from parameter position 0 or the \"uri\" key, routes to `sky://workspace/save`, and returns the URI on success so the caller can confirm persistence.\n- `Workspace.SaveAs` — mirrors the Save path but dispatches to `sky://workspace/saveAs`; the Sky handler can later drive a standalone Save-As dialog.\n- `saveAll` / `Workspace.SaveAll` — accepts the legacy `saveAll` method name (used by gRPC/Client.ts) and routes to `sky://workspace/saveAll`, returning null on failure instead of crashing the workbench.\n\nAll three handlers degrade gracefully: if Sky does not respond, they log a warning and return the original URI (for Save/SaveAs) or null (for SaveAll), preventing extension host crashes on missing handlers.",
+			"SHA": "5afb710dc67ede34e2939e573ca97cf05f3e8590"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T21:53:10Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1517,
+				4
+			],
+			"Message": "perf(Mountain): Cache OS properties and Rosetta; track active document\n\nReduce redundant OS syscalls and system-info queries while keeping Cocoon's\nactiveTextEditor shim in sync when Wind opens a document.\n\n**Cached OS Properties (OSProperties.rs):**\nWrap sysinfo::System-based OS attribute collection (type, release, arch,\nCPU topology) behind a OnceLock, extracting the computation into a\ncompute_os_properties() helper. Spawning sw_vers/uname and refreshing CPU\ndata on every IPC call was wasting ~10 ms per invocation.\n\n**Cached Rosetta Detection (mod.rs):**\nMove the sysctl.proc_translated subprocess behind a OnceLock — a process\neither runs under Rosetta 2 or it does not for its entire lifetime.\n\n**Active Document Tracking (ModelOpen.rs):**\nAfter opening a document, call SetActiveDocumentURI on the application\nstate and fire a fire-and-forget gRPC notification\nwindow.didChangeActiveTextEditor to Cocoon so its\nvscode.window.activeTextEditor shim updates immediately.\n\n**Terminal Layout Persistence (mod.rs):**\nRefactor localPty:getTerminalLayoutInfo and\nlocalPty:setTerminalLayoutInfo to use\nGetStorageValue(true, ...)/UpdateStorageValue(true, ...) on\nStorageProvider, eliminating manual JSON serialization and improving\nerror resilience.\n\nImpact: Reduced IPC latency for OS queries, correct active editor state\nfor extensions, simpler terminal layout persistence code.",
+			"SHA": "2a0e335eb7bc17b03b24d928c97dfd124542cd12"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-19T21:46:15Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Mountain): Terminal serialization/revival, fill IPC gaps\n\nComplete the terminal window-reload persistence cycle and close multiple VS Code Workbench IPC compatibility gaps:\n\n**Terminal state persistence (window reload):**\n- Add `SerializeTerminalState` — snapshot all active PTYs to `ISerializedTerminalState[]` with `shellLaunchConfig`, `processDetails`, and replay metadata, called by `localPty:serializeTerminalState` just before reload.\n- Add `ReviveTerminalProcesses` — respawn shells from the snapshot array, forwarding each entry to `TerminalCreate` and emitting `sky://terminal/create` for the xterm panel. Skips entries with an empty executable.\n- Wire `localPty:getRevivedPtyNewId` to `GetNextTerminalIdentifier()` (no longer a no-op) so the workbench pre-allocates collision-free IDs before revival.\n\n**Configuration/Theme IPC completeness:**\n- Alias `configuration:lookup` → `ConfigurationGet` — needed by `IConfigurationService.getValue(key)` in the Workbench singleton.\n- Implement `configuration:inspect` — returns `{value, default, user, workspace, workspaceFolder, memory}` with the current effective value in both `value` and `default`, null for all scope overrides (correct for Land where no user/workspace JSON overrides exist).\n- Alias `themes:getColorTheme` → `ThemesGetActive` — `IThemeService.getColorTheme()` Workbench channel method.\n- Extend `ThemesGetActive` response with numeric `ColorThemeKind` enum (`type`: 1-4) and `semanticHighlighting: false` so tokenization and colour-picker internals have the expected shape.\n\n**Dialog unwrapping for Wind consumption:**\n- `UserInterface.ShowOpenDialog` — unwrap `{canceled, filePaths}` envelope to bare `string[]` so Wind's `Array.isArray(result)` guard finds the paths.\n- `UserInterface.ShowSaveDialog` — unwrap `{canceled, filePath}` envelope to bare path string so Wind's `typeof result === \"string\"` guard succeeds.\n\n**Path format fix in sandbox config:**\n- Convert `appRoot`, `homeDir`, `tmpDir`, `userDataDir`, `backupPath` from `file://` URLs to plain OS filesystem paths. VS Code's `URI.file(path)` receives these via `AbstractNativeEnvironmentService` and double-encodes a `file://` string, producing broken `path.join` bases.\n\n**Provider registration for VS Code ≥1.87 APIs:**\n- Add `register_inline_completion_item_provider`, `register_inline_edit_provider`, `register_multi_document_highlight_provider`, `register_mapped_edits_provider`, `register_document_paste_edit_provider`, `register_document_drop_edit_provider` — each wires through `CreateProviderEffect` into the existing ProviderRegistration map so the Language Feature dispatch layer can proxy `$provideXxx` requests back to Cocoon.\n\n**Terminal show/hide via gRPC provider path:**\n- Wire `$terminal:show`/`$terminal:hide` and `Terminal.Show`/`Terminal.Hide` through `TerminalProvider` — Cocoon's window namespace shim calls these when extensions invoke `terminal.show(preserveFocus)` or `terminal.hide()`, and both call sites now share one implementation.\n\n**Debug configuration provider cleanup:**\n- Add gRPC notification `unregister_debug_configuration_provider` with `UnregisterDebugConfigurationProvider` handler — mirrors `UnregisterDebugAdapter` for the DebugConfiguration slot, invoked when an extension disposes a `vscode.debug.registerDebugConfigurationProvider` registration.\n\n**Stub-ack additions:**\n- Add `log:registerLogger`/`log:createLogger` alongside the existing `logger:*` stubs — VS Code 1.87+ calls both prefixes and was crashing on every boot with \"registered but no dispatch arm\".\n\n13 files changed, 479 insertions, 23 deletions.",
 			"SHA": "7d6b949d24c36559cb084154ef6c4be20b9a716e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T04:43:59Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
-				1
-			],
-			"Message": "fix(Mountain): Supply missing INativeWindowConfiguration fields in sandbox config\n\nAdd eight non-optional fields to the `ConstructSandboxConfiguration` JSON blob that VS Code's `NativeWorkbenchEnvironmentService` and related environment service layers access without null-checks:\n\n- `perfMarks`, `loggers` — empty arrays expected by performance-mark collection and logger initialization pathways.\n- `colorScheme` — default `{ dark: false, highContrast: false }` used early in startup before the real theme is resolved.\n- `mainPid` — the current process ID, consumed by process-tree and crash-reporter logic.\n- `os` — includes `release`, `hostname`, and `arch` derived from `std::env::consts`, required by platform-conditional feature gating in the workbench.\n- `dataFolderName` / `sharedDataFolderName` — set to `.fiddee` (or the `ProductDataFolderName` env var), preventing `URI.joinPath(userHome, undefined, \"extensions\")` from throwing a TypeError in `extensionsPath` and `appSharedDataHome`.\n- `version` — read from `ProductVersion` env var, defaulting to `1.0.0`, used by extension compatibility checks and telemetry reporting.\n\nMissing any of these causes crashes during extension host initialization and workbench service construction. Body uses trailing comma syntax consistently.",
-			"SHA": "0066703567eaf9dd4ae8579009011dbc6b79318a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T04:19:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
-				6
-			],
-			"Message": "fix(Mountain): Add logsPath to sandbox config, clean up handlers\n\nAdd the required `logsPath` field to `ISandboxConfiguration` to prevent VS Code's `NativeWorkbenchEnvironmentService.logsHome` from resolving to `undefined`, which crashes the extension host with a `TypeError` in `path.join`. The path is derived from `AppDataDir/logs/<session-timestamp>`, created eagerly before constructing the sandbox object.\n\nRemove the `nativeHost:setDocumentEdited` handler body — `NSWindow::setDocumentEdited` is not exposed by Tauri 2.x's `WebviewWindow` API — and strip the unused `ping_timeout` field from `ConnectionHealthChecker` since health checks are now call-path-driven rather than timer-based.\n\nSimplify early-return control flow in `isPortFree` and `getTerminalProcessId` to reduce branch nesting and eliminate dead returns. Fix the `TerminalId` type in `ResizeTerminal` with an explicit `.into()` conversion.\n\nRedraw the README architecture diagram as a structured subsystem hierarchy (Binary/, Track/, RunTime/, IPC/, Vine/, RPC/) with accurate gRPC port annotations for the Cocoon (:50052) and Air (:50053) sidecars.\n\nAdd `MIRIFLAGS=-Zmiri-disable-isolation` to `.cargo/config.toml` to permit `_NSGetExecutablePath` calls during Miri testing.",
-			"SHA": "0644dc0e1c7ea10717d827c6f4bdbde334d3da45"
 		}
 	],
-	"TimeStamp": 1782917473571
+	"TimeStamp": 1783088681848
 }

@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T12:21:26Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				3
+			],
+			"Message": "refactor(Mountain): Delegate AirClient and AirServiceProvider logic to AirLibrary crate\n\nFollowing the migration of the Air gRPC client and service provider logic to the dedicated `AirLibrary` crate, replace the Mountain-side implementations with thin compatibility shims. `AirClient` and `AirServiceProvider` are now type aliases to their canonical definitions in the `::AirLibrary::Client` namespace.\n\nIntroduce `MapAirError` in `AirClient.rs` to handle the translation between `::AirLibrary::AirError` and `CommonError`, ensuring that existing Mountain call sites can preserve their `Result<_, CommonError>` signatures. The `GenerateRequestID` helper is also updated to delegate to the new crate namespace.\n\nThis restructuring completes the extraction of Air-related logic into its own element, reducing code duplication and decoupling the daemon communication surface from the Mountain backend.",
+			"SHA": "e3fadf040df9bd1cef2e59e6db7a41b974d6e510"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T12:17:47Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				10
+			],
+			"Message": "refactor(Mountain): Update Air type delegations to reference AirLibrary crate\n\nFollowing the delegation of Air-related types to external crates, the crate alias in the Mountain backend has been renamed from `Air` to `AirLibrary`. Update all type definitions in `Source/Air/AirClient/` to point to the new `::AirLibrary` namespace.\n\nThis aligns the type aliases for metrics, status, download streams, and file metadata with the updated crate naming convention, ensuring correct module resolution during the build process.",
+			"SHA": "74498135db36b1ab25ad374aa0c5ec94775b6c9e"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-28T10:47:25Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "fix(Mountain): Reconstruct full URI from vscode.Uri POJO fields\n\nCocoon may forward a raw URI string, a serialised `vscode.Uri` POJO\n(`{scheme, authority, path, query, fragment}`), or the legacy\n`{external, path}` shape from older rendering paths. The previous code\nonly extracted `external` or bare `path` from objects, which silently\ndropped the scheme on non-file URIs —\n`rust-analyzer-diagnostics-view:/diag/foo` became `/diag/foo` and Sky\nrendered either a 404 or `[object Object]` in the editor tab.\n\nReconstruct the full URI by fallback priority: `external` →\n`scheme+authority+path+query+fragment` → `fsPath` (prefixed with\n`file://` for absolute paths) → bare `path` → empty string. Every\nknown vscode.Uri shape now resolves to a valid wire string the Sky\nworkbench can open.\n\nAlso:\n\n- **TreeView timeouts**: Bump `$provideTreeChildren` from 5 s to 15 s\non both Wind and Cocoon IPC paths. Cold scans on multi-repo workspaces\n(`npm` walking every package.json, `gitlens` enumerating submodules)\ncan exceed 5 s on first expansion, causing the panel to render empty\nuntil manual refresh.\n\n- **PTY binary input**: Route `localPty:processBinary` through\n`TerminalSendText` instead of falling through to the `null` no-op.\nSystem clipboard paste and Cmd+Shift keyboard escape sequences were\nsilently swallowed.\n\n- **Output channel hide**: Forward Cocoon's `outputChannel.hide`\nnotification to Sky as `sky://output/show { visible: false, channel }`\ninstead of logging a no-op. Extensions calling `OutputChannel.hide()`\nnow see the panel dismiss the channel.",
 			"SHA": "e1d82f3455e42b168108fe76935d015713f083e4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T17:57:31Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				2
-			],
-			"Message": "fix(Mountain): Realign SCM DTO import path and enable native window capabilities\n\nFix the `SourceControlManagementResourceDTO` import in `UpdateScmGroup` to use the reorganized `DTO` submodule path under `CommonLibrary::SourceControlManagement`, correcting the module resolution after Common's struct rehoming.\n\nAdd window management capability permissions (`start-dragging`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`, `internal-toggle-maximize`) to `capabilities/default.json`, enabling the Sky UI to drive native window chrome operations — dragging the titlebar, maximizing/minimizing/closing — through Tauri's IPC permission layer.\n\nWithout these capabilities, the editor's custom titlebar was non-interactive and the workbench window could not be controlled programmatically from the frontend.",
-			"SHA": "4a6097c8945fea0e487dc49487de53a47983988f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T17:23:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				6
-			],
-			"Message": "fix(Mountain): Replay SCM resource groups and persist snapshots for late subscribers\n\nCocoon fires `register_scm_resource_group` before SkyBridge's listener is attached (Tauri events are not buffered), so the workbench booted with the SCM provider header visible but zero groups — and even when `update_scm_group` arrived, the resource tree stayed empty because the event was consumed without persisting the snapshot for boot-time replay.\n\n- **UpdateScmGroup**: Persist each incoming `ResourceStates` array into MarkerState as `SourceControlManagementResourceDTO` entries keyed by `(ProviderHandle, GroupId)`, so the replay loop can re-emit the latest snapshot.\n- **ReplayEvents**: Add two new replay legs — group registration (`sky://scm/registerGroup`) and resource update (`sky://scm/updateGroup`) — reconstructing the same `GroupHandle = \"{ProviderHandle}/{GroupId}\"` that the live wire path produces, resolved through the provider identifier map (defaulting to \"git\").\n- **LoggingPlugin**: Cap `tauri::manager` and `tauri::manager::asset` to Warn, `tauri::webview` and `wry` to Info, to suppress the flood of expected 404 fallback probes for sourcemap/module URLs that WebKit auto-fetches with the wrong base under `tauri://localhost`.\n- **LocalPTYGetProfiles**: Rename `Arguments` → `args` (lowercase) to match VS Code's `ITerminalProfile.args` — the uppercase key silently mis-parsed and the profile picker fell back to `$SHELL`.\n- **SCM Effect**: Accept `git.openChange` / `git.openFile` as diff-forwarding aliases alongside `vscode.diff` / `$scm:openDiff`; these are the actual command IDs the built-in vscode.git extension uses on resource state entries.\n- **build.rs**: Normalize array formatting in `PropagatePostHogSentinel`.\n\nThe SCM panel now populates with groups and working-tree state at boot, and terminal profiles render with their configured arguments.",
-			"SHA": "2db7957cc5af3113a94be7ee360e1f2cb34cb769"
 		}
 	],
-	"TimeStamp": 1782917465563
+	"TimeStamp": 1783088675250
 }

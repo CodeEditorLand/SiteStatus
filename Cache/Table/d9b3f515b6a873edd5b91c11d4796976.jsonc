@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:13:15Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				155,
-				1
-			],
-			"Message": "feat(Sky): Implement webview reveal, setTitle, and setIconPath bridges\n\nExtend the `InstallWebview` bridge layer in Sky to handle runtime panel updates and focus management. Register listeners for `sky://webview/setTitle`, `sky://webview/setIconPath`, and `sky://webview/reveal` to intercept extension calls.\n\nThe `setTitle` and `setIconPath` handlers dispatch DOM events for UI synchronization and invoke native methods on parked webview entries. The `reveal` handler implements logic to open views via the `Views` service for view IDs or focus specific webview panels by handle, respecting the `preserveFocus` flag.\n\nAdditionally, restore the `sky://webview/dispose` registration which was previously relocated, ensuring panels are correctly cleaned up to prevent stale DOM node accumulation. These additions complete the lifecycle control surface for the webview component layer.",
-			"SHA": "aaa182cebde41b5e0030065feb8eeab066223325"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:35:53Z",
+			"Date": "2026-05-25T19:29:57Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				155,
-				2
+				3
 			],
-			"Message": "refactor(Sky): Standardize IPC method naming and add webview option bridge\n\nUpdate IPC method identifiers in `InstallEditorAndOutput.ts` to use the new lowercase `file:` namespace (`file:writeFile`, `file:rename`, `file:delete`) instead of the previous `FileSystem.` prefix. This aligns the bridge layer with the updated Mountain backend protocol conventions.\n\nIn `InstallWebview.ts`, implement the `sky://webview/setOptions` bridge listener to handle runtime configuration updates (e.g., `enableScripts`, `localResourceRoots`). The handler resolves the target webview panel from the global registry and invokes the native `setOptions` method, supporting both Cocoon-originated requests and direct notifications.\n\nThese changes streamline the IPC contract and ensure webview lifecycle operations are handled synchronously and deterministically within the Sky component layer.",
-			"SHA": "faa9c2543f6c806b9af5ef86198469a660b4e7d1"
+			"Message": "fix(Sky): Replace bare specifier with relative path in workbench layouts\n\nThe three workbench layout entry points (Bundled Electron, standalone Electron, and Mountain Tauri) each imported the Sky bridge via the `@codeeditorland/sky` package specifier. When the build pipeline does not alias `@codeeditorland/sky` to the Sky source directory, this bare specifier can cause module resolution failures or produce duplicate copies of the bridge module in the bundle.\n\nReplace all three imports with explicit relative paths that resolve directly to `Function/Sky/Bridge.js` within the Sky source tree, ensuring deterministic module resolution across every workbench bootstrap path.",
+			"SHA": "a55b46df905fa8d512b45cb05d6cc3caf30ce51a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:25:50Z",
+			"Date": "2026-05-25T19:08:57Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				155,
+				6
+			],
+			"Message": "fix(Sky): Bridge extension IPC flows to workbench service layer\n\nRegister decoration types directly with ICodeEditorService in InstallTasksAndDecorations so that setDecorationsByType paints extension decorations (ESLint squiggles, GitLens blame, Error Lens) instead of silently dropping them. The previous DOM-event-only relay left Monaco's renderer with no registered styling.\n\nSwitch from the deprecated setDecorations to setDecorationsByType in InstallEditorOperations, matching the \"ext\" description used during type registration.\n\nWire panel-mode webview lifecycle in InstallWebview by subscribing to onMessage, onWillDispose, and onDidActiveEditorChange and forwarding them back to Cocoon via cocoon:notify, so extensions receive postMessage, dispose, and viewState events. Set disableServiceWorker: true (WKWebView refuses SW registration on vscode-webview://), add stable origin per viewType for session storage, and replay pending HTML from the race window before openWebview resolves. Resolve postMessage by handle (panel) in addition to viewId (sidebar).\n\nAdd sky://output/replace handler in InstallEditorAndOutput for atomic output channel buffer replacement matching upstream's replace() semantics, and honour preserveFocus on sky://output/show.\n\nRelay sky://tree-view/refresh from Cocoon to the workbench's ITreeView.refresh() in Bridge.ts, triggering fresh getChildren round-trips back to extensions.\n\nTogether these changes close the gap between Sky's bridge layer and the workbench service layer — decorations now paint, webview panels are interactive, output channels update atomically, and tree views respond to data changes.",
+			"SHA": "52c452ced426f97e3693796a3488eca42c56d028"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T13:48:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				155,
 				1
 			],
-			"Message": "fix(Sky): Distinguish custom URI stringification from default Object methods\n\nUpdate the URI reconstruction logic in `InstallScm.ts` to safely parse string representations of URI objects. The previous check `typeof UriField.toString === \"function\"` was insufficient as it returned true for the default `Object.prototype.toString`, causing non-URI objects to be incorrectly passed to `Services.URI.parse`.\n\nAdd an explicit check ensuring `UriField.toString` is not the inherited default method. This prevents false positives during Source Control Manager bridge operations where generic objects might erroneously trigger URI parsing, ensuring only legitimate URI instances with custom stringification are processed.\n\nThis aligns with the recent refactoring of bridge layers to remove retry loops, requiring deterministic and accurate type handling during immediate service execution.",
-			"SHA": "7f22e3facc226ce9809831cf28a73e43ddf703eb"
+			"Message": "",
+			"SHA": "a334ff9a555433d7c686664263b418224c57b5a2"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:19:41Z",
+			"Date": "2026-05-25T13:48:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				155,
 				1
 			],
-			"Message": "fix(Sky): Invalidate build cache when manifest count is zero\n\nAdjust the `BakeExtensionManifest` build logic to treat an empty extension cache as a stale state. Previously, the build system relied solely on file modification times, which caused hangs if a cached manifest recorded zero extensions but the binary bundle still existed.\n\nRetrieve the cached manifest content and parse its `count` field. If the count is missing or zero, flag the cache as a stub. Modify the `AnyNewer` check to invalidate the cache when `CacheStub` is true, forcing a regeneration of the manifest rather than using a stale empty record.\n\nThis prevents the build process from incorrectly skipping regeneration when no extensions are present, ensuring the live extension host receives accurate metadata and falls back to runtime scanning as intended.",
-			"SHA": "0d44e5000fc6ce302b3ab76f36d70aeab0dd3b7a"
+			"Message": "feat(Sky): Relay treeView.reveal to workbench view panel\n\nCocoon extensions calling `vscode.treeView.reveal(element)` dispatch a\n`sky://tree-view/reveal` URI that must open and focus the corresponding tree\nview panel in the workbench. Add a relay handler in InstallSimpleRelays that\nfires a `cel:tree-view:reveal` DOM event and invokes `Views.openView(viewId)`\non the workbench service layer.\n\nThe handler is guarded by a null check on viewId and a try/catch so the\nrelay pipeline is never interrupted when the workbench is not yet initialised.\nStale optional chaining on `openView` cleaned up (the outer try/catch already\ncovers rejection).",
+			"SHA": "651bca38044971374a08dd5fab01e2cea093595a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T08:17:33Z",
+			"Date": "2026-05-25T08:23:47Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
+				"⠀⠀⠀⠀⠀",
 				155,
-				2
+				1
 			],
-			"Message": "refactor(Sky): Eliminate retry loops and forced UI state in diagnostics and tree view bridges\n\nRemove aggressive retry mechanisms and forced panel manipulation from `InstallDiagnostics.ts` and `InstallTreeView.ts` to align with the stabilized workbench bootstrap sequence.\n\nIn `InstallDiagnostics`, delete the logic that forced the Problems panel open or cleared the `activeFile` filter upon diagnostic arrival. The bridge now strictly reacts to `IMarkerService` changes without assuming or manipulating visibility, relying on the `MarkersView` to handle state naturally.\n\nIn `InstallTreeView`, strip out the exponential backoff retry logic, pending attach queues, and delayed hook installation. The `AttachDataProvider` now executes synchronously; if the `TreeView` service is unavailable, the registration fails immediately rather than entering a polling loop. This assumes the workbench services are ready when bridge functions are invoked.\n\nThese changes reduce bundle size, eliminate hidden asynchronous delays, and remove complex error-handling paths that previously masked upstream initialization timing issues.\n\nCloses: Aligns with previous simplification of extension bridge layers.",
-			"SHA": "14346f54c84b5c160190b4af3340e78dec9e7601"
+			"Message": "feat(Sky): Relay OSC 633 shell integration sequences from terminal data\n\nParse VS Code shell integration escape sequences (OSC 633) from terminal\noutput in the Sky bridge layer and forward them to Mountain via\nMountainIPCInvoke so Cocoon extensions can read\n`terminal.shellIntegration.cwd` and detect shell integration activation.\n\nOSC 633 ; A (prompt start) triggers `localPty:setShellIntegrationActive`\nonce per terminal; OSC 633 ; P ; cwd=<path> triggers `localPty:setCwd` on\neach CWD update. Parsing is guarded by a Set to avoid redundant activation\nnotifications and wraps all Tauri IPC in try/catch so terminal data\nrendering is never interrupted.\n\nExtends `InstallProgressTerminalWorkspace` in the Sky/Bridge layer.",
+			"SHA": "42861a8462195fc313ca33f8e651cac53423a0ac"
 		}
 	],
-	"TimeStamp": 1782917460410
+	"TimeStamp": 1783088671749
 }
