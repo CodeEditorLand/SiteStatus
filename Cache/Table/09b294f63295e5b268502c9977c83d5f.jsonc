@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:22:15Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				920,
+				26
+			],
+			"Message": "refactor(Wind): De-Effect-ify Bootstrap, Health, FileSystem, Workbench; add heritage resolver + ChannelEventBridge\n\nRemove Effect-TS dependency from four core Wind services, converting them to plain async/sync APIs:\n\n**Bootstrap** (`Effect/Bootstrap/`):\n- Replace `Effect.gen`/`Layer`/`Context.Tag` with a plain `makeBootstrap(Logger)` factory returning a `BootstrapService`. All six stages (`BootstrapStage.ts`) become `async (Log) => Promise<StageResult>` — no `withSpan`, no `yield*`.\n- Delete `BootstrapTag.ts`; `BootstrapLive` is now a `BootstrapService` instance, not a `Layer`.\n- `BootstrapMock` drops its `Layer.effect` wrapper — just a `BootstrapService` object.\n- `runBootstrap()` calls `BootstrapLive.run(options)` directly instead of composing a Telemetry layer.\n\n**Health** (`Effect/Health/`):\n- Convert all check methods from `Effect.Effect<>` to `async Promise<>`. The `monitorService` now returns a `HealthMonitorHandle { dispose }` via `setInterval`/`clearInterval` instead of an `Effect.repeat(Schedule.spaced)`.\n- Delete `HealthTag.ts`; `HealthLive`/`HealthMock` are `HealthService` instances.\n- Replace `EnvironmentTag.getInfo` with direct calls to `DetectPlatform()`/`DetectArchitecture()` from `EnvironmentHelper`.\n\n**FileSystem** (`FileSystem/`):\n- Remove `FileSystemProviderTag` (Context.GenericTag), `FileSystemProviderLive` (Layer), and the `getProvider: Effect.Effect<>` accessor from `FileSystemProviderService`. Consumers now import the default export `FileSystemProvider` and call `.provider` directly.\n- Update README examples to show plain `await FileSystemProvider.readFile(...)` instead of `yield* FileSystemProviderTag`.\n\n**Workbench** (`Workbench/`):\n- Rewrite `WorkbenchIntegrationImplementation` from Effect-TS (Ref, Queue, Stream, Effect.gen) to module-closure `let` variables + a listener-`Set` for state change observation. `stateChanges: Stream` becomes `onStateChange(Listener) => IDisposable`.\n- All methods are sync/async and throw `WorkbenchIntegrationError` on failure — no more `Effect.fail`.\n- Remove the `FileSystemProviderTag` dependency; import the FileSystem default export directly.\n\n**ResolveInterfaceCrossFile** (`Codegen/Resolve/`):\n- Add heritage-follow resolution: when an interface body is empty (the re-export pattern `interface X extends Y { }`), parse the `extends` clause, resolve each parent — same-file inline first, then via imports — with depth-capped recursion and visited-set deduplication.\n- Extract `ResolveNamedMembers` as a shared recursive core; `ResolveInterfaceCrossFile` delegates to it.\n\n**TauriMainProcessService** (`Service/`):\n- Buffer `_DevLogForward` entries for 100ms and flush as grouped `RenderDevLog` invokes (one per tag, newline-joined), capped at 20 entries per flush window with overflow counting. Prevents IPC storms during extension activation.\n- Introduce `ChannelEventBridge` — a declarative map from channel events to `sky://` Tauri event names (with optional reshape `Map` functions), replacing the earlier repetitive `if (channel === \"X\" && event === \"Y\")` guard blocks. Covers `localPty`, `terminal`, `extensions`, `localFilesystem`, `configuration`, `workspaces`, and `lifecycle`.\n\n**Barrel re-exports**:\n- `Effect/index.ts`: Alphabetize exported names; replace old `*Tag` exports with `*MonitorHandle`/`*Logger` types.\n- `Bootstrap/index.ts`, `Health/index.ts`, `Workbench/index.ts`, `Health.ts`, `Bootstrap.ts`: Align re-exports with the new plain-async surface — no Tag re-exports, no Layer re-exports.\n- `Layers/Tauri.ts`: Remove `BootstrapLive`, `HealthLive`, `ActivityBarLive` from the layer compositions since they are no longer Effect layers.\n- `Language/Live.ts`: Clarify doc comment that this layer is Wind-local only; add `performance.mark` traces on registration.\n\n**Impact**: Reduces Effect-TS surface to only IPC, Telemetry, and Sandbox services where its composability is still needed. Cuts bundle weight, simplifies debugging (plain async stack traces), and accelerates the migration of Wind toward framework-agnostic service patterns.",
+			"SHA": "0432636342797c3caab1099cf883e21ea04151c1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T20:34:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				924,
+				2
+			],
+			"Message": "style(Wind): Normalize README punctuation and build config indentation\n\nReplace em dashes (—) with hyphens (-) throughout README.md for consistent ASCII punctuation across the documentation. Reformat tsconfig.build.json from 2-space indentation to tab-indented with single-line array items, matching the project's convention established in tsconfig.json.\n\nNo behavioral changes — purely cosmetic formatting normalization across documentation and build configuration.",
+			"SHA": "ed1a42e950febefbd3b8d5a429195947fc413bfd"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T20:04:08Z",
 			"File": [
 				"⣿⡏⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "style(Wind): Reorganize Mountain Effect barrel export order\n\nAdopt the standardized six-section ordering for `Source/Effect/Mountain/index.ts` following the barrel export convention established in b9b6b34d: (1) error types, (2) live implementation, (3) service interface, (4) mock implementation, (5) service tag alias, (6) type definitions.\n\nBlank lines are removed between error exports to group all four error classes consecutively. Each section is separated by a single blank line with a preceding comment header for navigability. The previous arrangement interspersed type exports before value exports; the new layout places all value exports (live + mock implementations) before type-level exports, matching the consumer lookup priority pattern used across the other 18 workbench barrel files.",
 			"SHA": "b19ef04ee8918bb0a88bd59be04654f5df54aeb0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:12:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				923,
-				2
-			],
-			"Message": "style(Wind): Rename catch variable Error to Failure in Configuration\n\nRename the catch-bound variable from `Error` to `Failure` across ConfigurationHelper and ConfigurationImplementation to avoid shadowing the global `Error` constructor. The identifier `Error` in catch clauses resolves to the caught exception at runtime but creates confusion with the built-in `Error` type in scope, making the code harder to read and potentially masking TypeScript narrowing issues.\n\nAffected sites: the `MakeApply` closure in ConfigurationHelper (zoomLevel and userEnv catch blocks) and the `GetConfiguration` and `Replace` functions in ConfigurationImplementation (sandbox fallback, IPC fetch, and listener notification catch blocks).\n\nNo behavioral changes — purely cosmetic identifier renaming in catch parameters.",
-			"SHA": "ceb4575d9130d35ce5b4bad8e0955138776ca680"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:12:13Z",
-			"File": [
-				"⣿⡏⠀⠀⠀",
-				923,
-				300
-			],
-			"Message": "refactor(Wind): Strip Effect-TS from Configuration, Mountain, and bridges\n\nFifth and broadest wave of the Effect-stripping initiative. All service\ninterfaces that no longer participate in the Effect dependency graph are\nconverted from Effect-typed returns to plain sync/async signatures:\n\n- **Configuration & Mountain** (wave-4 refactors) → finalize interface\n  conversion: `get()`, `fetch()` return plain values / Promise instead of\n  `Effect.Effect`; `changes` / `connectionChanges` / `syncEvents` Streams\n  replaced with callback-based `onChange(...) / onConnectionChange(...) /\n  onSyncEvent(...)` returning `IDisposable`.\n- **18 workbench bridge services** (Activity, Clipboard, Command,\n  ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout,\n  Lifecycle, Notification, Product, Progress, Storage, Theme, Workspace)\n  → all `Effect.Effect<T, E>` returns become `T` (sync) or `Promise<T>`\n  (async); all `Stream.Stream<T, E>` subscriptions become callback-based\n  `{ dispose }` handles.\n- **All other IPC-backed services** (Commands, Decorations, Editor,\n  Extensions, Files, History, Keybinding, Label, Language, Lifecycle,\n  Model, Notification, Output, Progress, QuickInput, Search, Storage,\n  Terminal, TextFile, TextModelResolver, Themes, WorkingCopy, Workspaces)\n  → same Effect→plain conversion for interface + stub implementations.\n- **Configuration & Mountain tags** converted from `Context.Tag` classes\n  to `export type` aliases.\n- **Configuration & Mountain removed** from all three Effect layer stacks\n  (ElectronLayer, TauriLayer, TestLayer) — they are now plain singleton\n  services loaded by their implementation modules.\n- **Error types**: every `*Problem` discriminated union gains a companion\n  `*Error extends Error` class so callers can `throw` failures directly\n  rather than returning `Effect.Effect<_, Problem>`.\n- **ConfigurationHelper**: `MakeValidate` / `MakeApply` return plain\n  throw-returning functions instead of `Effect.Effect`.\n- **ChangeStream (Extensions)**: refactored from Effect-Stream to\n  Tauri `listen`-based callback subscription.\n- **NotificationStream (Vine)**: refactored from Effect Layer + Queue +\n  Stream to plain subscriber-array fan-out over a shared Tauri Channel.\n- **UserSettings**: `Read`, `ReadOptional`, `HasUserValue` return plain\n  values (throw on failure); `Write` returns `Promise<void>`; `Changes`\n  switches from `Stream.async` to callback subscription.\n- **FileSystem**: `provider` field added as direct `IFileSystemProvider`\n  access; all Effect-wrapped methods converted to async.\n- **BootstrapStage**: replaces `yield* (yield* Configuration).get` with\n  `ConfigurationLive.refresh()` / `MountainLive.connect()` direct calls.\n- **HealthImplementation**: replaces `yield* MountainTag` / `yield*\n  ConfigurationTag` with `MountainLive.version()` / `ConfigurationLive.get()`\n  direct calls.\n- **Config schema**: blank-line separator added after `import type` and\n  before first `readonly` member in 200+ interface declarations for\n  consistent formatting across all module categories.\n\nNo behavioral changes — all tests pass with the same caller semantics\nat the boundary (async functions, throw on error, callback dispose).\nThis completes the Effect-simplification pass that began in wave 1\n(baabb3fa) across the entire Wind services surface.",
-			"SHA": "170c8131f224e98c8608011a6a269061c92f974e"
 		}
 	],
-	"TimeStamp": 1783088666909
+	"TimeStamp": 1783259742457
 }

@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T01:45:59Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				218,
+				6
+			],
+			"Message": "feat(Output): Add StripWebviewIframeSandbox transform plugin\n\nAdd Step 16 to the build pipeline that removes the sandbox attribute from VS Code's webview iframe. WKWebView (Tauri on macOS) blocks custom protocol loads (`vscode-webview://`, `land://`) from sandboxed iframes, causing webview panels in extensions to fail with:\n\n  [Error] Ignoring request to load this main resource because it has a custom protocol and comes from a sandboxed iframe (x12)\n\nThe plugin patches `workbench/contrib/webview/browser/pre/index.html` to remove the `setAttribute('sandbox', ...)` call. This is safe for Land because it runs as a single-user desktop editor where the upstream sandbox's threat model (untrusted extension HTML in a browser tab) does not apply.",
+			"SHA": "868f077360f8c7bb3c8af52b2899a1f8631b9ab4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T01:28:21Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				215,
+				3
+			],
+			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, not the flat structure the scanner was expecting. This caused all extensions to appear as 'unknown' with empty names/publishers.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility with older backend envelopes. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures @builtin/@installed extension split works correctly in the sidebar.",
+			"SHA": "b95789339ceca34e67c990698cbbae249e435711"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T01:19:28Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object\nargs ({ path, encoding: \"utf8\" }) and the response was assumed to be\na string. Mountain actually returns raw bytes as { buffer: number[] } and\nignores the encoding param entirely.\n\nWhen VS Code loaded binary files (WASM, fonts, images), the response\nbody became \"[object Object]\" which corrupted the data. This broke\nTextMate syntax highlighting with:\n  \"WebAssembly.Module doesn't parse at byte 0: module doesn't start\n   with '\\0asm'\"\n\nFix by:\n1. Invoking file:read with positional array args [path] as expected\n   by MountainIPCInvoke\n2. Adding UnwrapReadResult() to unwrap { buffer: number[] } into\n   Uint8Array for binary-safe Response bodies\n3. Updating content type to Uint8Array | string | Blob | null\n\nAll three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler,\nFileHandler) now use the binary-safe pattern.",
 			"SHA": "2f14553fa6611e381918643364ca6e0c65155a9c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:44:07Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				215,
-				6
-			],
-			"Message": "feat(Output): Add CatchOutputFolderRejection transform plugin\n\nAdd Step 15 to the build pipeline that catches an unhandled promise rejection\nfrom VS Code's outputServices.createFolder(). In Land, the VFS-IPC stat call\nrejects with FileNotFound before fileService can swallow it, causing the\nrejection to propagate past the .then(() => undefined) handler and surface as\ntelemetry noise in PostHog.\n\nThe plugin uses a regex match against outputServices.js to append\n.catch(() => undefined) to the createFolder chain, silencing the harmless\nrejection since the output folder is created lazily on first channel write\nanyway. If upstream VS Code changes the exact .then(() => undefined) shape,\nthe Match() returns Unchanged and a LOG line surfaces as a regression tripwire.",
-			"SHA": "a900f339a30600bc403059043a5a71f9a2b4c854"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:24:42Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				212,
-				3
-			],
-			"Message": "fix(Output): Add IPC stubs for extension tips, MCP, sync, and language detection\n\nAdd missing stub handlers to TauriMainProcessService to prevent renderer crashes when VS Code code calls these services without Mountain handlers:\n\n- IExtensionTipsService: exeBasedRecommendations.ts calls .forEach() on the result, requiring array stubs (empty = no recommendations)\n- IMcpManagementService / IMcpWorkbenchManagement: mcpManagementIpc.ts calls .map() on server arrays, requiring array stubs\n- IUserDataSyncService: userDataSyncServiceIpc.ts destructures a [status, conflicts, lastSyncTime] tuple, requiring tuple stub\n- ILanguageDetectionService: iterates fileExtensions.extensions, requiring object stub with nested empty extensions array\n\nThese stubs return safe empty values that VS Code's workbench code can gracefully handle, preventing TypeError crashes in the renderer.",
-			"SHA": "1452db402083b54d42dd76a6ab8ea6a45111f087"
 		}
 	],
-	"TimeStamp": 1783088684637
+	"TimeStamp": 1783259761922
 }

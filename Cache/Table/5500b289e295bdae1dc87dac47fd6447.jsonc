@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:23:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				343,
+				1
+			],
+			"Message": "fix(Output): Rewrite blob URL injection as synchronous two-phase pass\n\nThe async `rewriteHtml()` approach in `Document.prototype.write` deferred the original write until all fetch-and-blob conversions completed. Multi-write callers (extension reload, panel re-open) received an empty first write because the wrapper returned before calling `_origWrite`, followed by a duplicate document-open on the second write.\n\nReplace the single async pass with a synchronous two-phase strategy inside the injected blob URL rewrite script:\n- **Synchronous phase** (`rewriteCachedUrls`): substitutes every `vscode-file://` / `vscode-webview-resource://` URL that already has a cached `blob:` URL into each chunk via simple string replacement, then immediately calls `_origWrite.apply(this, args)`.\n- **Async patch phase** (`patchWrittenDocument`): after the write returns, fetches uncached URLs collected in the `pending` array and patches the already-written document — `<link>` href swaps and `<script>` clone replacement — so the bytes still execute.\n\nThis preserves the synchronous contract of `document.write` while still converting uncached URLs to blob: URLs as a deferred patch. The caller's own write/close sequence is untouched and multi-write sequences keep a single document-open.",
+			"SHA": "e029bf20a81a9f187648f18343ac1f1af11a8cc2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:22:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				343,
+				1
+			],
+			"Message": "fix(Output): Keep webview blob URL rewrite synchronous for document.write\n\n`document.write` is a synchronous API — deferring it with an async `rewriteHtml()` pass that waited on all fetch-and-blob conversions before calling the original `write()` broke multi-write callers (extension reload, panel re-open) by producing an empty first write and a double document-open.\n\nSplit the rewrite into two phases inside `pre/index.html`’s injected script:\n- **Synchronous phase** (`rewriteCachedUrls`): substitutes every `vscode-file://` / `vscode-webview-resource://` URL that already has a cached `blob:` URL into the HTML string via simple string replacement, then calls the original `document.write` immediately.\n- **Async patch phase** (`patchWrittenDocument` + `applyBlobUrl`): fetches uncached URLs after the write, then patches the already-written document — `<link>` gets a live `href` swap, `<script>` is replaced with a clone carrying the `blob:` `src` so the bytes actually execute.\n\nExtract `warnFetchFailure()` as a centralized helper so fetch errors (CORS rejection, missing scheme handler) surface via both the DEBUG_WV channel and `console.warn` instead of being silently swallowed.\n\nMulti-write callers now keep a single document-open and never re-fetch unchanged assets on repeated `setHtml()` calls.",
+			"SHA": "641f349075db774bbfd6f96191b31070e4b1b8ba"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T20:34:43Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "style(Output): Apply consistent blank-line formatting across all source files\n\nNormalize whitespace across the entire Output source tree — every file in Source/Apply, Source/ESBuild, Source/Plugin, Source/Polyfill, and Source/Service now follows a uniform blank-line convention. Each import statement, interface property, object literal entry, and function body is separated by a single blank line, and shell case clauses are re-indented with one level per arm.\n\nThis is a formatting-only pass with zero semantic changes: every transform, polyfill, copy plugin, service shim, and pipeline entry behaves identically at runtime. The consistent layout reduces cognitive friction for contributors and ensures the Prettier/ESLint pass does not produce per-file churn going forward.",
 			"SHA": "624abb46f475f5b266f2aca5d0ff843e8f8c89ad"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:06:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				343,
-				2
-			],
-			"Message": "feat(Output): Expose BulkEdit service and gate onView on * settlement\n\nExpose `IBulkEditService` as `Services.BulkEdit` in the CEL ExposeAccessor so that Sky's `sky://workspace/applyEdit` bridge can use the workbench's transactional edit applier for combined text edits and file operations within a single undo group, rather than falling back to per-model edits.\n\nRefine the `activateByEvent` monkey-patch for `onView:<viewId>` events to operate in three phases: before the `*` activation pass has started, the original call is forwarded so lazily-activated view extensions still activate; while `*` is in flight, the in-flight promise is returned so the pane waits for the bulk pass instead of issuing its own Cocoon round-trip; after `*` has settled (even on rejection), the call resolves immediately since every contribution matching `onView:X` was already pulled in by the bulk pass. This prevents extension sidebar panes from hanging forever at the bare `pre/index.html` chrome when Cocoon's RequestRoutingHandler does not short-circuit per-view events.\n\nMove the `output` channel out of `FireAndForgetChannels` in the Tauri process service: `output:registerLogger` and `output:createOutputChannel` callers expect a handle or acknowledgment back, and the channel is low-frequency enough to round-trip through Mountain.\n\nThe `*` activation now tracks both the in-flight promise and a settled flag, and an `IBulkEditService` reference is available for workspace edit bridging.",
-			"SHA": "9cefbc3b57bc7fd8e148635c0c649a9efc087127"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:36:15Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				343,
-				1
-			],
-			"Message": "docs(Output): Expand README with Security, License, Changelog sections and fix file paths\n\nAdd three new top-level sections to the Output README: a Security table documenting the four-layer deterministic-build security model (fixed outputs, plugin AST isolation, polyfill boundaries, compiler process separation), a License section asserting the CC0-1.0 public-domain dedication, and a Changelog section linking to the newly introduced CHANGELOG.md.\n\nCorrect the project structure tree and component table to match actual file paths: Copy plugin lives at Source/Plugin/Copy.ts (not a directory), Transform plugin has 30+ sub-modules (not 20+), Child Process, Native Module, and Process polyfills point to their real entry files, Asset/Style/ gains Editor and Terminal GPU layer sub-directories, and CHANGELOG.md is listed in the root tree. Expand the API Reference with six source-file links. Fix the System Architecture heading by removing the stray em-quad entity and update the Mermaid diagram emoji for Sky (🌌 → ☀️) and Wind (🍃 → 🌬️). Add `title=\"Star\"` attribute to the star badge img tag for accessibility.",
-			"SHA": "8798b8de4284383a018b0db4c7fbc41921f5fc1f"
 		}
 	],
-	"TimeStamp": 1783088667142
+	"TimeStamp": 1783259742296
 }

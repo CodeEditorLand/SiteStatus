@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:26:53Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1866,
+				6
+			],
+			"Message": "feat(Mountain): Wire Shim interception into both IPC dispatch paths\n\nInsert the Shim layer at two entry points so swallowed methods are\nintercepted before reaching any domain handler:\n\n- **DispatchMatch.rs** — Shim pre-check in `mountain_ipc_invoke` reads\n  `Gate::is_enabled()` and `SwallowMap::should_swallow()` to decide\n  whether to return a Null ack (Mountain/None targets) or passthrough.\n\n- **CreateEffectForRequest/Shim.rs** — New domain module that gets first\n  crack at every gRPC method via `Try!(Shim)` in the dispatch chain,\n  placed before all other domain handlers. Returns a Null-ack effect for\n  swallowed methods or `None` to fall through.\n\nAlso clean up the remaining AI-internal annotations from the initial\nShim implementation: remove the 🟠🔵 color/tier table and the\n`.hermes/microsoft/` doc reference from `Shim/mod.rs`, drop \"Land\"\nqualifier from `SwallowMap.rs`, and deduplicate the repeated subsystem\nfeature declarations in `Cargo.toml`.\n\nThe interception layer is fully gated behind `TierShim` (default: `None`)\nand compiles to zero overhead via dead-code elimination.",
+			"SHA": "8e7ff15b9ef23c3c0a63203a1086dc97e0300645"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:26:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1865,
+				2
+			],
+			"Message": "style(Mountain): Strip AI-internal annotations and reorganize Cargo features\n\nRemove emoji markers (🟠🔵) and the .hermes/microsoft/ doc reference path\nfrom the Shim module comment, keeping only the functional description of the\ngated interception layer. Relocate inline Shim tier explanatory comments from\nthe default features list in Cargo.toml.\n\nReorganize feature flags into logical groups — tier flags, subsystem\nfeatures, and the Shim gate — for better maintainability alongside the\nexisting declarations per project policy on source cleanliness.",
+			"SHA": "0b9e8f0ca5e36019d5a812f965861eb01b7d668e"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T22:20:44Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Mountain): Fire onFileSystem activation on register_file_system_provider\n\nExtract `register_file_system_provider` from the catch-all handler group and give it a dedicated match arm that fires `$activateByEvent(\"onFileSystem:{scheme}\")` when an extension registers a virtual file-system provider. The scheme is read from the `scheme` key in the parameters object.\n\nThis ensures extensions declaring `\"activationEvents\": [\"onFileSystem:xyz\"]` in their manifest are activated on registration, matching VS Code's behaviour. The provider is still forwarded through `RegisterLanguageProvider` for handle tracking, and a warning is logged when the provider falls outside the known language-feature map.",
 			"SHA": "9f2f1783e8d68a4825ed628969e4297d12606d05"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:23:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1861,
-				1
-			],
-			"Message": "style(Mountain): Fix indentation of diagnostic:getBootMarks match arm in DispatchMatch\n\nThe `diagnostic:getBootMarks` handler and its preceding doc comment were indented one tab level deeper than the surrounding match arms in `mountain_ipc_invoke`, creating an inconsistent brace depth relative to the other cases.\n\nDedent the arm and comment block by one level to align with the enclosing match statement's formatting. No behavioral change.",
-			"SHA": "9262422ce1ef71be84be4d5edeafe56025bdba8e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:23:24Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1861,
-				12
-			],
-			"Message": "feat(Mountain): Add language provider cancellation, decoration lazy-registration, and window event bridging\n\nImplement a cancellation system for language provider requests: store `watch::Sender<bool>` in the new `LanguageProviderCancellations` DashMap, keyed by renderer-supplied `requestId`, so that `language:cancelRequest` flips the sender locally instead of forwarding to Cocoon. Wire cancellation through `InvokeProvider` and `InvokeProviderMethod` by passing the cancellations map into `ForwardCancellable`.\n\nAdd lazy-decoration-type registration to `SetTextEditorDecorations`: when `decorationTypeKey` isn't in `KnownTypeKeys`, auto-forward a synthetic `createTextEditorDecorationType` to Sky so Monaco has styling registered before `setDecorationsByType` executes. Track known keys via `IsTypeKeyKnown` / `RegisterTypeKey` on `DecorationsState`.\n\nEmit `sky://window/maximize-changed` on maximize/unmaximize handlers and bridge `nativeHost:onDidChangeMaximizeState` from Cocoon to Sky. Emit `sky://storage/changed` on storage IPC handlers and `sky://webview/ready` on `WebviewReady` gRPC notification for reactive workbench consumers.\n\nSplit file-system IPC into its own `TierFileSystem` env var so `file:*` commands don't route to Cocoon (which has no disk provider). Replace the blocking 3-second `WaitForClientConnection` in `forward_to_cocoon` with a non-blocking `IsClientConnected` check, returning Null fallback when Cocoon is disconnected.\n\nForward `CommandNotFound` errors from Mountain's command registry to Cocoon's extension host via `proxy_cocoon` for both `executeCommand` and `commands:execute` paths, so palette-invoked extension commands that never reached Mountain's registry still execute.\n\nAdd `$acceptModelSaved` notification on `textFile:save` so `onDidSaveTextDocument` fires for extensions. Query real dirty URIs from `WorkingCopy::GetAllDirty` in `workspaces:getDirtyWorkspaces` instead of returning an empty array. Add empty-store short-circuit in `StorageGet` to skip trait dispatch on first boot. Raise gRPC connect initial delay from 50ms to 200ms matching real Cocoon bind times.\n\nLog unroutable `register_*` provider notifications on the gRPC service and return `false` instead of silently dropping them. Include `viewType` in `WebviewReady` log output.",
-			"SHA": "d1c2117a977bec02903d935702d30d37f4b0376b"
 		}
 	],
-	"TimeStamp": 1783088665637
+	"TimeStamp": 1783259741147
 }

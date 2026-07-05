@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:48:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1858,
+				5
+			],
+			"Message": "docs(Mountain): Rewrite rustdoc comments to meet quality standards\n\nReplace meta-instructional doc text (\"This struct does X\" → \"X\", \"Represents Y\" → \"Y\"), remove empty and blank doc-comment lines, and convert TODO-section module stubs into proper //! module documentation with structured lists.\n\nChanges:\n- `MountainEnvironment.rs`: Condensed struct-level doc to remove \"Primary dependency injection container\" preamble in favour of a direct description.\n- `CocoonService/mod.rs`: Promoted stale \"thin-wrapper dispatcher\" ASCII comment to proper //! module doc with formatted item list; rewrote struct- and field-level docs to drop \"This struct\" / \"Provides\" meta-text.\n- `RPC/mod.rs`: Expanded module doc to a formatted //! block.\n- `rewrite_docs.py`, `fix_rustdocs.py`: Added automation scripts for ongoing rustdoc quality enforcement across the IPC and core modules.",
+			"SHA": "725b11e0cfe12294c5830848c3cd74d0efa0d32f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:24:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1856,
+				1
+			],
+			"Message": "chore(Mountain): Remove stale .commit-message.json artifact\n\nThe `.commit-message.json` file at the Mountain root was left behind from the commit message generation workflow and contains the message text of the most recent commit (3e14d7e8). This file has no purpose outside the generation pipeline and should not be tracked.\n\nUnstage and delete the artifact.",
+			"SHA": "b991e9aa7f464743fe1aa8efc9d545504871e0cf"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T18:23:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "feat(Mountain): Mount CocoonService on shared port, invalidate extension install cache, pipe session ID to Cocoon\n\nMount `CocoonServiceServer` (typed `CocoonServiceImpl`) on the same tonic router as `MountainServiceServer` so both services share port 50051, replacing the previous unused-variable pattern. Derive `MAX_MESSAGE_SIZE` from `Vine::Client::Shared::MAX_MESSAGE_SIZE_BYTES` for lockstep configuration across the client-server boundary.\n\nCall `BumpScanGeneration()` on extension install and uninstall so that cached `extensions:getInstalled` responses from an earlier scan generation are invalidated, preventing stale builtins-only manifests from being served after user-path extensions are added or removed.\n\nInject `CocoonSessionId` into the Cocoon sidecar environment, carrying the same session UUID used for `telemetryInfo.sessionId` in initialization data. This lets `vscode.env.sessionId` resolve correctly in Cocoon before the extension-host handshake completes. Promote `SessionId()` from `fn` to `pub(crate) fn` for cross-module access.\n\nReplace the `dev_log`-based subscriber-lag warning in `VineSubscribeCommand` with a call to `Vine::Client::Shared::ReportNotificationLag`, upgrading a local log message to structured instrumentation that consumers can act upon.",
 			"SHA": "7723552a9ff1ccd21397cddd7058838a788c775e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:06:24Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
-				11
-			],
-			"Message": "feat(Mountain): Background extension merge, ETag/304 scheme serving, gRPC cancellation, dialog action items\n\n**Extension scanner background merge** — Release the builtins-only manifest to `ScanReady` waiters immediately, then merge supplementary user-path extensions in a background `spawn_blocking` task. After merge, bump the `getInstalled` scan generation to invalidate any builtins-only cache entries, notify Cocoon of the delta via `$deltaExtensions`, emit `sky://extensions/installed` events for Sky's sidebar refresh, and re-run configuration merge so contributed `configuration` defaults from late-discovered extensions are applied. Full-scan path also bumps generation before notifying waiters.\n\n**Conditional GET (ETag/304) for scheme file handler** — Add `IfNoneMatchSatisfied` / `BuildNotModified` / `EmbeddedETag` / `CacheControlFor` helpers across all three serving paths (os-abs mmap, embedded asset resolver, fs-mmap StaticRoot). Fingerprinted bundle assets (`.js`, `.css`, `.woff2` under `Static/`) get `public, max-age=31536000, immutable`; everything else uses `public, max-age=3600` with ETag revalidation. The former separate `exists()`/`is_file()` stat() pair per request is eliminated — the mmap `LoadOrInsert` open is the existence probe, with `NotFound` falling through directly. Extract the sequential `replacen`-based path normalization into `NormalizePath` for a single-pass rewrite (query/fragment strip, `/out/` prefix removal, `Static/node_modules/` remap).\n\n**Background DNS server bind** — Move the Hickory DNS server start from a synchronous blocking call to `tauri::async_runtime::spawn_blocking`, overlapping the port probe with the rest of `AppLifecycleSetup`. `DnsPort` managed state is registered inside the background task rather than after the synchronous bind, eliminating a serialisation point during boot.\n\n**Optimized `.env.Land` candidate search** — Probe `.env.Land` up the exe ancestry first (most-likely path for non-TTY launches), removing redundant duplicate probes from the repo-layout section. Switch from separate `exists()` then `LoadEnvFile()` to using the `LoadEnvFile` open result as the existence check, eliminating one `stat()` per candidate.\n\n**Generation-based getInstalled cache invalidation** — Replace `OnceLock<Value>` per type with `Mutex<Option<(u64, Value)>>` keyed to a monotonic `SCAN_GENERATION` counter. The scanner bumps the generation after any post-`ScanReady` map mutation, so a builtins-only response cached during the early notify window is rebuilt from the merged extension map on the next call.\n\n**Per-request gRPC cancellation** — Register every `process_cocoon_request` call in `ActiveOperations` with a `CancellationToken`, race the dispatch future against it via `tokio::select!`. `cancel_operation` fires the token, the dispatch is dropped, and a `-32800` (request cancelled) error response is returned. The entry is unregistered on all exit paths, keeping the map bounded by in-flight requests. Validation and deserialization errors now carry structured `error.data` with the method name and detail.\n\n**Cocoon message dialog action buttons** — Add `repeated string Items` to the `ShowMessageRequest` protobuf message and propagate through `ShowErrorMessage`, `ShowInformationMessage`, and `ShowWarningMessage` so Cocoon's extension host can present action-button labels alongside native dialogs.\n\n**README badge fix** — Remove the ProtocolBuffers icon from the gRPC badge row, switching to a plain tonic badge.",
-			"SHA": "f4b7bf896a2fc2df297913360d8e110279b69e5c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:39:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
-				1
-			],
-			"Message": "fix(Mountain): Unshadow logger:getLevel handler from broad NOOP arm\n\nlogger:getLevel was matched by a broad logger:* + setVisibility => Ok(Value::Null)\narm before the dedicated handler (returning log::max_level() as u32) was reached.\nRemove logger:getLevel from the NOOP arm so the dedicated handler can execute.\nVS Code's LogLevel API now receives the correct numeric value.",
-			"SHA": "0a7c3ddeb29c720a1794413424713be12baa38df"
 		}
 	],
-	"TimeStamp": 1783088666465
+	"TimeStamp": 1783259741957
 }

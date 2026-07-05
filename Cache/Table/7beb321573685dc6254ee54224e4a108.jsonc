@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T17:20:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				565,
+				1
+			],
+			"Message": "fix(Cocoon): Lazy-load URI class and structurally classify extension errors\n\nThe top-level `await import(\"@codeeditorland/output/…/uri.js\")` in NotificationHandler could crash the module on failure, silently degrading all workspace URIs to `MakeUriStub` objects — breaking `URI.isUri()` checks inside extensions like `vscode.git`. Meanwhile, the rejection sniffer classified extension TypeErrors via a hardcoded extension-ID allowlist that both masked shim regressions inside listed extensions (e.g. GitLens, vscode-yaml) and failed to cover unlisted ones.\n\n**URI import (lazy):** Replace the module-level `await import` with `EnsureLazyURI()`, a guarded non-blocking import cache started at module load. `HydrateUri` now degrades to `MakeUriStub` only when the import is genuinely pending or has failed, and a deduplicated `CocoonDevLog` warn records the degradation exactly once per process lifetime.\n\n**Extension error classifier (structural):** Parse stack trace frames into path categories — extension roots (`~/.fiddee/extensions/`, `~/.land/extensions/`, `Dependency/…/extensions/`), Cocoon paths (`/Cocoon/`, `@codeeditorland/`), and neutral frames (`node:`, `<anonymous>`, bare filenames). An error is benign only when every path-bearing frame sits in an extension directory and none touch Cocoon source, replacing the fragile `Text.includes(\"DEVSENSE.phptools\") || …` chain with a self-maintaining structural rule.\n\nWorkspace folders are no longer silently dropped on URI import failure; extension error classification works for any extension without an allowlist update.",
+			"SHA": "1f2b19a9e6ec9c1945d648484674a3592de45f28"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T17:17:57Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				565,
+				9
+			],
+			"Message": "feat(Cocoon): Group bootstrap stages for parallelism; add activation guards, cancellation, and workspace folder picker\n\nOverhaul the Cocoon extension host bootstrap and core handler subsystems with concurrency-aware startup, robust activation lifecycle, and expanded VS Code API surface.\n\n**Bootstrap (stage groups, parallel startup):**\nReplace sequential stage iteration with dependency-grouped stages: RPCServer and ModuleInterceptor run in parallel; MountainConnection waits for RPCServer only. A fatal RPCServer failure triggers immediate process exit to prevent orphan Cocoon instances. Extension activation is fully delegated to Mountain's $activateByEvent path, removing the stale parallel-activation code that risked double-activation with a mismatched context.\n\n**Extension activation (in-flight guards, coalesced storage, timeouts):**\nIntroduce ActivatingExtensions set to track in-flight activations across concurrent $activateByEvent calls, preventing re-entrant starts. Coalesce the Storage.GetItems full-dump fetch so N concurrent activations share one round-trip at boot; a rejected fetch resets the promise so the next caller retries fresh. Each activation now races a 30-second timeout so one hung\nactivate() doesn't block the $activateByEvent response indefinitely. Add timedOut count to the response, exported IsExtensionActivating/ResetStoragePrime helpers, and PromoteToActivated lifecycle cleanup that leaves both ActivatingExtensions and ActivatedExtensions clean on throw.\n\n**Language providers (async disk I/O, cancellation):**\nReplace sync readFileSync with lazy async fs/promises.readFile, computed once during document construction so the synchronous TextDocument surface never performs I/O. Thread an AbortSignal through routeRequest into InvokeLanguageProvider; mountain-issued CancelOperation aborts the provider's CancellationToken, letting well-behaved providers stop work after the cursor moves on.\n\n**Diagnostics (empty-deletion semantics):**\nFix setDiagnostics to delete URI keys on empty/undefined arrays instead of storing [], matching stock ExtHostDiagnostics clearing semantics. Cleared URIs still ship on the wire as [uri, []] tuples so Mountain drops their markers. Fully-cleared owners are removed from the\n_AllDiagnostics cache so getDiagnostics() never surfaces ghost entries.\n\n**Window namespace (named params, folder picker, decoration options):**\nSeed initial window.state as focused/active so the getter returns a concrete value from the very first read. Change showTextDocument from positional array to named-object params (uri, viewColumn, preserveFocus) so Mountain's GenericRequest dispatcher resolves fields correctly, preventing silent degradation to \"[object Object]\". Implement showWorkspaceFolderPick with a real Window.ShowQuickPick round-trip and label-to-folder mapping, supporting multi-root workspaces instead of always returning the first folder. Attach decoration type options (__options) to the type object and include them in setDecorations payloads so Mountain can lazily register the type if the create notification raced ahead.\n\n**gRPC server (cancellation, serialization errors, malformed notifications):**\nAdd double-invoke guard (Respond) for unary callbacks on GenericRequest. Wire an AbortController per request that CancelOperation triggers, propagating the signal through routeRequest into provider invocations for cooperative cancellation. Surface serialization failures explicitly (error/message JSON) instead of returning indistinguishable empty\n\"{}\". Guard malformed notification parameters with a try/catch that logs the raw payload and drops the notification instead of crashing the server.",
+			"SHA": "e07884dd68f13464f12333823d96f78e416b1e8b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T16:43:47Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				565,
+				7
+			],
+			"Message": "feat(Cocoon): Implement lazy vscode require proxy, auth session routing, language ID detection, and streaming binding\n\nReplace four previously stubbed or hardcoded extension host paths with functional implementations that complete core VS Code API surface in Cocoon:\n\n- **VscodeModuleHooks (Extension Host):** The early `require('vscode')` handler — invoked when an extension loads before the API shim registers — previously returned an empty `{}`, silently discarding all subsequent property accesses. Replace with a lazy Proxy that reads through to `globalThis.__cocoonVscodeAPI` at every interception point (`get`, `has`, `ownKeys`, `getOwnPropertyDescriptor`), so extensions that capture the module reference early still see the full API once registration completes.\n- **Authentication Namespace:** Implement `authentication.getSession()` with local provider routing. When an in-process provider has been registered via `registerAuthenticationProvider`, the method queries its `getSessions` and `createSession` directly with proper scope matching; it falls back to the Mountain gRPC `Authentication.GetSession` RPC only when no local provider is found. Emits `auth.didChangeSessions` on successful session creation.\n- **Window Namespace (ShowTextDocument):** Replace the hardcoded `languageId: \"plaintext\"` with dynamic detection that first checks registered opened-document notifications (which carry the real languageId from Mountain) and falls back to an extension-to-languageId map (`.ts` → `typescript`, `.rs` → `rust`, etc.) parsed from the file URI.\n- **gRPC Server Service:** Bind `OpenChannelFromMountain` as the bidirectional streaming RPC in `createServiceImplementation`, completing the stream path that was previously documented as unbound. The `startBidirectionalStreaming` handler now has callers through the multiplexed service definition.\n- **Documentation:** Add the standard badge/header table wrapper to Architecture.md; reword DeepDive.md for clearer project context; delete the empty SynchronizationTodos.md placeholder.\n\nExtensions now see real authentication sessions, correct language IDs, and survive early module capture — three classes of stub-implementation bugs closed in one pass.",
+			"SHA": "c39e392cbd9bc5227df6d2fca4c9591f5075faa7"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T16:17:40Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "style(Cocoon): Strip superfluous blank lines from ESBuild.js\n\nRemove the vertical whitespace separating every export declaration, object property, and block statement in the ESBuild configuration module. The blank lines served no structural purpose and added unnecessary scrolling distance between related items.\n\nThis is the remainder of the formatting pass started in commit f0954fef — flattening all internal blank lines in Source/ESBuild.js for a denser, more scannable layout with no functional change.",
 			"SHA": "a6494ff2525e17bedbbdf13cee56935e8b13ad2a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T15:11:56Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				566,
-				2
-			],
-			"Message": "chore(Cocoon): Ignore and remove tracked tsconfig.tsbuildinfo\n\nThe TypeScript incremental compilation cache (tsconfig.tsbuildinfo) was accidentally tracked in version control, causing spurious diffs on every build. Add the file to .gitignore and delete the tracked copy.\n\nThis aligns with the existing policy of not tracking transient build artifacts in the Cocoon workspace.",
-			"SHA": "07586138898763d72ad7ff04e2f341f84336a966"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T14:36:05Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				567,
-				4
-			],
-			"Message": "style: format .gitignore and README.md; refactor ESBuild.js for improved readability and structure\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "f0954fef5cb959b508dbedef9af82def04e7cda7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T13:24:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				567,
-				3
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Cocoon into Current",
-			"SHA": "3f91022c53f273fab1b27480a8c96b1104724127"
 		}
 	],
-	"TimeStamp": 1783088667265
+	"TimeStamp": 1783259742400
 }
