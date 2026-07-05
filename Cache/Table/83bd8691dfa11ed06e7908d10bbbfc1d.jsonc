@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:49:48Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				85,
-				1
-			],
-			"Message": "fix(Sky): Add BuildOpenArg helper for real URI instances in open commands\n\nThe previous manual POJO construction `{ $mid: 1, path, scheme }` for vscode.open and similar commands fails when in-process consumers (command palette, quick pick) call `uri.with()` or `uri.toString()` directly without going through `revive` - the same root cause as the search results dedup bug fixed in the previous commit.\n\nAdd `BuildOpenArg` function that accepts string, URI instance, UriComponents, or workspace-folder shape and produces a real URI when `GetServices()?.URI` is available. Falls back to POJO with `$mid: 1` for code paths that DO call `revive`.\n\nUpdates two call sites in SkyBridge: OpenFile and the other vscode.open invocation to use the helper instead of manual object construction.",
-			"SHA": "18f9fb7fee75a0fa00c4fe1d0823061309905ec1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:29:33Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				85,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "a2c0d3ce109bb45b7047f2933edb4c995d0c3e27"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:28:59Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				85,
-				1
-			],
-			"Message": "fix(Sky): Fix URI object construction in search results for workbench deduplication\n\nThe previous manual resource object construction (`{ $mid: 1, path, scheme }`) fails when the workbench attempts result deduplication via `uri.with({...})` because it's a POJO without methods. Add `CelUriCtor` and `CelUri` interfaces to type VS Code's URI class, then create `MakeFileUri` that uses the actual `Ctor.file()` method when `__CEL_SERVICES__.URI` is available.\n\nThe lookup is re-resolved on each result construction to handle the event-rescue path where SkyBridge registers before the URI patch binds. Includes a last-resort POJO fallback for edge cases, though the workbench will gracefully fail on dedup in that scenario.\n\nUpdates both `MatchFromHit` (text search results) and file search result mapping to use `MakeFileUri` instead of manual object construction.",
-			"SHA": "e9eff04e9a2e6a16986b6817863f204c2c1c3c3e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-26T09:00:04Z",
+			"Date": "2026-05-05T05:12:32Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				85,
+				141,
+				2
+			],
+			"Message": "refactor(Sky): Extract debug and workspace relays into dedicated installers\n\nSeparate the debug lifecycle, custom-editor, and workspace/decoration logic from the monolithic `Bridge.ts` into `Source/Function/Sky/Bridge/InstallDebug.ts` (implicitly created via import) and the new `InstallTasksAndDecorations.ts` module.\n\nThe `InstallTasksAndDecorations` file encapsulates relays for task execution, workspace edits, window focus, and the 16ms-batched decoration create/dispose flow, implementing a demultiplexing strategy for batched payloads. It also consolidates the six-action output-channel lifecycle and webview message/dispose relays.\n\nThis continues the modularization effort initiated in previous commits, ensuring each domain of Mountain-to-Sky IPC (debug, tasks, workspace, UI decorations) resides in a self-contained installer. The `Bridge.ts` entry point now delegates these complex relays via dynamic imports, preserving the existing DOM event dispatch shapes (`cel:*`) while reducing the static dependency graph and improving navigability.\n\nThe refactoring adheres to the PascalCase directory hierarchy and isolates specific domain logic to facilitate future maintenance and tree-shaking.",
+			"SHA": "6487c94852597d6a202f4aa49c38d3e37b608386"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-05T05:00:50Z",
+			"File": [
+				"⡏⠀⠀⠀⠀",
+				140,
+				17
+			],
+			"Message": "refactor(Sky): Modularize Bridge.ts into dedicated domain installers\n\nExtract the monolithic `Source/Function/Sky/Bridge.ts` into a hierarchy of self-contained modules under `Source/Function/Sky/Bridge/`. This migration separates concerns by domain: commands, statusbar, editor/output, progress/terminal, and diagnostic probes now live in distinct files (`InstallCommands.ts`, `InstallStatusbar.ts`, `InstallEditorAndOutput.ts`, etc.) or grouped relays (`InstallSimpleRelays.ts`, `InstallFanOut.ts`).\n\nThe refactor utilizes dynamic imports to load these modules asynchronously, hydrating local symbols (e.g., `BuildOpenArg`, `ShowProgress`) with the factory results. This reduces the static dependency graph, improves tree-shaking, and isolates complex logic like `CelDispatchTracking` and `ApplyHtmlToWebview` into dedicated utilities.\n\nCrucially, this structure preserves the exact runtime behavior of the `Register` loop while making the codebase navigable. The `InstallDeadChannelListeners` module specifically activates the nine previously dormant Mountain-to-Sky event channels (tree-view, configuration, security incidents), ensuring that backend state changes are faithfully propagated to the workbench without silent failures.",
+			"SHA": "e4d1bf432fc1721a57c18dabb5c7e9184128e464"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-05T04:58:14Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				123,
 				3
 			],
-			"Message": "fix(Sky): Refactor worker script loading and improve search provider registration\n\n- Extract worker script imports into dedicated WorkerBundleImports.astro component to fix Astro compiler hoisting issue in JSX conditionals. The previous inline `<script>` inside the ternary was hoisted at parse time, defeating the runtime conditional.\n- Add comprehensive RenderDevLog diagnostics for search operations: textSearch invocation, fileSearch parameters, provider registration, and failure cases.\n- Replace single-shot workbench-ready retry with three parallel rescue paths: event listeners (cel:workbench-ready, cel:services-ready), exponential-ish polling schedule (~10s budget across 10 retries), and manual cel:request-search-register event for late-triggered registration.\n- Add SearchRegistered flag to prevent duplicate registration attempts and ensure proper event listener cleanup.\n\nThis resolves bundle-mode build failures where Astro's script processing couldn't handle conditional rendering, and improves debuggability for search functionality while making registration more resilient to async boot timing.",
-			"SHA": "70de1fdb8847585e9298b6999cb443d10b1f7381"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
+			"SHA": "f395658354009cc94c53416e10564effba922654"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-04-26T02:26:36Z",
+			"Date": "2026-05-05T02:27:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				81,
+				123,
 				1
 			],
 			"Message": "",
-			"SHA": "7506d7f4f0037644c33c879f2e402dc6275d77a4"
+			"SHA": "b986bdf8477efcb77cc7a51e790494f99973df8e"
+		},
+		{
+			"Author": "github-actions[bot]",
+			"Date": "2026-05-05T02:02:03Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				123,
+				1
+			],
+			"Message": "Merge pull request #500 from CodeEditorLand/dependabot/npm_and_yarn/xterm/xterm-6.1.0-beta.216\n\nbuild(deps): bump @xterm/xterm from 6.1.0-beta.214 to 6.1.0-beta.216",
+			"SHA": "4db8270c836b48d9e518ab622f7b2ce0f25028b7"
 		}
 	],
-	"TimeStamp": 1781194538800
+	"TimeStamp": 1783259756481
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-07T14:31:09Z",
+			"Date": "2026-05-25T06:34:08Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				66,
+				"⠀⠀⠀⠀⠀",
+				105,
 				1
 			],
-			"Message": "",
-			"SHA": "a881346c0b87e340b6bde7552736f2f7ea05c0b8"
+			"Message": "fix(#58): merge-resolve Inline.rs — combine #57 IsFreeVarSafe + #58 InLoop guard\n\nCurrent's Inline.rs (post-#57) added IsFreeVarSafe/FindSubstSite which\n#58's branch did not have. #58's branch added the InLoop guard and 3-tuple\nCountReferences destructure which Current did not have.\n\nThis commit is the true three-way merge:\n- Keeps #57's full structure: section banners, FindSubstSite, IsFreeVarSafe,\n  all test sections including free-variable-move-safety tests.\n- Applies #58's changes: (RefCount, InClosure, InLoop) 3-tuple destructure,\n  `|| InLoop` guard in EliminateBlock, loop-body tests.\n- Updates FindSubstSite's internal CountReferences call to discard the two\n  new booleans with (Count, _, _) to match #58's Count.rs signature.\n- Adds #58's loop-body tests alongside #57's free-var tests.",
+			"SHA": "c60c5d43d4ff34763be6d0e6dd92f5c786474fa3"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-05-07T02:02:27Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T06:28:59Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				66,
+				"⠀⠀⠀⠀⠀",
+				105,
 				1
 			],
-			"Message": "",
-			"SHA": "0157b35d49f299182bb1e193c059e473e02c2733"
+			"Message": "fix(#58): resolve conflict with #57 — forward-port RunPreserve into mod.rs\n\nPR #57 added RunPreserve() to Transform/mod.rs on Current. PR #58 branched\nbefore that merge, so its mod.rs is the pre-#57 version and conflicts.\n\nForward-port Current's mod.rs (Run + RunPreserve, no CountReferences calls)\nonto this branch. Count.rs and Inline.rs already have the correct 3-tuple\nCountReferences signature and InLoop guard — no changes needed there.\n\nAfter this commit the branch compiles cleanly against Current.",
+			"SHA": "5a2e24d1ceb1d4fe962dfe2acdacae7b2b93d46a"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-05-06T01:59:08Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T06:25:30Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				66,
-				1
+				105,
+				2
 			],
-			"Message": "",
-			"SHA": "413040076b6c2c0b1443035a655d8e52ee1ee83e"
+			"Message": "Merge pull request #57 from CodeEditorLand/fix/eliminate-free-var-move-safety\n\nfix(eliminate): skip inlining when free vars in Init are moved before substitution site",
+			"SHA": "464c558711f67cc07a618cffa4b900e2e356fbe4"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-05-05T01:59:58Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T06:20:14Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				66,
+				"⠀⠀⠀⠀⠀",
+				105,
 				1
 			],
-			"Message": "",
-			"SHA": "db487b37900ec8fab95cdb0699e9818e3776dd47"
+			"Message": "fix(Eliminate/CLI): add Reformat field to Options literal in CLI.rs\n\nDefinition::Options gained a Reformat field in an earlier commit but\nCLI.rs constructs Options via a named-field struct literal and was not\nupdated, causing a missing-field compile error on every build.\n\nAdd Reformat: false to the CLI literal (preserve-layout is the safe\ndefault; users who want the old full-reformat behaviour can pass\n--reformat once a flag is wired, but for now the field defaults off).\n\nAlso add the corresponding --reformat CLI flag so power users can opt in\nto the previous prettyplease reformat behaviour from the command line.",
+			"SHA": "4fbae67f03f1baab14fdd42bc746ac7a6dd8db5a"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-05-04T02:00:17Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T06:08:48Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				66,
-				1
+				105,
+				2
 			],
-			"Message": "",
-			"SHA": "22f469035cfff331db71b751332445eaf5823ecb"
+			"Message": "fix(Eliminate): span-free preserve path; keep Run intact for existing tests\n\nAll previous attempts used proc_macro2 span APIs (byte_range, start/end\nreturning LineColumn) which require the span-locations feature to be\nexplicitly enabled in Cargo.toml. That feature is only declared on\nproc-macro2 = \"1\" with no features, causing a compile error on stable.\n\nThis commit abandons span-based position mapping entirely.\n\nNew approach - completely span-free:\n  1. Run keeps its original body verbatim (prettyplease reformat path).\n     All 11 existing Inline.rs tests continue to pass unmodified because\n     they all go through Run and compare against prettyplease output.\n\n  2. RunPreserve is a new exported function that:\n     a. Parses to AST to identify candidates via Collect/Safe/Count.\n     b. For each confirmed candidate, renders the ORIGINAL let-stmt and\n        the ORIGINAL use-stmt to text via prettyplease (on a 1-stmt\n        dummy file). Uses simple string search to locate those exact\n        substrings in the working text.\n     c. SubstituteRef mutates a clone of the use-stmt in the AST, then\n        renders the SUBSTITUTED use-stmt to text the same way.\n     d. Replaces original-use-text with substituted-use-text, then\n        removes the let-stmt text (plus its trailing newline) from the\n        working string. No span APIs, no feature flags.\n\n  3. Process.rs is updated to call RunPreserve when Options.Reformat is\n     false (the new default), and Run when it is true.\n\nThis means:\n  - With default options (Reformat:false): comments, blank lines,\n    section banners, and indentation style are preserved verbatim.\n  - With Reformat:true: full prettyplease reformat as before.\n  - All existing tests pass unchanged.",
+			"SHA": "b7b16fe2e056abbe6fbb3cd37c5527e41ce351a1"
 		}
 	],
-	"TimeStamp": 1781194527555
+	"TimeStamp": 1783259745391
 }

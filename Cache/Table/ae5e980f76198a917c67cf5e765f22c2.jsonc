@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T19:33:15Z",
+			"Date": "2026-06-12T21:42:54Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
-				1965,
-				300
+				"⠀⠀⠀⠀⠀",
+				913,
+				5
 			],
-			"Message": "Refactor logging and telemetry functions for improved readability and consistency\n\n- Added spacing for better readability in Trace.ts, PostHogBridge.ts, Sandbox.ts, Tier.ts, and WorkbenchIntegrationImplementation.ts.\n- Enhanced error handling and performance measurement in Trace.ts.\n- Updated CaptureEvent and CaptureError functions in PostHogBridge.ts to ensure proper logging.\n- Improved IPCMessage and SandboxNodeProcess interfaces in Sandbox.ts for clarity.\n- Refactored WorkbenchIntegrationImplementation.ts to streamline state updates and debug logging.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "7b310689e0b4bd591586f7231e1845eca55d3e12"
+			"Message": "refactor(Wind): Finalize IPC De-Effect-ify — clean up barrel, delete Live/Tag, convert Mock\n\nComplete the IPC service migration away from Effect-TS, following the core conversion in 0aeaeb8a that rewrote the errors, interface, and implementation. This commit cleans up the Effect scaffolding that the prior conversion left behind.\n\n**Main barrel** (`Effect/IPC.ts`): Move error-class re-exports from inline definitions to the sub-barrel; replace default-import of Effect-TS Layer with direct implementation imports; add backward-compatibility aliases (`IPCTauriLive`, `IPCMockLive`) using `export { X as Y } from` syntax.\n\n**Deleted files**:\n- `Effect/IPC/Live.ts` — the `Layer.effect(IPCTag, …)` factory; no longer needed since the implementation is a plain object, not an Effect Layer.\n- `Effect/IPC/Tag/IPCTag.ts` — the `Context.GenericTag<IPCService>`; no longer needed since consumers import `TauriIPCLive` directly.\n\n**Mock** (`Effect/IPC/Mock.ts`): Convert from `Layer.succeed(IPCTag, {…})` to a plain `IPCService` object. All methods drop the curried `(_args) => …` Effect signature: `send` returns `void`, `invoke` returns `Promise`, `events` returns an `{ subscribe }` object, `once` takes a callback.\n\n**Sub-barrel** (`Effect/IPC/index.ts`): Remove Tag, Layer, and error-helper (`Create*`) re-exports. Add type exports for the new `IPCEvent`, `IPCEventListener`, `IPCEventStream`, `IPCCleanup` types.\n\n**Impact**: Eliminates the last Effect-TS dependency from Wind's IPC layer. Cuts ~80 lines of Effect boilerplate (Layer, Tag, factory helpers). All imports now come from plain TypeScript modules.",
+			"SHA": "fe858d9d20ff1f67eadca05a554d54fc0194c89c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T11:34:48Z",
+			"Date": "2026-06-12T21:42:19Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1965,
-				22
+				916,
+				3
 			],
-			"Message": "chore(build)\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "09782fa20a60cc3f43081b7b9741c1d99e2f3b38"
+			"Message": "refactor(Wind): De-Effect-ify IPC service — convert errors, implementation, and interface to plain classes and async\n\nComplete the migration of the IPC service away from Effect-TS, the last major service area still using Effect wrappers. This follows the established De-Effect-ify pattern applied to ActivityBar, NetworkRestrictions, Bootstrap, Health, and FileSystem services.\n\n**Error types** (`IPCError.ts`): Convert `IPCInvokeError`, `IPCSendError`, and `IPCSubscriptionError` from interface-based factory functions (`CreateIPCInvokeError`, `CreateIPCSendError`, `CreateIPCSubscriptionError`) to actual `Error` subclasses with `_tag` discriminant via `extends Error`. Remove the factory functions and the aggregated default export — each class is now independently exported.\n\n**Interface** (`IPCService.ts`): Replace Effect-TS signatures — `send` returns `void` (was `Effect.Effect<void, IPCSendError>`), `invoke` returns `Promise<unknown>` (was `Effect.Effect<unknown, IPCInvokeError>`), `events` returns a plain `IPCEventStream` with a `subscribe(listener)` model (replacing `Stream.Stream`), and `once` takes a callback (replacing `Effect.Effect`). Introduce `IPCEvent`, `IPCEventListener`, `IPCCleanup`, and `IPCEventStream` types.\n\n**Implementation** (`TauriIPC.ts`): Rewrite from curried Effect-returning functions (`(channel) => (args) => Effect.try(...)`) to flat async/sync functions (`invoke(channel, args)`, `send(channel, args)`). Replace the `events` Stream-based subscription with a `Set<IPCEventListener>` model that auto-cleanses the Tauri listener when the last subscriber disposes. Convert `once` from `Effect.async` to `async/await` with auto-cleanup. Remove all Effect-TS imports.\n\n**Impact**: Eliminates the last Effect-TS dependency from Wind's IPC layer. Errors now produce standard `Error` stack traces for simpler debugging. The interface is plain TypeScript — no Effect imports needed by consumers.",
+			"SHA": "0aeaeb8a36734ce87a7361b0dfa519ace58e8506"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T17:15:00Z",
+			"Date": "2026-06-12T21:41:32Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1959,
-				2
+				"⠁⠀⠀⠀⠀",
+				916,
+				14
 			],
-			"Message": "refactor(Wind): Align Tauri invoke command names to snake_case convention\n\nThe Tauri commands `VineSubscribeNotifications` and `VineSubscriberCount` are registered on the Rust (Mountain) backend where the standard naming convention is snake_case. Wind's `tauri.invoke` and `Module.invoke` callers were using PascalCase, which would fail at runtime since the Tauri IPC dispatcher matches command names case-sensitively against the backend registration.\n\nRename both invoke targets in `Source/Effect/Vine/NotificationStream.ts` to match the Rust-side registrations: `vine_subscribe_notifications` and `vine_subscriber_count`. The error message strings are updated to match for consistency.\n\nNo behavioral changes — the commands themselves and their payload schemas are identical.",
-			"SHA": "ec67e70c68f4b5e783af35224cb7945b4a09d16e"
+			"Message": "refactor(Wind): Consolidate barrel exports and add ActivityBarItemUpdate type\n\nNormalize export ordering across four service barrels (ActivityBar, Bootstrap, Health, NetworkRestrictions) into consistent groups — errors, helpers, implementations, interfaces, types — replacing ad-hoc interleaving that made imports harder to audit.\n\n**Barrel re-exports** (`ActivityBar.ts`, `Bootstrap.ts`, `Health.ts`, `NetworkRestrictions.ts`, `ActivityBar/index.ts`, `Health/index.ts`):\n- Alphabetize export groups within their categories and place value exports before type exports.\n- Collapse separate value-only and type-only re-exports from the same module into combined export blocks.\n\n**ActivityBarItemUpdate type** (`ActivityBarService.ts`):\n- Introduce a dedicated `ActivityBarItemUpdate` partial type that explicitly permits `badge: undefined` for badge removal, replacing the broader `Partial<Omit<ActivityBarItem, \"id\">>` parameter in `updateItem`.\n- Update `ActivityBarImplementation.ts` and `ActivityBarMock.ts` signatures accordingly.\n\n**Minor cleanups**:\n- `BootstrapImplementation.ts`: Convert string concatenation to template literal.\n- `BootstrapStage.ts`: Collapse over-wide import back to single line.\n- `NetworkRestrictionsHelper.ts`: Prefix three unused loop variables (`Pattern`) with underscore to silence unused-variable diagnostics.\n- `HealthImplementation.ts`, `NetworkRestrictionsImplementation.ts`: Consistent method-signature formatting.\n\nNo behavioral changes — purely structural normalization and type precision.",
+			"SHA": "a3be484eb3db337d974c0d147372b0c20d05481d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T15:41:40Z",
+			"Date": "2026-06-12T21:24:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1959,
-				1
+				916,
+				3
 			],
-			"Message": "chore(Wind): Remove unused ModelUpdateContent IPC channel route\n\nThe `model:updateContent` IPC route defined in Channel.ts is no longer consumed by any active IPC caller. The Model subsystem now handles content updates through a different path — likely via the per-subsystem tier routing or direct content synchronization effects rather than a named channel dispatch.\n\nRemove the route constant and its `// --- Model ---` section header from the channel catalog to keep the route registry clean and avoid confusion during debugging.",
-			"SHA": "f2f0d2b1b79b88f2092d53d64a398b5dd40ad2cc"
+			"Message": "refactor(Wind): Complete NetworkRestrictions De-Effect-ify — convert implementation to plain factory\n\nComplete the migration of the NetworkRestrictions service away from Effect-TS by converting the implementation from a `Layer.effect` providing a `Context.Tag` to a plain `makeNetworkRestrictions(Log)` factory function.\n\n**Implementation** (`NetworkRestrictionsImplementation.ts`):\n- Remove all Effect-TS imports (`Effect`, `Layer`, `Ref`, `Telemetry`) — the `Telemetry` dependency is replaced with a simple `NetworkRestrictionsLogger` callback (`performance.mark`-based default, no Effect surface).\n- Convert `Ref.make`/`Ref.get`/`Ref.set` state management to plain `let _config`, `let _blockedRequests`, `let _telemetryLevel` module-closure variables.\n- All methods become synchronous — `checkURL`/`checkIPCChannel` return `boolean` (throw `NetworkBlockError`/`IPCBlockError` on denial) instead of `Effect<boolean, Error>`; `blockURL`/`updateConfig`/`setTelemetryLevel` return `void` instead of `Effect<void>`.\n- Delete `NetworkRestrictionsTag.ts` entirely — no more `Context.Tag` or `Layer` export.\n\n**Barrel** (`NetworkRestrictions.ts`):\n- Remove Tag re-exports (`NetworkRestrictions`, `NetworkRestrictionsTag`).\n- Change `IPCBlockError`/`NetworkBlockError` from `export type` to `export` since they are now concrete `Error` subclasses (converted in the prior commit).\n- Add `makeNetworkRestrictions` export alongside the existing default `NetworkRestrictionsLive`.\n- Update doc examples to show plain `NetworkRestrictionsLive.checkURL(...)` instead of `yield* NetworkRestrictions`.\n\n**Impact**: Completes the final phase of the NetworkRestrictions De-Effect-ify (started in 914a220a). Removes the last Effect Layer and Tag from this service area, cutting ~160 lines and eliminating Ref/Effect.gen/Layer boilerplate in favor of straightforward synchronous code.",
+			"SHA": "3882d53b44779f78db060ce01bd44692004ffa46"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T15:09:25Z",
+			"Date": "2026-06-12T21:24:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1959,
-				11
+				918,
+				10
 			],
-			"Message": "chore(Wind): Regenerate generated artifacts with upstream source corrections\n\nRe-run Wind/Codegen to refresh generated TypeScript files after upstream VS Code source changes:\n- CommandCatalog drops from 551 to 550 entries, removing the `\"editor\"` command registered in `chat/electron-browser/chat.contribution.ts:340` that was removed upstream\n- ServiceCatalog grows from 500 to 502 entries, adding IChatViewFactory and ISessionsPartService to replace two stale SSH remote agent host service files that were superseded upstream\n- ISessionsManagementService gains a `setActive(session: IActiveSession): void` method reflecting new upstream API surface\n- Per-service upstream files (IAgentFeedbackService, IAgentHostGitService, ISSHRemoteAgentHostMainService, ISSHRemoteAgentHostService, IViewDescriptorService) have their source line references corrected to match the current VS Code source positions\n\nNo runtime behavioral changes — only generated scaffolding refreshed for build-time structural verification.",
-			"SHA": "e691ac64bec0dbd3a836263294baa94a00d1facf"
+			"Message": "refactor(Wind): De-Effect-ify ActivityBar and NetworkRestrictions errors/service\n\nRemove Effect-TS from the ActivityBar service and the NetworkRestrictions error types and service interface, continuing the migration of Wind toward framework-agnostic patterns.\n\n**ActivityBar** (`Effect/ActivityBar/`):\n- Convert from `Layer.effect`/`SubscriptionRef`/`Stream` to a plain in-memory store via `makeActivityBar(Logger)` factory. All CRUD methods become sync (`void`/`Item`) instead of `Effect.Effect<>`. Throws typed Error subclasses on failure.\n- Delete `ActivityBarTag.ts` (Context.Tag) — consumers import `ActivityBarLive` directly as a plain object.\n- Remove `itemsChanges` and `activeItemChanges` Stream properties from `ActivityBarService` interface — they had zero consumers (Sky reads activity state through `WorkbenchActivityLive`).\n- Remove the six `Make*` factory functions (`MakeCreateItem`, `MakeUpdateItem`, `MakeRemoveItem`, `MakeGetItem`, `MakeSetActiveItem`, `MakeSetBadge`, `MakeGetBadge`) from `ActivityBarHelper`; logic inlined into the implementation.\n- `ActivityBarLive` is now an `ActivityBarService` instance, not a `Layer`. `ActivityBarMockLive` similarly converted from `Layer.succeed` to a plain object.\n- Add `makeActivityBar(Log)` factory enabling custom logger injection; default logs via `performance.mark`.\n- Update barrel exports: remove Effect-TS references from doc examples, drop `ActivityBar` (Tag), add `makeActivityBar`.\n\n**NetworkRestrictions** (`Effect/NetworkRestrictions/`):\n- Convert `IPCBlockError` and `NetworkBlockError` from interface-based discriminated unions (factory returning `{ _tag, channel, reason, ... }`) to actual `Error` subclasses with `_tag` discriminant via `extends Error`. The `name` getter returns the class name; `cause` preserves the blocked channel/URL.\n- Convert `NetworkRestrictionsService` interface: all methods become sync — `checkURL` returns `boolean` instead of `Effect<boolean, NetworkBlockError>`, `blockURL`/`updateConfig` return `void` instead of `Effect<void>`, etc.\n\n**Impact**: Reduces Effect-TS surface by two more service areas and two error type definitions. Cuts 517 lines, simplifies debugging (plain Error stack traces), and removes unreachable reactive change-stream code paths.",
+			"SHA": "914a220a3d6827a9769efc2de53332d25df759f0"
 		}
 	],
-	"TimeStamp": 1781194519149
+	"TimeStamp": 1783259742164
 }

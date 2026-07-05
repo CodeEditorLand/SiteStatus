@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:40:56Z",
+			"Date": "2026-05-25T22:15:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1519,
-				16
-			],
-			"Message": "",
-			"SHA": "14a5ec8100c65cd46fa4a7393f614ee5ae7daa3d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:22:38Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1517,
-				1
-			],
-			"Message": "feat(Mountain): Wire workspace save/saveAs/saveAll through to Sky\n\nAdd three IPC handler arms to the Workspace dispatch table in CreateEffectForRequest so Cocoon's vscode.workspace.save() and related extension API calls reach the workbench textfile service running in Sky.\n\n- `Workspace.Save` — extracts the URI from parameter position 0 or the \"uri\" key, routes to `sky://workspace/save`, and returns the URI on success so the caller can confirm persistence.\n- `Workspace.SaveAs` — mirrors the Save path but dispatches to `sky://workspace/saveAs`; the Sky handler can later drive a standalone Save-As dialog.\n- `saveAll` / `Workspace.SaveAll` — accepts the legacy `saveAll` method name (used by gRPC/Client.ts) and routes to `sky://workspace/saveAll`, returning null on failure instead of crashing the workbench.\n\nAll three handlers degrade gracefully: if Sky does not respond, they log a warning and return the original URI (for Save/SaveAs) or null (for SaveAll), preventing extension host crashes on missing handlers.",
-			"SHA": "5afb710dc67ede34e2939e573ca97cf05f3e8590"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:53:10Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1517,
-				4
-			],
-			"Message": "perf(Mountain): Cache OS properties and Rosetta; track active document\n\nReduce redundant OS syscalls and system-info queries while keeping Cocoon's\nactiveTextEditor shim in sync when Wind opens a document.\n\n**Cached OS Properties (OSProperties.rs):**\nWrap sysinfo::System-based OS attribute collection (type, release, arch,\nCPU topology) behind a OnceLock, extracting the computation into a\ncompute_os_properties() helper. Spawning sw_vers/uname and refreshing CPU\ndata on every IPC call was wasting ~10 ms per invocation.\n\n**Cached Rosetta Detection (mod.rs):**\nMove the sysctl.proc_translated subprocess behind a OnceLock — a process\neither runs under Rosetta 2 or it does not for its entire lifetime.\n\n**Active Document Tracking (ModelOpen.rs):**\nAfter opening a document, call SetActiveDocumentURI on the application\nstate and fire a fire-and-forget gRPC notification\nwindow.didChangeActiveTextEditor to Cocoon so its\nvscode.window.activeTextEditor shim updates immediately.\n\n**Terminal Layout Persistence (mod.rs):**\nRefactor localPty:getTerminalLayoutInfo and\nlocalPty:setTerminalLayoutInfo to use\nGetStorageValue(true, ...)/UpdateStorageValue(true, ...) on\nStorageProvider, eliminating manual JSON serialization and improving\nerror resilience.\n\nImpact: Reduced IPC latency for OS queries, correct active editor state\nfor extensions, simpler terminal layout persistence code.",
-			"SHA": "2a0e335eb7bc17b03b24d928c97dfd124542cd12"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:46:15Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1517,
+				1746,
 				2
 			],
-			"Message": "feat(Mountain): Wire terminal layout persistence and cache color scheme detection\n\nComplete the terminal state restoration cycle and optimize startup performance by implementing missing IPC handlers and caching expensive OS queries.\n\n**Terminal Layout Persistence:**\nImplement `localPty:getTerminalLayoutInfo` and `localPty:setTerminalLayoutInfo` to bridge the workbench's terminal panel state. These handlers now delegate to the `StorageProvider` service to read/write the `terminal:layoutInfo` key, enabling the restoration of active tabs and dimensions after window reloads (replacing previous `Value::Null` no-ops).\n\n**Color Scheme Caching:**\nIntroduce a `OnceLock` cache for the `NativeGetColorScheme` result. The underlying `detect_dark_mode` function now executes only once per process lifetime, reducing the ~5–15 ms OS syscall overhead on subsequent calls during boot and window focus events. This aligns Mountain's behavior with stock VS Code's expectation that users restart the editor to apply system theme changes.\n\nImpact: Terminal layouts persist across reloads; cold-start performance improves for theme detection calls.",
-			"SHA": "123d5b073d0bdec64ccbae19fe9b245979ea5141"
+			"Message": "fix(Mountain): Relay terminal shell execution events to Cocoon extension host\n\nAdd two new IPC notification handlers in WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, bridging terminal shell execution events from Sky to the Node.js extension host.\n\n`$acceptTerminalShellExecutionStart` fans to Cocoon so `vscode.window.onDidStartTerminalShellExecution` fires for extension subscribers. `$acceptTerminalShellExecutionEnd` fans two Vine notifications: `$acceptTerminalShellExecutionEnd` (for `onDidEndTerminalShellExecution`) and a derived `$acceptExecutedTerminalCommand` so `vscode.window.onDidExecuteTerminalCommand` subscribers observe the executed command without an additional Sky-side detection pass.\n\nAlso inline a multi-line closure chain in `CreateEffectForRequest/Diagnostics.rs` to a single-line filter_map for consistency with surrounding code style.",
+			"SHA": "275e31a312378afe6b7deb7a8e7f6f579e52b42c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:44:44Z",
+			"Date": "2026-05-25T22:08:42Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1517,
-				21
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
 			],
-			"Message": "refactor(Mountain): Extract shared notification relay/unregister helpers\n\nSixteen Cocoon-to-Mountain notification handler files contained nearly\nduplicated inline code — every output, progress, channel, and\nprovider-unregistration atom repeated the same three-step pattern\n(emit a Tauri sky:// event + dev_log, or extract a u32 handle +\nunregister + dev_log).\n\nCollapse all of them into two shared helpers under a new\n`Support/` submodule:\n\n- `RelayToSky` — calls `ApplicationHandle.emit(SkyEvent, Parameter)`\n  and optionally writes a dev-log line. Used by OutputAppend,\n  OutputClear, OutputCreate, OutputDispose, OutputShow,\n  OutputChannelClear, OutputChannelCreate, OutputChannelDispose,\n  OutputChannelShow, ProgressComplete, and ProgressUpdate — each now\n  a single delegation call.\n- `UnregisterByHandle` — reads a `handle` u64 from the parameter,\n  guards against zero, calls\n  `ProviderRegistration::UnregisterProvider`, and logs the provider\n  kind. Used by UnregisterAuthenticationProvider,\n  UnregisterDebugAdapter, UnregisterDebugConfigurationProvider,\n  UnregisterFileSystemProvider, UnregisterTaskProvider, and\n  UnregisterUriHandler.\n\n`UnregisterFileSystemProvider` and `UnregisterUriHandler` additionally\nlog their scheme field before delegating, preserving the traceability\ninformation that was unique to those atoms.\n\n21 files changed, 67 insertions, 231 deletions.\n\nNo behavioural changes — every handler produces the same Tauri\nsky:// event and the same dev-log output as before.",
-			"SHA": "3427a0c39e6129a8df9ff50b6b1015a70c4dd2e2"
+			"Message": "fix(Mountain): Forward editor state change notifications to Cocoon extension host\n\nAdd five missing Vine notification relays so VS Code API subscribers inside the Node.js extension host observe changes Mountain already delivers to the renderer:\n\n- **ThemesSet.rs**: Fan `$acceptActiveColorTheme` on theme switch, computing the workbench theme kind (Light/Dark/HighContrast) from the theme id. Without this, `vscode.window.onDidChangeActiveColorTheme` never fires for Node-resident extensions (GitLens, Roo Code, rust-analyzer).\n\n- **WindServiceHandlers/mod.rs**: Relay four Sky-detected editor state changes as Cocoon notifications: `$acceptVisibleEditorsChanged` (`onDidChangeVisibleTextEditors`), `$acceptTabsChanged` (`onDidChangeTabs`/`onDidChangeTabGroups`), `$acceptVisibleRangesChanged` (`onDidChangeTextEditorVisibleRanges`), and `$acceptTextEditorOptionsChanged` (`onDidChangeTextEditorOptions`). Each forwards the Sky-provided payload directly.\n\n- **Diagnostics.rs**: After every `SetDiagnostics`/`ClearDiagnostics` call, fan `$acceptDiagnosticsChanged` back to Cocoon with the owner and affected URIs so `vscode.languages.onDidChangeDiagnostics` subscribers in peer extensions observe the change. For clears, emit an empty URI list — consumers should re-query `getDiagnostics(uri)`.\n\n- **DebugLifecycle.rs**: For `debug.addBreakpoints`/`debug.removeBreakpoints` only, fan `$onDidChangeBreakpoints` with added/removed/changed arrays so `vscode.debug.onDidChangeBreakpoints` fires in all extensions, not just the one that made the mutation.\n\nCompletes the Mountain-to-Cocoon notification pipeline for theme, editor, diagnostics, and debug breakpoint surfaces that were previously renderer-only.",
+			"SHA": "dd925de41e8f4558f960cb99f6d1a78674eba4e7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T21:53:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				2
+			],
+			"Message": "fix(Mountain): Relay executed command notifications to Cocoon extension host\n\nDual-emit `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, so that `vscode.commands.onDidExecuteCommand` callbacks fire inside extensions running in the Node.js extension host. The existing Tauri-emit only reaches the renderer (Sky); Cocoon has no Tauri runtime to subscribe to those events.\n\nCocoon's `Services/Handler/Notification/Handler.ts` maps `$acceptCommandExecuted` to an internal emitter that the `Commands/Namespace.ts` `onDidExecuteCommand` subscriber listens to. The Vine notification is fire-and-forget — failure is non-fatal since the renderer-side observers have already been notified via the Tauri event.\n\nAlso add the `tauri::Emitter` trait import in `CreateEffectForRequest/Commands.rs` to satisfy the compiler for the Tauri event emit.",
+			"SHA": "eeb3d39b739ebe9019b39f18ad4415ad9ad0fcb2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T21:37:54Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
+			],
+			"Message": "fix(Mountain): Forward previously unhandled IPC notifications\n\nAdd four notification handlers that were missing from the IPC dispatch tables, completing the Cocoon-to-Mountain-to-renderer pipeline:\n\n- **ScanPathConfigure**: Scan `~/.land/extensions` alongside the FIDDEE user directory so pre-migration installs (Roo Code, rust-analyzer, etc.) remain discoverable. The path is only pushed when the directory exists, making the addition harmless on clean installs.\n\n- **Debug.rs**: Forward `debug.dap-response` from Cocoon (inline-implementation adapters) to the workbench via `sky://debug/dap-message`, enabling the RawDebugSession sequencer to correlate DAP responses by `request_seq`.\n\n- **StatusBar.rs**: Handle `setStatusBarText` mutations from extension StatusBarItem `text()` setters. Without this arm, status bar text freezes after the initial create, never reflecting runtime updates.\n\n- **Task.rs**: Relay `terminate_task`/`Task.Terminate` to the extension host task service, allowing `vscode.tasks.executeTask(...).terminate()` to stop running tasks. Falls back gracefully with a dev_log warning when no task provider is available.",
+			"SHA": "23b235d68ce4fa03776183d9f8a9ac8bcb98b9f2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T20:45:29Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				7
+			],
+			"Message": "build(Mountain): Restore simple crate and bundle identifiers\n\nRestore \"Mountain\" as the crate binary, library, and package name, and the\nTauri productName and bundle identifier, replacing the verbose development\nbuild descriptors from the prior commit. The Backup files are removed.\n\nGate the Cocoon sidecar launch on both the ExtensionHostCocoon feature flag\nand the absence of the no_node_host cfg flag, so the extension host tier\nrouting (Node vs WebWorker) is respected at boot time.\n\nInclude the task type in the task provider Options payload, fixing the\nregistration schema for Cocoon's task system.\n\nDerive Clone on ExtensionCollection to support shared access patterns in\nthe terminal environment variable mutation pipeline.\n\nAdd the zsh shell integration script to the Tauri resource bundle and\ntidy resource ordering.",
+			"SHA": "279ff30481d2276785d0a819d7314527ec775fb6"
 		}
 	],
-	"TimeStamp": 1781194535843
+	"TimeStamp": 1783259753278
 }

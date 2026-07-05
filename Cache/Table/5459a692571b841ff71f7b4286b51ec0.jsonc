@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:06:47Z",
+			"Date": "2026-05-28T12:49:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1574,
-				5
+				1733,
+				3
 			],
-			"Message": "feat(Mountain): Fire $acceptModelSaved after disk writes; strip Undo/Redo from native Edit menu\n\n**T1.4 save notification** — `FileWriteNative` and `TextfileWrite` now fire `$acceptModelSaved` via Vine after a successful disk write, so Cocoon can dispatch `onDidSaveTextDocument` to subscribed extensions (format-on-save, organize-imports, save listeners). The save is fire-and-forget (tokio::spawn) so a Vine failure never cascades back to the workbench IPC caller. Both handlers also gain `dev_log` instrumentation for write latency and byte count.\n\n**Cmd+Z routing fix** — On macOS, Tauri's default `Builder::default()` installs an Edit submenu with native Undo/Redo items that intercept Cmd+Z at the AppKit responder-chain level before the WKWebView's keydown handler fires, preventing VS Code's Monaco editor from seeing `meta+z`. The new `AppMenu::SetAppMenu` builds a custom Edit submenu containing only Cut/Copy/Paste/SelectAll, removing Undo/Redo so Cmd+Z and Cmd+Shift+Z reach the JS layer. Called from `AppLifecycleSetup` immediately after window creation. Non-fatal; logs a warning and keeps the default menu if the override fails. No-op on Windows/Linux.",
-			"SHA": "f79990166465444bbe3a00ca968af7527b0bea13"
+			"Message": "refactor(Mountain): Implement VineHost trait for gRPC service\n\nImplement the `VineHost` trait for `MountainVinegRPCService` to bridge the generic `Vine` library with the Mountain backend. This enables the dedicated `Vine` crate to operate against Mountain's specific runtime—including its `AppHandle`-based event system—without requiring direct knowledge of Mountain's internal structure.\n\nThe implementation introduces `TauriRendererEmitter` to wrap Tauri's `Emitter` functionality and `InertIPCProvider` as a placeholder for non-reentrant notification handlers. This infrastructure supports the delegation of complex Cocoon → Mountain notification logic to the library level, facilitating the ongoing modularization of the backend.\n\nAdditionally, include the `Cache` crate in the workspace dependencies and update the Rust lints to recognize the `no_node_host` configuration flag.",
+			"SHA": "2061488138b01ee892c438e7374e2e170b80650c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T04:39:32Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1573,
-				10
-			],
-			"Message": "fix(Mountain): Fix shell PATH, git cache, build constraints, and import paths\n\n**EnhanceShellEnvironment** — Allow shell PATH to override the Finder/Dock\nminimal default (`/usr/bin:/bin:/usr/sbin:/sbin`) when `IsTty()` is false,\nso git, Node, and language servers resolve correctly after launchd/Dock\nlaunches.\n\n**HandleIsAvailable** — Cache only a `true` result. A transient `false`\nfrom the first git probe (fired before EnhanceShellEnvironment extends\nPATH) must not permanently disable the SCM UI.\n\n**CocoonService/mod.rs** — Remove `prepare_call_hierarchy` and\n`prepare_type_hierarchy` gRPC handlers that were prematurely introduced\nin the previous commit. Rename `GenericNotification` and `GenericRequest`\nimports with `Msg` aliases to avoid name clashes with sibling modules.\n\n**Import path fixes** — Qualify `MountainVinegRPCService` path in\nRegisterLanguageProvider and call `RunTime()` as a method; fix `MetricType`\nimport alias in DashboardHelpers; add missing `CommandExecutor` import in\nGenericNotification and GenericRequest commands.\n\n**build.rs** — Gate `tauri_build::build()` behind an absent\n`CARGO_BUILDING_DOCS` var so `cargo doc` succeeds without Sky Astro assets.\n\n**tauri.conf.json** — Add Brotli pre-bake as `beforeBundleCommand`.\n\nBump `Record` to 1 in Info.plist.",
-			"SHA": "36c8655681c646f7f1119aac1cbca04346b69d91"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T04:38:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1573,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "681cfe8f308427aac8ffd722e8e54fa78590d634"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-20T02:49:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1568,
-				1
-			],
-			"Message": "",
-			"SHA": "36da8bc51580580fa19bb4f352b28c37e57a7073"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T02:17:51Z",
+			"Date": "2026-05-28T12:43:19Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				1573,
-				42
+				1732,
+				32
 			],
-			"Message": "feat(Mountain): Implement hierarchy prepare, editor text IPC, and selection forwarding\n\nAdd call hierarchy and type hierarchy prepare entry-points across the full gRPC+LSP provider pipeline. The new `PerformCallHierarchy` and `PerformTypeHierarchy` provider modules in `Source/RPC/CocoonService/Provider/` parse the URI+position request and delegate to `PrepareCallHierarchy`/`PrepareTypeHierarchy` on the `LanguageFeatureProviderRegistry`, which invokes `$prepareCallHierarchyItems`/`$prepareTypeHierarchyItems` on the registered extension provider via Cocoon. This unblocks the incoming/outgoing calls and subtypes/supertypes panels in the editor UI.\n\nBridge two new Cocoon→Mountain→Sky notification atoms for extension-driven editor mutations: `window.setTextEditorDecorations` uses a channel-drain batching mechanism (16 ms frame-aligned aggregation, unbounded sender) to coalesce ~5-200+ calls/second into a single `sky://decoration/set-ranges` Tauri event per frame; `window.applyTextEdits` forwards `{uri, edits}` directly as `sky://editor/apply-text-edits` for `editor.edit(cb)` callers (formatters, code actions, vim-mode, Error Lens).\n\nAdd the `window.revealRange` Track Effect to `Source/Track/Effect/CreateEffectForRequest/Workspace.rs`, routing extension calls through `SendUserInterfaceRequest` to `sky://editor/revealRange` for go-to-definition and error-navigation scrolling.\n\nFire `document.willSave` to Cocoon before writing to disk in the workspace-save Track Effect, giving `onWillSaveTextDocument` listeners (format-on-save, organize-imports, trailing-whitespace strippers) a 1.5-second grace window before the actual disk write.\n\nWire two new Sky→Mountain IPC handlers in the `mountain_ipc_invoke` dispatcher — `sky:editor:selectionChanged` and `sky:editor:activeChanged` — which store the active document URI in workspace state and forward the notification to Cocoon so `activeTextEditor.selection` and `onDidChangeTextEditorSelection`/`onDidChangeActiveTextEditor` stay live.\n\nRecord `TierIPC: Mountain` in Info.plist alongside existing tier metadata.\n\nIncludes pervasive `cargo fmt` reformatting across 30+ source files: single-line short signatures, collapsed nested expressions, reordered import blocks for PascalCase alphabetic consistency.",
-			"SHA": "e85d15aa92cb2b7f45eb50f92c2c3613b10e4b56"
+			"Message": "refactor(Mountain): Delegate Vine notification logic to Vine crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local gRPC notification handlers in `Source/Vine/Server/Notification/` with thin delegation shims pointing to the dedicated `Vine` crate.\n\nThis refactor extracts the implementation logic for all Cocoon → Mountain notifications—including complex batching and coalescing for `DecorationTypeLifecycle`, `OutputChannel`, and `ProgressReport`—into the `::Vine` library namespace. The Mountain-side modules are converted into thin wrappers that pass the `MountainVinegRPCService` and payload to the library implementation.\n\nThe `OutputChannelCoalesce::TryEnqueue` handler is updated to use the `TauriRendererEmitter` shim, allowing the library's coalescing logic to remain agnostic of the specific Tauri app handle while preserving the existing internal API surface.\n\nThis change enforces consistent IPC handling standards across the project and significantly reduces the code surface within the Mountain element.",
+			"SHA": "452fafa5f558cfa180a348131f92caf25af1e508"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T12:42:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1732,
+				1
+			],
+			"Message": "refactor(Mountain): Delegate Vine connection logic to Vine crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local gRPC connection logic for sidecars with a delegation to the dedicated `Vine` crate. The manual implementation in `TryConnectSingle.rs` is converted into a thin compatibility shim.\n\nThe refactor removes local handling of `tonic` channel configuration—including performance tuning for `LAND_TONIC_TUNED` and the optional `LAND_VINE_STREAMING` multiplexer initialization—in favor of the canonical `::Vine::Client::TryConnectSingle::Fn` implementation.\n\nThis ensures consistent gRPC client behavior and lifecycle management across the project while further reducing the internal code surface of the Mountain element.",
+			"SHA": "9841398a265623f4879dfb0a08a1d1b86388d925"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T12:41:34Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1732,
+				16
+			],
+			"Message": "refactor(Mountain): Prune redundant Cache delegation modules\n\nFollowing the migration of caching logic to the central Cache crate, remove the intermediate module files for AssetMemoryMap and PathCanon that no longer have direct callers within the Mountain element.\n\nOnly the primary entry points—LoadOrInsert for asset mapping and Canonicalize for path security—are retained as local compatibility shims. This cleanup reduces the internal code surface of the Mountain element and enforces the use of the canonical ::Cache namespace for all other caching operations, such as statistics and cache invalidation.",
+			"SHA": "159d9faaaed88c1b964443837baefdb822b6cb9a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-28T12:40:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				7
+			],
+			"Message": "refactor(Mountain): Delegate PathCanon cache logic to Cache crate\n\nFollowing the systematic modularization of the Mountain backend, replace the local path canonicalization cache implementation with delegations to the dedicated `Cache` crate. The modules in `Source/Cache/PathCanon/` are converted into thin shims or type aliases pointing to the `::Cache::PathCanon` namespace.\n\nThis refactor covers `CacheStats`, `Canonicalize`, `CanonicalizeUncached`, `Clear`, `Invalidate`, `SpawnDiagnosticLogger`, and `Stats`. By delegating to the central `Cache` crate, the backend ensures consistent path handling—preserving the use of `dunce` for UNC prefix avoidance—while reducing the code surface within the Mountain element.",
+			"SHA": "729d0b481a342fd9fd2810ec79799168db32fd6e"
 		}
 	],
-	"TimeStamp": 1781194532486
+	"TimeStamp": 1783259752126
 }

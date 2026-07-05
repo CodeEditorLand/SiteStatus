@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T06:19:37Z",
+			"Date": "2026-06-10T20:23:34Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1173,
-				41
+				"⣿⠃⠀⠀⠀",
+				1198,
+				300
 			],
-			"Message": "style(Cocoon): Normalise config JS to 2-space indentation without trailing commas\n\nReformat all Configuration/ESBuild/*.js, Configuration/Mountain/Config.js, and Source/ESBuild.js from tab indentation back to consistent 2-space indentation, the opposite direction from the previous style pass. Alongside the indentation change:\n\n- Remove trailing commas from all array and object literals across every config file.\n- Normalise import ordering so re-exports (`export *`) appear before local imports, and `node:path` imports precede project imports.\n- Consolidate duplicate imports in Target.js (default3/default5 now share a single import from Config/Target/Config.js).\n- Collapse `__name` helper calls in Compile Config.js and Mountain Config.js from multi-line to single-line format.\n- Flatten Environment Constant.js boolean expressions to single lines, and expand exports to multiline block format.\n- Move named export declarations to the end of the module body in Base Config.js, matching the convention used by sibling config files.\n\nRegenerate the RouteManifest timestamp (2026-05-22T06:13:11Z) and rebuild all Target/ compiled artifacts to reflect the reformatted configuration sources. No functional changes to build logic, RPC method registration (still 135 Mountain methods), or runtime behaviour.",
-			"SHA": "3bc8d83c341d0ac0078baa456d16f55344d7712a"
+			"Message": "refactor(Cocoon): Expand ESBuild and Mountain configurations for readability\n\nThe ESBuild configuration files in Configuration/ESBuild/ and the Mountain gRPC configuration in Configuration/Mountain/Config.js were previously minified with single-letter variables and compressed formatting. This change expands all configuration files to use descriptive variable names, proper formatting, meaningful comments, and structured exports.\n\nKey modifications:\n- Configuration/ESBuild/: All config files (Bootstrap.js, Cocoon.js, Base/Config.js, Bootstrap/Config.js, Compile/Config.js, Target/Config.js, Constant/Environment/Constant.js, Target.js, index.js) rewritten with clear naming (Environment, BootstrapConfig, CocoonESBuildConfig, TargetConfig, Merge, TierDefines) and explanatory comments for complex logic like the banner injection for CJS require shim and outdir/outbase conflict avoidance.\n- Configuration/Mountain/Config.js: Complete rewrite adding named functions (loadMountainConfigFromEnv, validateMountainConfig, createMountainConfig, getMountainConfigSummary) with JSDoc-style structure, proper validation logic, and configuration summary output.\n- Source/Generated/RouteManifest.ts: Routine timestamp regeneration (2026-06-10T20:14:00Z).\n- Target/: Compiled artifacts regenerated as expected from the configuration changes.\n\nImpact: Build configuration is now self-documenting and maintainable, eliminating the need for external documentation to understand ESBuild options and Mountain gRPC client settings.",
+			"SHA": "ede8662feae3a7be7dd4001592c7001fcbf1ed53"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T05:36:23Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1173,
-				41
-			],
-			"Message": "style(Cocoon): Normalise config JS to tab indentation with trailing commas\n\nReformat all Configuration/ESBuild/*.js, Configuration/Mountain/Config.js, and Source/ESBuild.js from 2-space indentation back to tab indentation, restoring the project convention. Alongside the indentation change:\n\n- Restore trailing commas to all array and object literals across every config file.\n- Reorder imports so re-exports (`export *`) appear after local imports in Cocoon.js and index.js, matching the convention used by sibling config files.\n- Normalise `node:path` import ordering to `{ posix, sep }` throughout.\n- Collapse Environment Constant.js named exports to a single-line block.\n- Wrap `__name` helper calls and long template expressions with consistent multi-line formatting at soft line widths (Compile Config.js, Mountain Config.js).\n\nRegenerate the RouteManifest timestamp (2026-05-22T05:18:10Z) and rebuild all Target/ compiled artifacts to reflect the reformatted configuration sources. No functional changes to build logic, RPC method registration (still 135 Mountain methods), or runtime behaviour.",
-			"SHA": "f37eb88fd6025a5eb65e1c1a20dc7567c2c3a8bf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T05:36:04Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				1173,
-				72
-			],
-			"Message": "feat(Cocoon): Wire extension host secrets, storage, provider dispatch, and live UI dialogs through Mountain\n\nReplace stubs across the Cocoon extension host with real implementations routed through Mountain's gRPC IPC:\n\n**Secrets & Storage** (`ActivateExtension.ts`): Extension secrets (`secrets.get/store/delete/onDidChange`) now round-trip via Mountain's AES-256-GCM encrypted storage with extension-scoped keys. Workspace/global state uses a local cache primed asynchronously from `Storage.Get`.\n\n**Extension Dependency Ordering** (`Extension/Host/Handler.ts`): Replace flat fire-and-forget activation with `ActivateWithDeps` — a recursive, depth-guarded (max 20) sequential activator that resolves `extensionDependencies` before the depending extension. Cycle-breaking via `InProgress` set.\n\n**Language Provider Resolution** (`Language/Provider/Handler.ts`): Add `$provideFileDecoration` and two-phase resolution handlers (`$resolveCodeAction`, `$resolveCodeLens`, `$resolveCompletionItem`, `$resolveHover`, `$resolveInlayHint`, `$resolveDocumentLink`, `$resolveWorkspaceSymbol`) so extension providers can return lightweight items that Monaco resolves for details.\n\n**Notification Handler** (`Notification/Handler.ts`): Track `window.focused/blurred` state via `__windowState`. Overhaul virtual document model in `$acceptModelChanged` — range-aware `getText()`, `lineAt()` with `range`/`firstNonWhitespaceCharacterIndex`/`isEmptyOrWhitespace`, `getWordRangeAtPosition()`, correct `offsetAt()`/`positionAt()`, `isUntitled` detection, language derivation from extension. Route `revealRange`/`showTextDocument` through `sendRequest` (Track effect) not `SendToMountain`. Add `$acceptTerminalOpened`/`$acceptTerminalClosed` handlers for UI-created terminal lifecycle.\n\n**Content Provider Routing** (`Request/Routing/Handler.ts`): Add `$provideTextDocumentContent` route that looks up the registered `__textDocumentContentProvider:{scheme}` and calls `provideTextDocumentContent` with a hydrated `Uri`.\n\n**VSCode API Namespaces:**\n- **Authentication**: Stash registered provider in `ExtensionRegistry` as `__authProvider:{id}` so `ExtHostAuthentication$getSession` can call `getSessions()`.\n- **Debug**: Stash debug config provider; forward `_TriggerKind` parameter.\n- **Languages**: `setLanguageConfiguration` now forwards through Mountain's `set_language_configuration` notification for Sky/Monaco relay.\n- **Tasks**: Stash task provider in `ExtensionRegistry` for `ExtHostTaskService$fetchTasks` callback.\n- **StatusBarItem** (`CreateStatusBarItem.ts`): Reactive getter/setter properties for `text`, `tooltip`, `command`, `backgroundColor`, `color` — each setter pushes an incremental `statusBar.update` to Mountain. `accessibilityInformation` stub added.\n- **Window** (`Window/Namespace.ts`): Live `showInformationMessage` with action buttons routes through `Window.ShowQuickPick` when actions are present. Live `createQuickPick`/`createInputBox` that open via `Window.ShowQuickPick`/`Window.ShowInputBox` round-trips and emit `onDidAccept`/`onDidChangeSelection`/`onDidHide` events. `showTextDocument` returns a full `TextEditor` shim with live `setDecorations()`, `edit()`, `insertSnippet()`, `revealRange()`, `show()` methods that dispatch through Mountain. Active tab getter returns a minimal `Tab` shape. `state` becomes a live getter backed by `__windowState`. Terminal creation fires `didOpenTerminal`/`didChangeActiveTerminal` events; dispose fires `didCloseTerminal`/`didChangeActiveTerminal`.\n- **Workspace/Providers**: Wire `onDidChange` handler on `TextDocumentContentProvider` — re-fetches content on provider change and emits `didChangeTextDocument` for virtual docs. Stash/unstash task providers on register/unregister.\n- **Workspace/Text/Document** (`Document.ts`): `openTextDocument({language, content})` creates an untitled in-memory document. `untitled:` scheme documents return synchronously from cache. Scheme-based provider dispatch queries `__textDocumentContentProvider:{scheme}` before falling back to disk/Mountain. `BuildSaveAll` routes through `Workspace.SaveAll`. `BuildApplyEdit` routes through Mountain's `applyEdit` Track effect (awaitable round-trip). `onWillSaveTextDocument` now supports `waitUntil` via `__willSaveListeners` array for format-on-save.\n\n**gRPC Server** (`GRPCServerService`): Route `$resolve*` methods alongside `$provide*` to language provider handler. Implement `ExtHostAuthentication$getSession` via stashed auth providers. Implement `ExtHostTaskService$fetchTasks/provideTasks/executeTask` via stashed task providers. Implement `ExtHostDebug$resolveDebugConfiguration/provideDebugConfigurations` via stashed debug config providers. Implement `ExtHostFileSystem$readFile/writeFile/stat/readDirectory/createDirectory/delete/rename/copy` via stashed file system providers. Add generic `ExtHost[A-Z]` fallback returning `null` instead of crashing on unknown methods.\n\n**Build**: Re-indent `ESBuild.js` from tabs to 4-space indentation. Regenerate `RouteManifest.ts` timestamp.\n\n388 Mountain RPC methods registered, 0 bespoke routes.",
-			"SHA": "a6241df5a0c6a01f9eaeb1420d08f646c8d3b396"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T01:49:59Z",
+			"Date": "2026-06-10T20:22:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1173,
-				1
+				1255,
+				5
 			],
-			"Message": "",
-			"SHA": "2938d7c371fa6e94785c3f1456bb68ba76d15e71"
+			"Message": "build(Cocoon): Regenerate RouteManifest timestamp\n\nThe RouteManifest generation timestamp was updated from 2026-06-10T15:20:08Z to 2026-06-10T15:20:42Z in the generated source file. Corresponding compiled artifacts in Target/Generated/ and the TypeScript build info (tsconfig.tsbuildinfo) were also refreshed as part of the regeneration cycle.\n\nThis is a routine build artifact update with no functional code changes.",
+			"SHA": "e150dfdd48ded52c77dff5343aef38ea09242c90"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T00:53:28Z",
+			"Date": "2026-06-10T15:20:44Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1173,
-				1
+				"⠁⠀⠀⠀⠀",
+				1255,
+				16
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Cocoon into Current",
-			"SHA": "545a2d40944c9cfbe744cfa3515bdb42a81f27b4"
+			"Message": "refactor(Cocoon): Update IPC channel response creation and streamline Wind Codegen types resolution\n\n- Replace direct property assignment with spread syntax for conditional error and headers inclusion in CreateResponseMessage and CreateEventMessage\n- Add @ts-ignore comments to suppress import errors for Wind Codegen types that are resolved from Target at runtime\n- Update tsconfig.json path mapping, removing alias for @codeeditorland/wind/Target/Codegen/*\n- Regenerate RouteManifest timestamp\n\nThis change improves IPC message construction and resolves type import issues for runtime-resolved modules.",
+			"SHA": "1eb254473a6f0b173c6fed459c47d81841913026"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-10T15:19:30Z",
+			"File": [
+				"⣿⠁⠀⠀⠀",
+				1255,
+				281
+			],
+			"Message": "build(Cocoon): Minify ESBuild configuration files\n\nThe ESBuild configuration files in the Cocoon component have been minified to reduce bundle size and improve build performance. This change affects all configuration files in the Configuration/ESBuild directory, including Bootstrap.js, Cocoon.js, and related target configurations.\n\nThe minification process involved shortening variable names and removing unnecessary whitespace and comments while preserving functionality. This optimization reduces the overall size of the configuration files without impacting their behavior.",
+			"SHA": "e4a6a2c13819161c8821fd1907a7931cbf2838bc"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-10T14:47:55Z",
+			"File": [
+				"⣿⠃⠀⠀⠀",
+				1195,
+				300
+			],
+			"Message": "chore(build)\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "be98fe831f1ba81ea685235a6c6ab71158fca0a5"
 		}
 	],
-	"TimeStamp": 1781194538956
+	"TimeStamp": 1783259744616
 }

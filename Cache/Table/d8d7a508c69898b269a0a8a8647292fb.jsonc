@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:58:11Z",
+			"Date": "2026-04-24T20:52:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5214,
 				1
 			],
-			"Message": "feat(Project): Add unified dev-log forwarding from Wind/Sky/Cocoon to Mountain\n\nCoordinate logging infrastructure across Mountain, Output, and Wind to enable filtered dev logging in a single file. Three related changes:\n- **Mountain**: Add `RenderDevLog` Tauri command that bridges TypeScript-side tagged logs into Mountain's `dev_log!` file sink. Also add five diagnostic tags (`notif-drop`, `provider-register`, `channel-stub`, `git`, `tree-view`) to isolate architectural gaps during debugging.\n- **Output**: Add `_DevLogForward` helper to TauriMainProcessService that mirrors IPC channel routing decisions into Mountain's dev-log. Logs channel name, command, route prefix, and hit/miss status in three code paths: fire-and-forget, stub hits, and misses.\n- **Wind**: Add `_DevLogForward` helper mirroring tagged log lines via `RenderDevLog` command, integrated into TauriChannel's three code paths.\n\nThis enables `LAND_DEV_LOG=<tag> tail -f Mountain.dev.log` to capture both TypeScript and Rust logs together, providing complete visibility into extension host integration issues.\n\nImpact: Developers can now filter by subsystem (e.g., `LAND_DEV_LOG=git,tree-view`) and see the full picture of a session in one file rather than cross-referencing browser console and log file.",
-			"SHA": "ba431af6c47cc7cd6694715a65cc97e1ddb1c2a1"
+			"Message": "refactor(Project): Continue logging noise reduction across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
+			"SHA": "1271d7fded155a605359db1131df59c7eaf6be5f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:36:35Z",
+			"Date": "2026-04-24T20:37:56Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5214,
 				1
 			],
-			"Message": "refactor(Project): Standardize IPC event channel naming to kebab-case\n\nCoordinate refactoring across Common, Mountain, Sky, and Wind to unify IPC event channel naming:\n- Standardize all sky:// event channels to consistent kebab-case format (status-bar → statusbar)\n- Remove duplicate/forked channels: StatusBarMessage, TreeViewRegister, WebviewPostMessageCamelCase, WebviewSetHTMLCamelCase\n- Add test comparing Rust enum wire strings against TypeScript mirror to prevent future drift\n- Emit TreeViewCreate events after TreeDataProvider registration so renderer wires up data providers\n- Add diagnostics stub methods in Wind/Output for getWorkspaceFileExtensions to prevent language detection crashes\n- Bump dev dependencies: effect (3.21.1 → 3.21.2), @effect/platform (0.96.0 → 0.96.1), @cloudflare/workers-types (4.20260422.1 → 4.20260423.1)\n\nImpact: Extension tree views now render correctly, language detection runs without crashes, and IPC channel naming is consistent across the Rust/TypeScript boundary.",
-			"SHA": "d6e148f1a77a6ab8a7b9ed8effd08007db5ed6a8"
+			"Message": "feat(Project): Wire extension tree views and reduce Mountain log noise\n\nCross-cutting sync across four submodules:\n\n1. **Mountain (refactor):** Reduce high-frequency log noise in default mode by moving per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants muted in `short` mode. Expand IPC skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme. Reduces default log volume from ~14k+ lines per session to ~500 while preserving error visibility.\n\n2. **Output (feat):** Expose IViewsService and TreeViewByViewId in workbench accessor ESBuild transform. Enables Sky to resolve ITreeView instances from ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\n3. **Sky (feat):** Wire extension tree views into workbench rendering pipeline. Attach data providers to tree views that call `tree:getChildren` via MountainIPCInvoke, converting Cocoon wire shape into workbench ITreeItem. Add retry logic (5 attempts, 150ms spacing) for async workbench init. Implement `cel:tree-view:refresh` and `cel:tree-view:dispose` handlers.\n\n4. **Cocoon (sync):** Submodule update.\n\nImpact: Extension-registered tree views (from extensions like GitLens, Debugger) now render in the workbench pane. Default logs are actionable rather than noisy.",
+			"SHA": "c26be973866e6bcb67c7da99093ef59e06ba2d0a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:47:53Z",
+			"Date": "2026-04-24T20:35:03Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5214,
 				1
 			],
-			"Message": "fix(Project): Coordinate submodule updates for extension host reliability\n\nFour submodule updates improve extension activation and webview compatibility:\n- **Mountain**: Treat view registry commands (<viewId>.focus, .resetViewLocation, .removeView) as silent no-ops to eliminate GitLens error spam. Also preserve VSIX executable bits (0o755) during extraction so extensions with native binaries (codex, language servers) can spawn correctly.\n- **Output**: Add StripWebviewIframeSandbox transform plugin to remove sandbox attribute from VS Code's webview iframe. WKWebView blocks custom protocol loads (vscode-webview://, land://) from sandboxed iframes, breaking extension webview panels.\n- **Echo**: Submodule sync for task scheduler alignment.\n- **Cocoon**: Submodule sync for extension host alignment.\n\nImpact: Extensions with native binaries now activate correctly, extension webview panels load in Tauri, and spurious error logs are eliminated.",
-			"SHA": "ae825d2c75e042f9b65ae397c3ea7e0160b43e7b"
+			"Message": "VS Code API Coverage Matrix\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "e9ca317693c51acb95c66c8df11556c35b625ab0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:29:16Z",
+			"Date": "2026-04-24T17:08:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5214,
 				1
 			],
-			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, rather than the flat structure the scanner previously expected. This caused all extensions to appear as 'unknown' with empty names/publishers in the sidebar.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures the @builtin/@installed extension split works correctly in the Extensions sidebar.",
-			"SHA": "cf9e5e4553a92c5bb2acc4525ca38669931e5bd5"
+			"Message": "chore(Land): Sync Element submodule to e792634e04de\n\nUpdate Element from 991e3b3 to e792634e, pulling in upstream Cocoon extension host runtime improvements.\n\nThis sync brings the latest Cocoon submodule state (cb1a388) into the Land build, ensuring the extension host has access to recent runtime changes.",
+			"SHA": "83083f528b4c94eb04130b730863979183254a87"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:21:10Z",
+			"Date": "2026-04-24T16:46:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				100,
+				5214,
 				1
 			],
-			"Message": "build(Project): Coordinate extension scanning and file URI handling fixes\n\nThree related fixes improve extension host integration:\n- **Mountain:** Add `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes from URIs before creating PathBuf. Applies to all 8 FileSystem operations (ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, Copy). This fixes redhat.java extension activation failure with \"Resource not found: file:///...\" errors.\n- **Output:** Separate system and user extension scanning in ExtensionScannerIPC. Now calls `extensions:scanSystemExtensions` for ForceBuiltin=true and `extensions:scanUserExtensions` for ForceBuiltin=false. Previously all extensions were hardcoded as builtin, causing user VSIXes to appear under @builtin in the sidebar. Also implements the stubbed `scanUserExtensions()` method.\n- **Cocoon:** Minor submodule sync.\n\nImpact: User-installed extensions now appear under \"Installed\" (not \"Built-in\") and file operations correctly resolve paths from gRPC FileSystem calls.",
-			"SHA": "a672e28212a9effc120c8f7d8074f8043d6cc3a3"
+			"Message": "feat(Mountain): Expand trusted paths and add executable magic-number detection\n\nSubmodule sync bringing three complementary improvements for extension runtime reliability:\n1. **Extended trusted paths** (`PathSecurity.rs`): Add `/tmp`, `/private/tmp`, `/var/tmp` for language servers (ruby-lsp, pyright, etc.), third-party tool state (`~/.gitkraken`, `~/.copilot`, `~/.config/git`), and read-only POSIX OS files.\n2. **Magic-number executable detection** (`VsixInstaller.rs`): Probe file headers for ELF, Mach-O fat/thin, and shebang. Detect bin paths (`bin/`, `server/`, `tools/`, `omnisharp`, `adapter`, `native`) and promote 0o644 → 0o755 for detected executables, fixing EACCES on spawn. Add `HealExecutableBits()` for retroactive fixes.\n3. **Boot-time exec-bit heal** (`Scanner.rs`): Walk user extensions (`~/.land/extensions/`) at scan time to recover extensions installed before the fix.\n\nImpact: Extension binaries (rust-analyzer, GitLens, Copilot) that were failing with EACCES due to missing exec bits now run correctly.",
+			"SHA": "6df08625901c15474baf39bc8680dd4bc9ae9dd6"
 		}
 	],
-	"TimeStamp": 1781194546634
+	"TimeStamp": 1783259759664
 }

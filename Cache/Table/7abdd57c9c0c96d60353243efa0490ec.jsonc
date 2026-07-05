@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T12:57:54Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				99,
-				18
-			],
-			"Message": "feat(Vine): Implement Cocoon notification handlers and performance-optimized batching\n\nIntroduce a broad set of gRPC notification handlers to bridge the Cocoon extension host with the Mountain backend and Sky renderer. This update completes the notification surface for core workbench services including Status Bar, Commands, Debugging, and Editor Decorations.\n\nKey modifications:\n- Implement temporal batching (16ms frame window) for `RegisterCommand` and `SetTextEditorDecorations` using the \"channel-drain\" pattern. This prevents IPC congestion during extension initialization and rapid UI updates.\n- Implement synchronous command registry insertion in `VineHost` during registration, ensuring `commands.executeCommand` calls can be routed immediately.\n- Add lifecycle handlers for Status Bar (`SetStatusBarText`, `StatusBarMessage`, `DisposeStatusBarItem`) and Debugging (`DebugLifecycle` with fan-back to Cocoon for breakpoint synchronization).\n- Centralize provider unregistration logic in `Support/UnregisterByHandle.rs` to support streamlined disposal of Authentication, Debug Adapter, and File System providers.\n- Add support for editor-specific notifications such as `ApplyTextEdits` and `SetLanguageConfiguration` for Monaco integration.\n\nImpact: Provides the necessary infrastructure for VS Code extensions to drive Land's UI services while ensuring the renderer remains performant under heavy notification load.",
-			"SHA": "5b274bd683ae672d6f0fc43686e893672a6eb679"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T12:55:25Z",
-			"File": [
-				"⣿⡏⠀⠀⠀",
-				81,
-				26
-			],
-			"Message": "feat(Vine): Implement Cocoon notification handlers and event coalescing\n\nIntroduce a comprehensive suite of gRPC notification handlers in the Vine layer to support Cocoon (Extension Host) integration. This update focuses on performance optimization for high-frequency events through a \"channel-drain\" coalescing pattern.\n\nKey modifications:\n- Add the `RendererEmitter` trait in `Host.rs` to provide a cheap-to-clone event sink, allowing long-lived background flushers to emit events without borrowing the full `VineHost` implementation.\n- Implement batching logic for `ProgressReport`, `DecorationTypeLifecycle`, and `OutputChannelAppend` using `tokio::sync::mpsc` channels and a 16-50ms temporal window. This reduces IPC overhead by merging thousands of granular updates (e.g., from the Git extension) into single batched events.\n- Add handlers for Webview management (`PostMessage`, `Ready`, `Dispose`), Extension lifecycle, Workspace edits (`ApplyEdit`), and Window UI notifications.\n- Integrate the `open` crate to support `OpenExternal` URI delegation to the native OS handler.\n\nImpact: Improved performance and reduced log pressure during intensive extension activity, ensuring the Sky renderer remains responsive under high-volume notification bursts.",
-			"SHA": "d402967787576e7c0cb35531e45c0ebf5f386180"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T11:50:41Z",
+			"Date": "2026-06-12T18:48:13Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				58,
-				2
+				2515,
+				78
 			],
-			"Message": "docs(Vine): Improve formatting and clarity in Host and Library module documentation\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "9c947fd62ec21f5e8d58aacc9b586053cd0cb6ce"
+			"Message": "docs(Vine): Add pub fn doc comments and normalize extension host references\n\nAdd `///` doc comments on every public notification atom function across all 40+ Server notification atoms, closing the gap between module-level docs and each individual handler. Each comment captures the wire method, its purpose, Sky event destination, and any idiosyncratic behaviour (channel draining, handle disambiguation, shape canonicalisation).\n\nAlso add doc comments on all Client public functions (CheckSideCarHealth, ConnectToSideCar, DisconnectFromSideCar, IsClientConnected, IsShuttingDown, MarkShutdown, PublishNotification, SendNotification, SendRequest, SubscribeNotifications, SubscriberCount, TryConnectSingle, WaitForClientConnection) and both Support helpers (RelayToSky, UnregisterByHandle).\n\nNormalise remaining inline references from \"Cocoon\" to \"Extension Host\" throughout doc comments and constants (DefaultCocoonAddress, DEFAULT_COCOON_PORT, RegisterCommand, TerminalLifecycle, UnregisterScmProvider). Update the multiplexer reference from OpenChannelFromCocoon to OpenChannelFromSidecar in Library.rs to match the LAND-PATCH identifier. Strip `Vine::` prefix from module-level headers in Client/mod.rs and Server/mod.rs for consistency with the rest of the crate.\n\nNo behavioural changes — documentation and reference consistency only.",
+			"SHA": "e36bf0fc178fc9a626d758f6a449cbccfae36570"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T11:47:46Z",
+			"Date": "2026-06-12T18:21:19Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				58,
-				2
+				"⠀⠀⠀⠀⠀",
+				2515,
+				20
 			],
-			"Message": "docs(Vine): Refined documentation in Server and Notification modules\n\nThis commit updates the inline documentation in the Server and Notification modules to improve clarity and correctness. The changes include:\n- Clarified the function names and file names relationship in the Notification module.\n- Ensured that the documentation reflects the current implementation and usage.\n\nImpact: Improved developer experience through better documentation.",
-			"SHA": "35cf43ec904bb22d9e10fe2814f7e9f184663e01"
+			"Message": "docs(Vine): Add comprehensive doc comments and normalize extension host references\n\nAdd module-level and item-level doc comments across every visible surface of the crate — Client (NotificationFrame, SendRequest, Shared, mod), Error (variant table, recoverability, tonic::Status mapping), Host, Library, Multiplexer, and all Server notification atoms (OutputAppend, OutputChannelClear, OutputChannelDispose, OutputChannelShow, OutputClear, OutputCreate, OutputDispose, OutputShow, ProgressComplete, Support).\n\nNormalise all inline references from \"Cocoon\" to \"extension host\" throughout Library.rs, Host.rs, Server/mod.rs, and Client/mod.rs to reflect the architecture accurately — the Node.js runtime hosts extensions but is not itself named Cocoon in the formal component model. Update port descriptions in Library.rs accordingly. Replace repository-relative doc links with absolute GitHub URLs. Format doc comments with consistent em-dash section separators, parameter/return/error documentation blocks, and bulleted tables for enumerations.\n\nEach notification atom now carries a one-line doc comment matching its Cocoon method name and Sky event destination, making the dispatcher role clear at a glance. The Error module gains a full gRPC status-code mapping table and IsRecoverable variant enumeration. Shared.rs has every static, const, and function documented with purpose, lifecycle, and parameters.\n\nNo behavioral changes — purely documentation and reference consistency.",
+			"SHA": "5a249d621523f42354f1379ecfefc285f88a60cf"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T11:47:22Z",
+			"Date": "2026-06-12T18:20:57Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				58,
+				"⠀⠀⠀⠀⠀",
+				2515,
 				1
 			],
-			"Message": "docs(Vine): Update comments and formatting in Client module documentation\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "faf27761399fadb126abacd074cfe97947a616dd"
+			"Message": "feat(Vine): Add cancellable unary requests with CancelOperation\n\nIntroduce `FnCancellable` in `SendRequest` alongside the existing `Fn` entry point. The new function accepts a `watch::Receiver<bool>` cancel signal; when the caller flips it mid-flight a best-effort `CancelOperation` gRPC request carrying the wire `RequestIdentifier` is sent to the sidecar, and `VineError::RequestCanceled` is returned. The original `Fn` delegates to `FnCancellable` with a process-lifetime `NeverCancelled()` signal via `OnceLock`, preserving backward compatibility for existing callers.\n\nA unary timeout now also fires a best-effort `CancelOperation` so the sidecar can abort work Mountain has already stopped waiting for.\n\nAdd comprehensive doc comments across every module: `Client` (NotificationFrame, SendRequest, Shared, mod), `Error` (variant table, recoverability, `tonic::Status` mapping), `Host`, `Library`, `Multiplexer`, and all `Server` notification atoms. Normalise references from \"Cocoon\" to \"extension host\" throughout to reflect the architecture accurately. Format doc comments with consistent em-dash section separators.\n\nCallers of `SendRequest::Fn` see no change. Callers that want cancellation support can switch to `FnCancellable` and provide a `watch::Receiver<bool>`.",
+			"SHA": "b37bfedb2b7149f3a8213ce2a5010c8e64bac7f7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:06:05Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				2514,
+				2
+			],
+			"Message": "feat(Vine): Add action-button Items field to ShowMessageRequest\n\nExtend the ShowMessageRequest protobuf message with a repeated `Items` string field to carry optional action-button labels alongside the message text. This allows Mountain-side callers (or Cocoon) to present a message with user-selectable actions, enabling confirmation dialogs, choice prompts, and interactive notifications over the gRPC channel.\n\nThe generated Rust code in `Source/Generated/vine.rs` is regenerated from the proto, adding the `items: Vec<String>` field to the `ShowMessageRequest` struct with the corresponding prost annotation and wire tag.\n\nThe field is optional (empty vector) by default, preserving backward compatibility with existing callers that only send a plain message.",
+			"SHA": "a45249b1fdff37a15e592184cfbfbdc9c096b9f2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T17:35:59Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				2514,
+				1
+			],
+			"Message": "docs(Vine): Polish README formatting, emoji annotations, and badge cleanup\n\nReplace the grape emoji 🍇 with herb 🌿 to better represent Vine's role as the protocol layer (a vine plant rather than a fruit). Add emoji annotations (⛰️🦋🪁🌳) alongside every component reference — Mountain, Cocoon, Air, Grove — so readers visually associate names with roles at a glance. Add `title=\"Star\"` attribute to the GitHub stars badge for accessibility.\n\nRemove the standalone gRPC/tonic badge line (the crate badges already indicate the gRPC and tonic dependency; the removed badge duplicated information while occupying a full row). Add a CHANGELOG link to the Related Documentation section and add Grove to the sibling-project references so the complete component set is cross-linked.\n\nStrip `&#x2001;` spacing tokens from Mermaid diagram node labels (they are not rendered by the diagram engine and clutter the source). Remove the duplicate 'Project Maintainers' footer block at the very end of the file — the funding/attribution table above it already covers project stewardship.\n\nApply consistent backtick formatting to technology names throughout: `gRPC`, `tonic`, `Prost`, `Node.js`, `WASM`, `Tauri`. Rewrap paragraphs to a consistent width for readability.\n\nThe README now presents a cleaner, more scannable architectural reference with emoji-aided navigation and deduplicated metadata.",
+			"SHA": "d6ba6a4c3edd34c739bf071999215b0d25a26403"
 		}
 	],
-	"TimeStamp": 1781194516063
+	"TimeStamp": 1783259740848
 }

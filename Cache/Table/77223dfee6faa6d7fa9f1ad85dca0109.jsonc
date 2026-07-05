@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-05-29T04:08:52Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:17:14Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				355,
+				6
+			],
+			"Message": "feat(Output): Add six low-level intercept proxies for deep-shim Own/Preempt tiers\n\nIntroduce the runtime intercept layer — six proxy modules that monkey-patch VS Code internals at Startup/StartupServices time to provide Land-controlled diagnostics, suppression, and batching.\n\nAll six follow a consistent pattern:\n- Gate at TierShim = Own | Preempt (dead-code-eliminated by esbuild define otherwise)\n- Idempotent via globalThis marker (checks `__LAND_SHIM_LOW_*__`)\n- Poll-based retry (50 attempts × 100ms) if the target module is not yet loaded\n- Non-fatal error handling (try/catch everywhere — shim must never crash the workbench)\n\nProxies added:\n- AsyncProxy — intercepts `setTimeout0` from platform.ts with micro-batching (MAX_BATCH_SIZE=64), coalescing rapid microtasks to reduce layout thrash. Samples every 128th call for trace.\n- CancellationProxy — patches `CancellationTokenSource.prototype.cancel()` to record timestamp, stack trace, and cancellation order for diagnostic analysis.\n- DisposableProxy — wraps `DisposableStore.prototype.add()` and `dispose()` to assign unique tracking IDs and trace resource creation/disposal for leak detection.\n- EmitterFireProxy — intercepts `Emitter.prototype.fire()` from event.js, checks `checkLandSwallowMap` for event suppression, and applies sample-based tracing (1% production, 100% dev) via tick-counter throttle.\n- ErrorHandlerProxy — patches `errorHandler.onUnexpectedError()` to capture error message, stack, and name into LandErrorTrace before VS Code processes the error.\n- TimingProxy — wraps StopWatch construction, stop(), and elapsed() with microsecond-resolution timing via performance.now / process.hrtime fallback, uniquely identifying each instance.",
+			"SHA": "ebe465d04fcdb4715f44e51a60dd16aa4dda4a93"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:56:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				765,
+				348,
 				1
 			],
-			"Message": "",
-			"SHA": "47325fd2c8eaf79dd7a5afcb0882ef330018e2ee"
+			"Message": "feat(Output): Wire InjectShimHook into the BuildPipeline plugin array\n\nRegister `InjectShimHook` in the `BuildPipeline` plugin sequence, slotting it immediately after `ExposeWorkbenchAccessor`. The hook is gated by the `TierShim` env var (None → no-op) and performs deep-shim injection — audit proxy, service replacement, or container ownership — depending on the configured shim level.\n\nThis completes the integration of the compile-time injection site (added in 9b81aa2c7) into the actual esbuild plugin pipeline that runs during Output builds. The shim init module (`CEL/Land/Shim/Init.js` from 07d07070f) is compiled, copied, and injected as part of `ApplyPipeline`; this wiring ensures the hook fires on every workbench build.\n\nSee: .hermes/microsoft/04-Atomic-Task-List.md",
+			"SHA": "b403f823fef6e20e6e8a294a7a55d564044e76e3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T18:43:19Z",
-			"File": [
-				"⣿⠀⠀⠀⠀",
-				765,
-				160
-			],
-			"Message": "style(Land): Apply consistent formatting with blank-line separators across build pipeline and polyfills\n\nStandardize the build pipeline and polyfill source files by inserting blank lines between logical blocks and import statements. This formatting pass applies to the Output pipeline, ESBuild configurations, plugin definitions, polyfills, and service implementations under Land/Element/Output.\n\nThe changes introduce visual separation between import declarations, variable bindings, function definitions, and control-flow blocks throughout 150+ source files. No functional behavior is altered; only whitespace formatting is adjusted to improve readability and maintain consistency with the project's coding conventions.",
-			"SHA": "794bd357f2a1dfa84f6d9d813896877e6e6524fa"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-28T12:49:30Z",
+			"Date": "2026-06-12T21:55:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				765,
+				348,
 				2
 			],
-			"Message": "fix(Output): Refactor drag and maximize commands to use typed window API\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "50f88d74a0a3bd374dfee91b10cc5532c1e276a9"
+			"Message": "feat(Output): Add deep-shim init module with tiered runtime strategies\n\nAdd `Source/Service/CEL/Land/Shim/Init.ts`, the runtime entry point\ninjected into VS Code workbench by the `InjectShimHook` TransformPlugin.\nWire it up in the Plugin index with import and re-export.\n\nThe shim init module is compiled by esbuild as a standalone file, copied\nto the VS Code target tree, then injected by InjectShimHook immediately\nafter `workbench.startup()` returns the `IInstantiationService`.\n\nThree tiered runtime strategies gated by `__LandTier_Shim__` esbuild define:\n- **Proxy** tier: wraps `ServiceCollection.get/set` with an audit wrapper,\n  logs every service resolution to an in-memory ring buffer (MAX 500), and\n  flushes a summary to Mountain via Tauri IPC every 30 seconds.\n- **Replace/Own/Preempt** tiers: patches `ServiceCollection.get` to return\n  a no-op `ITelemetryService` (intercepting service IDs matching \"telemetry\"\n  or \"itelemetry\"), silencing telemetry at the service resolution level.\n- **None** tier: dead code elimination — entire module body is a no-op.\n\nShim failures are always non-fatal (try/catch at the top-level call site\nand individual fire-and-forget operations) to maintain workbench stability.\n\nThis is the runtime complement to the compile-time injection site added\nin the parent commit (9b81aa2c7).",
+			"SHA": "07d07070ffac1ddfcad959db2a4037f2bebf9c3e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T18:18:10Z",
+			"Date": "2026-06-12T21:55:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				765,
+				345,
 				1
 			],
-			"Message": "fix(Output): Use typed window API for drag/maximize with explicit label\n\nThe generic `InvokeWindowCommand(command:string)` dispatched bare `core.invoke` calls without the window `label` payload. Tauri 2.x's IPC dispatcher silently drops `plugin:window|start_dragging` invocations when no window label is provided and no window matches the implicit context — the overlay-titlebar window never moved. The typed JS API (`Window.startDragging()`, `Window.toggleMaximize()`) transparently injects the correct label from the caller's window handle.\n\nSplit `InvokeWindowCommand` into `StartDragging` and `ToggleMaximize`, each preferring the typed window API first, then falling back to raw `invoke` with an explicit `{ label }` payload. The label is resolved from `getCurrentWindow().label`, `getCurrentWebviewWindow().label`, or the literal `\"main\"` as last resort.\n\nBoth drag-initiation and titlebar double-click maximize now work reliably under Tauri 2.",
-			"SHA": "79a2a5f8b62f91f4c725b13521911fa62e697e61"
+			"Message": "feat(Output): Inject deep-shim hook into VS Code workbench main files\n\nAdd `InjectShimHook`, a new TransformPlugin that patches the VS Code\nworkbench entry points at compile time — `web.main.js` and\n`desktop.main.js` — to import and call `LandShimInit` immediately\nafter `IInstantiationService` is created, before any contribution\nregisters.\n\nThis is the compile-time injection site for Land's deep-shim layer,\nfollowing the same pattern as ExposeWorkbenchAccessor:\n\n- Two injection pass variants: one for the web target (shorter import\n  path), one for electron-browser/desktop (`../browser/` import prefix).\n- Gated by `TierShim` env var at compile time via `Enabled()`; when set\n  to `None` the transform is a no-op.\n- Idempotent via `__LAND_SHIM_HOOK__` marker — rerunning on an already-\n  patched tree returns `Unchanged`.\n\nThis is the first piece of the deep-shim pipeline; the shim module itself\n(`CEL/Land/Shim/Init.js`) is compiled by Output's esbuild step and copied\ninto the target tree by ApplyPipeline before this transform runs.",
+			"SHA": "9b81aa2c72abf722891ac194b5a0d29661572476"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T17:56:15Z",
+			"Date": "2026-06-12T21:41:55Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				765,
-				2
+				343,
+				1
 			],
-			"Message": "feat(Output): Activate drag via mousedown capture when Tauri fails to intercept\n\nTauri 2's own drag listener only activates under the `tauri://` protocol; Land's webview loads from `http://localhost:21100`, so the `data-tauri-drag-region` attribute alone is insufficient to initiate window movement. Add a capture-phase `mousedown` handler that walks the ancestor chain for the drag attribute and dispatches `plugin:window|start_dragging` (single click) or `internal_toggle_maximize` (double click) via the Tauri invoke API with multiple fallback paths (core.invoke, __TAURI_INTERNALS__, window API).\n\nIncludes `IsDragTarget()` for ancestor-chain attribute detection and `InvokeWindowCommand()` with graceful fallbacks for both modern and legacy Tauri 2 surfaces.",
-			"SHA": "6b6dbbde3b73cef39eb647182977425ba6fef3ed"
+			"Message": "fix(Output): Resolve vscode-webview-resource:// via sync localhost rewrite\n\nMountain registers only `vscode-file://` as a custom Tauri scheme handler;\n`vscode-webview-resource://` is not registered, so async blob-fetch calls\nfor those URLs silently fail and the inner iframe never loads the assets.\n\nRemove `vscode-webview-resource://` from the `VSCODE_SCHEMES` array so\nthe async fetch path never attempts blob conversion for it. Instead, add\n`rewriteToLocalhost()` — a synchronous regex pass that converts every\n`vscode-webview-resource://` URL to its `http://localhost:18992/`\nequivalent before `document.write` executes. The `origWrite` wrapper now\napplies two independent string checks: first the localhost rewrite for\n`vscode-webview-resource://` URLs, then cached blob substitution for\n`vscode-file://` URLs, replacing the combined `needsRewriteHtml()` gate.\n\nThis keeps the synchronous contract of `document.write` while ensuring\nassets served via the unregistered scheme resolve to Mountain's actual\nlocalhost origin.",
+			"SHA": "fa1e57583caa72f6a714f601a3023630e2d589ee"
 		}
 	],
-	"TimeStamp": 1781194519052
+	"TimeStamp": 1783259741993
 }

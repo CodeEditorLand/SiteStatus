@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T09:19:51Z",
+			"Date": "2026-06-04T19:46:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1739,
-				3
+				1731,
+				14
 			],
-			"Message": "fix(Mountain): Restore ShowMessageBox text composition and multi-select return\n\nThe `ShowMessageBox` handler incorrectly relied on a non-existent `.body()` method, causing the detail text to overwrite the dialog title entirely. Update the implementation to concatenate the message and detail text with a newline separator before passing to the native dialog constructor, preserving the original title.\n\nIn `QuickInputShowQuickPick`, refactor the multi-select logic to extract the `CanPickMany` flag prior to consuming the options struct. This ensures the return value correctly returns the full array of selected labels for multi-select operations instead of silently discarding all but the first selection.\n\nAdditionally, remove the `showTextDocument` effect from `Workspace` IPC routing. This handler is obsolete as the functionality is now covered by the dedicated Sky UI service implementation, preventing redundant or conflicting event dispatching from the extension host.\n\nThese changes restore native dialog usability, fix multi-selection in quick pick inputs, and streamline the IPC effect registry.",
-			"SHA": "a499709153a4b0c357a78ab80630f38989bea10e"
+			"Message": "refactor(Mountain): Remove redundant module docs and finalize CreateEffectForRequest parameter borrowing\n\nStrip the remaining module-level rustdoc comments from all CreateEffectForRequest handlers — their table-based documentation duplicated the central dispatcher's meta-module doc and is now superseded by explicit `Matches` predicates in each file.\n\nTighten `Git.Matches` from `starts_with(\"$gitExec\")` to exact equality since only the literal command string is valid. Complete the `&Value` borrowing transition in `LanguageFeatures.CreateProviderEffect` and `Workspace.CreateEffect` by extracting derived fields up front and cloning only inside the macro invocations where ownership is still required.\n\nThis removes dead comments and eliminates the last unconditional clone on the hot dispatch path across all CreateEffectForRequest layers.",
+			"SHA": "28e05322406c9829f820dd34e0955e8ffc64c3de"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T08:01:24Z",
+			"Date": "2026-06-04T19:16:01Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1739,
-				1
+				1731,
+				2
 			],
-			"Message": "feat(Mountain): Correct output channel payload structure for Sky integration\n\nThe `CreateOutputChannel` gRPC handler previously emitted an IPC event with a single `{ \"channel\": name }` property. Sky's `InstallEditorAndOutput.ts` component expects the payload to destructure `{ id, name }`. The mismatch caused both fields to resolve as undefined in the frontend map, keyed incorrectly by the string \"undefined\".\n\nUpdate the Tauri event emission to include both `id` and `name` fields set to `Request.name`. This aligns the Mountain backend output with the Sky component's destructuring logic, ensuring new output channels are correctly registered and displayed in the editor UI.",
-			"SHA": "930ce3222f11418b22c721b91133d0b33e55474a"
+			"Message": "refactor(Mountain): Finalize CreateEffectForRequest parameter borrowing in utility and dispatcher\n\nUpdate parameter utility functions in Params.rs to accept `&Value` instead of `Value`, moving necessary clone operations inside the function bodies. Update the central dispatcher Try macro in mod.rs to pass `&Parameters` to CreateEffect constructors instead of cloning the owned value unconditionally.\n\nThis completes the parameter borrowing refactor that reduces clone overhead on the hot dispatch path across all CreateEffectForRequest layers.",
+			"SHA": "9c2c3857a8f3aa0557286314607a3c2191be2528"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T07:59:29Z",
+			"Date": "2026-06-04T19:14:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1739,
-				13
+				1731,
+				2
 			],
-			"Message": "fix(Mountain): Propagate IPC errors and complete gRPC request handlers\n\nShifted all `WindServiceHandlers` to propagate I/O and path resolution errors instead of swallowing them. Updated `FileExistsNative`, `FileWriteNative`, `TextfileSave`, `ModelOpen`, `TextfileSave`, and `GetEnvironmentPaths` to return descriptive error messages. This prevents silent failures where VS Code interprets errors as 'not found' or flips documents into conflict states due to null metadata.\n\nCorrected `ShowMessageBox` to use `.body()` for detail text and fixed `QuickInputShowQuickPick` to return arrays for multi-select operations. Added missing gRPC handlers in `Storage`, `TreeView`, and `Workspace` for `Storage.GetItems`, `tree.reveal`, and `showTextDocument`, ensuring Cocoon can access extension state and UI features via the IPC layer.\n\nFixed a TOCTOU race in `ExtensionsGetInstalled` by subscribing to the `ScanReady` notification before executing the query. Added logic in `LoadFromCache` to treat empty extension lists as cache misses, forcing a live scan if the stub was generated prematurely. Updated `build.rs` to consistently write a valid `CacheBlob` struct for the manifest stub.\n\nThese changes ensure data integrity across the IPC layer, restore functionality for missing extension APIs, and prevent UI glitches caused by suppressed errors.",
-			"SHA": "416e8d7a0ddc284253f0b6080ad550338d89d9c2"
+			"Message": "refactor(Mountain): Finalize CreateEffectForRequest string matching simplification\n\nComplete the CreateEffectForRequest dispatch refactoring by converting the remaining two modules from macro-generated patterns to explicit string predicates.\n\nLanguageFeatures.rs replaces its match expression with `MethodName.starts_with(\"register_\") && MethodName.ends_with(\"_provider\")` and removes a stray extra brace left over from macro expansion. WindowUI.rs replaces the catch-all wildcard match with `MethodName.starts_with(\"Window.\")` plus a descriptive comment, ensuring only Window-namespace methods route here.\n\nAll CreateEffectForRequest modules now use explicit, self-documenting dispatch predicates instead of macro-generated tokens.",
+			"SHA": "bc05e8208557e6236d112704752939fa17599dc3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T07:59:22Z",
+			"Date": "2026-06-04T19:14:01Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1739,
-				1
+				"⠁⠀⠀⠀⠀",
+				1731,
+				25
 			],
-			"Message": "fix(Mountain): Correct stub format for ExtensionsManifest in build script\n\nUpdate the `build.rs` script to write a valid `CacheBlob` JSON structure instead of a bare JSON array when generating the stub `extensions.manifest.json`. The `LoadFromCache` parser expects an object containing `version`, `count`, and `extensions` fields, whereas the previous implementation wrote `[]`, causing potential parsing mismatches or type errors during startup.\n\nThis ensures the Tauri build process generates a structurally correct manifest stub that aligns with the runtime data deserialization expectations, preventing crashes when the Sky-generated manifest is unavailable.",
-			"SHA": "8924f19f5908567bc989f640cbf8626ba937dacf"
+			"Message": "refactor(Mountain): Simplify CreateEffectForRequest string matching\n\nReplace macro-generated match expressions and identifier constants with explicit string literal comparisons and `starts_with`/`ends_with` predicates across all CreateEffectForRequest modules. Static method names now use direct string matching (\"Authentication.GetSession\" | \"Authentication.GetAccounts\") instead of inferred identifier constants. Dynamic command patterns collapse into concise boolean expressions — `$gitExec` and `$terminal:` families use `MethodName.starts_with(...)`, `register_*_provider` uses a start+end check, and `$scm:`, `$statusBar:`, `$webview:`, and `tree.` prefixes follow the same pattern.\n\nThis removes macro coupling from the dispatch predicates, makes accepted method names immediately visible in each file, and eliminates stale `std::sync::Arc` imports left over from macro expansion. The central dispatcher now routes through cleaner pre-filters that operate on concrete strings rather than generated tokens.",
+			"SHA": "cafbc510d7e2b33f142fd0badacefb43068381ff"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T06:28:37Z",
+			"Date": "2026-06-04T19:09:50Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1739,
-				4
+				"⠁⠀⠀⠀⠀",
+				1731,
+				28
 			],
-			"Message": "refactor(Mountain): Standardize DTO naming and repair UTF-8 path handling\n\nAlign `ModelVersionIdentifier` to `ModelVersionId` in `MarkerDataDTO` and `DiagnosticProvider` to match existing PascalCase conventions and reduce verbosity.\n\nEnhance the `FileWriteNative` IPC handler to detect and decode base64-encoded buffers received from VS Code serialization paths, falling back to raw bytes if decoding fails. This resolves data corruption when saving files via certain extension workflows.\n\nRewrite `percent_decode` in `PathExtraction` to correctly reconstruct multi-byte UTF-8 sequences from percent-encoded URI components. The previous implementation cast decoded bytes directly to `char`, corrupting non-ASCII paths (e.g., CJK or accented characters) and causing silent ENOENT errors. The new approach accumulates raw bytes and performs a safe `from_utf8` conversion with a lossy fallback.\n\nThese changes ensure robust file operations with international paths and consistent data integrity across the IPC layer.",
-			"SHA": "1ee9d6c0f0082ba72857e78be4316b0abb8af829"
+			"Message": "refactor(Mountain): Add Matches pre-filter and borrow Parameters in CreateEffectForRequest\n\nIntroduce a `Matches(MethodName: &str) -> bool` predicate on every CreateEffectForRequest module so the central dispatcher can reject non-matching method names before invoking the full constructor. This eliminates unnecessary work and aligns with the ActionEffect dispatch pattern used elsewhere.\n\nChange `CreateEffect` signatures across all modules from `Parameters: Value` to `Parameters: &Value`, removing the unconditional `Parameters.clone()` call from the hot dispatch path and deferring cloning into the individual effect macro invocations only when needed.\n\nReorder the module chain in `Source/Track/Effect/CreateEffectForRequest/mod.rs` — moving `FileSystem`, `Commands`, `Terminal`, and `TreeView` into a new sequence — and wrap each `Try!` invocation with the `Matches` guard.",
+			"SHA": "be9aaf5b1cc0156d3236573d11a617984e0da2ef"
 		}
 	],
-	"TimeStamp": 1781194529267
+	"TimeStamp": 1783259748858
 }

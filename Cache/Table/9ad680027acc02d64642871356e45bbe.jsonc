@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:15:18Z",
+			"Date": "2026-05-20T05:22:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				129,
 				1
 			],
-			"Message": "chore(Project): Synchronize Element submodules for encryption and lifecycle optimizations\n\nUpdate the `Element` submodule from commit ab924b4a to ec5306a2 to integrate critical security and performance enhancements into the native backend.\n\nKey modifications in the Mountain component include:\n- **Encryption**: Implement `IEncryptionService` using AES-256-GCM (via the `ring` crate) with key derivation from hardware UUIDs, ensuring machine-specific secrets that persist across process restarts.\n- **Lifecycle**: Replace busy-wait polling loops with `tokio::sync::Notify` primitives in `LifecyclePhaseState`, eliminating 100ms startup latency and reducing CPU overhead.\n- **IPC**: Optimize `DecorationTypeLifecycle` notification handling by batching emissions per channel to minimize IPC overhead during high-frequency UI updates.\n\nThese changes align the native backend with VS Code's encryption semantics and significantly improve boot performance.",
-			"SHA": "1966f393a619f77a192ca6e4c5e42a49cb50e034"
+			"Message": "chore(Project): Advance Element submodule with save notifications, IPC hardening, and Sky bridge decomposition\n\nAdvance the Element submodule to 21c3681b, pulling in two coordinated commits spanning Mountain, Cocoon, and Sky.\n\nMountain fires $acceptModelSaved via Vine after disk writes in FileWriteNative and TextfileWrite, enabling Cocoon to dispatch onDidSaveTextDocument to format-on-save and organize-imports extensions. On macOS, Undo/Redo is removed from the native Edit submenu via AppMenu::SetAppMenu so Cmd+Z and Cmd+Shift+Z reach Monaco's keydown handler instead of AppKit's responder chain. File write handlers now propagate configuration.change notifications to invalidate Cocoon's ConfigCache. A StorageWriteDebouncer race is fixed by reordering the flush loop, and boot latency is reduced by removing a 3-second blocking WaitForClientConnection from language handlers.\n\nCocoon replaces stale/empty state placeholders with live-tracking counterparts: __visibleTextEditors is upserted on selection changes and filtered on model removal, terminals are tracked with proper dispose cleanup, and a module-level _AllDiagnostics cache mirrors every DiagnosticCollection call with didChange event emission.\n\nSky decomposes ~2500 lines of inline handler registrations in Bridge.ts into four dedicated modules via dynamic imports — InstallWebview.ts, InstallEditorOperations.ts, InstallTreeView.ts (with exponential backoff retry), and InstallUiRequests.ts — each receiving only required dependencies through a thin injector interface.\n\nMaintain regenerates rustdoc output against Rust nightly 1.97.0.",
+			"SHA": "69fc21edf6ba430415e91ed6e74b3fdf2cf8da23"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:13:11Z",
+			"Date": "2026-05-20T05:08:53Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
 				129,
-				7
+				8
 			],
-			"Message": "chore(Project): Synchronize Tauri dependencies and enforce PascalCase build scripts\n\nAlign the `Cargo.toml` manifest with the latest upstream Tauri 2.11 ecosystem and synchronized Tauri plugin versions (e.g., `tauri-plugin-fs` 2.5.1, `global-hotkey` 0.8.0) to ensure compatibility with the updated Rust toolchain and WebSocket/Wry runtime.\n\nRefactor the `Maintain` build pipeline to strictly adhere to the project's PascalCase naming convention for all shell environment variables and script arguments. Update `Maintain/Debug/Run.sh` and `turbo.json` to rename legacy snake_case vars (e.g., `HOT_RELOAD` → `HotReload`, `LIVE_RELOAD_PORT` → `LiveReloadPort`) and introduce the new `BundleLevel` and `CopyToDesktop` controls.\n\nIntroduce `Maintain/Script/SignBundle.sh` to perform mandatory ad-hoc code signing with correct entitlements (`Entitlements.plist`) on both Debug and Release bundles. This resolves critical runtime failures where the default ad-hoc signature lacked sandbox exemptions, causing TCC permission rejections for file pickers and V8 JIT crashes in the Cocoon sidecar.\n\nUpdate the `Element` submodule to the latest commit to apply upstream optimizations, including `tokio::sync::Notify` replacements for busy-wait loops in Mountain and manual chunk strategies in Sky.",
-			"SHA": "f7d7de7b3ee5c1128b6168c25adf4c7a12cc2cae"
+			"Message": "refactor(Land): Move Brotli pre-bake to beforeBundleCommand and add user env override support\n\nRelocate the Brotli compression step from the Debug/Release Build.sh scripts into Mountain's Tauri beforeBundleCommand hook, where it runs automatically during the native build rather than requiring an explicit post-build invocation. The PreBake.ts script receives cleaner logging — per-file progress lines are removed in favour of a single summary showing write/skip counts, total bytes, and compression percentage — reducing noise in CI output.\n\nTierEnvironment.sh gains a user-environment-override mechanism: any Tier*, Product*, Network* prefix variables, plus known runtime keys (Disable, Trace, Record, etc.), exported by the caller before sourcing the script are now snapshotted and reapplied after every .env.Land overlay is sourced. This makes `export TierIPC=Node` (or any runtime switch) reliably take final precedence without editing .env files, enabling ad-hoc testing across build tiers without config file mutation.\n\nThe `Disable` master kill-switch is added to `.env.Land.Sample` under a new Build/debug switches section, and a duplicated comment block in `.env.Land.Diagnostics.Sample` is removed. Both Element and Documentation/Rust submodules advance, bringing in Mountain's beforeBundleCommand integration and 14-element ecosystem maintenance.",
+			"SHA": "4927578d08df7eb15dbfc5beaa19252679635a44"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T01:01:04Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				128,
-				2
-			],
-			"Message": "chore(Project): Sync submodules for debug server and SCM diff support\n\nSynchronize the Land editor architecture by updating `Documentation/Rust` and `Land/Element` submodules to their latest development states.\n\nKey updates include:\n- **Element Submodules**: Implement a dual-layer DebugServer (ports 9933/9934) in Mountain and Cocoon for independent Rust and Node.js introspection. Add full SCM diff command handling (`$scm:openDiff`, `vscode.diff`) to restore the round-trip IPC contract for diff operations.\n- **Output**: Introduce `InjectWebviewBlobUrlRewrite` to resolve WKWebView cross-protocol security failures by converting `vscode-*` schemes to stable blob URLs.\n- **Documentation**: Initialize Rust documentation roots (README.md) across Air, Common, Echo, Mist, Rest, and SideCar.\n- **Maintenance**: Standardize whitespace in ESBuild configs and update dev dependencies.\n\nThese changes fix critical webview rendering issues, restore full debuggability across the stack, and establish the foundational documentation structure.",
-			"SHA": "47530f9e7c3d621c3c38343fabeabc82790f9343"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-18T00:33:22Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				128,
-				11
-			],
-			"Message": "refactor(Project): Rebrand application identity to FIDDEE and solidify config pipeline\n\nExecute a comprehensive rebranding of the editor from \"Land\" to the internal codename \"FIDDEE\" across all submodules and build pipelines. This update replaces application identifiers, bundle names, telemetry keys, data directories, and URI schemes to align with the new product identity.\n\nKey modifications include:\n- **Product Identity**: Update `.env.Land.Sample` and `ResolveProductConfig.sh` defaults to use \"FIDDEE\" and \"fiddee\" variants.\n- **Codegen Pipeline**: Introduce `ResolveIdentity.ts` and `ResolveIdentity.sh` to fan out the authoritative `product.json` from `Element/Sky/Public` to `Mountain`, `Sky`, and `Output` targets. This ensures a single source of truth for identity constants.\n- **Build Integration**: Wire the new identity resolution step into `Maintain/Debug/Build.sh` and `Maintain/Release/Build.sh`.\n- **Submodule Sync**: Update `Element` submodule to apply the \"FIDDEE\" identity across Tauri configs, manifest files, and telemetry bridges.\n- **Build Quality**: Fix JSON serialization whitespace (tabs vs spaces) in `Sync.ts`, `ResolveProductConfig.sh`, and `PostHogCapture.sh` to ensure consistent artifact generation.\n- **Configuration**: Update `turbo.json` to recognize new environment variables and remove deprecated dependencies.\n\nThis ensures the entire stack, from native backend to UI and telemetry, consistently identifies as FIDDEE without modifying upstream Microsoft source code.",
-			"SHA": "56ea34698500e1813077b796f647080128e4d0a0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-17T16:32:56Z",
+			"Date": "2026-05-20T02:19:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				126,
+				129,
 				1
 			],
-			"Message": "",
-			"SHA": "0833bccffd5fc0e6cf7f63f6ef1bfcb3e0951e45"
+			"Message": "feat(Project): Wire full editor IPC pipeline for decorations, text edits, selections, and hierarchy\n\nAdvance 8 element submodules in a coordinated update that completes the editor IPC round-trip from extension host to native backend to editor UI, enabling real-world extensions to manipulate text editors, decorations, and call/type hierarchy panels.\n\n**Cocoon** backfills critical VS Code API shims discovered through integration testing: extension exports resolution (`getExtension(id).exports`), call/type hierarchy prepare entry points, live `workspace.textDocuments` tracking via `$acceptModelAdded`/`$acceptModelRemoved`, `document.willSave` listener dispatch with edit collection, and a robust `activeTextEditor` stub supporting `setDecorations`, `edit`, `insertSnippet`, `revealRange`, and live selection tracking.\n\n**Common** extends the IPC event surface in SkyEvent.rs with five new URIs (`DecorationSetRanges`, `EditorApplyTextEdits`, `EditorSelectionChanged`, `EditorActiveChanged`, `EditorRevealRange`) and adds `PrepareCallHierarchy`/`PrepareTypeHierarchy` to the LanguageFeatureProviderRegistry trait, completing the hierarchy provider lifecycle defined by the VS Code LanguageFeatureRequest contract.\n\n**Mountain** implements the full gRPC+LSP pipeline for hierarchy prepare in new `PerformCallHierarchy`/`PerformTypeHierarchy` provider modules, bridges `window.setTextEditorDecorations` via a channel-drain batching mechanism (16 ms frame-aligned aggregation), and wires `window.applyTextEdits`/`window.revealRange` through to Sky events. A new `document.willSave` fire event grants extension listeners a 1.5-second grace window before disk write. Two new `mountain_ipc_invoke` handlers (`sky:editor:selectionChanged`, `sky:editor:activeChanged`) forward editor state changes from Sky to Cocoon.\n\n**Sky** registers four IPC bridge handlers matching editors by URI or filename segment: decoration range application via `ICodeEditorService`, text edit execution with dual-range-format normalization, reveal range delegation with the five standard strategies, and active editor/selection change subscription pushing state up to Mountain.\n\n**Wind** adds the five new Sky IPC event constants to `Source/IPC/SkyEvent.ts` while purging over 400 zero-byte generated stub files (`I*Upstream.ts`, `CommandCatalog.ts`, `ServiceCatalog.ts`, `*BridgeShapeGenerated.ts`).\n\n**Air** applies consistent import ordering and single-expression formatting across 4 subsystems. **Output** removes 160+ stale zero-byte build artifacts. **Grove** syncs the Rust documentation submodule. **Echo** advances to a clean commit.\n\nThis completes the editor IPC round-trip for text editor manipulation and call/type hierarchy, enabling extensions that depend on `window.activeTextEditor`, `editor.edit()`, `setDecorations`, `revealRange`, hierarchy providers, and format-on-save listeners to function correctly.",
+			"SHA": "6f099a0735770518cac2a3476158965f14b899dd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T02:19:21Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				129,
+				2
+			],
+			"Message": "build(Maintain): Add Brotli pre-bake step to Debug and Release build scripts\n\nInsert a Brotli compression step for Sky bundle assets after the Tauri build in both `Debug/Build.sh` and `Release/Build.sh`. The step invokes `Maintain/Build/Brotli/PreBake.ts` at quality 11 targeting the populated `Target/` tree.\n\nScheme.rs already serves `.br` sibling files when the client sends `Accept-Encoding: br`; the pre-bake ensures those compressed variants exist at deploy time without adding runtime overhead. The script is idempotent — it skips files whose `.br` sibling is newer — and silently skips when `node` is unavailable for minimal CI runners.\n\nReduces release bundle from ~25 MB to ~3.5 MB, improving Sky bundle parse and execute time by an estimated 30-40% in the bundled-electron profile.",
+			"SHA": "ba4fe28313dada58e9c5052487dea8d4683849f5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T01:37:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				129,
+				1
+			],
+			"Message": "chore(Element): Advance with Cocoon and Wind IPC contract updates\n\nUpdate the Element submodule to commit 77ab17dd, incorporating critical architectural refinements from the Cocoon and Wind submodules to strengthen the gRPC and Tauri IPC boundaries.\n\nThe Cocoon update (bf9d9ffa) introduces `Types.ts` under `Source/Services/Mountain/gRPC` to formalize the contract between the extension host and native backend. It defines strict DTOs (e.g., `ShowTextDocumentOptions`, `TextEdit`) and the `IMountainGRPCClientService` interface, enabling strong typing for native operations without importing the full Effect-TS runtime.\n\nThe Wind update (a25a3c5b) adds `MountainCommands.ts` and `Converters.ts` to centralize file-system IPC method strings (e.g., `file:stat`, `file:readdir`) and implement pure conversion logic between VS Code URI shapes and Mountain's raw JSON responses. This isolates protocol mapping from core services, facilitating unit testing and ensuring synchronization with native handlers.\n\nThese changes enforce separation of concerns and type safety across the editor stack as the IPC architecture matures.",
+			"SHA": "6c3de8c28bf007f6c0bcbb420dec0c6f3423c44e"
 		}
 	],
-	"TimeStamp": 1781194531954
+	"TimeStamp": 1783259749646
 }

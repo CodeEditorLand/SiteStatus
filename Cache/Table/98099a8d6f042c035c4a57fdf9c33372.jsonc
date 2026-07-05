@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T10:36:42Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				26,
+				2
+			],
+			"Message": "fix(Project): Remove Cocoon file event stubs, normalize Mountain IPC\n\nAdvance Cocoon and Mountain submodules with a coordinated fix and refactor.\n\n**Cocoon file event fix:**\nSix stub file lifecycle event handlers (`onWillCreateFiles`, `onWillDeleteFiles`, `onWillRenameFiles`, `onDidCreateFiles`, `onDidDeleteFiles`, `onDidRenameFiles`) on the Workspace namespace were returning no-op disposables, overriding the real `EventSubscriber` implementations already provided by the `BuildDocumentEventMembers` spread. Extensions subscribing to these events — including GitLens — were silently receiving dead handlers that emitted nothing. Remove the stubs so live events flow through. Mountain now fires `willCreate`/`willDelete`/`willRename` notifications via Vine before VFS mutation.\n\n**Mountain IPC handler normalization (refactor):**\nRename the three Cocoon IPC entry points from descriptive names (`CocoonExtensionHostMessage`, `CocoonNotify`, `CocoonRequest`) to the uniform `Fn` ident, with matching `as` aliases in mod.rs re-exports so downstream callers are unaffected.\n\nAdd four new ExtensionHost IPC handlers also exporting as `Fn`:\n- DebugServiceClose: emits `sky://exthost/debug-close` via Tauri Emitter\n- DebugServiceReload: emits `SkyEvent::ExtHostDebugReload` for cache purging\n- StarterCreate: returns stub extension-host ID (`\"1\"`)\n- StarterStart: returns real Cocoon PID for debugger attachment\n\nAll handler modules now follow a single convention, eliminating naming guesswork when adding new IPC routes.",
+			"SHA": "346e1280854bf61586f46bbbb49171c5b34788fe"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T10:31:00Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				26,
+				2
+			],
+			"Message": "fix(Project): Fix Cocoon bootstrap stage ordering and cache Mountain extension metadata\n\nAdvance Cocoon and Mountain submodules with a coordinated fix and performance update across the extension host bootstrap and metadata pipeline.\n\n**Cocoon bootstrap stage reordering (fix):**\nThe Stage 3 MountainConnection gRPC probe previously ran ahead of Stage 5 RPCServer in the bootstrap pipeline, causing Mountain's 20-second gRPC retry budget to exhaust on every startup since port 50052 was never bound within the connect window. Swap the execution order in `makeBootstrap` so RPCServer binds first, then MountainConnection connects to a live listener. Reduce retry caps proportionally: TCP probe from 10 to 3 attempts, gRPC connect from 15 to 5 attempts.\n\n**Mountain extension cache (perf):**\nBuilding the serialized `ILocalExtension[]` array on every `extensions:getInstalled` IPC call re-serialized ~1.8 MB of extension metadata, causing multi-hundred-millisecond UI stalls on startup. Add a `OnceLock`-backed static cache keyed by TypeFilter variant (None, System, User). First call per type populates the cache; subsequent calls return a cloned `Value` in <1 ms. Empty responses are not cached to avoid poisoning on first-call timeout.\n\n**Mountain reliability fixes:**\n- `FileCloneNative` now creates the target parent directory via `tokio::fs::create_dir_all` before `fs::copy`, resolving ENOENT failures for VS Code's per-file history directories.\n- CocoonManagement IO forwarders switch from `tokio::spawn` to `tauri::async_runtime::spawn` so forwarder tasks persist while the spawning async task awaits elsewhere. Restructure read loops to handle EOF and read errors explicitly rather than silently dropping the pipe.\n\n**Build (Mountain):**\nAdd `Proto/Vine.proto` to `tauri.conf.json` resource globs so the .proto file is available at runtime from `Contents/Resources/`.\n\nNo runtime behaviour regressions — all changes are bounded by existing gRPC retry and timeout contracts.",
+			"SHA": "392f0aef133c75f34afc19f22fdd5b5a0e6bf719"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T08:39:33Z",
+			"File": [
+				"⣿⠇⠀⠀⠀",
+				26,
+				7
+			],
+			"Message": "fix(Project): Serve extension webview panels via localhost URL and add Bootstrap Cocoon bundle\n\nAdvance 7 Land/Element submodules in a coordinated update that resolves blank secondary webview panels, adds a self-contained Cocoon bundle for .app deployment, and normalises config formatting across three submodules.\n\n**Webview panel fix (Mountain, Sky):**\nSecondary extension webview panels (settings panel, extension webviews) were blank because Mountain's tauri.conf.json has no frontendDist, so Tauri's asset server could not serve WebviewHost.html via WebviewUrl::App. Mountain now loads panels from the localhost plugin at http://localhost:PORT/Mountain/WebviewHost instead, using a new LocalhostUrl singleton (OnceLock) populated during AppLifecycleSetup and consumed in create_webview_panel_impl.\n\nSky adds WebviewHost.astro as a lightweight HTML shell served at that URL. The page forwards __WEBVIEW_INITIAL_STATE__ to the main window via window.opener.postMessage with a \"webview-host-ready\" event, allowing Sky's bridge layer to resolve pending webview handles. Extension panels now render correctly in their own Tauri WebviewWindow while maintaining IPC with the main editor window.\n\n**Bootstrap Cocoon bundle (Cocoon):**\nAdd Configuration/ESBuild/Config/Bootstrap/Config.ts that inlines all npm dependencies into a single self-contained bundle for deployment at Contents/Resources/Cocoon/Target/Bootstrap/Implementation/Cocoon/Main.js, where no node_modules directory exists. Only Node.js built-ins and vscode/electron stubs remain external. Wire through ESBuild index.ts and prepublishOnly.sh.\n\n**Cleanup and refactoring (Mountain, Air):**\n- Extract Cocoon subprocess env-building and I/O forwarding into BuildCocoonEnvironment and SpawnCocoonIoForwarders named functions (pure refactor).\n- Replace filesystem-based Canonicalize with lexical Normalize for non-existent scan paths.\n- Remove stale HandleSlot accumulator in OutputChannelCoalesce and unused imports.\n- Add stub IPC handlers for browserView:* and extensionHostStarter:waitForExit to prevent caller hangs.\n- Air: Remove unused serde_json::Value import.\n\n**Style normalisation (Output, Wind, Worker):**\n- Output: Hoist __defProp/__name shims above imports to avoid forward-reference hazards; convert from tabs to 2-space; collapse multi-line expressions; strip trailing commas across 100+ compiled artifacts.\n- Wind: Convert ESBuild configs from tabs to 2-space; local-before-external import ordering; multi-line export blocks.\n- Worker: Revert ESBuild configs from tabs back to 2-space; collapse declarations; multi-line named exports.\n\nNo runtime behaviour regressions — all formatting passes produce semantically identical build output.",
+			"SHA": "a27b4a9f37b11618d19f12472792af974bd83a5e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T07:50:19Z",
+			"File": [
+				"⣿⠀⠀⠀⠀",
+				26,
+				5
+			],
+			"Message": "feat(Project): Enable .app bundle resource resolution and normalise Element config formatting\n\nAdvance 5 Land/Element submodules in a coordinated update adding Mountain .app bundle resource resolution across the extension cache, Cocoon entry, and Node sidecar paths, alongside formatting normalisation across four submodules.\n\n**Bundle resource resolution (Mountain):**\n- Extension manifest cache now probes both `BinaryDir/extensions.manifest.json` (dev) and `BinaryDir/../Resources/extensions.manifest.json` (bundle layout), skipping the staleness threshold check for bundled caches.\n- CocoonManagement pre-flight falls back to Tauri's `BaseDirectory::Resource` resolver when the repo-layout path does not exist.\n- NodeResolver TryShipped resolves the `node` binary as a Tauri sidecar sibling of the Mountain executable rather than in a `Node/bin/` subdirectory.\n- ScanPathConfigure canonicalises resolved paths for cleaner logs; `IsTrustedSystemPath` adds `../Resources/Static/Application/extensions` to the bundle-root allowlist.\n- Bootstrap-fork Cocoon entry iterates both bundle (2-level) and repo (3-level) URL bases for candidate entry paths.\n- `tauri.conf.json` maps `bootstrap-fork.js`, `extensions.manifest.json`, and the Cocoon binary into `Contents/Resources/`.\n- `LoadFromCache.rs` refactors per-manifest field extraction with local `str()`/`arr()` closures, eliminating repeated `Manifest.get().and_then(Value::as_str)` chains.\n\n**Style normalisation (Cocoon, Output, Wind, Worker):**\n- Cocoon: Restore tab indentation and trailing commas across all config JS files; reorder imports so re-exports precede local imports; flatten Environment Constant.js named exports.\n- Output: Move `__defProp`/`__name` shims below static import statements to avoid forward-reference hazards; add blank line separators between import groups; normalise expression formatting across all 100+ compiled artifacts.\n- Wind: Convert ESBuild configuration modules from 2-space to tab indentation; local-before-external import ordering; inline export blocks.\n- Worker: Convert ESBuild config from 2-space to hard tabs; expand helpers across multiple lines; add trailing commas.\n\nNo runtime behaviour regressions — all formatting passes produce semantically identical build output.",
+			"SHA": "cf11775e5f8c738a139a27a1e891eed033f8542d"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-22T06:20:04Z",
 			"File": [
 				"⣿⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "feat(Project): Add agent plugins home and chat language models sandbox config, fix extension cache URI normalisation\n\nAdvance 5 Land/Element submodules with a coordinated update spanning a new sandbox resource, an extension cache resolution fix, and style normalisation across config and build output.\n\n**Sandbox configuration (Wind):**\n- Add `languageModelsResource` (`/User/chatLanguageModels.json`) and `agentPluginsHome` (`/User/agent-plugins`) to `ResolveConfiguration` using the `vscode-userdata` scheme, following the existing `mcpResource` pattern for both the empty and full config presets.\n\n**Extension cache fix (Mountain):**\n- Fix `LoadFromCache` serialising `ExtensionLocation` as the Identifier wrapper shape `{\"value\": url}` instead of a plain `Value::String` URI, which caused the `Normalize.rs` URI parser to fall through to `/extensions/unknown`. The source now emits `Value::String(LocationUri)`; a backward-compatibility branch in `Normalize.rs` unwraps legacy `{\"value\": url_string}` entries so previously-cached manifests still resolve correctly.\n\n**Style normalisation (Cocoon, Output, Worker, Wind, Mountain):**\n- Cocoon: Convert config JS from tabs to 2-space, strip trailing commas, normalise import ordering and export blocks, consolidate duplicate imports in Target.js.\n- Output: Hoist `__defProp`/`__name` shims before imports (reverting imports-first ordering), convert compiled artifacts to 2-space indent, collapse multi-line expressions, strip trailing commas.\n- Worker: Revert ESBuild config from tabs to 2-space, collapse `__name`/`On` declarations to single lines, multi-line exports.\n- Wind: Revert ESBuild config to 2-space, reorganise imports (external before local), multi-line export blocks.\n- Mountain: Alphabetically reorder Sky resource globs in `tauri.conf.json`.\n\nNo runtime behaviour regressions — all formatting passes produce semantically identical build output.",
 			"SHA": "fcf45b24cc98e1b9e227201466c440d8418f3248"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T05:36:58Z",
-			"File": [
-				"⣿⡿⠀⠀⠀",
-				26,
-				10
-			],
-			"Message": "feat(Project): Wire extension host bridge, workbench services, and boot cache\n\nAdvance all 10 Land/Element submodules in a coordinated update spanning extension host features, workbench service integration, boot-time optimisation, and formatting normalisation.\n\n**Extension host bridge (Cocoon, Mountain, Common):**\n- Cocoon replaces stubs with real implementations across 388 gRPC methods: extension secrets/storage round-trips via Mountain AES-256-GCM; extension activation gains recursive dependency ordering (depth-guarded, max 20); language provider handlers add $provideFileDecoration, $resolveCodeAction, $resolveCodeLens, $resolveCompletionItem, $resolveHover, $resolveInlayHint, $resolveDocumentLink, $resolveWorkspaceSymbol; virtual document model in $acceptModelChanged gains correct range-aware getText(), lineAt(), and getWordRangeAtPosition(); VSCode API namespaces wired for authentication, debug, languages (setLanguageConfiguration forward), tasks, status bar (reactive getters), window (live showInformationMessage, createQuickPick, createInputBox, showTextDocument with full TextEditor shim), workspace/providers (onDidChange for TextDocumentContentProvider), workspace/text/document (untitled documents, scheme-based provider dispatch, SaveAll, applyEdit). Terminal lifecycle, webview message forwarding, and content provider routing through registered __textDocumentContentProvider:{scheme}.\n- Mountain implements the gRPC server side: InlineCompletionItem/InlineCompletionContext Vine.proto messages with $provideInlineCompletionItems dispatch; DecorationsGet falls back to ProvideFileDecoration via Cocoon gRPC; TerminalProvider emits $acceptTerminalOpened/$acceptTerminalClosed; Messaging forwards acquireVsCodeApi().postMessage() as webview.message notifications; Extension manifest cache (B7.P08, reduces boot scan from ~1200ms to <50 ms via pre-baked extensions.manifest.json read); WKWebView NSUndoManager suppression via capture-phase Cmd+Z/Y preventDefault; INativeWindowConfiguration.profiles section added to fix TypeError crash on workbench init.\n- Common extends LanguageFeatureProviderRegistry with ProvideFileDecoration and ProvideInlineCompletionItems abstract methods.\n\n**Workbench service integration (Sky, Output):**\n- Sky implements workspace edits via IBulkEditService or direct Monaco text model operations, normalises extHostTypes.WorkspaceEdit serialization, adds save/saveAll/saveAs round-trip handlers, wires INotificationService for action-button toasts, IQuickInputService for native input boxes and quick-pick widgets with fuzzy matching, SCM provider retry logic, and Monaco setLanguageConfiguration for bracket-matching.\n- Output exposes IQuickInputService through the CEL ExposeAccessor map, enabling Cocoon/Wind to invoke quick-pick dialogs via standard service accessor.\n\n**Codegen and stubs (Wind):**\n- Wind regenerates all codegen output: CommandCatalog 545→550 (5 browser.emulationToolbar.* commands), ServiceCatalog 495→500 (5 new stubs: IAgentHostCheckpointService, IGitHubUploadService, IRecordingService, IScreenshotService, IWindowsMxcTerminalSandboxRuntime); IClaudeAgentSdkService expands 1→8 members (full SDK passthrough); ILanguageModelsService 15→19 (rename, updateApiKey, addModel, openSettings); IIssueFormService 6→7 (submitIssue); ISandboxHelperService 2→4 (Windows MXC sandbox); IProcessService.getPerformanceInfo gains optional options parameter.\n\n**Style normalisation (7 submodules):**\n- Cocoon: Config JS tabs, trailing commas, import reordering\n- Mountain: Extract deeply-nested JSON sub-objects (nls, productConfiguration, os, profiles) into separate json!() calls to avoid macro recursion limit — no behavioural change\n- Output: Normalize esbuild compiled output with imports-first shim ordering, 2-space indent, trailing commas\n- SideCar: Add missing trailing newline to Cache.json\n- Wind: ESBuild config tabs reformat\n- Worker: ESBuild config tabs reformat\n\n**Merge-only advances (2 submodules):**\n- Echo, Maintain: Advance to tip with no semantic changes\n\nZero runtime behaviour regressions — all formatting passes produce semantically identical build output.",
-			"SHA": "7a67305fdb49ddf409405ad53c38ddfdb554f15c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T01:50:11Z",
-			"File": [
-				"⣿⡟⠀⠀⠀",
-				26,
-				9
-			],
-			"Message": "chore(Project): Advance 9 Element submodules with dependency bumps and SideCar Node version update\n\nAdvance nine Land/Element submodules in a coordinated update spanning dependabot-managed version bumps and a SideCar runtime version upgrade.\n\n**Dependency bumps (5 submodules):**\n- Common: @cloudflare/workers-types 4.20260520.1→4.20260521.1\n- Echo: miniflare 4.20260518.0→4.20260520.0, wrangler 4.93.0→4.93.1\n- Output: semver 7.8.0→7.8.1\n- Sky: astro 6.3.5→6.3.7, vite 8.0.13→8.0.14, @astrojs/compiler-rs 0.2.0→0.2.1\n- Wind: @effect/language-service 0.86.1→0.86.2\n\n**Runtime update (1 submodule):**\n- SideCar: Node.js version bumped to v24.16.0 for both aarch64 and x86_64 platforms\n\n**Merge commits only (3 submodules):**\n- Cocoon, Rest, Worker: Advance to tip with no semantic changes\n\nZero runtime behaviour changes across all submodules — all bumps are semver-compatible patches.",
-			"SHA": "3f441642c15f7791e4986f5472c3615e6cfd4d48"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T00:54:04Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				26,
-				1
-			],
-			"Message": "",
-			"SHA": "0fe35472cf4645cdae9ac84ad70d2ba30c854070"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T00:54:04Z",
-			"File": [
-				"⣿⡿⠀⠀⠀",
-				26,
-				10
-			],
-			"Message": "chore(Project): Advance all 10 Element submodules with dependency bumps, style normalisation, and dead-code cleanup\n\nAdvance every Land/Element submodule in a coordinated update spanning dependabot-managed version bumps, formatting corrections across ESBuild configurations, and removal of unused imports and variables.\n\n**Dependency bumps (6 submodules):**\n- Cocoon: @grpc/grpc-js 1.14.3→1.14.4, vitest 4.1.6→4.1.7, @effect/language-service 0.86.1→0.86.2\n- Common: @cloudflare/workers-types 4.20260519.1→4.20260520.1\n- Echo: @cloudflare/workers-types 4.20260519.1→4.20260520.1 then →4.20260521.1\n- Output: mocha 11.7.5→11.7.6\n- Sky: astro 6.3.5→6.3.6→6.3.7, @astrojs/compiler-rs 0.2.0→0.2.1, vite 8.0.13→8.0.14, @xterm/xterm 6.1.0-beta.219→220\n- Wind: catalog date regeneration\n\n**Style normalisation (4 submodules):**\n- Cocoon: Convert config JS from tabs to 2-space, strip trailing commas, normalise import ordering and export blocks\n- Output: Hoist __defProp/__name shims before imports, convert compiled artifacts to 2-space indent, collapse multi-line expressions\n- Wind: Revert ESBuild config tabs→2-space, reorganise imports, multi-line exports\n- Worker: Revert ESBuild config tabs→2-space, inline helpers, multi-line exports\n\n**Dead-code removal (3 submodules):**\n- Air: Remove unused imports from Configuration and Resilience modules\n- Mountain: Remove unused HandleSlot variable in GetOrInitChannel\n- Sky: Remove unused dependencies from package.json\n\nZero runtime behaviour changes across all submodules — build outputs are semantically identical.",
-			"SHA": "076bf6f0718babdb825e7f3bb3f7988c45aa49cf"
 		}
 	],
-	"TimeStamp": 1781194527856
+	"TimeStamp": 1783259745671
 }

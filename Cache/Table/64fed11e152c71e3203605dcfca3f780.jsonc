@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:12:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1508,
-				8
-			],
-			"Message": "feat(Mountain): Implement native AES-256-GCM encryption and async lifecycle synchronization\n\nIntroduce a complete encryption subsystem for the Wind service handlers to support VS Code's `IEncryptionService`. Implement `encryption:encrypt` and `encryption:decrypt` using AES-256-GCM via the `ring` crate. The 256-bit key is derived from the host machine's hardware UUID (macOS `IOPlatformUUID`, Linux `/etc/machine-id`, Windows `MachineGuid`), ensuring stored secrets survive process restarts but remain unreadable on other machines, matching native editor semantics.\n\nRefactor the application lifecycle state to eliminate 100ms polling loops. Replace `LifecycleWhenPhase` busy-wait logic with `tokio::sync::Notify` primitives in `LifecyclePhaseState`. Handlers now await specific phase transitions immediately, reducing boot latency and CPU usage during startup.\n\nUpdate `DecorationTypeLifecycle` notification handling to use a single batched emit operation per channel, reducing IPC overhead during high-frequency UI updates.",
-			"SHA": "eafc4a40a6dc02017466152643d736c8eccced92"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:07:52Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1503,
-				1
-			],
-			"Message": "",
-			"SHA": "b0efb2cbc7f5e481b38f8b4190c511a99c41388e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:07:52Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1503,
-				26
-			],
-			"Message": "feat(Mountain): Replace polling loops with async notifies and wire native IPC handlers\n\nRefactor extension scanning and sidecar connection logic to replace busy-wait polling with `tokio::sync::Notify` synchronization primitives. Introduce `ExtensionState.ScanReady` and per-sidecar connection notifiers to unblock callers (e.g., `extensions:getInstalled`, `WaitForClientConnection`) immediately upon state transition, eliminating 50ms polling intervals and reducing boot latency.\n\nImplement full handlers for the `nativeHost` lifecycle surface (Exit, Quit, Relaunch, Reload, KillProcess, Install/UninstallShellCommand) and filesystem watching (`file:watch`, `file:unwatch`). These replace previous stub acknowledgments, enabling proper process management and native file system event routing to extensions.\n\nOptimize high-frequency gRPC notification paths (`RegisterCommand`, `ProgressReport`, `DecorationTypeLifecycle`) by migrating from per-call task spawning to a single long-lived mpsc-backed batch flusher. This reduces IPC saturation and task overhead during extension boot by coalescing thousands of rapid updates into single frame-aligned events.\n\nUpdate `Entitlements.plist` to use block-style XML formatting and clarify sandbox exemptions for the non-sandboxed editor environment.",
-			"SHA": "41b8029154da51b0556aa59039f99e6a7751c31c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T00:58:05Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1492,
-				4
-			],
-			"Message": "feat(Mountain): Implement dual-layer debug server and SCM diff handling\n\nUpgrade the `WebkitServer` debug utility into a configurable dual-layer diagnostics tool supporting independent activation for the Mountain (Rust) and Cocoon (Node.js) layers. Introduce a unified `DebugServer` environment variable to select mode (mountain, cocoon, both, or off) and distinct ports (default 9933/9934). Add new HTTP endpoints for layer discovery (`/health`, `/layers`), iframe inspection, workbench command invocation, and transparent HTTP proxying to the Cocoon extension host.\n\nImplement the `vscode.diff` and `$scm:openDiff` command handlers in `SCM.rs` to bridge the VS Code Git extension with the editor UI. When triggered, these commands now forward the request to the `sky://editor/diff` endpoint via the Effect system, ensuring the native backend correctly resolves the promise and opens the diff editor as expected.\n\nThese changes restore full debuggability across the full stack and enable native Git workflows by correctly handling the canonical diff command invoked by upstream VS Code extensions.",
-			"SHA": "6ae748d57faee496b259c4f513cf2c296f4dc585"
-		},
-		{
 			"Author": "Auto",
-			"Date": "2026-05-18T02:52:37Z",
+			"Date": "2026-05-25T02:58:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1492,
+				1735,
 				1
 			],
 			"Message": "",
-			"SHA": "7de344c980125a4acd67895fe0730d84681ea75c"
+			"SHA": "21e0c376878c990d4e7a61c44f328e98c9864721"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-24T16:57:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1735,
+				1
+			],
+			"Message": "",
+			"SHA": "22342780fea603e8ab5d430e1a03283367e85cc9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-24T06:17:21Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1735,
+				1
+			],
+			"Message": "refactor(Mountain): Simplify URI parsing in ProvideCodeLenses function\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "715bf7695b9046cd4221de046410f2c66a40bb91"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T15:49:06Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1735,
+				10
+			],
+			"Message": "refactor(Mountain): Expand parameter extraction utilities for IPC dispatch\n\nExtend the `Utilities::Params` module with typed helpers (`i64_at`, `u64_at_or`, `obj_str`, `obj_val`, etc.) to handle both positional arrays and JSON object payloads without inline boilerplate. Introduce `obj_*` variants specifically for named-key extraction used by UI service providers.\n\nApply these new utilities across the `CreateEffectForRequest` tree (Debug, LanguageFeatures, SCM, Secrets, StatusBar, Terminal, TreeView, UserInterface, Webview) to replace verbose `get().and_then().unwrap_or()` chains. This unifies parameter parsing logic, reduces code duplication, and ensures consistent default handling for handles, strings, numbers, and boolean flags across all IPC request handlers.",
+			"SHA": "d2d7207e90d0c620bbd6c0bc10c20754f3fbb529"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T15:42:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1735,
+				1
+			],
+			"Message": "",
+			"SHA": "8dd5df7519270fcbe000ac00312732a07e40875f"
 		}
 	],
-	"TimeStamp": 1781194538346
+	"TimeStamp": 1783259754124
 }

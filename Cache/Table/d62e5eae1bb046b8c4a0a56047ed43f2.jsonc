@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-05-11T02:44:31Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T02:17:51Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				1
+				"⠁⠀⠀⠀⠀",
+				1573,
+				42
 			],
-			"Message": "",
-			"SHA": "48d8f0a267819c656ffb6700f5f6b256da744f18"
+			"Message": "feat(Mountain): Implement hierarchy prepare, editor text IPC, and selection forwarding\n\nAdd call hierarchy and type hierarchy prepare entry-points across the full gRPC+LSP provider pipeline. The new `PerformCallHierarchy` and `PerformTypeHierarchy` provider modules in `Source/RPC/CocoonService/Provider/` parse the URI+position request and delegate to `PrepareCallHierarchy`/`PrepareTypeHierarchy` on the `LanguageFeatureProviderRegistry`, which invokes `$prepareCallHierarchyItems`/`$prepareTypeHierarchyItems` on the registered extension provider via Cocoon. This unblocks the incoming/outgoing calls and subtypes/supertypes panels in the editor UI.\n\nBridge two new Cocoon→Mountain→Sky notification atoms for extension-driven editor mutations: `window.setTextEditorDecorations` uses a channel-drain batching mechanism (16 ms frame-aligned aggregation, unbounded sender) to coalesce ~5-200+ calls/second into a single `sky://decoration/set-ranges` Tauri event per frame; `window.applyTextEdits` forwards `{uri, edits}` directly as `sky://editor/apply-text-edits` for `editor.edit(cb)` callers (formatters, code actions, vim-mode, Error Lens).\n\nAdd the `window.revealRange` Track Effect to `Source/Track/Effect/CreateEffectForRequest/Workspace.rs`, routing extension calls through `SendUserInterfaceRequest` to `sky://editor/revealRange` for go-to-definition and error-navigation scrolling.\n\nFire `document.willSave` to Cocoon before writing to disk in the workspace-save Track Effect, giving `onWillSaveTextDocument` listeners (format-on-save, organize-imports, trailing-whitespace strippers) a 1.5-second grace window before the actual disk write.\n\nWire two new Sky→Mountain IPC handlers in the `mountain_ipc_invoke` dispatcher — `sky:editor:selectionChanged` and `sky:editor:activeChanged` — which store the active document URI in workspace state and forward the notification to Cocoon so `activeTextEditor.selection` and `onDidChangeTextEditorSelection`/`onDidChangeActiveTextEditor` stay live.\n\nRecord `TierIPC: Mountain` in Info.plist alongside existing tier metadata.\n\nIncludes pervasive `cargo fmt` reformatting across 30+ source files: single-line short signatures, collapsed nested expressions, reordered import blocks for PascalCase alphabetic consistency.",
+			"SHA": "e85d15aa92cb2b7f45eb50f92c2c3613b10e4b56"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:59:03Z",
+			"Date": "2026-05-20T01:32:44Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
-				1
+				1569,
+				2
 			],
-			"Message": "fix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with an early error return\n\nThe `$resolveCustomEditor` arm contained:\n\n    let resource_uri = Url::parse(resource_uri_str)\n        .unwrap_or_else(|_| Url::parse(\"file:///tmp/test.txt\").unwrap());\n\nThe `unwrap_or_else` silently swallowed a malformed or missing URI and\nsubstituted the hardcoded test path `file:///tmp/test.txt`. Two\nconsequences:\n\n  1. A caller that passes an empty or invalid URI (e.g., an extension\n     registering a custom editor for a virtual scheme that Mountain\n     does not yet translate) receives a resolved result for\n     `/tmp/test.txt` instead of an error. The provider's\n     `ResolveCustomEditor` then opens or creates that file, which:\n     - Leaks a sentinel file to the OS tmp directory on every\n       such call.\n     - Returns success to Cocoon, which treats the editor as\n       resolved. The extension's `openCustomDocument` never fires\n       for the real resource, and the editor panel stays empty.\n\n  2. The fallback URI makes the log completely undiagnosable: every\n     failed resolve shows `resource=file:///tmp/test.txt` regardless\n     of what the caller sent, masking the real resource path.\n\nFix: return an `Err` immediately when the URI is empty or fails to\nparse. The error string is deliberately plain (no `resource not\nfound` suffix) because a malformed URI is a caller contract violation,\nnot a benign 404 probe - it should surface at error level in the\n`grpc` log and NOT be swallowed by `LooksLike404`.",
-			"SHA": "8b3f1a90730370b689d1269d924f04f906624966"
+			"Message": "feat(Mountain): Add stub utilities for PerformanceDashboard metrics\n\nIntroduce `DashboardHelpers` module under `Source/IPC/Enhanced/PerformanceDashboard` to provide deterministic, side-effect-free utility functions for the performance monitoring system.\n\nThe implementation includes stub functions for retrieving process memory and CPU usage (returning fixed values until platform metrics are wired) and UUID generators for trace, span, and alert identifiers. Additionally, a `metric_type_name` helper maps `MetricType` variants to human-readable display strings for the dashboard UI.\n\nThis change exports the new module in `mod.rs`, establishing the foundational layer for the PerformanceDashboard IPC feature while adhering to the pure function architecture for testability.",
+			"SHA": "e4c272b226471882b469bd9020eb70cb523cf39c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:57:08Z",
+			"Date": "2026-05-20T01:07:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1568,
 				1
 			],
-			"Message": "Merge pull request #46 from CodeEditorLand/fix/TVIEW-unreg-dispose-emit\n\nfix(TVIEW): wire tree.unregister + tree.dispose to provider; emit TreeViewDispose",
-			"SHA": "22734234c478e2281666ae644675fcab1aece7f7"
+			"Message": "refactor(Mountain): Clarify logger command fallback handling\n\nUpdate the comment block for logger commands (`logger:log`, `logger:warn`, etc.) in `Source/IPC/WindServiceHandlers/mod.rs`. The inline acknowledgment explicitly states that these high-frequency calls are now primarily managed by the `IS_HIGH_FREQUENCY` fast-path short-circuit established in recent commits.\n\nThe fallback arms in the `mountain_ipc_invoke` dispatcher are described as a safety net to ensure `Mountain.dev_log` receives output if the high-frequency detection logic changes or fails. This aligns the documentation with the current architectural optimization for the IPC dispatch layer.",
+			"SHA": "db5faf8431473f060005b186245adfebef81bd7d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:54:41Z",
+			"Date": "2026-05-20T01:06:12Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1568,
 				1
 			],
-			"Message": "fix(TVIEW): wire tree.unregister + tree.dispose to provider + emit TreeViewDispose\n\n`tree.unregister` / `tree.dispose` were no-ops: the effect body\nlogged the handle but never called the provider and never emitted a\nSkyEvent. The consequence:\n\n  - Provider registry in `Sky/Source/TreeView/TreeViewService.ts`\n    kept the `_dataProvider` slot live after the extension called\n    `vscode.window.registerTreeDataProvider(...).dispose()`. A\n    subsequent re-registration from the same extension (reload,\n    update) produced a duplicate registration warning from Sky and\n    the new provider was ignored.\n\n  - `getChildren()` calls on a disposed tree continued to hit the\n    old provider pointer, producing stale results or panics if the\n    provider had been GC'd from the Cocoon side.\n\nFix: call `provider.UnregisterTreeDataProvider(view_id)`, emit\n`SkyEvent::TreeViewDispose` (parity with the register arm's\n`TreeViewCreate`), and log both outcomes under the same `tree-view`\nand `grpc` tags used by the register arm.",
-			"SHA": "90a62cdda4de6b6184a0e80498676c96d39f3f4d"
+			"Message": "refactor(Mountain): Remove redundant menubar update handler logic\n\nThe inline `menubar:updateMenubar` handler, which implemented a per-100-call logging counter and returned `Null`, is removed. These high-frequency calls are now processed exclusively in the `IsHighFrequencyCommand` fast-path block established previously.\n\nThis cleanup eliminates the dead code fallback in `Source/IPC/WindServiceHandlers/mod.rs`, ensuring the IPC dispatch layer relies on the optimized path for menubar updates while maintaining a minimal fallback for command routing integrity.",
+			"SHA": "8fd7bc239ad2beac6260602e1d1a12261f11e188"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:51:24Z",
+			"Date": "2026-05-20T01:05:01Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1568,
 				1
 			],
-			"Message": "fix(FSSRV): add empty-path guard + URI strip to Stat, ReadDirectory, ReadFile\n\nFileSystem.Stat and FileSystem.ReadDirectory had no empty-path guard,\nunlike FileSystem.ReadFile which already had one (added in the\n`LooksLike404` classifier batch). An extension passing an empty string\nto `vscode.workspace.fs.stat` or `readDirectory` (probe-on-activate\npattern) hit PathBuf::from(\"\") which:\n  - On Stat: reached the OS with an empty path and returned a\n    platform-dependent error string that did NOT match any of the eight\n    known \"not found\" patterns in MountainVinegRPCService, so the\n    LooksLike404 guard logged it at grpc/error and incremented the\n    circuit-breaker counter.\n  - On ReadDirectory: same failure path, plus PathSecurity could emit\n    \"path outside workspace\" which was previously only guarded on the\n    ReadFile arm.\n\nFix: mirror the ReadFile guard verbatim on both Stat and ReadDirectory.\nThe \"resource not found\" suffix in the error string is the canonical\nkey the LooksLike404 classifier matches on, so these errors now\ndowngrade to grpc-verbose and use code -32004 like ReadFile does.\n\nStripFileUriScheme is already called on the path_str in both arms;\nthis commit makes that call consistent - the strip was missing on\nReadDirectory before the empty-path branch was added, leaving\nfile:///absolute/path inputs reaching the OS with the scheme intact\nand 404-ing with a literal \"file:\" prefix in the error.",
-			"SHA": "701563143aa3d55befc5f0b1adc173057a1dc30c"
+			"Message": "refactor(Mountain): Remove stub acknowledgments for workspace folder events\n\nThe `workspaces:onDidChangeWorkspaceFolders` and `workspaces:onDidChangeWorkspaceName` commands previously returned a `Null` value as a stub acknowledgment to simulate a Tauri event listener handshake on the IPC binary rail.\n\nThese explicit handlers are removed as the actual workspace change notifications are now broadcast directly via Tauri events without requiring a corresponding `ack` response on the gRPC/Vine protocol rail. This cleanup eliminates dead code paths and streamlines the `mountain_ipc_invoke` dispatch logic in `Source/IPC/WindServiceHandlers/mod.rs`.\n\nThe workspace state change propagation remains intact through the existing event emission mechanism, ensuring the Wind UI layer still receives updates without unnecessary binary rail overhead.",
+			"SHA": "893b99ac4810581ca194db97cdbef1ff40bd3e08"
 		}
 	],
-	"TimeStamp": 1781194547923
+	"TimeStamp": 1783259758549
 }

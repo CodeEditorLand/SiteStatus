@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:39:39Z",
+			"Date": "2026-04-27T19:55:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "refactor(Project): Wire state handlers to trait implementations\n\nCross-cutting submodule sync wiring Mountain handlers to proper trait implementations for state persistence:\n1. Mountain: Replace direct Sky event emissions with trait methods - SCM handlers use SourceControlManagementProvider to materialize state in ApplicationState::SourceControl, StatusBar handlers use StatusBarProvider::SetStatusBarEntry for ActiveStatusBarItems, Webview handlers use WebviewProvider trait for ApplicationState::WebviewState, Search handlers delegate to WorkspaceProvider::FindFilesInWorkspace and SearchProvider::TextSearch\n2. Output: Remove Configuration directory (ESBuild, Plugin, Polyfill, Service configs and tsconfig)\n3. Cocoon: Submodule sync to cbaf44f1\n\nImpact: SCM providers, status bar items, and webview panels now properly persist in Mountain's ApplicationState. File and text search use ignore-aware implementations.",
-			"SHA": "ef6da240b1d22fe8249f99b2f3955b7bed1a154d"
+			"Message": "feat(Project): Add debug session tracking, custom editor save events, and .gitignore-aware search\n\nSubmodule synchronization bringing three major features and bug fixes:\n\n1. Debug Session Tracking (Mountain + Common + Sky):\n   - Mountain implements DebugSessionEntry and DebugSessions map for lifecycle management\n   - StartDebugging spawns DAP adapters with stdin/stdout/stderr pipes and parses DAP frames\n   - Messages emitted on `sky://debug/dap-message` and forwarded to DOM events\n   - StopDebugging sends DAP disconnect and unregisters the session\n   - Common adds DebugDapMessage IPC event to support this flow\n\n2. Custom Editor Save Events (Common + Mountain + Sky):\n   - Common adds CustomEditorSaved IPC event for UI notifications\n   - Mountain implements OnSaveCustomDocument to reverse-RPC to Cocoon extension sidecar\n   - Sky adds handler for `sky://customEditor/saved` dispatching cel:customEditor:saved\n\n3. Search Service Replacement (Output + Mountain):\n   - Add ReplaceSearchService transform replacing web-worker RemoteSearchService\n   - Delegates to Mountain's `search:findFiles` / `search:findInFiles` handlers\n   - Makes search .gitignore-aware via Rust's ignore::WalkBuilder\n   - Fixes search panel showing 0 matches and node_modules appearing in results\n\n4. Bug Fixes (Mountain):\n   - Fix char-aware UTF-8 truncation in WindServiceHandlers and OutputChannelAppend\n   - Avoids panics when slicing multi-byte codepoints (e.g., `•` in SCM progress)\n\nImpact: Debugging now works with real DAP adapters, custom editor save callbacks notify observers, file search respects .gitignore rules, and UTF-8 truncation no longer panics on multi-byte characters.",
+			"SHA": "84ac0fa57b583db758d41a5e7ce0a7cf8f468e21"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:16:30Z",
+			"Date": "2026-04-27T15:56:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "feat(Project): Add regex and multiline search to TextSearchQuery\n\nSync Mountain and Cocoon submodules with new search capabilities:\n- Mountain: Add `isRegExp` and `isMultiline` fields mirroring VS Code's ITextSearchQuery\n- Escape plain-text search patterns via regex::escape() to prevent crashes on metacharacters like `.`, `(`, `[`, `*`, `?`\n- Add .multi_line() support for multiline regex searches\n- Fixes Search view plain-text mode broken for queries containing `obj.method(` or `file[1].txt`\n- Cocoon: Update to d4763554\n\nImpact: Plain-text search now works correctly for queries containing regex metacharacters without crashing the regex compiler.",
-			"SHA": "955a8545bf99cedb0b1db11ad25ed773a5c4d2b3"
+			"Message": "",
+			"SHA": "4a3271f6b3b15fea442be66c85da072d4cf5e64c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T23:05:50Z",
+			"Date": "2026-04-27T14:49:32Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to properly-implemented trait methods on MountainEnvironment:\n- handle_search_find_in_files → SearchProvider::TextSearch (grep-searcher + ignore::WalkBuilder with parallel walking)\n- handle_search_find_files → WorkspaceProvider::FindFilesInWorkspace (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive starts_with('.') hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus format!(\"file://{}\") URI constructor, and single-threaded walkers. The trait implementations were reachable only through Environment.Require<dyn SearchProvider>() calls and no IPC handler ever issued those.\n\nAlso change FileReaddirNative.rs log level from vfs-verbose to vfs since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.\n\nImpact: File search and find-files now use proper ignore rules, parallel walking, and regex support instead of naive single-threaded implementations.",
-			"SHA": "ab81979739d237da5c6179b32dcdf7437a7a83ae"
+			"Message": "chore(Project): Sync Element submodule with event payload fixes and webview bridge\n\nSubmodule synchronization bringing critical fixes and a new feature:\n\n1. Mountain - Event Payload Alignment:\n   - Fix event channel names: terminal `opened`→`create`, `closed`→`exit`, debug `stop`→`sessionEnd`, statusbar `create`→`set-entry`, webview `message`→`post-message`, progress→`notification/progress-update`\n   - Correct payload keys to camelCase for OutputProvider, StatusBarProvider, TreeViewProvider, UserInterfaceProvider, Window\n   - Add parameter key fallback: probe camelCase first then snake_case for backward compat\n   - Fix SCM RootUri: reconstruct full URI from scheme/authority/path instead of relative URLs\n   - Add command registry emissions for Sky's workbench command palette\n\n2. Sky - New Webview Post-Message Bridge:\n   - Add handler for `sky://webview/post-message` to dispatch `cel:webview:post-message` events to renderer\n   - Bridges extension `postMessage` path from Cocoon with `{handle, message}` shape distinct from workbench-RPC `{panelId, method, params}`\n\n3. Dependencies:\n   - Cocoon, Echo, Rest: pozil/auto-assign-issue 2.2.0→3.0.0\n   - Echo: @cloudflare/workers-types, miniflare, wrangler updates\n\n4. Common: Document deprecated aliases UIShowInputBoxRequest and UIShowQuickPickRequest\n\nImpact: Terminal panes, tree views, status bar entries, and command palette entries now render correctly. Extensions can communicate back to Sky UI via the new webview post-message bridge.",
+			"SHA": "ebf8546260e42a5029b846b7d74edb1ce8323180"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:56:21Z",
+			"Date": "2026-04-26T22:47:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "feat(Project): Add DisableUnusedServices transform and sync dependencies across submodules\n\nCross-cutting Element submodule sync with functional improvements and dependency updates:\n\n1. Output: Add DisableUnusedServices ESBuild transform - Replaces upstream VS Code contribution barrels for features Land doesn't back (auto-update, issue reporter, MS account/sync, process explorer) with inert stubs. Removes broken UI surfaces and silences \"service not registered\" warnings, shortening boot time.\n\n2. Output: Fix ExtensionScannerIPC path matching - Now matches BOTH electron-browser AND browser variants of extensionsScannerService.js. Previously only matched electron-browser, but desktop.main.js loads the browser variant.\n\n3. Sky: Sync dependency updates - @xterm/xterm: 6.1.0-beta.202 → 6.1.0-beta.203, @astrojs/compiler-rs: 0.1.9 → 0.1.10, pozil/auto-assign-issue: 2.2.0 → 3.0.0\n\nImpact: Extension scanning now works correctly for desktop profile. Unused VS Code services are stubbed out, reducing boot noise and improving startup time.",
-			"SHA": "4c908a36d5a2b16ff9ab9e0e5dbc8c6964566d17"
+			"Message": "refactor(Project): Standardize DTO serialization to camelCase and fix SCM provider registration\n\nSubmodule synchronization across Mountain, Mist, and Rest:\n\n1. Mountain: Migrate DTO serialization from PascalCase to camelCase across 13 files (CustomDocumentStateDTO, DocumentStateDTO, MarkerDataDTO, etc.) to match the wire format expected by Wind/Sky.\n\n2. Mountain: Fix SCM provider registration - change PascalCase keys (\"ID\", \"Label\", \"RootUri\") to camelCase (\"id\", \"label\", \"rootUri\") in RegisterScmProvider and add missing \"providerHandle\" field in RegisterScmResourceGroup.\n\n3. Mountain: Add #[allow(dead_code)] to 15 structs used only in specific build configs and set MACOSX_DEPLOYMENT_TARGET=10.13 for broader compatibility.\n\n4. Mist: Add #![allow(non_snake_case)] lint to permit PascalCase naming conventions consistent with CodeEditorLand standards.\n\n5. Rest: Switch binary entry point from Library.rs to Main.rs with proper async tokio runtime.\n\nImpact: Wind/Sky now receive correctly formatted DTOs with camelCase keys, SCM source control providers properly register, and the Rest bundler has correct binary structure.",
+			"SHA": "9203102a8778770cf3de193abaec23edf1e83491"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T22:36:12Z",
+			"Date": "2026-04-26T20:30:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				5214,
+				102,
 				1
 			],
-			"Message": "refactor(Output): Replace runtime require() with static ES imports in workbench accessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of both web.main.js and desktop.main.js instead of using runtime require() calls. This eliminates AMD require() resolution that could fail in the WKWebView context.\n\nChanges include:\n- Anchor on stable import markers ('mark' from performance.js for web, 'localize' from nls.js for desktop)\n- Add IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports\n- Extract shared imports into SharedImportLines to avoid duplication\n- Add cel:services-ready DOM event dispatch on successful population\n- Add Mountain diagnostic logging for success/failure tracking\n- Add guard check for import marker to avoid matching unrelated files\n\nImpact: __CEL_SERVICES__ is now populated synchronously before the microtask queue drains, ensuring services are available for both web and Electron/Desktop profiles at runtime.",
-			"SHA": "96667ac6d621541665452df55118710d737719da"
+			"Message": "feat(Mountain): Add workspace trust handlers for vscode.git and mute API gap logs\n\nSubmodule synchronization bringing two Mountain changes:\n\n1. Workspace Trust Handlers:\n   - Implement Workspace.RequestResourceTrust and Workspace.IsResourceTrusted handlers\n   - Route through Mountain instead of falling back to Cocoon's permissive heuristic\n   - vscode.git's Model.openRepository now calls these before constructing Repository\n   - Enables GenerateRouteManifest.sh to auto-switch Cocoon from heuristic to gRPC routing\n   - Future work can replace trust-by-default with real per-OS trust queries (Gatekeeper/SmartScreen/xattrs)\n\n2. Log Noise Reduction:\n   - Mute vscode-api-gap dev logs in short mode\n   - These log when extensions use unshimmed vscode API methods\n   - Useful for API gap audits but noisy in default dev runs\n   - Enable via LAND_DEV_LOG=all or LAND_DEV_LOG=vscode-api-gap when needed\n\nImpact: vscode.git extension now properly routes through Mountain's trust handlers with future extensibility for real OS-level trust queries.",
+			"SHA": "bd777531a7bf4fdfeb693820ba44cc9efc7237b6"
 		}
 	],
-	"TimeStamp": 1781194544715
+	"TimeStamp": 1783259758011
 }

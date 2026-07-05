@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T13:59:54Z",
+			"Date": "2026-06-12T21:22:15Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
-				1955,
-				300
+				"⠁⠀⠀⠀⠀",
+				920,
+				26
 			],
-			"Message": "chore(Wind): Regenerate service catalogs, upstream interfaces, and bridge shapes\n\nRe-run Wind/Codegen to produce the full set of generated artifacts for the 2026-05-26 cycle:\n- CommandCatalog (551 entries) and ServiceCatalog (500 entries) with updated version date\n- Per-service schema files under Effect/Generated/<DecoratorName>/<DecoratorName>Upstream.ts\n  for all ~500 service interfaces extracted from the VS Code source tree\n- 16 bridge shape Pick<> types for Workbench services (Activity, Clipboard, Command,\n  ContextKey, Dialog, Editor, Extension, Host, Keybinding, Lifecycle, Notification,\n  Product, Progress, Settings, Storage, Workspace)\n\nThe previous daily cycle's generated artifacts were removed in the prior commit and\nare now replaced with freshly-generated equivalents. All files carry the DO NOT EDIT\nBY HAND header and reference the upstream decorator source paths for build-time\nstructural verification.",
-			"SHA": "14b52b87f178e4e1c53c1a41f579fee865e9af96"
+			"Message": "refactor(Wind): De-Effect-ify Bootstrap, Health, FileSystem, Workbench; add heritage resolver + ChannelEventBridge\n\nRemove Effect-TS dependency from four core Wind services, converting them to plain async/sync APIs:\n\n**Bootstrap** (`Effect/Bootstrap/`):\n- Replace `Effect.gen`/`Layer`/`Context.Tag` with a plain `makeBootstrap(Logger)` factory returning a `BootstrapService`. All six stages (`BootstrapStage.ts`) become `async (Log) => Promise<StageResult>` — no `withSpan`, no `yield*`.\n- Delete `BootstrapTag.ts`; `BootstrapLive` is now a `BootstrapService` instance, not a `Layer`.\n- `BootstrapMock` drops its `Layer.effect` wrapper — just a `BootstrapService` object.\n- `runBootstrap()` calls `BootstrapLive.run(options)` directly instead of composing a Telemetry layer.\n\n**Health** (`Effect/Health/`):\n- Convert all check methods from `Effect.Effect<>` to `async Promise<>`. The `monitorService` now returns a `HealthMonitorHandle { dispose }` via `setInterval`/`clearInterval` instead of an `Effect.repeat(Schedule.spaced)`.\n- Delete `HealthTag.ts`; `HealthLive`/`HealthMock` are `HealthService` instances.\n- Replace `EnvironmentTag.getInfo` with direct calls to `DetectPlatform()`/`DetectArchitecture()` from `EnvironmentHelper`.\n\n**FileSystem** (`FileSystem/`):\n- Remove `FileSystemProviderTag` (Context.GenericTag), `FileSystemProviderLive` (Layer), and the `getProvider: Effect.Effect<>` accessor from `FileSystemProviderService`. Consumers now import the default export `FileSystemProvider` and call `.provider` directly.\n- Update README examples to show plain `await FileSystemProvider.readFile(...)` instead of `yield* FileSystemProviderTag`.\n\n**Workbench** (`Workbench/`):\n- Rewrite `WorkbenchIntegrationImplementation` from Effect-TS (Ref, Queue, Stream, Effect.gen) to module-closure `let` variables + a listener-`Set` for state change observation. `stateChanges: Stream` becomes `onStateChange(Listener) => IDisposable`.\n- All methods are sync/async and throw `WorkbenchIntegrationError` on failure — no more `Effect.fail`.\n- Remove the `FileSystemProviderTag` dependency; import the FileSystem default export directly.\n\n**ResolveInterfaceCrossFile** (`Codegen/Resolve/`):\n- Add heritage-follow resolution: when an interface body is empty (the re-export pattern `interface X extends Y { }`), parse the `extends` clause, resolve each parent — same-file inline first, then via imports — with depth-capped recursion and visited-set deduplication.\n- Extract `ResolveNamedMembers` as a shared recursive core; `ResolveInterfaceCrossFile` delegates to it.\n\n**TauriMainProcessService** (`Service/`):\n- Buffer `_DevLogForward` entries for 100ms and flush as grouped `RenderDevLog` invokes (one per tag, newline-joined), capped at 20 entries per flush window with overflow counting. Prevents IPC storms during extension activation.\n- Introduce `ChannelEventBridge` — a declarative map from channel events to `sky://` Tauri event names (with optional reshape `Map` functions), replacing the earlier repetitive `if (channel === \"X\" && event === \"Y\")` guard blocks. Covers `localPty`, `terminal`, `extensions`, `localFilesystem`, `configuration`, `workspaces`, and `lifecycle`.\n\n**Barrel re-exports**:\n- `Effect/index.ts`: Alphabetize exported names; replace old `*Tag` exports with `*MonitorHandle`/`*Logger` types.\n- `Bootstrap/index.ts`, `Health/index.ts`, `Workbench/index.ts`, `Health.ts`, `Bootstrap.ts`: Align re-exports with the new plain-async surface — no Tag re-exports, no Layer re-exports.\n- `Layers/Tauri.ts`: Remove `BootstrapLive`, `HealthLive`, `ActivityBarLive` from the layer compositions since they are no longer Effect layers.\n- `Language/Live.ts`: Clarify doc comment that this layer is Wind-local only; add `performance.mark` traces on registration.\n\n**Impact**: Reduces Effect-TS surface to only IPC, Telemetry, and Sandbox services where its composability is still needed. Cuts bundle weight, simplifies debugging (plain async stack traces), and accelerates the migration of Wind toward framework-agnostic service patterns.",
+			"SHA": "0432636342797c3caab1099cf883e21ea04151c1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T13:12:24Z",
+			"Date": "2026-06-12T20:34:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				924,
+				2
+			],
+			"Message": "style(Wind): Normalize README punctuation and build config indentation\n\nReplace em dashes (—) with hyphens (-) throughout README.md for consistent ASCII punctuation across the documentation. Reformat tsconfig.build.json from 2-space indentation to tab-indented with single-line array items, matching the project's convention established in tsconfig.json.\n\nNo behavioral changes — purely cosmetic formatting normalization across documentation and build configuration.",
+			"SHA": "ed1a42e950febefbd3b8d5a429195947fc413bfd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T20:04:08Z",
 			"File": [
 				"⣿⡏⠀⠀⠀",
-				942,
+				924,
 				300
 			],
-			"Message": "chore(Wind): Remove stale generated service catalogs and bridge shapes\n\nDelete the entire set of generated TypeScript artifacts under Source/Effect/, including the CommandCatalog, ServiceCatalog, all IAsteriskUpstream service interface definitions, and all 16 bridge shape implementations.\n\nThese files were regenerated in the previous daily cycle and have since been superseded by newer generated versions. Retaining them adds noise to the source tree and risks stale definitions being consumed by the build system.\n\nNo functional changes — the deletion removes only generated artifacts with no hand-authored code.",
-			"SHA": "b4042f65ad0c7cac347bbf4586bb65ef33939d2f"
+			"Message": "style(Wind): Strip extra blank lines inside interface/class bodies and between imports\n\nRemove ~1,200 blank lines that violated the project's formatting conventions across 300+ files in Source/. The changes fall into six categories:\n\n1. **Interface/class body blank lines**: Every exported interface, class, default-object, and exported-const-object that began with a blank line after `{` now has it removed — \"squaring\" the opening brace against the first member. Affected ~200 files across Bootstrap/Types, Codegen, Effect, FileSystem, Service, Telemetry, Types, and Workbench.\n\n2. **Import-group blank lines**: Blank lines separating two consecutive `import` statements (or `import type` statements) from the same module group are removed, collapsing multi-line import blocks into dense `import`-`import` runs. Exceptions preserved at semantic boundaries (e.g., Effect imports vs. local directory imports).\n\n3. **Discriminated union blank lines**: Blank lines between adjacent `| { _tag: ... }` branches in `*Problem` and `*State` type definitions are removed.\n\n4. **Missing blank lines in barrel exports**: `Mountain/index.ts`, `WorkbenchActivity/index.ts`, `WorkbenchCommand/index.ts` gain a blank line before `export type` sections after a series of value re-exports, matching the barrel convention in neighbouring modules.\n\n5. **Import ordering**: `BootstrapStage.ts` swaps `EnvironmentTag` above `EnvironmentInfo` to pair the Tag import with its type; `WorkbenchLayoutLive.ts`, `WorkbenchLifecycleLive.ts`, `WorkbenchNotificationLive.ts`, `WorkbenchProgressLive.ts`, `WorkbenchThemeLive.ts` fix `type` keyword placement and group imports consistently.\n\n6. **Build config**: `tsconfig.build.json` added with a focused compilation target (`Source/Build.ts`, Constants, Types, Effect/Layers); `tsconfig.json` exclude list expanded with 47 path entries to silence diagnostics in generated/polyfill/debug modules.\n\nNo behavioral changes.",
+			"SHA": "c458f3973e1db58d66720d262e758c6cf39d95b6"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T09:03:32Z",
+			"Date": "2026-06-12T19:14:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1955,
-				3
+				923,
+				4
 			],
-			"Message": "chore(Wind): Bump catalog version date to 2026-05-26\n\nUpdate the CommandCatalogVersion and ServiceCatalogVersion timestamps from \"2026-05-25\" to \"2026-05-26\" as part of the daily code generation cycle. The tsconfig.tsbuildinfo was also regenerated to reflect the incremental build metadata.\n\nNo functional changes — this is purely a version-date synchronization with the downstream generation pipeline.",
-			"SHA": "327bd37b55d0d1b5bdb1486951d831e62f24a915"
+			"Message": "style(Wind): Alphabetize barrel re-exports and normalize spacing\n\nSort the three barrel files (Configuration, Mountain, BootstrapStage) so that named re-exports within each logical category follow alphabetical order, matching the convention established in prior formatting passes.\n\n- **BootstrapStage.ts**: Move `EnvironmentTag` value import below its paired `EnvironmentInfo` type import; remove trailing blank line before the first default-export key.\n- **Configuration.ts**: Reorder 15 re-exported names — errors (Apply→Fetch→Validation), values (Create→Get→Make→Validate), live/mock implementations (ConfigurationLive→ConfigurationMock→…), type aliases (Configuration→ConfigurationService→…).\n- **Mountain.ts**: Reorder 11 re-exported names — errors (Connection→RPC→State→Sync), values (Create→Live→Mock), type aliases (Mountain→MountainConnectionState→…).\n- **Mountain/index.ts**: Add missing blank line separator between the error-types section end and the Live Implementation section header, consistent with the other 19 barrel files.\n\nNo behavioral changes — pure formatting alignment.",
+			"SHA": "9e54723c97df9f4f62359952ede73e25acdca4ad"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T20:44:30Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				1955,
-				300
-			],
-			"Message": "feat(Wind): Wire per-subsystem tier routing in TauriMainProcessService\n\nAdd the runtime dispatch layer that resolves per-subsystem IPC tiers,\ncompleting TIER-SYSTEM Step 4b. Introduces _ReadTier() to read tier\noverrides from env vars and __LandTiers globals, and\n_ResolveTierForRoute() to map each channel RoutePrefix to its effective\ntier. The TauriChannel.call() method now bypasses Mountain for channels\nresolved to \"Node\", routing directly to Cocoon via the cocoon:request\nbridge. The NodeDeferred fallback also honours per-subsystem tiers so\nchannels like tasks, auth, and encryption default to Node even when the\nglobal _TierIPC is \"Mountain\".\n\nThis makes the Wind service layer respect per-subsystem routing at\nruntime, mirroring the dispatch in Mountain's WindServiceHandlers.",
-			"SHA": "b47dc0230f78429ee4f47b805b9e6b74ece0f1e4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:29:25Z",
+			"Date": "2026-06-12T19:13:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				942,
+				923,
 				1
 			],
-			"Message": "chore(Wind): Regenerate tsconfig.tsbuildinfo with updated build metadata\n\nThe TypeScript incremental build metadata file was regenerated after module resolution changes in the project. The tsbuildinfo grew from ~317KB to ~1MB reflecting updated program structure and declaration maps.\n\nThis is an automated build artifact update with no impact on public API or runtime behavior.",
-			"SHA": "b37a6426c05c64149902b7f88a73711d4914ff52"
+			"Message": "style(Wind): Reorganize Mountain Effect barrel export order\n\nAdopt the standardized six-section ordering for `Source/Effect/Mountain/index.ts` following the barrel export convention established in b9b6b34d: (1) error types, (2) live implementation, (3) service interface, (4) mock implementation, (5) service tag alias, (6) type definitions.\n\nBlank lines are removed between error exports to group all four error classes consecutively. Each section is separated by a single blank line with a preceding comment header for navigability. The previous arrangement interspersed type exports before value exports; the new layout places all value exports (live + mock implementations) before type-level exports, matching the consumer lookup priority pattern used across the other 18 workbench barrel files.",
+			"SHA": "b19ef04ee8918bb0a88bd59be04654f5df54aeb0"
 		}
 	],
-	"TimeStamp": 1781194520213
+	"TimeStamp": 1783259742457
 }

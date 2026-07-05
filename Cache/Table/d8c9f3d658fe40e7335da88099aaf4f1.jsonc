@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:51:03Z",
+			"Date": "2026-05-11T12:25:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
+				1505,
 				1
 			],
-			"Message": "refactor(Mountain): Document dead-code status of CoreError types\n\nMark the `Source/Error/CoreError.rs` module as legacy implementation superseded by `CommonLibrary::Error::CommonError`. Add inline documentation noting zero active callers and the presence of ~700 lines of dead code.\n\nExplicitly state that atomizing the five sibling modules into PascalCase single-symbol files is deferred. Refactoring is blocked by the high cost of renaming fields and methods (`ErrorContext`, `with_kind`, `with_severity`) across the dormant codebase.\n\nThe file is retained solely for reference until the entire error stack is either deleted or fully migrated to the Common library.",
-			"SHA": "879f8f9b78ece43f4e8fa0bf7b7ca0ba2e0e6771"
+			"Message": "Merge pull request #47 from CodeEditorLand/fix/WVIEW-resolv-editor-fallback-uri\n\nfix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with early error returns",
+			"SHA": "f3718d8a9e63c7bb170f17f09db2ef77ba3d3916"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:49:45Z",
+			"Author": "Auto",
+			"Date": "2026-05-11T02:44:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
+				1505,
 				1
 			],
-			"Message": "build(Mountain): Configure Tauri resources for Sky frontend artifacts\n\nDefine the `resources` table in `tauri.conf.json` to bundle critical Sky frontend assets into the Mountain native binary. This mapping includes the compiled extension set (`extensions`), dependency tree (`node_modules`), localization keys and messages (`nls.*`), bootstrap entry points, and the product definition file (`product.json`).\n\nThis configuration replaces the previous null placeholder and ensures that the Tauri webview can access these static assets at runtime via the `resources` directory within the binary bundle. This is a prerequisite for the Mountain backend to launch the Sky UI and Cocoon extension host without external file dependencies.",
-			"SHA": "e5daab6f47fe5a1bf0a00c6873577819bec1c0e5"
+			"Message": "",
+			"SHA": "48d8f0a267819c656ffb6700f5f6b256da744f18"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:49:01Z",
+			"Date": "2026-05-10T20:59:03Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
-				2
+				1505,
+				1
 			],
-			"Message": "refactor(Mountain): Modularize keybinding and language feature command surfaces\n\nAlign the `Source/Command` subsystem with the distributed architecture's 'one export per file' pattern. The monolithic `Keybinding.rs` and `LanguageFeature.rs` files have been decomposed into flat module trees where each Tauri command resides in its own unit file.\n\nFor `Keybinding`, extract the five wire-bound commands (`GetResolvedKeybinding`, `GetUserKeybindings`, etc.) into dedicated modules, converting the root file into a manifest of public modules. For `LanguageFeature`, split the polyfill bridge and six IPC commands (`MountainProvideHover`, `MountainProvideCodeActions`, etc.) into individual units, exposing the `#[command]` shells while keeping implementation details (`Hover`, `CodeActions`, `Validation`, `InvokeProvider`) private via `pub(crate)` visibility.\n\nThis reorganization reduces file complexity, enforces strict PascalCase naming for all public exports, and clarifies the boundary between the Rust backend and the TypeScript frontend. The changes prepare the IPC layer for finer-grained testing and type safety, continuing the modularization trend initiated in the recent `Source/IPC` and `Source/Environment` refactorings.",
-			"SHA": "5e571efe18203567968fbe04062cdc021dfe5867"
+			"Message": "fix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with an early error return\n\nThe `$resolveCustomEditor` arm contained:\n\n    let resource_uri = Url::parse(resource_uri_str)\n        .unwrap_or_else(|_| Url::parse(\"file:///tmp/test.txt\").unwrap());\n\nThe `unwrap_or_else` silently swallowed a malformed or missing URI and\nsubstituted the hardcoded test path `file:///tmp/test.txt`. Two\nconsequences:\n\n  1. A caller that passes an empty or invalid URI (e.g., an extension\n     registering a custom editor for a virtual scheme that Mountain\n     does not yet translate) receives a resolved result for\n     `/tmp/test.txt` instead of an error. The provider's\n     `ResolveCustomEditor` then opens or creates that file, which:\n     - Leaks a sentinel file to the OS tmp directory on every\n       such call.\n     - Returns success to Cocoon, which treats the editor as\n       resolved. The extension's `openCustomDocument` never fires\n       for the real resource, and the editor panel stays empty.\n\n  2. The fallback URI makes the log completely undiagnosable: every\n     failed resolve shows `resource=file:///tmp/test.txt` regardless\n     of what the caller sent, masking the real resource path.\n\nFix: return an `Err` immediately when the URI is empty or fails to\nparse. The error string is deliberately plain (no `resource not\nfound` suffix) because a malformed URI is a caller contract violation,\nnot a benign 404 probe - it should surface at error level in the\n`grpc` log and NOT be swallowed by `LooksLike404`.",
+			"SHA": "8b3f1a90730370b689d1269d924f04f906624966"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:48:08Z",
+			"Date": "2026-05-10T20:57:08Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
-				5
+				1505,
+				1
 			],
-			"Message": "refactor(Mountain): Modularize IPC common types and telemetry entry points\n\nRestructure the `Source/IPC/Common` subsystem to align with the distributed architecture's 'one export per file' pattern. The monolithic `HealthStatus`, `MessageType`, `PerformanceMetrics`, and `ServiceInfo` modules have been decomposed into flat module trees where each struct, enum, or logical unit resides in its own file (e.g., `SeverityLevel`, `HealthIssue`, `IPCCommand`, `ServiceRegistry`).\n\nSimultaneously, update `Source/Telemetry/Initialize.rs` to dispatch initialization logic to specific unit files (`InitializeTracing`, `InitializeMetrics`) within the Telemetry hierarchy, removing inline function definitions.\n\nThis reorganization reduces file complexity, enforces strict PascalCase naming for all exports, and clarifies the boundary between abstract DTOs and their lifecycle logic. The changes prepare the IPC layer for finer-grained testing and future convergence with the `IPC::StatusReporter` implementation. All new module paths follow the `File = Identity` rule (e.g., `pub mod HealthIssue;` exposes `HealthIssue::Struct`).",
-			"SHA": "263e0b50b6793c0caf3232d136baa7675469c330"
+			"Message": "Merge pull request #46 from CodeEditorLand/fix/TVIEW-unreg-dispose-emit\n\nfix(TVIEW): wire tree.unregister + tree.dispose to provider; emit TreeViewDispose",
+			"SHA": "22734234c478e2281666ae644675fcab1aece7f7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-02T09:47:00Z",
+			"Date": "2026-05-10T20:54:41Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1251,
-				2
+				1505,
+				1
 			],
-			"Message": "refactor(Mountain): Modularize IPC health and process command units\n\nRestructure the `Source/Binary/IPC` subsystem to align with CodeEditorLand's distributed architecture and PascalCase naming standards. The monolithic `HealthCommand.rs` and `ProcessCommand.rs` files have been decomposed into flat module trees where each Tauri command resides in its own unit file.\n\nFor `HealthCommand`, extract logic into dedicated modules (`cocoon_extension_host_health`, `shared_process_service_health`, etc.) to serve as thin probes for Wind's `SharedProcessProxy`. For `ProcessCommand`, split the polyfill bridge into individual units (`process_get_exec_path`, `process_get_memory_info`, etc.) to maintain snake_case wire names for Node.js compatibility while enforcing the \"one export per file\" pattern internally.\n\nThis reorganization reduces file complexity, clarifies the boundary between Mountain's Rust backend and Wind's TypeScript frontend, and prepares the IPC layer for finer-grained testing and type safety.",
-			"SHA": "e6c40574156a55c0aea7c472481573328e1b4252"
+			"Message": "fix(TVIEW): wire tree.unregister + tree.dispose to provider + emit TreeViewDispose\n\n`tree.unregister` / `tree.dispose` were no-ops: the effect body\nlogged the handle but never called the provider and never emitted a\nSkyEvent. The consequence:\n\n  - Provider registry in `Sky/Source/TreeView/TreeViewService.ts`\n    kept the `_dataProvider` slot live after the extension called\n    `vscode.window.registerTreeDataProvider(...).dispose()`. A\n    subsequent re-registration from the same extension (reload,\n    update) produced a duplicate registration warning from Sky and\n    the new provider was ignored.\n\n  - `getChildren()` calls on a disposed tree continued to hit the\n    old provider pointer, producing stale results or panics if the\n    provider had been GC'd from the Cocoon side.\n\nFix: call `provider.UnregisterTreeDataProvider(view_id)`, emit\n`SkyEvent::TreeViewDispose` (parity with the register arm's\n`TreeViewCreate`), and log both outcomes under the same `tree-view`\nand `grpc` tags used by the register arm.",
+			"SHA": "90a62cdda4de6b6184a0e80498676c96d39f3f4d"
 		}
 	],
-	"TimeStamp": 1781194557698
+	"TimeStamp": 1783259764254
 }

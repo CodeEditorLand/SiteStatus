@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:41:36Z",
+			"Date": "2026-05-25T19:31:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1513,
-				13
+				1748,
+				4
 			],
-			"Message": "feat(Mountain): Terminal serialization/revival, fill IPC gaps\n\nComplete the terminal window-reload persistence cycle and close multiple VS Code Workbench IPC compatibility gaps:\n\n**Terminal state persistence (window reload):**\n- Add `SerializeTerminalState` — snapshot all active PTYs to `ISerializedTerminalState[]` with `shellLaunchConfig`, `processDetails`, and replay metadata, called by `localPty:serializeTerminalState` just before reload.\n- Add `ReviveTerminalProcesses` — respawn shells from the snapshot array, forwarding each entry to `TerminalCreate` and emitting `sky://terminal/create` for the xterm panel. Skips entries with an empty executable.\n- Wire `localPty:getRevivedPtyNewId` to `GetNextTerminalIdentifier()` (no longer a no-op) so the workbench pre-allocates collision-free IDs before revival.\n\n**Configuration/Theme IPC completeness:**\n- Alias `configuration:lookup` → `ConfigurationGet` — needed by `IConfigurationService.getValue(key)` in the Workbench singleton.\n- Implement `configuration:inspect` — returns `{value, default, user, workspace, workspaceFolder, memory}` with the current effective value in both `value` and `default`, null for all scope overrides (correct for Land where no user/workspace JSON overrides exist).\n- Alias `themes:getColorTheme` → `ThemesGetActive` — `IThemeService.getColorTheme()` Workbench channel method.\n- Extend `ThemesGetActive` response with numeric `ColorThemeKind` enum (`type`: 1-4) and `semanticHighlighting: false` so tokenization and colour-picker internals have the expected shape.\n\n**Dialog unwrapping for Wind consumption:**\n- `UserInterface.ShowOpenDialog` — unwrap `{canceled, filePaths}` envelope to bare `string[]` so Wind's `Array.isArray(result)` guard finds the paths.\n- `UserInterface.ShowSaveDialog` — unwrap `{canceled, filePath}` envelope to bare path string so Wind's `typeof result === \"string\"` guard succeeds.\n\n**Path format fix in sandbox config:**\n- Convert `appRoot`, `homeDir`, `tmpDir`, `userDataDir`, `backupPath` from `file://` URLs to plain OS filesystem paths. VS Code's `URI.file(path)` receives these via `AbstractNativeEnvironmentService` and double-encodes a `file://` string, producing broken `path.join` bases.\n\n**Provider registration for VS Code ≥1.87 APIs:**\n- Add `register_inline_completion_item_provider`, `register_inline_edit_provider`, `register_multi_document_highlight_provider`, `register_mapped_edits_provider`, `register_document_paste_edit_provider`, `register_document_drop_edit_provider` — each wires through `CreateProviderEffect` into the existing ProviderRegistration map so the Language Feature dispatch layer can proxy `$provideXxx` requests back to Cocoon.\n\n**Terminal show/hide via gRPC provider path:**\n- Wire `$terminal:show`/`$terminal:hide` and `Terminal.Show`/`Terminal.Hide` through `TerminalProvider` — Cocoon's window namespace shim calls these when extensions invoke `terminal.show(preserveFocus)` or `terminal.hide()`, and both call sites now share one implementation.\n\n**Debug configuration provider cleanup:**\n- Add gRPC notification `unregister_debug_configuration_provider` with `UnregisterDebugConfigurationProvider` handler — mirrors `UnregisterDebugAdapter` for the DebugConfiguration slot, invoked when an extension disposes a `vscode.debug.registerDebugConfigurationProvider` registration.\n\n**Stub-ack additions:**\n- Add `log:registerLogger`/`log:createLogger` alongside the existing `logger:*` stubs — VS Code 1.87+ calls both prefixes and was crashing on every boot with \"registered but no dispatch arm\".\n\n13 files changed, 479 insertions, 23 deletions.",
-			"SHA": "7d6b949d24c36559cb084154ef6c4be20b9a716e"
+			"Message": "build(Mountain): Differentiate development build identifiers from release\n\nRename the crate binary, library, package, Tauri productName, and bundle identifier to a verbose development build descriptor encoding the full toolchain configuration (Node 22, VS Code dependency, debug profile, esbuild compiler). This prevents the development build's binary name and macOS bundle ID from colliding with the release build, enabling side-by-side installation and testing.\n\nExpand the Tauri resource bundle to include all Sky deployment variant directories (Browser, BrowserProxy, Bundled, Electron, Favicon, Isolation, Manifest.json, Mountain) that were previously omitted, ensuring the development build can serve every editor UI target.",
+			"SHA": "960cc2f2c87bbd38613db3e6da10c856b2ae0dd3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T04:43:59Z",
+			"Date": "2026-05-25T19:10:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
+				1746,
+				19
+			],
+			"Message": "feat(Mountain): Implement EnvironmentVariableCollection and tier defaults\n\nAdd TerminalEnvCollection — a global registry for per-extension environment variable mutations matching VS Code's `EnvironmentVariableCollection` API (Replace/Append/Prepend/Delete/Clear/SetPersistent/SetDescription). Seven `terminal.envCollection.*` Vine notification handlers in MountainVinegRPCService dispatch Cocoon's requests to the registry via TerminalEnvCollectionDispatch. At every PTY spawn, TerminalProvider collects the inherited process env, applies all registered mutators via ApplyToEnv, and layers shell-integration vars on top, ensuring extensions like language servers see the environment they requested.\n\nAdd `tree.refresh` and `outputChannel.replace` Vine notification relays: the former forwards TreeDataProvider.onDidChangeTreeData events to Sky as `sky://tree-view/refresh`; the latter provides atomic output channel buffer replacement that avoids the visual flash of separate clear+append.\n\nExpand the tier routing infrastructure by adding compile-time defaults and Info.plist entries for 14 additional subsystems (Auth, Debug, Encryption, ExtensionHost, LanguageFeatures, Model, NativeHost, OutputChannel, SCM, Search, Storage, Tasks, Terminal, TreeView, WebSocket) and extending LandFixTier::LogResolvedTiers to emit all 16 tier values at boot for full routing observability.\n\nTidy formatting across AppLifecycle, Entry, RunGit, Reload, mod.rs, CocoonManagement, Dispatcher, build.rs, and bash.sh with no semantic changes.",
+			"SHA": "abba8a235310b01bca76aa32de8fe2de37a9a9af"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T13:49:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1742,
+				8
+			],
+			"Message": "feat(Mountain): Add per-subsystem tier routing and reload-safe panels\n\nIntroduce the tier routing framework that allows each IPC subsystem to be dispatched to either Mountain-native or Cocoon Node.js at compile time (via build.rs EmitTierDefaults) or at runtime (via env var overrides). Routing constants for Terminal, SCM, Debug, LanguageFeatures, Search, OutputChannel, NativeHost, TreeView, Storage, Model, Tasks, Auth, Encryption, ExtensionHost, and WebSocket are baked at build time; the `tier_routes_to_node` helper in mod.rs evaluates the tier and forwards matching commands to Cocoon's gRPC surface. Storage and SCM commands gain tier-gated arms first.\n\nImplement webview panel state persistence across `nativeHost:reload`: before the renderer reload, ask Cocoon to serialize all registered webview panels via `ExtHostWebviewPanels$serializeAllWebviewPanels` and store the snapshot in global storage under `__webview_panel_state__`. After Cocoon restarts and extensions re-activate, deserialize each panel entry via `ExtHostWebviewPanels$deserializeWebviewPanel` and clear the cache to prevent double-restore on subsequent reloads.\n\nAdd optional Mist WebSocket transport in Entry.rs: when `TierWebSocket=Mist`, a localhost JSON-RPC WebSocket binds on port 5051 for high-frequency IPC (storage updates, decorations, model changes) that bypasses the Tauri-invoke + gRPC double hop. The secret and port are exposed via environment variables for Cocoon/Sky workbench configuration consumption.\n\nApply a 30-second wall-clock timeout to git subprocess execution (RunGit.rs) so a hung git process — stalled on a credential prompt, index lock, or unresponsive network mount — releases the Mountain effect slot via the registry-aware PID killer rather than blocking indefinitely.\n\nAdd crash-safe memento hydration at boot (AppLifecycle.rs): the `MementoLoader` reads global.json, quarantines corrupted files to `.corrupted.<ts>` siblings, and populates the in-memory map from an empty baseline so a partial write from a prior crash doesn't panic the boot path.\n\nFix a minor formatting issue in bash shell integration (`2> /dev/null` to `2>/dev/null`).",
+			"SHA": "db5e7784a51c6f267aa6a9c90624ad8346577df2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T13:48:47Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1742,
+				2
+			],
+			"Message": "fix(Mountain): Align configuration notification payload with Cocoon expectations\n\nFix two discrepancies between Mountain and its downstream consumers:\n\n- The configuration change Vine notification sent `\"key\": key` (single string), but Cocoon's Configuration.ts expects `\"keys\": [key]` (array) to correctly invalidate cached config entries. Align the payload so extensions like rust-analyzer and ESLint receive accurate change events.\n- The document retrieval call in launch-time model hydration used the outdated `GetAllDocuments()` method; update to `GetAll()` to match current Documents API.\n\nBoth issues were introduced during earlier refactoring phases and went undetected because they only manifest at specific integration points.",
+			"SHA": "b4ddf6a32ede0b762c1e4116dce6dd3b38313493"
+		},
+		{
+			"Author": "dependabot[bot]",
+			"Date": "2026-05-25T11:22:30Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1742,
 				1
 			],
-			"Message": "fix(Mountain): Supply missing INativeWindowConfiguration fields in sandbox config\n\nAdd eight non-optional fields to the `ConstructSandboxConfiguration` JSON blob that VS Code's `NativeWorkbenchEnvironmentService` and related environment service layers access without null-checks:\n\n- `perfMarks`, `loggers` — empty arrays expected by performance-mark collection and logger initialization pathways.\n- `colorScheme` — default `{ dark: false, highContrast: false }` used early in startup before the real theme is resolved.\n- `mainPid` — the current process ID, consumed by process-tree and crash-reporter logic.\n- `os` — includes `release`, `hostname`, and `arch` derived from `std::env::consts`, required by platform-conditional feature gating in the workbench.\n- `dataFolderName` / `sharedDataFolderName` — set to `.fiddee` (or the `ProductDataFolderName` env var), preventing `URI.joinPath(userHome, undefined, \"extensions\")` from throwing a TypeError in `extensionsPath` and `appSharedDataHome`.\n- `version` — read from `ProductVersion` env var, defaulting to `1.0.0`, used by extension compatibility checks and telemetry reporting.\n\nMissing any of these causes crashes during extension host initialization and workbench service construction. Body uses trailing comma syntax consistently.",
-			"SHA": "0066703567eaf9dd4ae8579009011dbc6b79318a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T04:19:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
-				6
-			],
-			"Message": "fix(Mountain): Add logsPath to sandbox config, clean up handlers\n\nAdd the required `logsPath` field to `ISandboxConfiguration` to prevent VS Code's `NativeWorkbenchEnvironmentService.logsHome` from resolving to `undefined`, which crashes the extension host with a `TypeError` in `path.join`. The path is derived from `AppDataDir/logs/<session-timestamp>`, created eagerly before constructing the sandbox object.\n\nRemove the `nativeHost:setDocumentEdited` handler body — `NSWindow::setDocumentEdited` is not exposed by Tauri 2.x's `WebviewWindow` API — and strip the unused `ping_timeout` field from `ConnectionHealthChecker` since health checks are now call-path-driven rather than timer-based.\n\nSimplify early-return control flow in `isPortFree` and `getTerminalProcessId` to reduce branch nesting and eliminate dead returns. Fix the `TerminalId` type in `ResizeTerminal` with an explicit `.into()` conversion.\n\nRedraw the README architecture diagram as a structured subsystem hierarchy (Binary/, Track/, RunTime/, IPC/, Vine/, RPC/) with accurate gRPC port annotations for the Cocoon (:50052) and Air (:50053) sidecars.\n\nAdd `MIRIFLAGS=-Zmiri-disable-isolation` to `.cargo/config.toml` to permit `_NSGetExecutablePath` calls during Miri testing.",
-			"SHA": "0644dc0e1c7ea10717d827c6f4bdbde334d3da45"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T03:01:20Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "f05bb15337235ffc6fc2de4ac1988fe3a8d9e19a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T03:01:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
-				14
-			],
-			"Message": "feat(Mountain): Implement custom editor registry, wire file watcher and PTY resize, optimize hot paths\n\nComplete several IPC/RPC stubs with actual implementations:\n- Store ViewType-to-sidecarId mappings in CustomEditorProvider's global\n  once-locked registry, enabling proper cleanup on unregistration\n- Route watch_file gRPC to FileWatcherProvider::RegisterWatcher for real\n  FSEvents/inotify monitoring instead of a no-op stub\n- Route resize_terminal gRPC through TerminalProvider to resize the PTY\n  (delivers SIGWINCH to the shell) alongside the existing Tauri event\n- Add extensions:activate handler sending $activateByEvent to Cocoon so\n  Wind's ExtensionsService triggers activation programmatically\n\nRefine IPC dispatch and sidecar routing:\n- Emit sky://commands/executed after commands:execute dispatch so\n  telemetry collectors and command subscribers observe every command\n- Look up debug configuration provider from ApplicationState.Feature.Debug\n  for correct sidecar routing instead of hardcoding cocoon-main\n\nOptimize high-frequency and hot paths:\n- Add StorageWriteDebouncer with 100ms write coalescing, replacing\n  per-call tokio::spawn disk writes with batched single-writes\n- Strip osascript subprocess from nativeHost:getCursorScreenPoint,\n  returning (0,0) to eliminate ~50ms macOS process spawn per invocation\n- Gate logger info/debug/trace to opt-in vscode-log tag; forward\n  error/warn/critical to dev_log consistently\n- Replace SystemTime-based ID generation with atomic sequence counters\n  in Notification and WindowUI, eliminating syscall overhead\n\nUpdate Tauri ACL manifests with the new tray allow-set-icon-with-as-template\npermission.",
-			"SHA": "e2e1d1e1b9088429512644b8901afcf9dd8d2347"
+			"Message": "chore(deps): Bump ad-m/github-push-action from 1.1.0 to 1.3.0\n\nBumps [ad-m/github-push-action](https://github.com/ad-m/github-push-action) from 1.1.0 to 1.3.0.\n- [Release notes](https://github.com/ad-m/github-push-action/releases)\n- [Commits](https://github.com/ad-m/github-push-action/compare/v1.1.0...v1.3.0)\n\n---\nupdated-dependencies:\n- dependency-name: ad-m/github-push-action\n  dependency-version: 1.3.0\n  dependency-type: direct:production\n  update-type: version-update:semver-minor\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "a55cf572fe522d56cd43b151590b9a8c3f304c2e"
 		}
 	],
-	"TimeStamp": 1781194536659
+	"TimeStamp": 1783259753564
 }

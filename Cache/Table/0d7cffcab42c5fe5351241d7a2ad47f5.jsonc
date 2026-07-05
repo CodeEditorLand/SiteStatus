@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
+			"Author": "Auto",
+			"Date": "2026-05-01T03:53:50Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				368,
+				1
+			],
+			"Message": "",
+			"SHA": "ed37ada6740a1c2f3f1b8f650649aad8b69a3314"
+		},
+		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:28:21Z",
+			"Date": "2026-05-01T01:17:23Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				215,
+				368,
+				5
+			],
+			"Message": "fix(Output): Revert DisableLazyPaint opt-in gate and remove PartZIndexCSS isolation\n\nThe 9cafc7c opt-in gate for RAF/IntersectionObserver overrides (`__LAND_AGGRESSIVE_LAZY_PAINT__`) regressed editor mount behavior—the editor wouldn't load until the user clicked. The actual culprit for the input-starvation symptom was a Vim extension activating into Normal mode, not the polyfill itself.\n\nAdditionally, remove the `isolation: isolate` rule from `.monaco-workbench .part` in PartZIndexCSS. Under WKWebView this rule blocks input event delivery to Monaco's `<textarea class=\"inputarea\">`—the textarea is focusable, cursor blinks, keys press, but nothing reaches the editor's `keydown` listener. The explicit per-part `z-index` values already establish the desired stacking order without the isolation cost.\n\nRestores editor mount behavior while keeping the CSS lazy-paint fix that solves the original \"panels invisible until hover/scroll\" WKWebView bug.",
+			"SHA": "2afe4b4615dc1698fd2224b27ab12185c9630df1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T00:35:49Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				368,
 				3
 			],
-			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, not the flat structure the scanner was expecting. This caused all extensions to appear as 'unknown' with empty names/publishers.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility with older backend envelopes. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures @builtin/@installed extension split works correctly in the sidebar.",
-			"SHA": "b95789339ceca34e67c990698cbbae249e435711"
+			"Message": "refactor(Output): Make DisableLazyPaint RAF/IO overrides opt-in\n\nWrap the requestAnimationFrame and IntersectionObserver overrides in a conditional guard. These overrides redirect Monaco's rAF callbacks to the macrotask queue and replace native IntersectionObserver with a fire-on-observe stub that calls getBoundingClientRect() synchronously.\n\nThe problem: both bypass WKWebView's compositor-frame coordination—which also delivers keyboard input. Once Monaco starts rendering (theme load, decorations, cursor blink, minimap, scrollbars), the macrotask queue floods and keystrokes starve, causing the input lag symptom this polyfill was meant to solve.\n\nSolution: make these overrides opt-in via `__LAND_AGGRESSIVE_LAZY_PAINT__ = true` set BEFORE workbench bootstrap. Keep the CSS lazy-paint kill (content-visibility: visible) always applied—it solves the original \"panels invisible until hover/scroll\" WKWebView bug without affecting input latency.\n\nThis complements the recent IPC logging fix (2588fe4) and EditContext polyfill (44e160c) in addressing WKWebView input starvation.",
+			"SHA": "9cafc7cb83c34af5447d5ce1356d24728ebe564d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:19:28Z",
+			"Date": "2026-05-01T00:15:48Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				215,
+				"⠀⠀⠀⠀⠀",
+				368,
 				3
 			],
-			"Message": "feat(Output): Separate system and user extension scanning in IPC shim\n\nThe ExtensionScannerIPC transform plugin now distinguishes between system and user extensions by calling the appropriate Mountain IPC methods:\n- `extensions:scanSystemExtensions` for built-in extensions (ForceBuiltin=true)\n- `extensions:scanUserExtensions` for user-installed extensions (ForceBuiltin=false)\n\nPreviously the scanner hardcoded `type: 0` and `isBuiltin: true` for all extensions, causing all extensions to appear under @builtin in the sidebar. Now it honours Mountain's ILocalExtension envelope values (type, isBuiltin, source) with ForceBuiltin as fallback for older envelopes.\n\nAlso implements the previously stubbed `scanUserExtensions()` method which was returning an empty array, and makes `scanAllUserExtensions()` delegate to it.",
-			"SHA": "a7b92b8faec7cf334dc5f572fd889561f4703166"
+			"Message": "perf(Output): Reduce IPC logging to fix channel saturation causing input lag\n\nThe per-invoke `_DevLogForward` calls on every successful `MountainIPCInvoke` were doubling IPC traffic during extension boot (dozens of file:stat/readFile/extensions:getInstalled calls per second). This saturated Tauri's invoke channel (175-280ms queue depth observed) and starved the WebKit message channel that carries both IPC replies AND keystrokes on macOS.\n\nObserved symptom: user types in editor, nothing visible happens, switches focus, then queued keystrokes flush into the newly-focused element (\"characters appearing automatically in chat input\").\n\nChanges:\n- Remove success-case `tauri-invoke` logging in InvokeMountain (failures still forward)\n- Remove fire-and-forget channel stub logging (logger/status-bar fire dozens/sec)\n- Only log stub-hit for `drift` disposition (command not covered by existing stub)\n\nRust-side `[DEV:IPC] invoke:/done:` lines already carry the same data at ns precision and are filterable via `Trace=ipc`.",
+			"SHA": "2588fe4706490748982b01d181db632c39bb3114"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:28:30Z",
+			"Date": "2026-04-30T23:34:39Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				215,
-				6
+				368,
+				12
 			],
-			"Message": "fix(Output): Fix regex for minified code and correct userDataSync channel name\n\nTwo fixes for the Output build pipeline:\n\n1. CatchOutputFolderRejection regex now matches both `() => undefined` and `() => void 0` (the minified form esbuild produces). The appended catch handler also uses `void 0` for consistency with minified output.\n\n2. TauriMainProcessService channel stub keys corrected: `userDataSyncService` → `userDataSync` and `userDataSync` → `userDataSyncAccount`. VS Code registers the channel as `userDataSync` (not `userDataSyncService`), so the stub was unreachable causing sync to fail silently.\n\nRefs: The channel name discovery was confirmed by grepping the VS Code source at `workbench/services/userDataSync/electron-browser/userDataSyncService.ts:13`.",
-			"SHA": "bf9bfcd67bfb89f90fac75177e7465d81f209b0e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:02:00Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				215,
-				3
-			],
-			"Message": "fix(Output): Fix binary file corruption in FileProtocolShim\n\nThe file:read Tauri command was incorrectly invoked with named-object\nargs ({ path, encoding: \"utf8\" }) and the response was assumed to be\na string. Mountain actually returns raw bytes as { buffer: number[] } and\nignores the encoding param entirely.\n\nWhen VS Code loaded binary files (WASM, fonts, images), the response\nbody became \"[object Object]\" which corrupted the data. This broke\nTextMate syntax highlighting with:\n  \"WebAssembly.Module doesn't parse at byte 0: module doesn't start\n   with '\\0asm'\"\n\nFix by:\n1. Invoking file:read with positional array args [path] as expected\n   by MountainIPCInvoke\n2. Adding UnwrapReadResult() to unwrap { buffer: number[] } into\n   Uint8Array for binary-safe Response bodies\n3. Updating content type to Uint8Array | string | Blob | null\n\nAll three protocol handlers (VSCodeFileHandler, VSCodeUserDataHandler,\nFileHandler) now use the binary-safe pattern.",
-			"SHA": "2f14553fa6611e381918643364ca6e0c65155a9c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T23:44:07Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				215,
-				6
-			],
-			"Message": "feat(Output): Add CatchOutputFolderRejection transform plugin\n\nAdd Step 15 to the build pipeline that catches an unhandled promise rejection\nfrom VS Code's outputServices.createFolder(). In Land, the VFS-IPC stat call\nrejects with FileNotFound before fileService can swallow it, causing the\nrejection to propagate past the .then(() => undefined) handler and surface as\ntelemetry noise in PostHog.\n\nThe plugin uses a regex match against outputServices.js to append\n.catch(() => undefined) to the createFolder chain, silencing the harmless\nrejection since the output folder is created lazily on first channel write\nanyway. If upstream VS Code changes the exact .then(() => undefined) shape,\nthe Match() returns Unchanged and a LOG line surfaces as a regression tripwire.",
-			"SHA": "a900f339a30600bc403059043a5a71f9a2b4c854"
+			"Message": "fix(Output): Disable EditContext and refine WKWebView input polyfills\n\nAdd ForceTextAreaInput transform that flips Monaco's `editor.editContext`\ndefault from `true` to `false`, routing keyboard input through the legacy\n`<textarea class=\"inputarea\">` rather than the EditContext API. WKWebView's\nEditContext support is flaky enough that focused divs silently swallow\nkeystrokes - users see the cursor blink but typing produces nothing.\n\nRefine WorkbenchInteractivityCSS polyfill (V2):\n- Remove blanket `visibility: visible` and `opacity: 1` on workbench parts.\n  These forced invisible click-capturing rectangles over the editor that\n  absorbed clicks before Monaco's mousedown handler fired, presenting as\n  \"I clicked the editor but typing doesn't work\".\n- Add explicit `pointer-events: auto` rules for Monaco's textarea input\n  chain (.overflow-guard, .lines-content, .inputarea) to survive stacking\n  context interactions with our `InjectPartZIndexCSS` `isolation:isolate`.\n\nRefine WorkbenchPaintPrime polyfill (V2):\n- Remove `keydown` and `focus` capture-phase listeners. Each keystroke\n  triggered a synchronous `FindPartAncestor` + forced reflow BEFORE the\n  event reached Monaco's textarea, and the oninput queue could drop the\n  keystroke. Keeping only `pointerdown` still primes paint on first click\n  without breaking the input path.\n\nAdd LandDisableAll gate: when `process.env.Disable` is `\"true\"`, skip all\ntransform plugins and run only Copy plugins. Produces \"vanilla VS Code on\nTauri\" useful for bisecting whether regressions are in our polyfills or\nin upstream/Tauri/WKWebView.",
+			"SHA": "44e160c6b8a8de6aaa693bc8e4b6e3fcd56d49c6"
 		}
 	],
-	"TimeStamp": 1781194543269
+	"TimeStamp": 1783259757526
 }

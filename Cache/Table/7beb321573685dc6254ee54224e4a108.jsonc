@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T08:11:36Z",
+			"Date": "2026-06-12T17:20:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1181,
-				2
-			],
-			"Message": "feat(Cocoon): Route four notification events and auth session changes through Emitter\n\nAdd three new notification cases in Notification/Handler.ts and an authentication session-change subscription in the Auth namespace:\n\n- `$activateByEvent` — Wind's `extensions:activate` IPC fires this notification to trigger extension activation. Defer to `ExtensionHostHandler.HandleActivateByEvent` via `setImmediate` so the activation actually runs instead of falling into the default unknown-notification arm.\n- `$acceptTextEditorDiffInformationChanged` — Sky forwards Monaco's `onDidUpdateDiff` hunk list. Emit `window.didChangeTextEditorDiffInformation` with a minimal TextEditor stub keyed on `modifiedUri` so subscriber dereferences on `.textEditor.document.uri` resolve cleanly.\n- `$acceptTextEditorViewColumnChanged` — Sky detects per-group `onDidMoveEditor`. Emit `window.didChangeTextEditorViewColumn` with the URI and viewColumn, matching the VS Code event shape.\n- `$acceptTerminalStateChanged` — Sky fires after OSC 633;B (command-input-begins). Update the cached terminal entry's `state.isInteractedWith` flag and emit `window.didChangeTerminalState`. Includes a stub fallback for the race between terminal creation and first OSC sequence.\n- `AuthenticationProvider.onDidChangeSessions` — Register a listener on every provider passed to `registerAuthenticationProvider`, fanning `{ added, removed, changed }` to the `auth.didChangeSessions` Emitter channel. Capture and dispose the subscription on provider unregister to prevent listener leaks.\n\nAll paths complete the Mountain→Cocoon event bridge for these extension API surfaces, letting subscribers hooked via `MakeEventSubscriber` receive live workbench signals.",
-			"SHA": "acac6138b71814f1ec9dc17cbd0afcfdd4cecbd1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:16:09Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1181,
+				565,
 				1
 			],
-			"Message": "feat(Cocoon): Route three terminal shell execution events through Emitter channel\n\nAdd notification handlers in Notification/Handler.ts for three OSC 633-sequence terminal events that Mountain fires after Sky's localPty parser detects command boundaries:\n\n- `$acceptTerminalShellExecutionStart` → `window.didStartTerminalShellExecution`\n- `$acceptTerminalShellExecutionEnd` → `window.didEndTerminalShellExecution`\n- `$acceptExecutedTerminalCommand` → `window.didExecuteTerminalCommand`\n\nEach handler extracts the Mountain notification payload (id, commandLine, cwd, exitCode), resolves the matching terminal from the `__terminals` context cache, and assembles the VS Code event shape with the required `terminal`, `shellIntegration`, and `execution` sub-objects including the `{ value, isTrusted }` commandLine contract. The End handler maps exitCode per the event contract; the Executed handler preserves the proposed API surface for legacy extension compatibility.\n\nThese three cases complete the terminal shell execution event bridge, letting extension subscribers hooked via `window.didStartTerminalShellExecution` and related Emitter channels receive live notifications from OSC 633 sequence parsing in the Sky terminal layer.",
-			"SHA": "7cb3fb3543010f9e82ed6409aa4ccd393debe771"
+			"Message": "fix(Cocoon): Lazy-load URI class and structurally classify extension errors\n\nThe top-level `await import(\"@codeeditorland/output/…/uri.js\")` in NotificationHandler could crash the module on failure, silently degrading all workspace URIs to `MakeUriStub` objects — breaking `URI.isUri()` checks inside extensions like `vscode.git`. Meanwhile, the rejection sniffer classified extension TypeErrors via a hardcoded extension-ID allowlist that both masked shim regressions inside listed extensions (e.g. GitLens, vscode-yaml) and failed to cover unlisted ones.\n\n**URI import (lazy):** Replace the module-level `await import` with `EnsureLazyURI()`, a guarded non-blocking import cache started at module load. `HydrateUri` now degrades to `MakeUriStub` only when the import is genuinely pending or has failed, and a deduplicated `CocoonDevLog` warn records the degradation exactly once per process lifetime.\n\n**Extension error classifier (structural):** Parse stack trace frames into path categories — extension roots (`~/.fiddee/extensions/`, `~/.land/extensions/`, `Dependency/…/extensions/`), Cocoon paths (`/Cocoon/`, `@codeeditorland/`), and neutral frames (`node:`, `<anonymous>`, bare filenames). An error is benign only when every path-bearing frame sits in an extension directory and none touch Cocoon source, replacing the fragile `Text.includes(\"DEVSENSE.phptools\") || …` chain with a self-maintaining structural rule.\n\nWorkspace folders are no longer silently dropped on URI import failure; extension error classification works for any extension without an allowlist update.",
+			"SHA": "1f2b19a9e6ec9c1945d648484674a3592de45f28"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:09:10Z",
+			"Date": "2026-06-12T17:17:57Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				565,
+				9
+			],
+			"Message": "feat(Cocoon): Group bootstrap stages for parallelism; add activation guards, cancellation, and workspace folder picker\n\nOverhaul the Cocoon extension host bootstrap and core handler subsystems with concurrency-aware startup, robust activation lifecycle, and expanded VS Code API surface.\n\n**Bootstrap (stage groups, parallel startup):**\nReplace sequential stage iteration with dependency-grouped stages: RPCServer and ModuleInterceptor run in parallel; MountainConnection waits for RPCServer only. A fatal RPCServer failure triggers immediate process exit to prevent orphan Cocoon instances. Extension activation is fully delegated to Mountain's $activateByEvent path, removing the stale parallel-activation code that risked double-activation with a mismatched context.\n\n**Extension activation (in-flight guards, coalesced storage, timeouts):**\nIntroduce ActivatingExtensions set to track in-flight activations across concurrent $activateByEvent calls, preventing re-entrant starts. Coalesce the Storage.GetItems full-dump fetch so N concurrent activations share one round-trip at boot; a rejected fetch resets the promise so the next caller retries fresh. Each activation now races a 30-second timeout so one hung\nactivate() doesn't block the $activateByEvent response indefinitely. Add timedOut count to the response, exported IsExtensionActivating/ResetStoragePrime helpers, and PromoteToActivated lifecycle cleanup that leaves both ActivatingExtensions and ActivatedExtensions clean on throw.\n\n**Language providers (async disk I/O, cancellation):**\nReplace sync readFileSync with lazy async fs/promises.readFile, computed once during document construction so the synchronous TextDocument surface never performs I/O. Thread an AbortSignal through routeRequest into InvokeLanguageProvider; mountain-issued CancelOperation aborts the provider's CancellationToken, letting well-behaved providers stop work after the cursor moves on.\n\n**Diagnostics (empty-deletion semantics):**\nFix setDiagnostics to delete URI keys on empty/undefined arrays instead of storing [], matching stock ExtHostDiagnostics clearing semantics. Cleared URIs still ship on the wire as [uri, []] tuples so Mountain drops their markers. Fully-cleared owners are removed from the\n_AllDiagnostics cache so getDiagnostics() never surfaces ghost entries.\n\n**Window namespace (named params, folder picker, decoration options):**\nSeed initial window.state as focused/active so the getter returns a concrete value from the very first read. Change showTextDocument from positional array to named-object params (uri, viewColumn, preserveFocus) so Mountain's GenericRequest dispatcher resolves fields correctly, preventing silent degradation to \"[object Object]\". Implement showWorkspaceFolderPick with a real Window.ShowQuickPick round-trip and label-to-folder mapping, supporting multi-root workspaces instead of always returning the first folder. Attach decoration type options (__options) to the type object and include them in setDecorations payloads so Mountain can lazily register the type if the create notification raced ahead.\n\n**gRPC server (cancellation, serialization errors, malformed notifications):**\nAdd double-invoke guard (Respond) for unary callbacks on GenericRequest. Wire an AbortController per request that CancelOperation triggers, propagating the signal through routeRequest into provider invocations for cooperative cancellation. Surface serialization failures explicitly (error/message JSON) instead of returning indistinguishable empty\n\"{}\". Guard malformed notification parameters with a try/catch that logs the raw payload and drops the notification instead of crashing the server.",
+			"SHA": "e07884dd68f13464f12333823d96f78e416b1e8b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T16:43:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1181,
+				565,
+				7
+			],
+			"Message": "feat(Cocoon): Implement lazy vscode require proxy, auth session routing, language ID detection, and streaming binding\n\nReplace four previously stubbed or hardcoded extension host paths with functional implementations that complete core VS Code API surface in Cocoon:\n\n- **VscodeModuleHooks (Extension Host):** The early `require('vscode')` handler — invoked when an extension loads before the API shim registers — previously returned an empty `{}`, silently discarding all subsequent property accesses. Replace with a lazy Proxy that reads through to `globalThis.__cocoonVscodeAPI` at every interception point (`get`, `has`, `ownKeys`, `getOwnPropertyDescriptor`), so extensions that capture the module reference early still see the full API once registration completes.\n- **Authentication Namespace:** Implement `authentication.getSession()` with local provider routing. When an in-process provider has been registered via `registerAuthenticationProvider`, the method queries its `getSessions` and `createSession` directly with proper scope matching; it falls back to the Mountain gRPC `Authentication.GetSession` RPC only when no local provider is found. Emits `auth.didChangeSessions` on successful session creation.\n- **Window Namespace (ShowTextDocument):** Replace the hardcoded `languageId: \"plaintext\"` with dynamic detection that first checks registered opened-document notifications (which carry the real languageId from Mountain) and falls back to an extension-to-languageId map (`.ts` → `typescript`, `.rs` → `rust`, etc.) parsed from the file URI.\n- **gRPC Server Service:** Bind `OpenChannelFromMountain` as the bidirectional streaming RPC in `createServiceImplementation`, completing the stream path that was previously documented as unbound. The `startBidirectionalStreaming` handler now has callers through the multiplexed service definition.\n- **Documentation:** Add the standard badge/header table wrapper to Architecture.md; reword DeepDive.md for clearer project context; delete the empty SynchronizationTodos.md placeholder.\n\nExtensions now see real authentication sessions, correct language IDs, and survive early module capture — three classes of stub-implementation bugs closed in one pass.",
+			"SHA": "c39e392cbd9bc5227df6d2fca4c9591f5075faa7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T16:17:40Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				566,
 				1
 			],
-			"Message": "feat(Cocoon): Route six Mountain-originated events through Emitter channel\n\nAdd notification handlers in Notification/Handler.ts for six VS Code extension API events that Mountain now fires after relevant workbench state changes:\n\n- `$acceptDiagnosticsChanged` → `languages.onDidChangeDiagnostics`\n- `$acceptVisibleEditorsChanged` → `window.onDidChangeVisibleTextEditors`\n- `$acceptTabsChanged` → `window.tabGroups.onDidChangeTabs` + `onDidChangeTabGroups`\n- `$acceptVisibleRangesChanged` → `window.onDidChangeTextEditorVisibleRanges`\n- `$acceptTextEditorOptionsChanged` → `window.onDidChangeTextEditorOptions`\n- `$acceptActiveColorTheme` → `window.onDidChangeActiveColorTheme`\n\nEach handler extracts the Mountain notification payload, builds minimal stub objects where the VS Code event contract requires a TextEditor or tab model shape so listener callbacks that dereference `.document.uri` / `.viewColumn` don't crash, and emits on the matching Emitter channel consumed by extension subscribers.\n\nThe `$acceptTabsChanged` handler caches the latest tab-group snapshot on the Context anchor (`__tabGroups`) so synchronous `window.tabGroups.all` getters reflect current workbench state, and computes `opened`/`closed` diffs from the prior snapshot for `onDidChangeTabs` event shape compliance.\n\nAll six handlers complete the Mountain→Cocoon event bridge for these extension API surfaces, eliminating the silent-hookup gap where subscribers registered via `MakeEventSubscriber` never received events because no notification case pumped the Emitter.",
-			"SHA": "256e4bf94272554ae78abd0553452d97d0cefba4"
+			"Message": "docs(Cocoon): Overhaul README with architecture, security, and project structure docs\n\nRewrite the Cocoon README from a brief overview into comprehensive project documentation covering:\n\n- **Key Features** — Fiber supervision, vscode API shimming, process hardening, code generation pipeline, multi-transport communications (gRPC, WebSocket, IPC), bidirectional streaming, telemetry, and the dual-layer debug server.\n- **Core Architecture Principles** — Fiber isolation, API surface parity, defense in depth, and transport flexibility, each with key component references.\n- **Project Structure** — Full directory tree under Element/Cocoon/ mapping every module to its purpose.\n- **Security** — Seven-layer security table documenting process hardening, exception boundaries, parent liveness monitoring, SecurityPolicy, runtime validation, module interception, WebSocket authentication, and memory enforcement, plus a forward-looking roadmap for platform-native sandboxing.\n- **Compatibility** — Integration matrix covering Grove, VS Code, Mountain, Sky, and Output.\n- **In the Land Project** — Updated comparison table for Cocoon vs Grove extension hosts.\n\nAlso updates package version references, reformats code/component names with backtick highlights, adds Grove and Mountain links to the Related Projects section, and applies FIDDEE-standard em-quad spacing between text and emoji icons throughout.\n\nAll existing content is preserved and expanded with no regressions in coverage.",
+			"SHA": "611f5721f8c5d92fbc35c29ade5ba0f1bd37d64c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:53:49Z",
+			"Date": "2026-06-12T15:12:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1181,
-				4
+				566,
+				1
 			],
-			"Message": "fix(Cocoon): Route onDidExecuteCommand through Emitter replacing dead Tauri listen\n\nThe prior `onDidExecuteCommand` implementation called `import(\"@tauri-apps/api/event\").listen(\"sky://commands/executed\", ...)` which never fires in Node.js (no `window.__TAURI__`), so every extension hooking this event silently missed all command executions. Replace with a subscription to the `commands.executed` Emitter channel, fed by two sources:\n\n- `$acceptCommandExecuted` case in Notification/Handler.ts catches Mountain's Vine dual-emit after every Mountain-routed `commands:execute` round-trip and forwards to the Emitter channel.\n- Local command routes in Commands/Namespace.ts emit on the same channel (symmetric with the Mountain branch) so extension-to-extension `executeCommand` calls are visible too.\n\nAlso extend the `viewId` dual-key resolution strategy (established in the prior commit for `setHtml`/`postMessage`) to five more webview mutators in CreateWebviewPanel.ts: `dispose`, `setTitle`, `setIconPath`, `setOptions`, and `reveal`. These operations can fire before the workbench finishes mounting the panel's IOverlayWebview; the `viewId` fallback in Sky's `InstallWebview.ts` ensures they still reach their target.\n\nMark Terminal/Service.ts as deprecated — its wire calls reference non-existent Mountain handler names and it is imported only by a dead bootstrap path. The active terminal management lives in `CreateTerminal.ts`. Retained pending vertical-split cleanup (Mountain-Crate-Split.md §#7a).",
-			"SHA": "fcb3f91e7c485985bab07b6e1da67c20b687531f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:38:14Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1181,
-				2
-			],
-			"Message": "fix(Cocoon): Send viewId in webview setHtml and postMessage to fix panel first-paint race\n\nThe `html` setter and `postMessage` method on WebviewPanel only sent `handle` to Mountain, relying on Sky's per-handle WebviewInput binding to route the payload. During first-paint, the `webview.create` ack can arrive before the workbench's `IOverlayWebview` instantiation has bound the handle to a WebviewInput, causing the initial setHtml to land in `ParkedHtml` and postMessage to miss its target.\n\nAdd `viewId: ViewType` to both `webview.setHtml` and `webview.postMessage` request payloads, matching the pattern already established in `CreateWebviewViewBuilder.ts:268`. Sky's `InstallWebview.ts` resolution path (lines 56-57, 300-302) accepts either `handle` or `viewId`; sending both eliminates the race by providing a fallback viewType-keyed lookup.\n\nAlso deprecate the `MountainGRPCClientLayer` and its Effect-TS service tag with documentation pointing consumers to the canonical wire-method names (`Window.ShowMessage`, `webview.setHtml`, `secrets.get`, etc.). The Layer is exported but never provided in any `Bootstrap.ts` entry point, so Effect branches referencing the tag fail at the dependency layer before any gRPC call fires. Removal scheduled for Track-B vertical split work.",
-			"SHA": "82e92eaf8ba75052d8b1434e9b18b63b36235253"
+			"Message": "style(Cocoon): Strip superfluous blank lines from ESBuild.js\n\nRemove the vertical whitespace separating every export declaration, object property, and block statement in the ESBuild configuration module. The blank lines served no structural purpose and added unnecessary scrolling distance between related items.\n\nThis is the remainder of the formatting pass started in commit f0954fef — flattening all internal blank lines in Source/ESBuild.js for a denser, more scannable layout with no functional change.",
+			"SHA": "a6494ff2525e17bedbbdf13cee56935e8b13ad2a"
 		}
 	],
-	"TimeStamp": 1781194527454
+	"TimeStamp": 1783259742400
 }

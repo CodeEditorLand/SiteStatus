@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-17T15:59:47Z",
+			"Date": "2026-05-26T18:19:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1138,
+				1191,
 				1
 			],
-			"Message": "",
-			"SHA": "47ca2b7989539492a91b15a6d32a084213f71521"
+			"Message": "fix(Cocoon): Project SCM command arguments to JSON-safe shape\n\n`SanitizeResourceState` was stripping `arguments` from SCM command objects entirely, under the assumption that the workbench resolves arguments by command id at execution time. However, `git.openChange` and `git.openFile` handlers in vscode.git read `args[0].resourceUri` to determine which file to diff — without the projected resource handle, clicking a file in the SCM list silently opened the wrong file or nothing at all.\n\nReplace the blanket `arguments` strip with a `ProjectArg` function that shallow-copies each argument and preserves only the safe primitive fields the diff handler actually consults: `resourceUri`, URI POJO fields (`scheme`, `authority`, `path`, `query`, `fragment`), `fsPath`, `external`, and scalar metadata (`type`, `originalUri`, `renameUri`, `contextValue`, `id`). vscode.git's Repository back-reference (the cycle root) is naturally excluded since it is an object with none of these scalar keys.\n\nSCM resource commands now correctly navigate to the intended file across all git integration features.",
+			"SHA": "ab7a526b8fda6b5d38ce12d3ab078f12c732d768"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-17T15:50:19Z",
+			"Date": "2026-05-26T17:58:20Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1138,
-				1
+				"⠁⠀⠀⠀⠀",
+				1191,
+				37
 			],
-			"Message": "",
-			"SHA": "870c1c0347057bfa151c23599800cfb8bbdbdd31"
+			"Message": "chore(Cocoon): Rebuild compiled output after RouteManifest regeneration\n\nRegenerate RouteManifest timestamp and rebuild all Target/ artifacts (JS bundles and source maps) following handler code changes. Mountain method count remains at 142 — no new RPC methods were added in this pass.\n\nThe rebuild ensures the bootstrap, service, handler, and gRPC bundles in Target/ are consistent with the regenerated RouteManifest.",
+			"SHA": "8b2417341ef3d747def570378863a1f942d6322a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T21:43:57Z",
+			"Date": "2026-05-26T17:58:05Z",
 			"File": [
 				"⠇⠀⠀⠀⠀",
-				1138,
+				1191,
+				83
+			],
+			"Message": "fix(Cocoon): Build full TextDocument shim for all notification handlers\n\nNotification paths `$acceptVisibleEditorsChanged`, `$acceptVisibleRangesChanged`, `$acceptTextEditorOptionsChanged`, `$acceptTextEditorDiffInformation`, and `$acceptTextEditorViewColumn` previously emitted bare `{uri, fileName}` document stubs. Built-in extensions (vscode.git diff decorations, vscode.merge-conflict) iterate the resulting editors and call `.getText()`, `.lineAt()`, `.positionAt()` inside their `applyDecorations` callbacks — the bare stub produced `TypeError: r.getText is not a function`.\n\nAdd `BuildTextDocumentShim` in `Notification/Handler.ts` that returns a full `TextDocument`-shaped object backed by `DocumentContentCache`. Prefers the live entry from `__textDocuments` (the full-fidelity doc kept in sync by `$acceptModelChanged`) and falls back to a content-cache-backed shim implementing `getText`, `lineAt`, `positionAt`, `offsetAt`, `getWordRangeAtPosition`, and `validateRange`. Replace every inline `{document: {uri, fileName}}` stub in the notification dispatch with a `BuildTextDocumentShim` call.\n\nAlso fix `showTextDocument` in `Window/Namespace.ts` to always resolve the URI to a string before sending over IPC — passing the raw document object strips prototype methods (including `toString()`), and the workbench renders the editor tab as `[object Object]`. Add a cascade covering string, vscode.Uri, TextDocument shim, and POJO URI shapes.\n\nFix SCM group update routing in `Scm/Namespace.ts` by including `scmHandle` and `groupHandle` in the `update_scm_group` Mountain request. Without these, multi-repo workspaces sharing `scmId=\"git\"` had updates routed against the wrong provider — Mountain logged `scm_handle=None` and Sky's `ResolveScmShim` fell back to non-unique scmId lookup, silently dropping updates.\n\nRename telemetry config fields in `PostHog/Configuration.ts`: `OTLPEndpoint` → `Pipe`, `OTLPEnabled` → `Emit` for clearer naming.\n\nRegenerate RouteManifest adding two new Mountain RPC methods (`git.openChange`, `git.openFile`), bringing the method count from 140 to 142.",
+			"SHA": "1a408045f3e3915b132e6b2d8fd85f68a868ad8d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T15:11:23Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				1191,
 				77
 			],
-			"Message": "perf(Cocoon): Eliminate dead code in production bundles and optimize bootstrap\n\nEnable tree shaking in production ESBuild configuration and switch the base config to conditionally disable debug logging and metafile generation based on the environment. This significantly reduces bundle size by removing unused exports and non-essential diagnostics.\n\nStreamline the bootstrap logic in `Main.ts` by removing redundant comments and refining the parent PID watchdog to poll every 5s (from 2s) with an `unref` interval to prevent event loop retention. Update `Effect/Bootstrap.ts` with exponential backoff for Mountain connection probes (200ms → 1s cap) and increase timeouts to handle slower startup scenarios.\n\nDrastically optimize `Services/Performance/Monitoring/Service.ts` by converting it to a zero-overhead shim. The previous 741-line implementation shipped dead scaffolding and dynamic imports; the new version retains the interface for compatibility while performing no runtime work, directing users to the Effect-TS Telemetry service for actual metrics. Remove deprecated legacy methods from `Module/Interceptor.ts` and unused `match` logic from `VscodeAPI/Languages/Namespace.ts`. Refactor `Mountain/Client.ts` to use O(1) Exponential Moving Average (EMA) for latency tracking instead of array reductions.\n\nRebuild all `Target/` artifacts, resulting in a ~10% reduction in total bundle size (Main.js: 1.49MB → 1.33MB).",
-			"SHA": "444a732deed23d6155be1225a5e8c0e44b5b64cd"
+			"Message": "chore(Cocoon): Rebuild compiled output after RouteManifest regeneration\n\nRegenerate RouteManifest timestamp and rebuild all Target/ artifacts (JS bundles and source maps) following the preceding handler additions. Mountain method count remains at 140 — no new RPC methods were added in this pass.\n\nThe rebuild ensures the bootstrap, service, handler, and gRPC bundles in Target/ are consistent with the regenerated RouteManifest.",
+			"SHA": "ca55768ca979f3edd1a1ccdd1dbdbea11e76c508"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T01:09:43Z",
+			"Date": "2026-05-26T13:14:28Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				1138,
-				35
+				1191,
+				33
 			],
-			"Message": "chore(Cocoon): Regenerate build artifacts and update RouteManifest timestamp\n\nRebuild all TypeScript compilation outputs in the `Target/` directory following the latest repository state. This refreshes the generation timestamp in `Source/Generated/RouteManifest.ts` from 2026-05-16T00:30:21Z to 2026-05-16T00:48:05Z.\n\nThe regeneration includes updated JavaScript bundles and source maps for the bootstrap entry points, gRPC server services, VS Code API handlers, and the dual-track routing logic. All intermediate build cache files (`.tsbuildinfo`) and generated manifest reports are synchronized to ensure the extension host sidecar is in a consistent state for the upcoming testing phase.",
-			"SHA": "19b8f1219c6630f151b4b52a02b2fc77758a1e7c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-16T00:37:37Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1138,
-				35
-			],
-			"Message": "chore(Cocoon): Regenerate build artifacts and update RouteManifest timestamp\n\nRebuild all TypeScript compilation outputs in the `Target/` directory following the latest source modifications. This refreshes the generation timestamp in `Source/Generated/RouteManifest.ts` from 2026-05-16T00:17:04Z to 2026-05-16T00:30:21Z to reflect the current build cycle.\n\nThe regeneration includes updated JavaScript bundles and source maps for the bootstrap entry points, gRPC server services, VS Code API handlers, and the dual-track routing logic. All intermediate build cache files (`.tsbuildinfo`) and generated manifest reports are synchronized to ensure the extension host sidecar is in a consistent state for the upcoming testing phase.",
-			"SHA": "fa272aa35fce532eaca51fc32492f2b3b3c4f52f"
+			"Message": "chore(Cocoon): Rebuild compiled output after RouteManifest regeneration\n\nRegenerate RouteManifest timestamp and rebuild all Target/ artifacts (JS bundles and source maps) following the preceding handler additions. Mountain method count remains at 140 — no new RPC methods were added in this pass.\n\nThe rebuild ensures the bootstrap, service, handler, and gRPC bundles in Target/ are consistent with the regenerated RouteManifest.",
+			"SHA": "8a0eda78aadee6912b7609e9d5dc0e1bfa1f7953"
 		}
 	],
-	"TimeStamp": 1781194551582
+	"TimeStamp": 1783259751470
 }

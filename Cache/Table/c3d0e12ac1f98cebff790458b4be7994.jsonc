@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:46:07Z",
+			"Date": "2026-05-28T09:49:15Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1566,
-				3
-			],
-			"Message": "feat(Mountain): Implement extension manifest NLS resolution and default config collection\n\nIntroduce two new modules in `Source/ExtensionManagement` to prepare extension manifests for runtime consumption. `NLSResolver.rs` handles the resolution of `%key%` placeholders found in VS Code `package.json` manifests by loading and parsing `package.nls.json` bundles, supporting both string and `{message, comment}` object formats. `DefaultConfigurations.rs` scans all scanned extensions to recursively merge `contributes.configuration.properties` into a single flat JSON object, utilizing dot-notation for nested keys and guarding against circular references.\n\nThese changes ensure that localized UI strings and default user settings are correctly extracted from extension definitions before they are processed by the extension host or applied to the settings engine. Both modules are exported in `mod.rs` to enable integration with the extension scanner and IPC handlers.",
-			"SHA": "df0df3f19cd2aa052a86a6ac4745b35845d1164a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:44:49Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1564,
+				1746,
 				1
 			],
-			"Message": "refactor(Mountain): Modularize update service IPC handlers\n\nExtract inline update command logic from `mountain_ipc_invoke` into dedicated atomic handler functions (`UpdateGetInitialState`, `UpdateIsLatestVersion`, etc.) within the `WindServiceHandlers` module. This aligns the update service with the established modular architecture used for clipboard, trash, and dialog operations.\n\nThe new handlers return the initial idle state or no-ops as the update server implementation is not yet active. This reduces code duplication in the IPC dispatch layer and centralizes future update server integration points.\n\nThis completes the modularization of the update service path in preparation for Air daemon integration.",
-			"SHA": "349ea7ae99984d74c81645a0e10c6fe7eaf244a2"
+			"Message": "fix(Mountain): Add missing window management capabilities to schema\n\nThe `gen/schemas/capabilities.json` was out of sync with `capabilities/default.json`, which already declared window management permissions (`start-dragging`, `internal-toggle-maximize`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`). The generated schema still held the stale subset without these entries, causing Tauri runtime validation to reject IPC calls that drive native window chrome operations from the Sky titlebar.\n\nRegenerate `capabilities.json` from the current source-of-truth default manifest so the capability digest matches the declared permissions. This unblocks the interactive titlebar (drag, maximize, close) and any programmatic `Window` API calls that were being denied by the capability guard.",
+			"SHA": "ab9ea343be1b531180726eaed576f194395e2218"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:43:34Z",
+			"Date": "2026-05-26T18:19:19Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1564,
-				3
+				1746,
+				5
 			],
-			"Message": "refactor(Mountain): Modularize tree-view, event replay, and language provider registration\n\nExtract inline logic for `tree:getChildren`, `sky:replay-events`, and `register_*` notifications into dedicated atomic handlers and sub-modules. This completes the modularization of the Cocoon bridge notification path and IPC dispatch layer.\n\nKey changes include:\n- **Tree-View & Replay Handlers**: Delegate `tree:getChildren` and `sky:replay-events` to `TreeGetChildren` and `SkyReplayEvents` in `Source/IPC/WindServiceHandlers`. Removes ~270 lines of inline boot-race logic, terminal buffering, and SCM state replay, centralizing error handling and shape normalization.\n- **Language Provider Modularization**: Introduce `RegisterLanguageProvider` in `Source/Vine/Server/Notification`. Consolidates 46+ `register_*` / `register_*_provider` variants into a single dispatch function that normalizes snake/camel case, maps provider types, and registers DTOs.\n- **Notification Modularity**: Register the new `RegisterLanguageProvider` module in `Source/Vine/Server/Notification/mod.rs` to replace the previous inline `match` block in the gRPC service.\n\nThese changes align the notification and IPC layers with the established atomic handler pattern, reducing code duplication and improving maintainability for extension host integration.",
-			"SHA": "d52ad894537c4ef509649cf4f4aa0dbed7efd4f3"
+			"Message": "fix(Mountain): Reconstruct full URI from vscode.Uri POJO fields\n\nCocoon may forward a raw URI string, a serialised `vscode.Uri` POJO\n(`{scheme, authority, path, query, fragment}`), or the legacy\n`{external, path}` shape from older rendering paths. The previous code\nonly extracted `external` or bare `path` from objects, which silently\ndropped the scheme on non-file URIs —\n`rust-analyzer-diagnostics-view:/diag/foo` became `/diag/foo` and Sky\nrendered either a 404 or `[object Object]` in the editor tab.\n\nReconstruct the full URI by fallback priority: `external` →\n`scheme+authority+path+query+fragment` → `fsPath` (prefixed with\n`file://` for absolute paths) → bare `path` → empty string. Every\nknown vscode.Uri shape now resolves to a valid wire string the Sky\nworkbench can open.\n\nAlso:\n\n- **TreeView timeouts**: Bump `$provideTreeChildren` from 5 s to 15 s\non both Wind and Cocoon IPC paths. Cold scans on multi-repo workspaces\n(`npm` walking every package.json, `gitlens` enumerating submodules)\ncan exceed 5 s on first expansion, causing the panel to render empty\nuntil manual refresh.\n\n- **PTY binary input**: Route `localPty:processBinary` through\n`TerminalSendText` instead of falling through to the `null` no-op.\nSystem clipboard paste and Cmd+Shift keyboard escape sequences were\nsilently swallowed.\n\n- **Output channel hide**: Forward Cocoon's `outputChannel.hide`\nnotification to Sky as `sky://output/show { visible: false, channel }`\ninstead of logging a no-op. Extensions calling `OutputChannel.hide()`\nnow see the panel dismiss the channel.",
+			"SHA": "e1d82f3455e42b168108fe76935d015713f083e4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:42:13Z",
+			"Date": "2026-05-26T17:57:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1563,
-				4
+				1746,
+				2
 			],
-			"Message": "refactor(Mountain): Modularize extension host notification handlers into dedicated atoms\n\nExtract inline notification dispatch logic from the main IPC handler into dedicated atomic functions and sub-modules under `Source/RPC/CocoonService/GenericNotification/`. This completes the modularization strategy for the Cocoon bridge, decoupling the request parsing layer from the business logic execution.\n\nKey changes include:\n- **SkyEmit Module**: Introduce `SkyEmit.rs` to handle all `sky://` Tauri event emissions from the extension host. Consolidates logic for webview messages, status bar updates, output channel management, progress indicators, and `openExternal` into specific handler functions (`HandleWebviewPostMessage`, `HandleOutputAppend`, etc.).\n- **Atomic IPC Dispatch**: Replace inline `match` blocks for `cocoon:request`, `cocoon:notify`, and `extensionHostStarter` commands in `WindServiceHandlers/mod.rs` with calls to their respective atomic functions (e.g., `CocoonRequest`, `CocoonNotify`).\n- **Extension Host Reliability**: Refactor `extensionHostStarter:start` to delegate PID retrieval and `extensionHostDebugReload` to emit Tauri events via atomic wrappers, ensuring consistent error handling and separation of concerns.\n- **Modular Architecture**: Register the new `GenericNotification` (including `SkyEmit`, `Commands`, `LanguageProviders`) and `GenericRequest` modules in `Source/RPC/CocoonService/mod.rs`.\n\nThis refactoring reduces code duplication in the IPC layer, improves maintainability by grouping related UI bridge logic, and aligns the notification path with the request path's atomic function pattern.",
-			"SHA": "f7b87f51d861d81a15f5777511aa46a4f5e10974"
+			"Message": "fix(Mountain): Realign SCM DTO import path and enable native window capabilities\n\nFix the `SourceControlManagementResourceDTO` import in `UpdateScmGroup` to use the reorganized `DTO` submodule path under `CommonLibrary::SourceControlManagement`, correcting the module resolution after Common's struct rehoming.\n\nAdd window management capability permissions (`start-dragging`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`, `internal-toggle-maximize`) to `capabilities/default.json`, enabling the Sky UI to drive native window chrome operations — dragging the titlebar, maximizing/minimizing/closing — through Tauri's IPC permission layer.\n\nWithout these capabilities, the editor's custom titlebar was non-interactive and the workbench window could not be controlled programmatically from the frontend.",
+			"SHA": "4a6097c8945fea0e487dc49487de53a47983988f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:40:50Z",
+			"Date": "2026-05-26T17:23:27Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1561,
-				8
+				1746,
+				6
 			],
-			"Message": "refactor(Mountain): Modularize Cocoon RPC handlers and IPC dispatch layer\n\nRefactor the Mountain IPC and RPC layers to extract inline logic into dedicated, composable modules. This aligns with the modular architecture established in recent commits and improves maintainability for the Cocoon bridge and native service handlers.\n\nKey changes include:\n- **WindService Refactoring**: Replace inline platform-specific implementations in `WindServiceHandlers/mod.rs` with atomic function calls (e.g., `NativeMoveItemToTrash`, `NativeReadClipboardText`). This consolidates OS-specific logic (macOS osascript, Linux gio, Windows PowerShell) into reusable handlers for clipboard, trash, and ARM64 translation checks.\n- **Cocoon RPC Modularity**: Split the generic request/notification dispatcher into semantic sub-modules under `Source/RPC/CocoonService`. Introduced `GenericRequest` modules for `Commands`, `FileSystem`, `Secrets`, and `WindowDialogs`, and `GenericNotification` for language provider registration.\n- **IPC Abstraction**: The new RPC handlers strictly follow the `(RequestId, Params, &Env)` signature, decoupling request parsing from business logic and enabling typed `GenericResponse` construction without referencing `CocoonServiceImpl` directly.\n- **UI Bridge Enhancements**: The `WindowDialogs` module now routes `showTextDocument`, `saveAll`, and `webview` operations via Tauri events (`sky://...`), completing the bridge between the Rust backend and the Sky frontend.\n\nThese changes reduce code duplication, clarify the separation of concerns between the native backend and the extension host, and prepare the codebase for further extension host integration.",
-			"SHA": "edd0bb6051ae22a8f12017d144a03a2bcab8253f"
+			"Message": "fix(Mountain): Replay SCM resource groups and persist snapshots for late subscribers\n\nCocoon fires `register_scm_resource_group` before SkyBridge's listener is attached (Tauri events are not buffered), so the workbench booted with the SCM provider header visible but zero groups — and even when `update_scm_group` arrived, the resource tree stayed empty because the event was consumed without persisting the snapshot for boot-time replay.\n\n- **UpdateScmGroup**: Persist each incoming `ResourceStates` array into MarkerState as `SourceControlManagementResourceDTO` entries keyed by `(ProviderHandle, GroupId)`, so the replay loop can re-emit the latest snapshot.\n- **ReplayEvents**: Add two new replay legs — group registration (`sky://scm/registerGroup`) and resource update (`sky://scm/updateGroup`) — reconstructing the same `GroupHandle = \"{ProviderHandle}/{GroupId}\"` that the live wire path produces, resolved through the provider identifier map (defaulting to \"git\").\n- **LoggingPlugin**: Cap `tauri::manager` and `tauri::manager::asset` to Warn, `tauri::webview` and `wry` to Info, to suppress the flood of expected 404 fallback probes for sourcemap/module URLs that WebKit auto-fetches with the wrong base under `tauri://localhost`.\n- **LocalPTYGetProfiles**: Rename `Arguments` → `args` (lowercase) to match VS Code's `ITerminalProfile.args` — the uppercase key silently mis-parsed and the profile picker fell back to `$SHELL`.\n- **SCM Effect**: Accept `git.openChange` / `git.openFile` as diff-forwarding aliases alongside `vscode.diff` / `$scm:openDiff`; these are the actual command IDs the built-in vscode.git extension uses on resource state entries.\n- **build.rs**: Normalize array formatting in `PropagatePostHogSentinel`.\n\nThe SCM panel now populates with groups and working-tree state at boot, and terminal profiles render with their configured arguments.",
+			"SHA": "2db7957cc5af3113a94be7ee360e1f2cb34cb769"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T17:22:53Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				7
+			],
+			"Message": "refactor(Mountain): Rename OTLP env vars and tighten default trace categories\n\nRename the baked compile-time environment variables `OTLPEndpoint` to `Pipe` and `OTLPEnabled` to `Emit` across build.rs, PostHogPlugin constants, runtime hydration, Cocoon process environment propagation, and OTLP span emitter docs. The shorter names reduce line noise in the env map and align with the single-word naming convention of sibling keys (`Capture`, `Beam`, `Brand`, `Report`).\n\nNarrow the `Trace` sentinel value in Info.plist from the catch-all `\"all\"` to an explicit comma-delimited list of active trace categories, ensuring debug log output only covers relevant subsystems instead of flooding stderr with every DevLog call.\n\nAlso fix a stale doc comment reference in CaptureAllowed.rs that mentioned `OTLPEnabled` instead of the current `Emit` toggle name.",
+			"SHA": "b1ff14804289a99599bd3c0aab3c552e49564057"
 		}
 	],
-	"TimeStamp": 1781194534165
+	"TimeStamp": 1783259752697
 }

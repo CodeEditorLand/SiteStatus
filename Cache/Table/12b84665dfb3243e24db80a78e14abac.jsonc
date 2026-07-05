@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-11T12:57:54Z",
+			"Date": "2026-04-23T17:24:50Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				79,
+				81,
 				2
 			],
-			"Message": "perf(Sky): Batch performance marks in PostHogBridge to prevent rate limiting\n\nRefactor PostHogBridge.ts to collect performance marks into a buffer and flush as a single event every 2 seconds, instead of sending individual events for each mark. This prevents PostHog rate limiting during editor boot sequences with many telemetry marks.\n\nChanges:\n- Add MarkBuffer array and FlushMarks function to batch marks\n- Send \"land:boot_marks\" event with mark array instead of individual captures\n- Add visibilitychange listener to flush remaining marks on page hide\n- Errors continue to be sent immediately (no batching)\n- Add \"blob:\" to connect-src CSP in index.astro for blob URL support in Electron webview",
-			"SHA": "3ec7b804aae3ee621bf4adb401c0331d986a134b"
+			"Message": "feat(Sky): Add tree-view data bridge for cel: events\n\nAdd a document listener for `cel:tree-view:create` that bridges tree view data between Mountain and the Sky frontend. When triggered, the listener invokes Mountain's `tree:getChildren` method and re-dispatches the returned items as `cel:tree-view:items` for any downstream renderer shim.\n\nThis completes the F1.1 handoff contract: Mountain emits `cel:tree-view:create` but nothing was listening, resulting in `consumer-present=false` in the cel-dispatch logs. The listener now primes the viewer by requesting root children and broadcasting them, eliminating the orphan event pattern.\n\nDev logging via `RenderDevLog` tracks both successful item retrieval (`bridge-items`) and failures (`bridge-error`) for debugging.\n\nAlso removes obsolete Step 13 comment from astro.config.ts regarding the built-in extension copy workaround.",
+			"SHA": "4d9fb694ce1b313609c5c620583478aee4b09206"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-11T12:55:55Z",
+			"Date": "2026-04-23T16:54:38Z",
 			"File": [
-				"⡏⠀⠀⠀⠀",
-				79,
-				9
-			],
-			"Message": "",
-			"SHA": "41a6fe6c0243b2b1a7dd5d34ca7851c4727829c3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-11T11:38:00Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				79,
-				5
-			],
-			"Message": "",
-			"SHA": "87d0b745da6a7d66f42647368a564dfec98d076f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-11T10:03:15Z",
-			"File": [
-				"⣿⠀⠀⠀⠀",
-				79,
-				16
-			],
-			"Message": "feat(Sky): Add OTEL + PostHog telemetry bridges and streamline workbench loading\n\nImplement build-baked telemetry for debug builds:\n- Add OTELBridge.ts: PerformanceObserver capturing all `land:*` marks → OTLP/HTTP\n- Add PostHogBridge.ts: Error tracking and analytics via CDN (tree-shaken in prod)\n- Add TelemetryBridge.astro: Shared component loading both bridges for all workbenches\n\nRefactor workbench loading to use performance.mark() instead of console.log:\n- Browser.astro, BrowserTest.astro, Electron/Layout.astro, Mountain.astro\n- Consistent `land:{workbench}:{stage}:{start|done|error}` naming\n- Enables OTELBridge to capture complete boot sequence timing\n\nUpdate Wind preload import paths:\n- `@codeeditorland/wind/Target/Function/Install` → `@codeeditorland/wind/Target/Function/Install/Function/Install`\n\nEnhance astro.config.ts build:\n- Step 13: Copy built-in VS Code extensions from .build/extensions/\n- PostHog build telemetry: sends step timings to analytics on build complete\n- Vite proxy: OTLP /v1/traces → localhost:4318 for Jaeger/OTEL collector\n\nBREAKING CHANGE: Wind preload import path changed; ensure Wind is rebuilt.",
-			"SHA": "b9eccec52dd42ce47ea4a0248d2c18fe3568dd9d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-11T06:31:20Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				76,
+				"⠀⠀⠀⠀⠀",
+				81,
 				1
 			],
-			"Message": "docs: backticks on tech names, em quad spacing, Astro version badge accuracy, interaction flow enriched",
-			"SHA": "35dd98edbb19ba3a477358dc3d5dbbf433ed53f5"
+			"Message": "feat(Sky): Add consumer tracking for cel:* event dispatch\n\nTrack whether each `cel:*` CustomEvent has at least one listener registered by patching `document.addEventListener`. Log every dispatch to Mountain's dev-log via the `RenderDevLog` Tauri command with a `consumer-present` flag.\n\nOrphan events (Mountain emits but no workbench listener) are now visible as `consumer-present=false` in the `cel-dispatch` tag - these are F1.1 indicators where a feature silently fails because nothing subscribes to the expected event.\n\nThe patch is wrapped in try/catch to gracefully degrade on Safari/WebKit where `Document.prototype.addEventListener` is readonly and would throw in strict mode. When tracking fails, the flag reports `?` rather than breaking boot.",
+			"SHA": "8da853ea62909d3ea381c97a9c57e75ee612e08d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:32:15Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "refactor(Sky): Centralize event URIs through Wind's SkyEvent table\n\nReplace the hardcoded string table in SkyBridge with imports from Wind's `@codeeditorland/wind/Target/IPC/SkyEvent.js`, the single source of truth that mirrors Mountain's Rust `SkyEvent` enum. This catches drift at type-check time rather than failing silently at runtime.\n\nKey changes:\n- Import `SkyEvent` constants from Wind; remove local string array\n- Add `ChannelToDomEvent` helper to transform `sky://` → `cel:` with consistent `/` → `:` mapping\n- Standardize statusbar URIs from hyphenated `sky://status-bar/...` to `sky://statusbar/...`\n- Fold the separate webview fan-out loop into the main bulk loop via `SkyEvent.WebviewSetHTML`\n\nThe canonical wire format is now `sky://statusbar/` (no hyphen) matching the Wind table.",
+			"SHA": "78f6f82339f93c4ab5a35f64e64af452208fac42"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-23T02:13:32Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "",
+			"SHA": "16bda3dcabcd28298a9191cb36dfdb2a1e33f9c2"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-22T20:25:07Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "feat(Sky): Add exception signature throttling to PostHog bridge\n\nExceptions share the `$exception` event-name slot in posthog-js, so a burst of CSP refusals/console.error/unhandledrejection callbacks during workbench boot would blow through the 10/10s rate limit. Add a secondary throttle layer keyed by the first 200 chars of the error message.\n\nUnique exceptions still reach PostHog while bursts of the same error collapse into one. Both regular and exception drop counts are now reported in the `land:sky:throttle-dropped` event for visibility.\n\nThis follows the previous throttling commit (24e76da) which added the basic per-event-name throttle for non-exception events.",
+			"SHA": "f601c0a884535251332d05d5a36cf874c147af8d"
 		}
 	],
-	"TimeStamp": 1781194546024
+	"TimeStamp": 1783259763134
 }

@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T01:17:14Z",
+			"Author": "Auto",
+			"Date": "2026-05-16T02:36:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				105,
+				142,
 				1
 			],
-			"Message": "perf(Sky): Batch command registration to reduce IPC channel saturation\n\nThe `sky://command/register` handler now accepts either a single command object (legacy shape) or a batch `{ commands: [...] }` object. Mountain's extension boot path registers 100+ extensions, each with ~10 commands = 1000+ individual emit events. This saturated Tauri's shared WKWebView IPC channel, queuing keystrokes behind thousands of register events.\n\nThe new batch format processes all commands in a single IPC round-trip via the new `RegisterOneCommand` helper, dramatically reducing channel traffic and restoring keystroke responsiveness during extension boot.",
-			"SHA": "06fd1942a6b149f4e55cf0c0eca1ad4894d709b5"
+			"Message": "",
+			"SHA": "112c955809bd6f3bae4203b18560b96d5f29115c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T00:15:36Z",
+			"Date": "2026-05-16T01:09:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				105,
+				142,
 				1
 			],
-			"Message": "perf(Sky): Reduce IPC channel saturation by making diagnostic logging opt-in\n\nRemove per-fire diagnostic traces and replace with failure-only logging or opt-in flags. The original RenderDevLog calls for textSearch, fileSearch, and TreeView attach fired on every invocation (50-100/s during extension boot), doubling traffic on Tauri's single serialized WKWebView channel and starving keystroke delivery.\n\n_CelDispatchLog now requires globalThis.__LAND_TRACE_CEL_DISPATCH__=true. Diagnostic bridges for markers-bridge and webview-bridge now only log when pushable=false or hasRegister=false, capturing the triage value without saturating the channel on the success path.\n\nKeystroke delivery should be more responsive during extension boot.",
-			"SHA": "131245270726f95b174ac9a9ac9c98a9e50583ce"
+			"Message": "fix(Sky): Add diagnostic logging to webview postMessage bridge\n\nInstrument the `sky://webview/postMessage` handler in `Bridge.ts` to log key lifecycle events to the Mountain diagnostic channel. Insert `MountainIPCInvoke` calls to capture: entry receipt, registry lookup state, successful dispatch attempt, and execution errors.\n\nThese logs include the ViewId, message type availability, and registry status to facilitate debugging of IPC failures between the Astro UI and the VS Code workbench webviews. Error messages are truncated to 120 characters to fit diagnostic buffers.\n\nThis enhancement provides visibility into the event bridge's internal flow without altering the core dispatch logic or payload structure.",
+			"SHA": "0a8df619b8456c80cf6b1a1de951bf8512caadf5"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:44:34Z",
+			"Date": "2026-05-16T00:02:46Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				142,
+				1
+			],
+			"Message": "docs(Sky): Standardize emoji spacing in architecture documentation\n\nAlign the `Documentation/GitHub/Architecture.md` file with the project's style guide by ensuring consistent spacing between section titles and their corresponding emojis. The previous format used non-breaking spaces or inconsistent whitespace which disrupted the visual flow in markdown renderers. Update all section headers (Overview, Architecture, Module Map, etc.) to use a single standard space character before the emoji icon.\n\nThis change maintains the integrity of the visual navigation aids while ensuring compatibility with standard markdown parsers and documentation viewers.",
+			"SHA": "e76082c1521bc37361588b2df8d70aa9cf435cb5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-15T23:36:25Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				105,
+				142,
 				2
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "83a7b8975aa291f68d89c3e212b4a8e13ff21ddf"
+			"Message": "docs(Sky): Standardize markdown formatting and update related links\n\nRefactor `Documentation/GitHub/Architecture.md` to improve readability by converting paragraphs into bullet lists, adding section emojis, and updating relative links to full GitHub URLs for external component documentation. This ensures consistency with the project's documentation style guide.\n\nSimultaneously, refactor `Source/Function/Sky/Bridge.ts` to strictly access object properties on the `Wire` DTO using bracket notation (e.g., `Wire[\"handle\"]`) instead of dot notation. This change enforces robust handling of dynamic keys in the Tauri IPC payload and aligns with the strict TypeScript configuration for the Sky component layer.\n\nThese updates clarify the architectural separation between the Astro UI and the backend while improving the robustness of the event bridge implementation.",
+			"SHA": "d48d55cef3bc57e37ad3ff79cbc382d7a5b71485"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:34:10Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				105,
-				7
-			],
-			"Message": "feat(Sky): Add Disable=true master kill-switch for bisecting regressions\n\nIntroduce a build-time and runtime gate that strips all Land customizations so the workbench loads as close to upstream VS Code on Tauri as possible:\n\n1. **Disable=true gate** (`import.meta.env.Disable`): When set, SkyBridge short-circuits without registering any of the ~100 `sky://*` Tauri event listeners. The layout script skips Bootstrap (Wind's Effect-TS layer), TelemetryBridge, and InstallSkyBridge entirely. The smoke test harness is replaced with AutoDiagnoseInput.\n\n2. **AutoDiagnoseInput diagnostic**: New hands-off probe that runs only under Disable=true. Reports to console which editor instance has focus, classifies it (chat input / file editor / search / settings), and tells the user whether typing SHOULD work. The most common \"typing doesn't work\" issue is the user typing into VS Code's chat panel which silently drops keystrokes when Cocoon is unavailable.\n\n3. **Remove eager focus restore**: The previous phaseChanged handler that forced focus to Monaco on every phase >= 3 caused regressions - it fired twice (phase 3 and phase 4 ~15s later), yanking focus away from search boxes after the user typed one character. Mountain's MainWindow.show() + set_focus() already lands first-responder correctly at phase 3, so the redundant Sky-side re-focus is dropped.\n\n4. **Flag naming**: Rename `LAND_SMOKE_TEST` / `land-smoke` to `Smoke` (PascalCase, matching Land's env-var convention in `.env.Land.Diagnostics`).\n\nUseful for bisecting whether a regression lives in our customizations (still broken under Disable) or upstream/Tauri/WKWebView (still broken even with Disable=true).",
-			"SHA": "e5259308f3d0ea7101cf657928984c778d418286"
-		},
-		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-04-30T22:44:38Z",
+			"Date": "2026-05-15T22:32:10Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				104,
+				142,
 				1
 			],
-			"Message": "Merge pull request #494 from CodeEditorLand/dependabot/npm_and_yarn/zod-4.4.1\n\nbuild(deps): bump zod from 4.4.0 to 4.4.1",
-			"SHA": "16d146187cb277c0083c387187d8660cc9fec415"
+			"Message": "docs(Sky): Add render pipeline diagram to architecture guide\n\nExtend the `Documentation/GitHub/Architecture.md` file with a Mermaid graph illustrating the Sky UI Component Layer's runtime flow. The diagram details the relationship between page definitions (`pages/index.astro`, etc.), build-time workbench variant selection via `TierWorkbench`, the `SkyBridge` event translation system, and the underlying VS Code Workbench.\n\nThis visualization clarifies how the Tauri IPC events from Mountain are routed through the bridge to trigger channel dispatches in the Workbench, reinforcing the architectural separation between the Astro rendering layer and the Electron-free backend.",
+			"SHA": "587fbf2ba2562fe49f5267cd3ab86d2ba7be60cc"
 		}
 	],
-	"TimeStamp": 1781194535448
+	"TimeStamp": 1783259753463
 }
