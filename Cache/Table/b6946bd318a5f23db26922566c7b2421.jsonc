@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:38:35Z",
+			"File": [
+				"⡏⠀⠀⠀⠀",
+				26,
+				3
+			],
+			"Message": "feat(Project): Extract Cocoon extension host, wire hierarchy RPC, fix IPC\n\nAdvance Cocoon, Mountain, and Sky submodules in a coordinated round-trip that decomposes the extension host monolith, adds missing IPC endpoints for call/type hierarchy, and fixes data accuracy across the whole pipeline.\n\n**Cocoon** splits the ~1500-line inline extension host handler into three focused modules — VscodeModuleHooks.ts, EnsureVscodeAPI.ts, ActivateExtension.ts — reducing Handler.ts to a thin dispatch layer. Five real-world extension compatibility issues are fixed alongside the refactor: Copilot dist-preflight so missing build artifacts don't crash activation; `context.extension.packageJSON` populated from the real manifest on disk (`@vscode/extension-telemetry` reads `aiKey`); workspace config cache seeded from `contributes.configuration.properties` before `activate()` runs (prevents GitLens TypeError on nested config access); `activate()` return value backfilled into the registry so `vscode.extensions.getExtension(id).exports` resolves; POJO-tolerant `RelativePattern` wrapper added (fixes Shopify.ruby-lsp activation). Six missing VS Code API enums (`LogLevel`, `OverviewRulerLane`, `UIKind`, `TextEditorCursorStyle`, `DebugConfigurationProviderTriggerKind`, `IndentAction`) are now defined — extensions referencing them at module-load time crashed with undefined. `willSaveTextDocument` now batches `waitUntil` thenables into a single `window.applyTextEdits` call matching VS Code's `acceptWillSaveDocument` ordering. Configuration cache supports a `\"*\"` sentinel for full model rebuild on bulk settings writes.\n\n**Mountain** adds language-scoped configuration overrides — `UpdateValue` writes into `\"[<langId>]\"` scoped keys matching the VS Code convention used by prettier-vscode, vscode-eslint, and other per-language formatters. A `OnceLock`-backed static session ID replaces per-call `Uuid::new_v4()`, so extensions comparing `telemetryInfo.sessionId` across initialization calls see a consistent process-lifetime value. `CocoonService` dispatches `$provideCallHierarchyItems`/`prepareCallHierarchy` and `$provideTypeHierarchyItems`/`prepareTypeHierarchy` to the respective providers, unblocking F12 / Go to References / Call Hierarchy in the editor. Three `mountain_*` IPC stubs return real data: `mountain_get_configuration` yields the live merged config, `mountain_get_services_status` reports actual Cocoon connection state, `mountain_get_state` surfaces real workspace folder count and active document URI. SOCKS proxy env-var parsing emits the correct PAC keyword (`SOCKS` for socks URIs, `PROXY` for http/https). Dev-log dedup switches from `lock()` to `try_lock()` so a contended mutex never parks a Tokio worker. Always-on-top toggle moves from a heuristic title-prefix proxy to a `static AtomicBool`, correctly flipping state on each invocation. The `window.didChangeTextEditorSelection` Vine notification now includes `viewColumn` from incoming arguments, so extensions calling `activeTextEditor.viewColumn` see the correct pane number in split-editor layouts. A follow-up formatting commit normalizes brace placement and comment reflow across four files.\n\n**Sky** replaces the hardcoded `viewColumn: 1` in `sky:editor:activeChanged` and `sky:editor:selectionChanged` IPC payloads with a `GetViewColumn()` helper that reads `EditorGroups.activeGroup.index` (0-based) and converts to the 1-based view column the VS Code API expects, safely falling back to 1 when the EditorGroups service isn't yet available.\n\nExtension host reliability and IPC data accuracy are materially improved across all three layers of the round-trip.",
+			"SHA": "3e397f73d617f23b3da7e170f7405fd4af1b8176"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-20T05:22:09Z",
 			"File": [
 				"⡏⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "",
 			"SHA": "8ea99578ce73a16349a42a824dfa8e34119b3880"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T02:18:56Z",
-			"File": [
-				"⣿⡟⠀⠀⠀",
-				26,
-				9
-			],
-			"Message": "feat(Project): Wire full editor IPC pipeline for decorations, text edits, selections, and hierarchy\n\nAdvance 8 element submodules in a coordinated update that completes the editor IPC round-trip from extension host to native backend to editor UI, enabling real-world extensions to manipulate text editors, decorations, and call/type hierarchy panels.\n\n**Cocoon** backfills critical VS Code API shims discovered through integration testing: extension exports resolution (`getExtension(id).exports`), call/type hierarchy prepare entry points, live `workspace.textDocuments` tracking via `$acceptModelAdded`/`$acceptModelRemoved`, `document.willSave` listener dispatch with edit collection, and a robust `activeTextEditor` stub supporting `setDecorations`, `edit`, `insertSnippet`, `revealRange`, and live selection tracking.\n\n**Common** extends the IPC event surface in SkyEvent.rs with five new URIs (`DecorationSetRanges`, `EditorApplyTextEdits`, `EditorSelectionChanged`, `EditorActiveChanged`, `EditorRevealRange`) and adds `PrepareCallHierarchy`/`PrepareTypeHierarchy` to the LanguageFeatureProviderRegistry trait, completing the hierarchy provider lifecycle defined by the VS Code LanguageFeatureRequest contract.\n\n**Mountain** implements the full gRPC+LSP pipeline for hierarchy prepare in new `PerformCallHierarchy`/`PerformTypeHierarchy` provider modules, bridges `window.setTextEditorDecorations` via a channel-drain batching mechanism (16 ms frame-aligned aggregation), and wires `window.applyTextEdits`/`window.revealRange` through to Sky events. A new `document.willSave` fire event grants extension listeners a 1.5-second grace window before disk write. Two new `mountain_ipc_invoke` handlers (`sky:editor:selectionChanged`, `sky:editor:activeChanged`) forward editor state changes from Sky to Cocoon.\n\n**Sky** registers four IPC bridge handlers matching editors by URI or filename segment: decoration range application via `ICodeEditorService`, text edit execution with dual-range-format normalization, reveal range delegation with the five standard strategies, and active editor/selection change subscription pushing state up to Mountain.\n\n**Wind** adds the five new Sky IPC event constants to `Source/IPC/SkyEvent.ts` while purging over 400 zero-byte generated stub files (`I*Upstream.ts`, `CommandCatalog.ts`, `ServiceCatalog.ts`, `*BridgeShapeGenerated.ts`).\n\n**Air** applies consistent import ordering and single-expression formatting across 4 subsystems. **Output** removes 160+ stale zero-byte build artifacts. **Grove** syncs the Rust documentation submodule. **Echo** advances to a clean commit.\n\nThis completes the editor IPC round-trip for text editor manipulation and call/type hierarchy, enabling extensions that depend on `window.activeTextEditor`, `editor.edit()`, `setDecorations`, `revealRange`, hierarchy providers, and format-on-save listeners to function correctly.",
-			"SHA": "aa1796249422795c35dd98c3dce3199cc7aed124"
 		}
 	],
-	"TimeStamp": 1783259746513
+	"TimeStamp": 1783352959672
 }

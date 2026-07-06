@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-11T22:40:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1782,
+				1
+			],
+			"Message": "refactor(Mountain): Introduce tier-based IPC routing with NodeDeferred mode\n\nReplace the boolean `tier_routes_to_node` with a three-state `RouteTier` enum (Mountain, Node, NodeDeferred) and add per-subsystem tier gates evaluated before Mountain-native arms. This implements the Routing-Schema.md tier resolution table so a single shell export (e.g. `export TierTerminal=Node`) reroutes an entire command family to Cocoon without a rebuild.\n\nKey changes:\n- New `resolve_route_tier` reads env var at runtime, falling back to baked const; unrecognised values default to Mountain for safety.\n- Tier gates added for Terminal, OutputChannel, Search, TreeView, Model, LanguageFeatures, Debug, Encryption, and NativeHost families.\n- `NodeDeferred` tier keeps Mountain arms for implemented commands while deferring unimplemented family members to Cocoon via the unknown-command catch-all.\n- Storage lifecycle null-acks (`storage:isUsed`, `storage:close`) now conditional on `TierStorage != Node` so they forward to Cocoon when storage lives there.\n- Duplicate null-ack entries consolidated; ack-only stub list extended.\n\nImpact: Operators can migrate subsystems to Node incrementally (starting with tasks/auth which already default Node) and teams can develop Mountain and Cocoon implementations in parallel behind the same command surface.",
+			"SHA": "824e85648d43b9059ced50e8f0fd3685b5e24e8d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-11T22:30:15Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1782,
+				24
+			],
+			"Message": "feat(Mountain): Implement SCM commands, workspace lifecycle, search cancellation, and IPC handlers\n\nReplace stub implementations across Source Control Management, workspace\nmanagement, and text search with functional logic that integrates with\ngit subprocesses, the ApplicationState registry, and Sky workbench events.\n\nSource Control Management:\n- Add RepositoryCwd resolver (first workspace folder) for git working\ndirectory.\n- Implement CheckoutSCMBranch via `git checkout` with stderr surfacing.\n- Implement ExecuteSCMCommand for commit/push/pull/fetch via shared\nRunGit runner (PID registry + 30s timeout).\n- Implement GetSCMBranches via `git branch -a` with tab-separated format\nfor current-branch marker and upstream tracking.\n- Implement GetSCMCommitHistory via `git log` with pretty format yielding\nhash, author, ISO date, parents, subject.\n- Implement StageSCMResource via `git add --` / `git restore --staged --`\nwith file:// URI and raw path support.\n- Register all SCM commands in Bootstrap.\n\nWorkspace lifecycle (`.code-workspace`):\n- CreateUntitledWorkspace writes empty workspace to app-data\n`.untitled-workspaces` and returns VS Code identifier shape.\n- DeleteUntitledWorkspace canonicalises target and enforces containment\ninside untitled directory (rejects outside paths silently).\n- EnterWorkspace parses serialised vscode.Uri or bare string, reads\nworkspace JSON, resolves relative folder paths against workspace file\ndirectory, replaces workspace folders via UpdateWorkspaceFoldersAndBroadcast,\nemits `sky://workspace/enter` for workbench reload.\n- Extract handlers to dedicated modules; both canonical and domain\ndispatchers call the same functions.\n\nSearch cancellation:\n- Add SearchCancellationFlags (AtomicBool per search_id) to FeatureState.\n- FindInFiles mints search_id, registers flag, threads `__searchId` into\noptions payload.\n- TextSearchProvider polls flag per walker entry (synchronous ripgrep\nwalk never hits await points; task abort alone is insufficient).\n- search:cancel sets cooperative flag then aborts task handle.\n\nExtensions gallery offline mode:\n- extensions:search returns proper IGalleryQueryResult envelope.\n- extensions:getCoreTranslation returns null (fallback to bundled).\n- extensions:download returns explicit error instead of TypeError.\n- extensions:getManifest extracted to dedicated handler.\n\nOther improvements:\n- FileWatcherIgnore adds \"Target\" (capitalized) for Rust cargo output\n(case-sensitive matcher).\n- CommandSaveDocument rewritten: fires document.willSave at Cocoon\n(bounded 1.5s), delegates save to Sky via sky://workspace/save, notifies\n$acceptModelSaved for onDidSaveTextDocument.\n- CommandCloseDocument forwards to Sky via sky://command/execute for\nworkbench.action.closeActiveEditor.\n- Keybinding commands registered in Entry.\n- localPty:listProcesses returns real IProcessDetails[] from live PTY\nregistry.\n- process:getMemoryInfo returns resident-set KB via sysinfo.\n- languages:getLanguages merges builtin baseline with extension\ncontributes.languages ids.\n- WhenClause.NormalizeKeyExpression uses VS Code canonical modifier\norder (ctrl shift alt cmd) for chord-aware equality.\n\nImpact: SCM viewlet, workspace picker, Extensions view, Search view, and\nkeybinding system now operate on live data instead of stubs.",
+			"SHA": "446ab75631fcfd22480366604d7cd05da20a2f6e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-11T22:01:22Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1775,
+				4
+			],
+			"Message": "fix(Mountain): Complete keybinding command implementations\n\nReplace stub implementations in the keybinding command module with functional\nlogic that wires into the ApplicationState keybinding registry.\n\n- `CheckKeybindingConflicts` now queries `KeybindingProvider::GetResolvedKeybinding`,\n  normalizes the candidate key expression via `WhenClause::NormalizeKeyExpression`\n  (collapsing modifier aliases, canonicalizing order, chord-aware comparison),\n  and returns every matching rule with its command, when clause, source tag,\n  and a `guarded` flag indicating whether a when clause is present.\n- `UnregisterExtensionKeybindings` invokes\n  `ApplicationState::Feature::Keybindings::RemoveKeybindingsBySource` and\n  returns the count of removed entries, enabling precise cleanup on extension\n  deactivation.\n- `GetUserKeybindings` updates its imports to use the `ApplicationRunTime`\n  trait for future persistence integration.\n- Module documentation in `Keybinding.rs` is updated to reflect the current\n  behavior: resolved bindings merge extension contributions + dynamic registry\n  + user overrides; negative commands (`-command`) act as unbind rules at the\n  user layer.\n\nAll four commands now operate on the live registry instead of returning\nplaceholder values, completing the keybinding system introduced in the prior\ncommit.",
+			"SHA": "d826b41a78dadf6c569edbe6c68aa3a6cae1eba8"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-11T22:00:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "",
 			"SHA": "386836fa3c58af094e310439684ded461822179b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T20:46:46Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1770,
-				8
-			],
-			"Message": "",
-			"SHA": "b4b421f2e94fa7799414fe0612d4810f62fb06fb"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T18:01:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1768,
-				1
-			],
-			"Message": "",
-			"SHA": "52b901a3411b6b25dc02023f56c974e9bcacd0b5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T17:32:36Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1768,
-				9
-			],
-			"Message": "",
-			"SHA": "abc95c5cfb4369ba567cf11080247c1f9e361cc2"
 		}
 	],
-	"TimeStamp": 1783259744430
+	"TimeStamp": 1783352953623
 }

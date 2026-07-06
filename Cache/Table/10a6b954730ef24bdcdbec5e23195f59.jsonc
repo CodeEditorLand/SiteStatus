@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T18:37:59Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				270,
+				1
+			],
+			"Message": "",
+			"SHA": "8990969b75a5f51a932dca0721304cf14a075ac9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T18:37:58Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				270,
+				5
+			],
+			"Message": "refactor(Output): Disable PatchTerminalGpuAcceleration, add ViewRegistrySnapshot\n\nTwo changes to the Output build pipeline:\n\n1. Remove PatchTerminalGpuAcceleration from BuildPipeline default order.\n   The transform fixed WebGL atlas font glitches (Menlo loading race) but\n   introduced a \"black shadow over text\" artifact from xterm's DOM-renderer\n   cursor/accessibility layer in WKWebView. Keeping the transform file on\n   disk for potential re-enablement after the input race fix lands.\n\n2. Add ViewRegistrySnapshot() to __CEL_SERVICES__ facade. This diagnostic\n   function queries the workbench's ViewContainersRegistry and ViewsRegistry\n   to return container/view counts + sample IDs. SkyBridge uses this to\n   verify extension manifests (Roo, Claude, gitlens) reached\n   viewsExtensionPoint's setHandler - the most common cause of silent\n   extension panel failures is contributions never flowing through\n   IExtensionService to the registry.",
+			"SHA": "325a4de7ad74ebc36c42725572c9f36d4d7b8c3f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T17:42:41Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				270,
+				6
+			],
+			"Message": "feat(Output): Add PatchTerminalGpuAcceleration transform for WKWebView terminal\n\nAdd a new transform plugin that patches the terminal configuration schema to default `terminal.integrated.gpuAcceleration` to `'off'` instead of stock VS Code's `'auto'`. Under WKWebView, xterm.js's WebGL renderer builds its texture atlas before the Menlo font resolves, causing wrong cell widths and rendering glitches (overlapping characters, double-width glyph gaps, halos around anti-aliased edges due to texImage2D premultiplication differences).\n\nThe transform is currently NOT wired into the BuildPipeline by default. It was disabled after enabling revealed a \"black shadow over text\" artifact from xterm's DOM-renderer cursor/accessibility layer in WKWebView. The transform exists on disk so it can be re-enabled if the original WebGL atlas font drift issue resurfaces after the deferred-create race fix lands.\n\nUsers can still opt into WebGL by setting `terminal.integrated.gpuAcceleration: \"on\"` in settings.json — the schema enum is unchanged.",
+			"SHA": "8d7a19d0e4241a66065c7e53257283843fae4c27"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-29T05:25:19Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "feat(Output): Bridge localPty channel events through Tauri's sky:// event system\n\nAdd ChannelEventBridge to map VS Code's IPC channel.listen() calls to Tauri's native event system. The localPty channel now routes onProcessData, onProcessReady, and onProcessExit events from Mountain's PTY reader (sky://terminal/*) to the workbench's terminal service handlers with proper payload transformation.\n\nPreviously, channel.listen() returned a no-op handler that silently discarded all event subscriptions. This caused the terminal's xterm panel to stay blank despite Mountain emitting sky://terminal/data hundreds of times - the callback never fired because there was no connection between Tauri's event system and VS Code's channel event surface.\n\nThe bridge maps Mountain's `{id, data|pid|code}` payload shape to VS Code's expected `{id, event: ...}` format and wires the listener through Tauri's @tauri-apps/api/event.listen(). Terminals now render properly.",
 			"SHA": "471479a2554333d215fad46705e9873c5fa671a1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:07:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				1
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
-			"SHA": "99efc02f89574f4e46a52eeb1611ac4103262602"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:01:14Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				267,
-				5
-			],
-			"Message": "fix(Output): Add user extension retry + short-circuit Promise probes\n\nTwo fixes to the Output build pipeline:\n\n1. ExtensionScannerIPC: Mirror retry logic on user extensions scan path\n   The system extensions path had retry on empty response but user\n   extensions did not. Without it, an empty initial user-extensions\n   response silently passes 0 extensions through to viewsExtensionPoint\n   and ExtensionsRegistry, leaving every user extension contribution\n   (gitlens, clangd, commands, configuration, languages) unregistered.\n   Also switch to exponential backoff (100, 200, 400, 800, 1500ms) from\n   fixed 1000ms delays - Mountain's scan usually completes in ~500ms.\n\n2. TauriMainProcessService: Short-circuit Promise protocol probes\n   When VS Code resolves a channel-returned thenable, the JS runtime\n   accesses .then, .catch, .finally, constructor, valueOf, toString,\n   toJSON, @@iterator, @@asyncIterator on the proxy to determine if it's\n   a Promise. Each access became a channel call with the property name,\n   surfacing as \"Unknown IPC command: localPty:then\" on every workbench\n   wake. Returning undefined synchronously matches stock VS Code's\n   IChannel behaviour for unknown methods - the runtime sees a non-\n   thenable and stops probing. Saves ~15-25ms of round-trip per probe\n   and removes the noisiest IPC error in the dev log.\n\nRefs a28351b7240a5a722ebef039f3370ac90240818c (system ext retry)",
-			"SHA": "2924f2ae8bb3b41fa32ae0fd965804a80d548dfa"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T03:40:20Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				1
-			],
-			"Message": "fix(Output): Add retry logic to user extension scan path\n\nThe system extension scan path had retry logic but user extension scan\ndid not. Without retry on the user path, an empty initial response\nsilently passes 0 user extensions through to viewsExtensionPoint and\nExtensionsRegistry, which means every user-extension contribution\n(gitlens panes, clangd views, commands, configuration, languages)\nstays unregistered for the rest of the session.\n\nAdd the same retry logic to `extensions:scanUserExtensions` as already\nexists for `extensions:scanSystemExtensions`. Also switch to exponential\nbackoff (100, 200, 400, 800, 1500ms) instead of fixed 1000ms delays,\nsince Mountain's scan usually completes in ~500ms and the longer delays\nwere just padding boot time.\n\nUser extensions now load properly at boot even if Mountain's async disk\nscan hasn't completed yet.",
-			"SHA": "a28351b7240a5a722ebef039f3370ac90240818c"
 		}
 	],
-	"TimeStamp": 1783259758564
+	"TimeStamp": 1783352983256
 }

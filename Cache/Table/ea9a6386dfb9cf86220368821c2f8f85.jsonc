@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:23:49Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				114,
+				1
+			],
+			"Message": "feat(Grove): Auto-reconnect MistTransport on transport disconnect\n\nWire the recent Dial/Reconnect/LiveClient additions into the core MistTransport invoke and notify paths so that transient WebSocket drops are handled transparently rather than surfacing as errors.\n\n- **connect()** delegates to Dial() instead of inlining Client::connect(), unlocking MountainWebSocketSecret-based authentication via Mist's SharedSecret.\n- **invoke() and notify()** replace GetClient() with LiveClient(), which silently reconnects a stale connection before dispatching. On mid-request disconnect, both now catch the error, call Reconnect() with exponential backoff, and retry the call on the fresh client.\n\nCombined with the existing backoff loop in Reconnect(), this creates end-to-end resilience: every outgoing request either succeeds or exhausts the retry budget, without callers needing to manage connection state.",
+			"SHA": "38c32f3de0bf8b36f402a5f93edf256eaa5003cd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T18:20:40Z",
+			"File": [
+				"⡿⠀⠀⠀⠀",
+				114,
+				19
+			],
+			"Message": "refactor(Grove): Atomize Activation.rs into directory module; extract remaining SpineActionClient types; add Mist reconnect logic\n\n**Activation module atomization** — Split the monolithic Activation.rs (986 lines) into a dedicated Source/Host/Activation/ directory with seven focused files:\n\n- ActivationContext.rs: context data passed to extensions during activation\n- ActivationEvent.rs: typed activation event enum with from_str/to_string parsing\n- ActivationEngine.rs: core activation lifecycle (activate, deactivate, trigger, perform_activation with WASM dispatch)\n- ActivationHandler.rs: per-extension event handler tracking\n- ActivationRecord.rs: serializable activation history log\n- WildMatch.rs: simple wildcard pattern matching for activation events\n- Tests.rs: unit coverage for event parsing, context defaults, and wildcard matching\n\nThe original Activation.rs is retained as Activation.rs.bak for reference, then the mod.rs re-exports the new submodule hierarchy.\n\n**SpineActionClient type extraction** — Complete the atomization begun in the prior commit by moving the remaining inline structs, enums, and helper functions from the monolithic mod.rs into dedicated files:\n\n- ConnectionStatus.rs, GroveCapabilities.rs, HostInfo.rs, ReconnectStrategy.rs, SpineConfig.rs, calculate_backoff.rs, Tests.rs\n- mod.rs becomes a re-export hub referencing each sub-file\n- The primary client implementation remains in SpineActionClient.rs (renamed from mod.rs for structural consistency)\n\n**MistTransport reconnect resilience** — Add three methods and one utility function to the websocket block:\n\n- Dial(): opens a fresh Mist client, optionally authenticating with MountainWebSocketSecret via Mist's SharedSecret when present in the environment\n- Reconnect(): exponential-backoff retry loop (100/200/400/1000/2000 ms, 5 attempts), stores and returns the live client\n- LiveClient(): returns the stored client, transparently calling Reconnect() if the connection is detected as closed\n- IsDisconnect(): pattern-matches error strings to distinguish transport drops from server-side handler errors\n\nThese changes complete the Source/ module-level atomization and add production-grade reconnection to the Mist transport path.",
+			"SHA": "75015ef4b0ae3c9c21ea1eff52e6401022ad7ea8"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T17:57:44Z",
+			"File": [
+				"⣿⠀⠀⠀⠀",
+				97,
+				20
+			],
+			"Message": "refactor(Grove): Atomize API/VSCode.rs into directory-based module\n\nAPI/VSCode.rs (986 lines) → API/VSCode/mod.rs + 14 individual files\n(ProviderStore, VSCodeAPI, CommandNamespace, Window, OutputChannel,\nWorkspace, WorkspaceConfiguration, LanguageNamespace, DocumentSelector,\nCompletionItemProvider, DiagnosticCollection, Disposable,\nExtensionNamespace, Env) + Tests. SpineActionClient.rs atomization\nstarted (directory created).",
+			"SHA": "1e4ddb2e22f8e72cb08b24fa6d32207cae1f9754"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T16:36:34Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "fix(Grove): Correct Rust API Documentation URL to grove subdomain\n\nThe API documentation link `https://Rust.Documentation.editor.land/Grove/` did not resolve — the correct canonical URL uses the dedicated `grove` subdomain path `https://rust.documentation.grove.editor.land/`.\n\nUpdate both occurrences in the README (badge row and API Reference section) to point to the valid URL.\n\nAll external doc links in Grove's README now resolve correctly.",
 			"SHA": "9f79a5bd0c34dd9f377a861e7c45159a25bc4768"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:02:45Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				80,
-				1
-			],
-			"Message": "docs(Grove): Restructure README with expanded architecture docs\n\nOverhaul the Grove README from a concise component summary into a comprehensive\ndeveloper reference covering the full architecture, component inventory, and\nproject layout.\n\nAdd a security callout blockquote setting the motivation for Grove's sandboxing\nmodel. Introduce dedicated Key Features and Core Architecture Principles\nsections with formatted tables. Expand the Mermaid system diagram with new\nsubsystem subgraphs (API/, CommonAdapter, MistTransport, SpineActionClient)\nand a connection-paths reference table. Extend the Key Components table from\n11 to over 20 entries covering Lifecycle, VSCode API types, CommonAdapter,\nMist transport, Spine action dispatch, ConfigurationService, and shared\nCommon traits and error types. Replace the simplified project tree with a full\nSource/ directory listing. Restructure \"In the Land Project\" as a Grove-vs-\nCocoon comparison table. Convert the Security and Compatibility sections from\nprose to mechanism tables. Add the Mist link to Related Documentation. Apply\nem-quad spacing (&#x2001;) consistently across section headings and badge rows\nto align with project formatting conventions.\n\nThe README now serves as a self-contained onboarding document covering every\nmodule, transport path, and security layer.",
-			"SHA": "6233cccddeffae4d9c917dc3b32d844d5b6ec248"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T15:46:05Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				80,
-				1
-			],
-			"Message": "fix(Grove): Update Why WebAssembly doc link from why-webassembly to why-wasm\n\nThe existing documentation link at `/Doc/why-webassembly` does not resolve against RouteMap.json — the correct canonical slug is `why-wasm`. Update the reference in the Related Documentation section of the README to point to the valid URL.\n\nAll doc links in Grove's README now resolve correctly.",
-			"SHA": "6dfa5e31a809466ee8272b46dd01ba6ef8e1d5b1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T14:37:32Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				80,
-				1
-			],
-			"Message": "style(Grove): Use em-quad spacing between heading text and emoji\n\nReplace the regular space between the bold crate name and the tree emoji in the top-level heading with an HTML `&#x2001;` em-quad space entity, matching the formatting convention used across the CodeEditorLand project's README headings.",
-			"SHA": "d288956547609326fc41e8053c73fce793556951"
 		}
 	],
-	"TimeStamp": 1783259740812
+	"TimeStamp": 1783352947121
 }

@@ -2,6 +2,39 @@
 {
 	"Set": [
 		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T14:39:28Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1854,
+				47
+			],
+			"Message": "refactor(Mountain): Consolidate output, model, terminal, and extension host dispatch into routers; prune empty Dispatcher/ stubs\n\nContinue the modularization pattern established by SearchRouter, HistoryRouter, and ExtensionsRouter by extracting four additional dispatch domains from the inline match block in DispatchMatch.rs:\n\n- **OutputRouter** — routes all `output:*` commands (create, append, appendLine, clear, show, replace, dispose) into a dedicated module under Output/OutputRouter.rs.\n- **ModelRouter** — routes `model:*`, `textFile:*`, `text:*`, and `workspace:openTextDocument` commands into Model/ModelRouter.rs, preserving the Sky Tauri event relay for document open intent.\n- **TerminalRouter** — routes all `terminal:*` and `localPty:*` commands into Terminal/TerminalRouter.rs, carrying the full terminal lifecycle (localPty:createProcess, layout persistence, shell execution events, auto-reply rules) from the previously inline block.\n- **ExtensionHostRouter** — routes extension host lifecycle commands (starter, debug service, Cocoon message relay) into ExtensionHost/ExtensionHostRouter.rs.\n\n**WorkspacesRouter** is substantially expanded to include recently-opened bookkeeping (add/remove/clear), workspace identifier derivation (hash of first folder URI), workspace display name delegation, and dirty-workspace stubs — replacing the earlier thin wrapper that only handled folder retrieval and enter/create/delete.\n\n**Dispatcher/ module** is stripped: all 31 per-domain stub files deleted and the mod.rs reduced to a doc comment noting dispatch now lives inline in DispatchMatch.rs. The deleted stubs had been empty shells since the original Consolidation pass — their function-level handlers were already imported directly.\n\nDispatchMatch.rs imports are cleaned up: Model, Output, and TextFile function imports removed, replaced by the corresponding router path. The new dispatch arms use `command.starts_with(\"...\")` guards with `unwrap_or_else(|| Ok(Value::Null))` fallback, matching the convention established by SearchRouter and HistoryRouter.\n\nPure structural consolidation — no behavioural change to output channels, text model lifecycle, terminal PTY semantics, extension host debugging, or workspace folder/recently-opened handling.",
+			"SHA": "1b4f8f6e8dcc4d3a4b57db2e804594b27c889359"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T13:53:32Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1882,
+				2
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "8720aa5b8affdca0f2c9ee4e9ef5729c2b9da7a0"
+		},
+		{
+			"Author": "github-actions[bot]",
+			"Date": "2026-06-12T07:53:02Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1879,
+				1
+			],
+			"Message": "Merge pull request #73 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-4.0.1\n\nchore(deps): Bump pozil/auto-assign-issue from 4.0.0 to 4.0.1",
+			"SHA": "f7f11dff41e9e915b10a5354313726fed668f318"
+		},
+		{
 			"Author": "dependabot[bot]",
 			"Date": "2026-06-12T07:52:41Z",
 			"File": [
@@ -22,40 +55,7 @@
 			],
 			"Message": "",
 			"SHA": "be99cf3ee7e7fb8cde42daf9d02157c2c4875976"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T02:42:35Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1882,
-				1
-			],
-			"Message": "refactor(Mountain): Consolidate workspace dispatch arms into WorkspacesRouter\n\nMove the inline `workspaces:*` match arms out of DispatchMatch.rs into a dedicated WorkspacesRouter module, continuing the consolidation pattern established by SearchRouter, ExtensionsRouter, and HistoryRouter in recent commits.\n\nThe new WorkspacesRouter::route() function centralises six workspace commands across four match arms — getFolders/getWorkspaceFolders/getWorkspace/getName delegate to EnterWorkspace, addFolder/addWorkspaceFolders delegate to CreateUntitledWorkspace, and removeFolder/removeWorkspaceFolders delegate to DeleteUntitledWorkspace — each with dev_log diagnostics and the standard Option<Result<Value, String>> return shape.\n\nPure structural consolidation — no behavioural change to workspace folder retrieval, creation, deletion, or naming semantics.",
-			"SHA": "eabf64edbb131ae965bc470086ae1b33638dcf14"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T02:41:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1881,
-				6
-			],
-			"Message": "refactor(Mountain): Consolidate history dispatch into HistoryRouter, prune ExtensionsRouter comments\n\nRemove the seven inline `history:*` match arms from DispatchMatch.rs and delegate them through a dedicated HistoryRouter::route() function, mirroring the SearchRouter and ExtensionsRouter pattern introduced in preceding commits. The new module under Source/IPC/WindServiceHandlers/History/HistoryRouter.rs provides a unified match block returning Option<Result<Value, String>> with the standard unwrap_or_else(|| Ok(Value::Null)) fallback in the dispatch guard.\n\nClean up ExtensionsRouter.rs: collapse verbose per-arm doc comments into concise inline notes, switch import paths to use the local super-module short forms (ExtensionInstall::Fn vs crate::Extension::...), and pull arg_string from Utilities::JsonValueHelpers instead of the crate-level re-export.\n\nEnable web inspector (Inspect=1), recording (Record=1), and all-level tracing (Trace=all) in Info.plist for development debugging.\n\nPure structural consolidation and debug tooling — no behavioural change to extension, history, or IPC dispatch semantics.",
-			"SHA": "28eed3f593a7b8741896e6ce75b1c90fa4c2e165"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T02:31:35Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1880,
-				3
-			],
-			"Message": "refactor(Mountain): Consolidate extension dispatch arms into ExtensionsRouter\n\nFollow the SearchRouter pattern (introduced in the preceding commits) to move the inline `extensions:*` match arms out of DispatchMatch.rs into a dedicated ExtensionsRouter module.\n\nThe new ExtensionsRouter::route() function in ExtensionsRouter.rs centralises all extension-host command handling — getAll, get, isActive, activate, getInstalled, scanSystemExtensions, scanUserExtensions, getUninstalled, query, search, download, install, uninstall, getManifest, reinstall, updateMetadata, and gallery-offline stubs — within a single match block returning Option<Result<Value, String>>. DispatchMatch.rs now delegates via a single `command if command.starts_with(\"extensions:\")` guard arm with the standard `unwrap_or_else(|| Ok(Value::Null))` fallback.\n\nLegacy dev_log argument-summary diagnostics, activation-event forwarding, argument override for system/user extension type coercion, and offline-gallery empty responses all move intact into the router. The Extensions.rs module index adds the public module declaration.\n\nPure structural consolidation — zero behavioural change to extension dispatch, activation, installation, or gallery semantics.",
-			"SHA": "ea2e15c878c314cf1fb566cbe8d460eca2215b8a"
 		}
 	],
-	"TimeStamp": 1783259743321
+	"TimeStamp": 1783352951467
 }
