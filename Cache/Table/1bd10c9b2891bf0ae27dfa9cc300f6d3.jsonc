@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T20:54:24Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				26,
+				1
+			],
+			"Message": "fix(Cocoon): Treat unknown method errors as benign for circuit breaker logic\n\nAdvance the Cocoon submodule to treat unrecognized gRPC method names as benign conditions rather than hard circuit breaker failures.\n\nCocoon's GRPCServerService method dispatcher previously counted unknown-method responses as failure events in the circuit breaker counter. When Mountain probes for method names across subsystems that route to Node rather than Cocoon's handler registry — or when the method set evolves independently on each side of the gRPC boundary — these probe responses could trip the circuit breaker open, disrupting legitimate requests.\n\nThe fix filters unknown-method errors from the circuit breaker's failure accounting, allowing only genuine transport or handler errors to trigger breaker state transitions. The unknown-method case still returns a proper error response to the caller, but no longer penalizes the breaker health score.",
+			"SHA": "119b4c70e55d325a403ffdbe19fa72efb9076d22"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-25T20:46:25Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "feat(Land): Advance submodules — DAP inline, panel persist, tier routing\n\nAdvance all six Element submodules to their latest revisions, bringing inline DAP debugging, webview panel persistence across reloads, and a compile-time tier routing framework to the Mountain-Cocoon gRPC boundary.\n\nCocoon implements `DebugAdapterInlineImplementation` by tracking `debug.didStartSession`/`didTerminateSession` lifecycle events from Mountain and instantiating per-session adapters in-process. Wire `onDidSendMessage` back to Mountain via `debug.dap-response` and dispatch incoming DAP frames from the `ExtHostDebug$sendDAPRequest` gRPC handler. Adapter factories are stashed in `ExtensionRegistry` by debug type for reverse-RPC lookup. Register webview panel serializers via `registerWebviewPanelSerializer` and handle `$serializeAllWebviewPanels`/`$deserializeWebviewPanel` so panels like Live Preview survive `nativeHost:reload`. Update `version` and `isDirty` on `$acceptDocumentChanged` and after document-save notifications in HandleSpecificNotification. Fix BuildGetConfiguration to return the caller's `DefaultValue` when Mountain signals \"no override\" (null).\n\nMountain introduces compile-time tier routing for 16 IPC subsystems (Terminal, SCM, Debug, LanguageFeatures, Search, etc.) via build.rs `EmitTierDefaults`, dispatching commands to Mountain-native handlers or forwarding to Cocoon's gRPC surface through `tier_routes_to_node`. Implement webview panel state persistence across `nativeHost:reload`: serialize all registered panels before the renderer reload and deserialize after Cocoon restarts. Add optional Mist WebSocket transport on port 5051 for high-frequency IPC bypassing the Tauri-invoke + gRPC double hop. Apply a 30-second wall-clock timeout to git subprocess execution so a hung git process releases the effect slot rather than blocking indefinitely. Add crash-safe memento hydration that quarantines corrupted `global.json` to `.corrupted.<ts>` siblings. Fix two discrepancies: align the config change Vine notification payload to send `\"keys\": [key]` (array) instead of `\"key\": key` (string), and update document retrieval from the outdated `GetAllDocuments()` to `GetAll()`.\n\nSky relays `treeView.reveal` from Cocoon extensions by firing a `cel:tree-view:reveal` DOM event and invoking `Views.openView(viewId)` on the workbench service layer.\n\nOutput unconditionally applies MacTitlebarOffset and PartZIndex CSS injections regardless of the `DisableUIFixes` flag, and clears stale Configuration artifacts.\n\nRest normalises shell redirection spacing (`2>/dev/null`) and case branch indentation across Bench.sh, prepublishOnly.sh, and run_tests.sh.\n\nWind removes stale generated TypeScript artifacts (ServiceCatalog, bridge shapes, ~500 IAsteriskUpstream interface definitions) superseded by regenerated daily builds.\n\nDebug adapters that register programmatically, extension webview panels, and configuration-change reactivity now work reliably across the Mountain <-> Cocoon gRPC boundary.",
 			"SHA": "bfd45298a48c7131233e59a856fb310ec0bf9137"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T08:35:21Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				26,
-				2
-			],
-			"Message": "feat(Land): Advance Element submodules — hierarchy prepare routing and config notifications\n\nAdvance Cocoon and Mountain submodules to fix language provider method dispatch and extend IPC notification coverage for the extension host.\n\nCocoon extends its GRPCServerService method router to match `$prepareCallHierarchyItems`, `$prepareTypeHierarchyItems`, and similar `$prepare*` language feature invocations alongside the existing `$provide*` and `$resolve*` patterns. Previously, the regex gate would drop prepare-method requests before they reached InvokeLanguageProvider, causing call and type hierarchy features to silently fail in the extension host.\n\nMountain forwards configuration update events to Cocoon through a fire-and-forget Vine notification, enabling `vscode.workspace.onDidChangeConfiguration` to fire for extensions like rust-analyzer, ESLint, and Prettier that react to workspace config changes. The changed key is included in the payload so Cocoon can scope the change event; a Vine send failure must not propagate back and fail the caller's awaiting IPC response.\n\nBoth hierarchy intelligence and config-change reactivity now function correctly across the Mountain ↔ Cocoon gRPC boundary.",
-			"SHA": "4dd20438695e32f57af2b5d894c2c03a18bb085c"
 		}
 	],
-	"TimeStamp": 1783352950807
+	"TimeStamp": 1783521065039
 }

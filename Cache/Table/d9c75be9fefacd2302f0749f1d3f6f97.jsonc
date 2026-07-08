@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T08:38:30Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1585,
+				9
+			],
+			"Message": "refactor(Mountain): Clean up dead vars and normalize scan paths lexically\n\nReplace the filesystem-backed `Canonicalize` closure in ScanPathConfigure\nwith `Normalize`, which resolves `..` segments lexically for non-existent\npaths - keeping extension scan-path log output clean regardless of path\nviability - while still calling `std::fs::canonicalize` for existing paths\nto resolve symlinks.\n\nDrop the stale `HandleSlot` accumulator in OutputChannelCoalesce (it was\nset but never meaningfully used after the previous refactor) and the\nunused `std::path::PathBuf` import in TryShipped.\n\nAdd stub IPC handlers for `browserView:*` (updateKeybindings, updateTheme,\nupdateConfiguration, openDevTools, closeDevTools -> Null;\ngetBrowserViews -> []), which Wind sends for Electron BrowserView\nmanagement but are no-ops under Tauri's single-webview architecture.\nRoute `extensionHostStarter:waitForExit` to a new async handler that\nresolves immediately with a stub exit-info so callers don't hang.\n\nFormatting-only: line-break Cocoon environment allow list one-per-entry,\ncollapse LocalhostUrl accessors, reflow WebviewWindowBuilder chain.",
+			"SHA": "167dfea1480a374254428bcbbafa11c6113041c5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T08:36:57Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1585,
+				7
+			],
+			"Message": "fix(Mountain): Serve webview panels via localhost plugin URL\n\nSecondary webview panels (settings, webview extensions, etc.) used `WebviewUrl::App(\"WebviewHost.html\")` which routes through tauri::manager — but Mountain's tauri.conf.json has no `frontendDist`, so Tauri has no bundled assets to serve, leaving those webviews blank.\n\nFix by loading them from the localhost plugin instead (`http://localhost:PORT/Mountain/WebviewHost`). A new `LocalhostUrl` singleton (OnceLock in `IPC/WindServiceHandlers/Utilities/LocalhostUrl.rs`) is populated once during `AppLifecycleSetup` and consumed in `create_webview_panel_impl` to build the external URL. Falls back to port 15536 if the singleton is unset.\n\nAlso extracts the inline Cocoon subprocess environment-building and I/O forwarding into named functions (`BuildCocoonEnvironment`, `SpawnCocoonIoForwarders`) in CocoonManagement.rs — pure refactor with no behavioral change, reducing method complexity from ~200 inline lines to two clear helpers.",
+			"SHA": "88be9db9ea1de55af0b96158021b2b77c7f86f6c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T07:49:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1582,
+				8
+			],
+			"Message": "feat(Mountain): Enable .app bundle resource resolution for cache, Cocoon, and Node\n\nThe Mountain binary now resolves pre-baked resources from both the repo/dev\nlayout (binary-sibling files) and the .app bundle layout (Contents/Resources/)\nwhen running as a packaged application. Four systems are updated:\n\n**Extension manifest cache (LoadFromCache.rs):** Probes two locations in\norder — `BinaryDir/extensions.manifest.json` (dev) and\n`BinaryDir/../Resources/extensions.manifest.json` (bundle). Bundled caches\nskip the staleness check (10-minute threshold) since they are built\nalongside the .app and always consistent with its packed extensions. The\nper-manifest field extraction is also refactored with local `str()` and\n`arr()` helper closures to eliminate repeated\n`Manifest.get(k).and_then(Value::as_str)` chains.\n\n**CocoonManagement pre-flight check:** Cocoon's bundle probe now attempts\nTauri's resource resolver first (`Tauri::path::resolve` with\n`BaseDirectory::Resource`), falling back to the repo-layout relative-walk\nfrom `scripts/cocoon/` when the bundle path does not exist.\n\n**NodeResolver TryShipped:** Adds a sidecar resolution path matching\n`externalBin: [\"Binary/node\"]` in tauri.conf.json — the `node` binary sits\nalongside the Mountain executable, not in a `Node/bin/` subdirectory, in\nthe Tauri sidecar layout.\n\n**ScanPathConfigure and PathSecurity:** Extension scan paths now call\n`.canonicalize()` on resolved paths for cleaner log output (showing\n`Contents/Resources/...` instead of `Contents/MacOS/../Resources/...`).\n`IsTrustedSystemPath` adds `../Resources/Static/Application/extensions` to\nthe bundle-root allowlist so the new canonical static extension directory\nbypasses the workspace-folder gate.\n\n**Bootstrap fork (bootstrap-fork.js):** Cocoon entry path resolution\nhandles both bundle (2-level `../../`) and repo (3-level `../../../`)\nlayouts by iterating both URL bases for each candidate entry path.\n\n**tauri.conf.json:** Maps `bootstrap-fork.js`, `extensions.manifest.json`,\nand `Cocoon/Target/Bootstrap/Implementation/Cocoon` into\n`Contents/Resources/` so all three are reachable at runtime via the bundle\nresource resolver.",
+			"SHA": "0fe6cbfa5522594264233b21f4807ab5f184dab4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T06:19:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1582,
+				4
+			],
+			"Message": "",
+			"SHA": "1a1ee9b546b80eef444b0dc0ae4da09b291f2ca9"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-22T06:19:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "fix(Mountain): Normalize extension location URI from cache to plain string\n\nThe `LoadFromCache` path serialized `ExtensionLocation` as a JSON object\n`{\"value\": url}` — the Identifier wrapper shape — rather than a plain\n`Value::String` URI. The `Normalize.rs` URI parser then failed to match\nagainst the `scheme` key and fell through to `/extensions/unknown`,\nbreaking extension resolution for cached manifests.\n\n- Fix the source: emit `Value::String(LocationUri)` from\n  `LoadFromCache.rs`, matching the format `FromUrl::Fn` expects.\n- Fix the sink: add a backward-compatibility branch in `Normalize.rs`\n  that unwraps `{\"value\": url_string}` when encountered, so legacy\n  cache entries still resolve correctly.\n- Reorder Sky resource globs in `tauri.conf.json` alphabetically for\n  maintainability.\n\nAccompanying build metadata: the Cargo.toml package name, tauri\nidentifier, and productName are expanded to their full environment-keyed\nform (DevelopmentNodeEnvironment…) as part of the CI artifact\nlabelling scheme; backup files preserve the canonical values.",
 			"SHA": "af8fcdd2e74f49cd5943e056f6af38bddb0d7205"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T05:35:38Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1582,
-				2
-			],
-			"Message": "refactor(Mountain): Extract inline JSON blocks to avoid macro recursion limit\n\nThe `ConstructSandboxConfiguration` function builds the entire `ISandboxConfiguration` payload in a single deeply-nested `json!()` macro invocation. As the `profiles` and `productConfiguration` sections grew, the macro expansion exceeded Rust's recursion limit, causing compilation failures on certain toolchain versions.\n\nExtract the `nls`, `productConfiguration`, `os`, and `profiles` sub-objects into separate `json!()` calls bound to local variables (`NlsSection`, `ProductConfig`, `OsSection`, `ProfilesSection`), then reference them by name in the outer `json!()` invocation. This breaks the single deep expansion into multiple shallow ones, staying well within the recursion limit without changing any emitted values.\n\nNo behavioral change — all pre-built variables produce identical JSON to the previously inlined blocks.",
-			"SHA": "78820a9ee66e89a88169dab5bf7acb7b986c1eb3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T05:35:25Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1582,
-				19
-			],
-			"Message": "feat(Mountain): Complete Cocoon extension host bridge across providers, boot, and keyboard\n\nImplement the gRPC and provider-infrastructure layer for four extension-host features that Mountain forwards to Cocoon, three complementary improvements, and one build-config update.\n\n**Extension provider features:**\n\n- **Inline completion items** (GitHub Copilot, Roo Code, Continue): New `InlineCompletionItem` / `InlineCompletionContext` messages in Vine.proto, gRPC handler in `ProvideInlineCompletionItems.rs`, and `$provideInlineCompletionItems` dispatch from `FeatureMethods.rs` to Cocoon's registered provider. Registration flows through the generic notification dispatcher via `register_inline_completion_item_provider`.\n\n- **File decorations from extensions**: `DecorationsGet` in `Decoration.rs` falls back to `ProvideFileDecoration` via Cocoon gRPC when the in-memory store has no entry, populating git-status badges, error markers, and other extension-contributed decorations on demand.\n\n- **Terminal lifecycle sync**: `TerminalProvider.rs` emits `$acceptTerminalOpened` / `$acceptTerminalClosed` notifications to Cocoon so `vscode.window.terminals` stays current for terminals created from the UI (not just via the extension API).\n\n- **Webview message forwarding**: `Messaging.rs` implements the forward path for `acquireVsCodeApi().postMessage()` calls from extension iframes, sending them as `webview.message` notifications to Cocoon so the extension host's `onDidReceiveMessage` subscriber fires. `remove_webview_message_listener_impl` is now a logging stub rather than a no-op.\n\n**Boot performance and crash fixes:**\n\n- **Extension manifest cache (B7.P08)**: New `LoadFromCache.rs` reads a pre-baked `extensions.manifest.json` blob in a single `fs::read`, reducing extension-scan boot time from ~1200 ms to <50 ms. Falls back gracefully to the live `ScanAndPopulateExtensions` path on cache miss, staleness (>10 min), or corruption. The cache file is produced by `Maintain/Build/Manifest/PreBake.ts` during `beforeBundleCommand`.\n\n- **WKWebView NSUndoManager suppression**: `TauriBuild.rs` disables the macOS default menu (which pre-installs Edit > Undo/Redo). `WindowBuild.rs` injects a capture-phase keydown listener that `preventDefault()`s Cmd+Z/Cmd+Y before the webview's internal responder chain dispatches undo:/redo:, preventing WKWebView's NSUndoManager from competing with Monaco's undo stack.\n\n- **Profiles configuration**: `InitializationData.rs` adds the `INativeWindowConfiguration.profiles` section with all required URI fields (`languageModelsResource`, `agentPluginsHome`, `cacheHome`, etc.) to prevent the `TypeError: undefined is not an object (evaluating 'M.revive(o.languageModelsResource).with')` crash during workbench initialisation. Also adds `sqmId`, `devDeviceId`, and `isPortable` as defensive non-optional fields.\n\n**Build:** `tauri.conf.json` adds `node Maintain/Build/Manifest/PreBake.ts` to the `beforeBundleCommand` pipeline.\n\nCloses the Mountain side of the inline-completion provider circuit and addresses the workbench profile crash (VS Code desktop-mode init).",
-			"SHA": "8db51dd0dc8da12799836d25faaf61658c445a52"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-22T02:53:08Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1580,
-				1
-			],
-			"Message": "",
-			"SHA": "138352332e04a0046c07228f1b171bb588a3f421"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T00:51:32Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1580,
-				3
-			],
-			"Message": "feat(Mountain): Add TierSchemeAssetsFileSystem cfg feature flag\n\nIntroduce the `TierSchemeAssetsFileSystem` feature flag alongside the existing `TierSchemeAssetsHybrid` gating in Cargo.toml. When enabled (via `TierSchemeAssets=FileSystem` in `.env.Land`), assets are served from disk via the `static_root` fallback path with `frontendDist: null`, rather than being embedded or served in hybrid mode.\n\nAlso removes the unused `fs` import in InitializationData.rs that was left over from prior refactoring.\n\nThe bundled `Target/debug/Mountain/index.html` changes are incidental rebuild artifacts — asset content-hash and timestamp updates from the build process, no semantic change.\n\nRefs the tier-configuration scheme introduced in 4ba376b9.",
-			"SHA": "1e601e16bea86ac97efd00dd27b98ff5499d55b0"
 		}
 	],
-	"TimeStamp": 1783352975607
+	"TimeStamp": 1783521104219
 }

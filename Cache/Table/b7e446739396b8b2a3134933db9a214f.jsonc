@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T16:47:38Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1855,
+				1
+			],
+			"Message": "perf(Mountain): Nest tokio::spawn for fully detached editor state notifications\n\nThe per-keystroke editor state notifications (selection, active editor, visible editors, tabs, ranges, options, diff, viewColumn) were already dispatched via `tokio::spawn` to move them off the IPC dispatch queue, but the outer spawn still owned the Vine gRPC future until `SendNotification::Fn` completed. Nest a second `tokio::spawn` inside each handler so the outer task returns immediately after scheduling the inner task, decoupling the IPC handler's completion from the gRPC call's execution entirely.\n\nEliminates the final serialization point in the editor:event dispatch pipeline for all 8 notification types.",
+			"SHA": "523b43a4c3eec376ddb65de8571a0b9a14246c3d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T16:46:24Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1855,
+				1
+			],
+			"Message": "fix(Mountain): Return LogLevel for logger:getLevel, cache TierIPC\n\n`logger:getLevel` was matching a stubbed null-returning arm in two places, but VS Code's Logger service expects a numeric LogLevel enum (Trace=0 through Critical=5). The TierIPC env var was read from the OS on every unknown command dispatch.\n\nRemove `logger:getLevel` from both null-returning stubs and add a dedicated handler returning `json!(log::max_level() as u32)`. Cache the TierIPC lookup in a `OnceLock` so the syscall and allocation run once.\n\nVS Code can now query the current log level through the VS Code LogLevel API. Fallthrough command dispatch overhead is reduced by one env lookup per call.",
+			"SHA": "f0488344a0976a0be537568a9a7c95485333821c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T16:43:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1855,
+				3
+			],
+			"Message": "perf(Mountain): Fire-and-forget Cocoon notifications for editor state events\n\nConvert 8 synchronous SendNotification calls in the sky:editor:* handler group to `tokio::spawn` so selection, active, visible, tabs, ranges, options, diff, and viewColumn change notifications no longer block the IPC dispatch queue on Vine gRPC RTT. These fire at per-keystroke/scroll frequency and were a serial bottleneck in the command handler.\n\nAdd `sky://editor/active-changed` Tauri event emission as the canonical renderer-side event, enabling Wind's Editor layer to track active editor changes through native event channels rather than gRPC.\n\nAdd `tasks:` and `auth:` command guards to the tier-routing gates, forwarding both families to Cocoon when their tier flags indicate Node dispatch — consistent with the existing debug and encryption gates.\n\nIn InitializationData.rs, add `codeCachePath`, `autoDetectHighContrast`, `accessibilitySupport`, and `isInitialStartup` to ISandboxConfiguration — the bundled workbench accesses these without null guards, and their absence caused V8 code-cache load failures and INativeWindowConfiguration contract crashes.",
+			"SHA": "57366f3f7c60054355ffa963ed2d6455609db376"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T16:39:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1855,
+				3
+			],
+			"Message": "docs(Mountain): Revise Architecture and DeepDive opening sections for direct narrative style\n\nReplace the meta-textual framing \"This document describes\" in Architecture.md with a direct statement that positions Mountain as the primary Tauri application. Reword the DeepDive.md opening paragraph to move the document's purpose into a supporting clause rather than the lead, bringing Mountain's concrete role as the VSCode service implementation layer to the forefront.\n\nEliminates redundant document-self-reference prose across both documentation files.",
+			"SHA": "dbc2afc52dc28939909ca893a87774ed13ea8169"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T16:25:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "fix(Mountain): Correct Rust API documentation URL in README\n\nThe Rust API docs link pointed to the generic `editor.land` domain rather than the dedicated `mountain.editor.land` subdomain. Both the main badge link and the API Reference section footer used the stale URL.\n\nUpdate both occurrences to `rust.documentation.mountain.editor.land` for proper subdomain routing and consistency with Mountain's dedicated documentation infrastructure.",
 			"SHA": "2ee444dd025535d2eaebf3e379d85f6bc214d436"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:17:21Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1854,
-				1
-			],
-			"Message": "docs(Mountain): Revise README with comprehensive architecture, project structure, and security documentation\n\nRewrite the Mountain README to provide a thorough technical overview of the Rust/Tauri native backend. Key improvements:\n\n- Replace 🏔️ emoji with ⛰️ for consistent branding across Land ecosystem documentation\n- Add comprehensive Overview section explaining Mountain's role as Common trait implementor, with performance metrics contrasting Electron\n- Annotate every component mention with its corresponding emoji (Cocoon 🦋, Vine 🌿, Wind 🌬️, Air 🪁) for visual scannability\n- Restructure Key Features as a dense paragraph-per-feature list, adding Extension Management, Over-the-Air Updates, Declarative Effect System details\n- Convert Core Architecture Principles from a list to a table with Key Components column\n- Add new System Architecture section with a connection path table documenting all IPC protocols (tauri::invoke, gRPC :50052, sky:// events, AirClient gRPC)\n- Include full Project Structure tree showing 30+ source directories and their roles (Air/, Cache/, Telemetry/, Track/, Update/, Vine/, etc.)\n- Expand In the Land Project section with table-formatted dependencies (Mist, Cache, Vine, Air) and connected components (Wind/Sky, Cocoon, Grove)\n- Add complete Getting Started section with prerequisites, build commands, feature flags (Development, MistNative), and run instructions\n- Add comprehensive Security section with 8-layer protection table (process isolation, gRPC boundary, permission system, message encryption, secure storage, certificate management, path security, message compression)\n- Update Related Documentation with new repos (Grove, Mist)\n- Revise Funding section with 🙏🏻 emoji\n- Document additional dependencies in tables (opentelemetry, posthog-rs)\n\nEstablishes README as the definitive entry point for contributors and integrators.",
-			"SHA": "b72ae29e557f2b7156f02853ff5d46d9188d2c84"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T14:51:10Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1854,
-				1
-			],
-			"Message": "refactor(Mountain): Remove 34 unused imports from DispatchMatch after router wiring\n\nRemove Terminal (14 atoms), Workspaces (4), Cocoon (3), ExtensionHost (7),\nand History (7) imports that are now handled by their respective routers.",
-			"SHA": "93e53b7549e26c7f335b593749d166db31d80796"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T14:47:25Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1854,
-				1
-			],
-			"Message": "refactor(Mountain): Prune terminal, extension host, and redundant workspace inline dispatch arms; route through routers\n\nReplace the remaining inline `terminal:*` call! macros and the entire `localPty:*` block (43 match arms spanning ~700 lines) with a unified `command.starts_with(\"terminal:\") || command.starts_with(\"localPty:\")` guard delegating to TerminalRouter::route(). This completes the terminal consolidation alongside the earlier WorkspacesRouter, OutputRouter, and HistoryRouter extractions — all terminal lifecycle (create, sendText, dispose, show, hide), local PTY lifecycle (getProfiles, createProcess, resize, input, shutdown, ack), and the workbench-facing IPtyService surface (getTerminalLayoutInfo, listProcesses, refreshProperty, setActive, shellExecutionStart/End, installAutoReply, etc.) now pass through a single router.\n\nRemove the inline extension host starter/debug/message arms (extensionHostStarter:*, extensionhostdebugservice:*, cocoon:extensionHostMessage) and replace with a guard delegating to ExtensionHostRouter::route(). All extension host lifecycle (create/start/kill/waitForExit), debug session attach/terminate/reload/close, and the cocoon:extensionHostMessage relay are now routed consistently.\n\nPrune the dead inline workspaces:* arms (getRecentlyOpened, addRecentlyOpened, enterWorkspace, getWorkspaceIdentifier, etc.) that were shadowed by the `command.starts_with(\"workspaces:\")` guard added in the prior commit. These fallthrough paths were unreachable but remained as dead code — removing them eliminates the duplicate dispatch and the stale import dependencies.\n\nPure structural consolidation — no behavioural change to terminal PTY semantics, extension host debugging, or workspace lifecycle across any of the three domains.",
-			"SHA": "09a73d72dc86af6af32bc178b11deb3200fef970"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T14:41:37Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1854,
-				2
-			],
-			"Message": "feat(Mountain): Route workspaces:getRecentlyOpened through WorkspacesRouter; consolidate remaining inline workspace dispatch\n\nAdd the `workspaces:getRecentlyOpened` route to WorkspacesRouter, delegating to the recently-developed `ReadRecentlyOpened` function for direct state access. This completes the recently-opened bookkeeping trio alongside add/remove/clear.\n\nReplace the remaining inline workspace match arms in DispatchMatch.rs (`getFolders`, `addFolder`, `removeFolder`, `getName`) with a single `command.starts_with(\"workspaces:\")` guard that delegates fully to `WorkspacesRouter::route()`. All four existing workspace lifecycle commands preserve their exact semantics — folder retrieval, folder addition/removal, and name resolution all pass through unchanged.\n\nPure structural consolidation with one new IPC command handler — no behavioural change to workspace lifecycle or recently-opened mutation semantics.",
-			"SHA": "30b70a218595124841a0b795135555b201c5601d"
 		}
 	],
-	"TimeStamp": 1783352950486
+	"TimeStamp": 1783521065592
 }

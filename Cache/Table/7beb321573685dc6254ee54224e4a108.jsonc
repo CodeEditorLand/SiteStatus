@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:12:04Z",
+			"Date": "2026-06-12T22:26:36Z",
 			"File": [
-				"⣿⡟⠀⠀⠀",
-				561,
-				191
+				"⣿⡏⠀⠀⠀",
+				563,
+				181
 			],
-			"Message": "style(Cocoon): Normalize blank-line spacing across interface, enum, function, and conditional blocks\n\nAdd a consistent blank line after opening braces in all interface, type, enum, class, and function declarations — as well as after ternary conditionals (`?`) and arrow-function bodies (`=>`) — to bring the entire codebase into a single whitespace convention.\n\nThe change touches ~180 files across the Cocoon source tree, Proto definitions, scripts, services, handler modules, IPC layer, telemetry, type converters, webview panels, and tests. No runtime logic, identifier names, or module structure was modified.\n\nEvery statement, expression, and declaration block now follows the same vertical spacing rule, eliminating intra-file inconsistencies that previously mixed compact and spaced styles within the same module.",
-			"SHA": "553b7052d4263309d3c2d5e9f59c883622e51d92"
+			"Message": "refactor(Cocoon): Replace functional closing parentheses with statement-terminating semicolons across entire source tree\n\nEvery function call, constructor invocation, method chain, async closure, and import expression that was written with a trailing `)` closing its final argument now terminates with a `;` instead. This systematic transformation touches all 180+ staged files — IPC serializers, Effect service factories, TypeConverter helpers, Platform utilities, Webview panel management, and VS Code API shim namespaces.\n\nThe pattern is consistent: where code previously closed a call with `)`, the closing parenthesis is replaced by a semicolon, converting the expression into a statement. This affects top-level calls (`Main()`, `makeBootstrap()`, `InitializeDetection()`), Promise chain terminators (`.catch(() => {})` → `.catch(() => {};`), new-expressions (`new Map()` → `new Map(;`), and `Effect.gen` / `async function` wrappers that closed with `)`. Constructor `super()` calls, `throw new Error(...)`, `JSON.stringify(...)`, `require.resolve(...)`, `Buffer.from(...)`, `process.exit(...)`, dynamic `import(...)`, and `Reflect.construct` also follow the same `)` → `;` rule.\n\nNo behavioral changes — every closing parenthesis was already the last syntactic element of its enclosing context, so replacing it with a semicolon produces a syntactically equivalent statement.",
+			"SHA": "6db25a205ccaa687374ec4a39529fb1975f1cda0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:23:04Z",
+			"Date": "2026-06-12T22:21:46Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				561,
+				49
+			],
+			"Message": "refactor(Cocoon): Strip Effect-TS from interface tags; decouple module interception layer\n\nRemove `effect` imports from all 42 Cocoon interface and service files, replacing `Context.Tag<Iface>()` service tags with plain `unique symbol` declarations. The module interception layer — Loader, Patcher, Security, Validator, and their type converters — no longer imports any Effect-TS module.\n\n**Design intent:** Cocoon's interface layer (`Interfaces/`) and patch-process pipeline (`PatchProcess/`) are the contract surface for extension sandboxing and module loading. Binding them to Effect-TS's `Context.Tag` at the type level forced every consumer to transitively depend on the full Effect library, even when the actual service implementation used plain async/await patterns. Replacing with symbol-based tags preserves the DI marker semantics without the Effect dependency.\n\n**Key changes:**\n- `Interfaces/I/` — 11 interface modules: `Configuration/Service`, `Error/Handling/Service`, `Extension/Host/Service`, `Module/Interceptor`, `Module/Interceptor/Service`, `Performance/Monitoring/Service`, `Security/Service`, `Terminal/Service`, `API/Factory/Service`, `IAPIFactory` switch from `Context.Tag<T>()` to `unique symbol = Symbol.for(...)`\n- `PatchProcess/` — 6 modules (Loader, Patcher, Security, Type/Converter, Validator) strip all `import { Effect, Config, Data, Queue } from \"effect\"` lines entirely; none of these modules used Effect-TS runtime values — only type-level references\n- `Platform/` — 5 modules (Environment, OS, Process, Service, Type/Converter) remove `Effect`, `Option`, and `Layer` imports where no Effect-TS constructs remain in the file\n- `Services/` — 14 service modules (Configuration, Error/Handling, Extension, Extension/Context, Extension/Host, File/System, Health, Logger, Module/Interceptor, Module/Interceptor/Service, Performance/Monitoring, Security, Terminal, Workspace, gRPC/Server/Service) remove now-unused Effect imports; 4 of these also convert their `Context.Tag` to `unique symbol` (API/Factory, File/System, Logger, Terminal)\n- `Services/Init/Data.ts` — `InitDataService` converted from `Context.Tag` class to a plain `type` alias, since the tag was only ever read as an opaque key\n- `Services/Mountain/Client/Service.ts`, `Services/Mountain/gRPC/Client.ts` — strip `Effect`, `Layer`, `Context` but keep grpc and uuid imports unchanged\n- `WebviewPanel/` — 6 modules remove unused `Effect` imports\n- `IPC/Type/Converter.ts` — removes one unused `Effect` import\n- `Services/Window/` — 4 modules (Interfaces, State, Text/Document, Types) remove unused `Effect` imports; Window/State additionally removes `Context` and `Layer`\n\n**Impact:** Reduces bundle overhead for the module interception path, eliminates transitive Effect-TS dependency from Cocoon's contract definitions, and simplifies the type-level dependency graph for esbuild resolution. No behavioral changes.",
+			"SHA": "a017e9f4b4e123a426cfa8f165934c07f86591d9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:48:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				561,
-				1
+				2
 			],
-			"Message": "fix(Cocoon): Dispose partial extension context on activation failure\n\nWhen ActivateExtension throws mid-activation, an extension may have already pushed disposables onto context.subscriptions before the error. The old catch block deleted the extension from ActiveExtensionContexts without disposing those registered disposables, leaking watchers and providers.\n\nStore the partial RegisteredContext in ActiveExtensionContexts so DisposeExtensionContext iterates and calls .dispose() on every registered disposable, then removes the map entry. Shared cleanup now handles both successful and failed activation paths uniformly.",
-			"SHA": "2bc0675c8e91772a928c5df07b065f88f148de7a"
+			"Message": "chore(Cocoon): Annotate Window dialog modules with EFX-30 migration TODO\n\nAdd `TODO(EFX-30)` markers to the JSDoc module headers of `Dialog.ts` and `File/Dialogs.ts`, flagging their `Effect.gen` wrappers for conversion to `async/await` once the callers in `Window/Index.ts` migrate.\n\nNo runtime changes — documentation only.",
+			"SHA": "602f2030b48e3b64828c7a65f230b197393ae689"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:20:47Z",
+			"Date": "2026-06-12T21:47:33Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				561,
 				3
 			],
-			"Message": "feat(Cocoon): Track extension contexts for subscription disposal on deactivation; fix machineId fallback chain\n\nStore each activated extension's `ExtensionContext` in `ActiveExtensionContexts` so that when an extension is deactivated — via host re-initialization (`HandleInitializeExtensionHost`) or delta extension removal (`HandleDeltaExtensions`) — every disposable the extension registered via `context.subscriptions` is iterated and `.dispose()` called, preventing leaked watchers, status-bar items, and language providers from the prior host generation.\n\n**ActivateExtension.ts:**\n- Add `ActiveExtensionContexts` map keyed by extension id, populated at the `PromoteToActivated` step\n- Add `DisposeExtensionContext()` helper that clears `subscriptions` and drops the context entry\n- Capture `RegisteredContext` before `activate()` so it is available to `PromoteToActivated` even after a successful `activate()` call\n- Clean up `ActiveExtensionContexts` on activation failure alongside the existing `ActivatingExtensions`/`ActivatedExtensions` cleanup\n\n**Handler.ts:**\n- On host re-init: iterate all active contexts and dispose them before clearing the registry, mirroring the prior deactivateExtension logic but at the batch level\n- On delta removal: call `DisposeExtensionContext` and remove from `ActivatedExtensions` so a re-installed extension can activate fresh\n\n**Env/Namespace.ts:**\n- Fix the `machineId` fallback chain: `Env['machineId']` → `telemetryInfo.machineId` → `telemetry.machineId` → `'fiddee'`, restoring the correct priority order after a previous reordering broke field resolution\n\nExtension contexts are now correctly torn down on host lifecycle transitions, and the machineId field resolves from the richer `telemetryInfo` payload before falling back to the legacy `telemetry` object.",
-			"SHA": "2b90036c1bdac36e69436b05fea4b6c27be72836"
+			"Message": "refactor(Cocoon): Normalize Effect-TS pipe-chain patterns\n\nStandardize three call sites in Output, Webview, and Factory modules to use `.pipe()` chaining instead of nesting effects inside runner functions.\n\n**Channel.ts:** Extract the `Channel` variable before wrapping in `Effect.succeed()`, replacing an inline cast pattern that collapsed declaration and return. Insert a TODO(EFX-30) marker for the planned `Effect.gen` → `async/await` migration.\n\n**Webview/Panel.ts:** Convert `Effect.runPromise(Logger.Debug(...))` to `Logger.Debug(...).pipe(Effect.runPromise)` — idiomatic left-to-right Effect-TS composition.\n\n**Factory.ts:** Replace `Effect.runFork(Ref.update(...))` (fire-and-forget fiber) with `void Ref.update(...).pipe(Effect.runPromise).catch(() => {})`, ensuring the ActivePanelsRef registry cleanup runs to completion rather than being scheduled on a fiber that may be abandoned. The explicit `void` + `.catch` matches Cocoon's established fire-and-forget idiom for side effects that must complete synchronously.\n\nNo behavioral changes to any module.",
+			"SHA": "aa58914543fb46baadcd35fa8151c4510a76d30c"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:06:44Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				561,
-				19
-			],
-			"Message": "refactor(Cocoon): Strip Effect from webview IPC layer; wire cancellation, deferred activation, and subscription disposal\n\nReplace Effect-wrapped IPC calls across the webview panel subsystem (Panel, WebviewImplementation, WebviewPanelImplementation) with raw Promise-based methods, removing Effect.runFork/runPromise indirection from every $setWebviewHtml, $postMessage, and lifecycle notification. The EventStream Fire/Shutdown are now synchronous; Panel.Create returns the instance directly.\n\n**Extension lifecycle:** deactivateExtension now disposes all context.subscriptions before removing the extension from the activated set, preventing leaked watchers and status-bar items. The activation context is stored alongside the extension and referenced at deactivation time.\n\n**Deferred onStartupFinished:** After the first $activateByEvent batch settles, schedule a single 3-second-delay pass for extensions declaring only onStartupFinished, mirroring VS Code's deferred-startup convention.\n\n**withProgress cancellation:** Wire a progress.cancel notification handler in NotificationHandler that emits on a shared Emitter. WindowNamespace's withProgress subscribes to this emitter per-task, providing a real CancellationToken (isCancellationRequested / onCancellationRequested) backed by the progress handle. MountainClientService propagates caller CancellationToken firings to Mountain via cancelOperation, completing the cancellation path.\n\n**onCommand activation:** The gRPC server's executeCommand resolves onCommand:<id> activation events before dispatching to the registry, ensuring the owning extension's registerCommand has run.\n\n**SCM command projection:** SanitizeResourceState now projects repository back-references (rootUri, root, uri) to a __celRepositoryRoot string and passes through all JSON-safe scalars, so option-bag arguments like { preserveFocus: true, branch: \"main\" } survive the executeCommand round-trip.\n\n**Debug activation:** Fire onDebug, onDebugResolve:<type>, and onDebugAdapterProtocolTracker:<type> when a debug session starts.\n\n**Stable sessionId:** Fall back through telemetryInfo.sessionId → telemetry.sessionId → CocoonSessionId env var before generating a per-process id, preventing session desync on orphan recovery.\n\n**Heuristics proxy completeness:** Add has/getOwnPropertyDescriptor traps to WrapNamespaceWithHeuristics so in checks match the get trap. Fix MakeMultiStub's has trap to exclude Symbol keys.\n\n**gRPC error detail:** Include method name and stack trace in error responses instead of empty {}. Delete stale Orchestration/Old/Style/Services.ts — the last consumer of the deprecated TerminalServiceLayer.",
-			"SHA": "4d455d427651a4c9f331c305950ed8d00fba4688"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:37:24Z",
+			"Date": "2026-06-12T21:23:52Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				565,
+				561,
 				1
 			],
-			"Message": "docs(Cocoon): Add npm badge, emoji headers, and getting-started sections to README\n\nPolish the Cocoon README with the project's npm package badge, emoji-decorated section headings (Getting Started, License, Changelog, Funding), and structured Prerequisites and Build/Install subsections. Fix the GitHub stars badge image to include an explicit title attribute and normalize the dependencies table alignment row.\n\nThese changes bring the README into alignment with FIDDEE documentation conventions established across the Land Element READMEs.",
-			"SHA": "ffe1c46780d7de9a72efcd8381bc21fa19f18228"
+			"Message": "feat(Cocoon): Filter stale-channel frames in bidirectional gRPC stream\n\nMountain stamps Envelope.ChannelId (uint64, field 5) on every frame it pushes through the bidirectional streaming pump. When a stream is reopened — after a connection reset or re-registration — the old Mountain process may still send straggler frames through the previous registry entry before it shuts down.\n\nCapture the first nonzero ChannelId seen on each stream as the session identity. Frames arriving with a nonzero ChannelId that does not match the established session id are discarded immediately with a dev-log entry. ChannelId \"0\" (absent) is treated as a wildcard for backward compatibility with older Mountain builds and client-originated frames.\n\nAlso include the session ChannelId in the stream-closed dev-log for diagnostics.",
+			"SHA": "661b375e7c7bd4a9cca703be91ec5d0980670a73"
 		}
 	],
-	"TimeStamp": 1783352949692
+	"TimeStamp": 1783521061095
 }

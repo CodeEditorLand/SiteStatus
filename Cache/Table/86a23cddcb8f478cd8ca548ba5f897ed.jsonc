@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T20:04:45Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				225,
+				5
+			],
+			"Message": "feat(Output): Expand workbench service exports + add git instrumentation\n\nExpand the ExposeWorkbenchAccessor transform to export additional\nservices and classes needed by SkyBridge's in-process providers:\n\n- SCM, Debug, CustomEditor service decorators - allow SkyBridge to\n  register providers that mirror Cocoon's extension-host registrations\n  (sky://scm/*, sky://debug/*, sky://customEditor/* events)\n- Emitter, Disposable, toDisposable - required for SCM provider shim's\n  event interface (ISCMService expects onDidChange* events matching\n  vs/base/common/event.js::Emitter's shape)\n- IModelService + ILanguageService - needed to construct real ITextModel\n  for the SCM inputBox (MainThreadSCMProvider rejects null inputBox)\n- ResourceTree + IUriIdentityService - for grouped SCM repository rendering\n\nAlso add InstrumentVscodeGit, a new diagnostic transform that injects\nprocess.stdout.write('[GIT-MARK-X] ...') markers into the bundled\nvscode.git extension's main.js and model.js. This bypasses Cocoon's\noutputChannel routing (muted in LAND_DEV_LOG=short) to diagnose why\nthe SCM viewlet stays empty despite vscode.git activating within\n2814-4173ms. The last visible marker identifies the exact bail point.",
+			"SHA": "a349f4ae1e12e98b33334504832d802cdbf6d3b4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T09:50:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				224,
+				2
+			],
+			"Message": "feat(Output): Add URI import to ExposeWorkbenchAccessor transform\n\nComplete the workbench accessor patch by statically importing the `URI` class alongside the existing service decorators. The previous commit exposed the URI via the `__CEL_SERVICES__` object, but the import statement was missing from the transform's header injection.\n\nThis fix ensures the transform plugin injects the necessary import for `URI` when patching `web.main.js` and `desktop.main.js`, allowing SkyBridge's search provider to construct resource objects the workbench accepts directly without a `URI.revive` round-trip.",
+			"SHA": "3db8e24cd143fa7887d7395c6a0a2fbf53ac02f4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T09:29:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				224,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
+			"SHA": "842a79df562bc93fdaa122204343e99fa39933e9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T09:29:09Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				224,
+				1
+			],
+			"Message": "feat(Output): Expose URI class to SkyBridge search provider\n\nAdd the `URI` class from vscode-uri to the workbench accessor exports so Sky-side bridges can construct real URI instances that the workbench accepts directly.\n\nThe workbench's SearchService deduplicates results by calling `getComparisonKey(uri)` which invokes `uri.with(...)`. Returning raw URIComponents POJOs causes \"uri.with is not a function\" errors. The exposed URI class has the full prototype chain (`.with()`, `.fsPath`, `.toString()`) needed by SkyBridge's search provider result rows.",
+			"SHA": "7b179e1a9caddb1f048473c766f7437cadffc35c"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-26T09:00:12Z",
 			"File": [
 				"⣿⣿⠇⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "",
 			"SHA": "6b389ee08b3b3d3833c484dfc1e6916ef5f13c84"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-26T03:33:22Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				172,
-				1
-			],
-			"Message": "",
-			"SHA": "ab41e62bdffaf301fab60ca52b40cc3d29880f70"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-25T02:54:41Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				172,
-				1
-			],
-			"Message": "",
-			"SHA": "c2d3422523eb8dc1a8dc08ad0575ac7cc5aa8605"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T02:03:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				172,
-				2
-			],
-			"Message": "refactor(Output): Expand CopyVSRootFiles candidate resolution\n\nThe plugin now checks both `<root>/<file>` and `<root>/vs/<file>` for every location because nls.* files and other VS Code outputs live at different paths depending on which TSC pass produced them - some at the root, some under `vs/`.\n\nAlso adds proper NODE_ENV-aware ordering: production builds prioritize `out-build/` (release TSC flat layout) before `out/` (debug TSC source layout), while development builds do the reverse. An `OnDevelopment` override parameter allows tests to force the ordering.\n\nThe inline stub fallback for missing NLS files (tier 4) is preserved - stock VS Code generates `nls.messages.js` only during localization which our pipeline doesn't run.",
-			"SHA": "36ce8f4a8863e03d3688d0cd644855cb6fdacfbc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-25T01:52:21Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				172,
-				1
-			],
-			"Message": "feat(Output): Add inline stub fallback for missing NLS files\n\nAdd tier 4 fallback mechanism using inline `data:text/javascript` stubs for files that stock VS Code generates only during the localization step. The build pipeline doesn't run the per-locale NLS generation, so `nls.messages.js`, `nls.keys.json`, `nls.messages.json`, and `nls.metadata.json` don't exist on disk.\n\nWithout this fallback, the webview 404s to the SPA fallback and the browser reports `Unexpected token '<'` on the HTML response - the exact cold-boot failure mode this plugin step exists to prevent.\n\nThe stub bodies are valid modules/JSON: the empty NLS array causes the runtime to fall through to the per-call fallback string every `localize(id, fallback, ...)` callsite already passes.",
-			"SHA": "57d46b488683302c04bef581c1f855775e63cf0a"
 		}
 	],
-	"TimeStamp": 1783352985170
+	"TimeStamp": 1783521105922
 }

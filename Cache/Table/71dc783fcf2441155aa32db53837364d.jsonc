@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T04:22:12Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				102,
+				1
+			],
+			"Message": "feat(Project): Add terminal output buffering for late-listener replay\n\nMulti-component synchronization addressing the PTY reader vs SkyBridge listener race condition:\n\n1. Mountain: Add per-terminal output buffering - `AppendTerminalOutput()` captures PTY bytes into a 64KB bounded buffer (keeps most recent suffix to preserve the prompt), `DrainTerminalOutputBuffer()` retrieves buffered data, `RemoveTerminalOutputBuffer()` cleans up on exit. Extend `sky:replay-events` to emit `sky://terminal/create` for each active terminal AND replay any buffered `sky://terminal/data` bytes.\n\n2. Sky: Extend replay-events log with terminal visibility - Add `terminals?: number` and `terminalDataBytes?: number` to the type definition and include them in the log summary alongside tree-views, SCM providers, and commands. This provides visibility into terminal sessions active during early boot.\n\nThe race: In bundled-electron profile, the shell's first prompt fires ~50ms after `spawn_command` while Sky's bundle still parses for ~1500ms. Without buffering, zsh MOTD, direnv exports, fish greetings are silently dropped.\n\nImpact: Terminal output is now preserved and replayed for late listeners, completing the replay system for all three major feature areas: tree-views, SCM providers, and terminals.",
+			"SHA": "93269905429d9f3e84d6640f85d2bd7290acd572"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-29T04:02:06Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "fix(Mountain): Accept numeric handles in FileWatcher and improve 404 detection\n\nSynchronize Mountain submodule with two bug fixes:\n\n1. **FileWatcher.rs**: Handle both numeric and string handle types in `RegisterWatcher` and `UnregisterWatcher`. The newer `NextProviderHandle()` returns a number while older callers pass strings. Previously, numeric handles were silently converted to empty strings causing failures.\n\n2. **MountainVinegRPCService.rs**: Extend 404-like error detection to include `FileSystem.ReadDirectory` and additional error message patterns (\"no such file or directory\", \"entity not found\", \"os error 2\"). Return distinct error code `-32004` for benign 404s so Cocoon's shim can classify them without regex string parsing, while `-32000` remains the catch-all for genuine failures.\n\nImpact: File watcher registration now works correctly regardless of handle type. Directory listing 404s are properly distinguished from genuine errors, improving error handling accuracy in Cocoon.",
 			"SHA": "0d6755b26af812f8135b6a51610c3738e357e026"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:05:18Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				102,
-				5
-			],
-			"Message": "chore(Land): Refactor env var handling with allow-list and fix errexit bug\n\nMulti-component synchronization and build system improvements:\n\n1. **TierEnvironment**: Switch from regex sweep (`^LAND_*`) to explicit allow-list of PascalCase keys (Pick, Require, Ship, Lodge, Extend, Probe, Skip, Mute, Wire, Install, Authorize, Beam, Report, Throttle, Buffer, Batch, Cap, Replay, Ask, Brand). This prevents unrelated OS/dev environment variables from polluting the diagnostic block. Also fix errexit bug by replacing `&&`-chain with `if [ -n ... ]; then ... fi` form - the `printenv` command exits non-zero for unset variables, which trips `set -e` when captured in command substitution.\n\n2. **turbo.json**: Remove `.env` files from globalDependencies since TierEnvironment.sh now handles env loading with explicit overlay sourcing.\n\n3. **Submodule sync**: Output adds RewritePerfBaselineWorker transform to fix timer service worker bootstrap crashes caused by Vite mangling `__name(...)` decoration in inlined Astro chunks.\n\n4. **Changelog**: Minor wording tweak (\"test suite\" → \"suite\").\n\nImpact: Build diagnostics now display only explicitly-allowlisted runtime variables, debug profiles no longer silently abort under errexit, and timer service worker boots correctly without reference errors.",
-			"SHA": "a72870e9e95eaae2ec835dac7e09af244a6b727a"
 		}
 	],
-	"TimeStamp": 1783352978419
+	"TimeStamp": 1783521102910
 }

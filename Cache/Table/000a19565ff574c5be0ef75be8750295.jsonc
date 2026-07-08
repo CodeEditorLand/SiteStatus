@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T23:05:38Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				28,
+				1
+			],
+			"Message": "refactor(Mountain): Wire search IPC handlers to trait implementations\n\nReplace naive inline fs-walk implementations in Search.rs with delegations to properly-implemented trait methods on MountainEnvironment:\n- `handle_search_find_in_files` → `SearchProvider::TextSearch` (grep-searcher + ignore::WalkBuilder with parallel walking)\n- `handle_search_find_files` → `WorkspaceProvider::FindFilesInWorkspace` (ignore-aware glob walker with .gitignore support)\n\nThe inline implementations had multiple deficiencies: naive `starts_with('.')` hidden-file skipping (doesn't honour .gitignore), no regex engine, bogus `format!(\"file://{}\")` URI constructor, and single-threaded walkers. The trait implementations were reachable only through `Environment.Require<dyn SearchProvider>()` calls and no IPC handler ever issued those.\n\nAlso change FileReaddirNative.rs log level from `vfs-verbose` to `vfs` since readdir fires at most once per folder expand (unlike stat which fires per probe) and is the primary observable for Explorer view diagnostics.\n\nImpact: File search and find-files now use proper ignore rules, parallel walking, and regex support instead of naive single-threaded implementations.",
+			"SHA": "2478d6ec0535cc41ce3e2a38eba71a7a941f0658"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-24T22:56:08Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "feat(Project): Implement workspaceContains activation and reduce stderr noise\n\nCross-cutting submodule sync across Mountain and Cocoon:\n\n1. Mountain: Fire workspaceContains and onStartupFinished extension activation\n   - Implement VS Code-style startup activation with three bursts: `*`, `workspaceContains:<pattern>`, and `onStartupFinished` (2s delay)\n   - Add FindMatchingWorkspaceContainsPatterns for glob matching against workspace folders (depth 3, 4096 entries max)\n   - Filter benign stderr noise (macOS codesign, Node.js deprecation warnings) to cocoon-stderr-verbose channel\n   - Upgrade Rust edition from 2021 to 2024\n\n2. Cocoon: Reduce stderr spam from extension handler errors\n   - Downgrade $provide*, $resolve*, $get* handler errors from console.error to console.warn\n   - Prevents extension code failures from flooding stderr with full stack traces\n\nImpact: Extensions gated on workspaceContains:package.json and onStartupFinished now activate correctly. Default stderr is cleaner while preserving actionable error visibility.",
 			"SHA": "1cfc2cc882f651b1876ff69fedeadc0a8a61b77d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:52:42Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				28,
-				3
-			],
-			"Message": "refactor(Project): Reduce logging noise across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
-			"SHA": "786efde99dc3922147183375645841751ecd3fc2"
 		}
 	],
-	"TimeStamp": 1783352976369
+	"TimeStamp": 1783521100400
 }

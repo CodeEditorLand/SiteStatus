@@ -3,6 +3,17 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T23:07:23Z",
+			"File": [
+				"⠇⠀⠀⠀⠀",
+				26,
+				2
+			],
+			"Message": "feat(Project): Add Tauri IPC diagnostic hooks and bridge retry logic\n\nIntroduce cross-layer safeguards for the Tauri IPC bridge between Mountain and Sky to prevent initialization race conditions and aid debugging.\n\n**Mountain (+1 commit, feat):** Inject a diagnostic script at `document_start` in `WindowBuild.rs` to populate `window.__MOUNTAIN_TAURI_DIAG`. This captures early IPC bridge state (`window.__TAURI_INTERNALS__`, `window.__TAURI__`) and lifecycle timestamps before application scripts execute, allowing DevTools verification of capability scoping and timing without full bundle loading.\n\n**Sky (+1 commit, feat):** Replace the synchronous check for `__TAURI__` globals in `Layout.astro` with a 5-second polling loop (`ResolveInvoke`, `WaitForInvoke`). This addresses race conditions where ES-module evaluation outpaces Wry's content-script injection, which previously caused silent drops of lifecycle phases (e.g., `lifecycle:advancePhase(3)`). The retry mechanism ensures the `lifecycle:Restored` phase is reached reliably, enabling immediate interaction with native features like Open Folder and dialogs.\n\nTogether these changes eliminate startup race conditions causing \"Sky did not advance to Restored\" errors and provide a dedicated diagnostic surface for early IPC failure detection.",
+			"SHA": "064bb9f856469dcec07902620189d0ef7ba960eb"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-19T23:02:19Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
@@ -44,18 +55,7 @@
 			],
 			"Message": "feat(Project): Synchronize Cocoon and Mountain submodules\n\nAdvance Cocoon and Mountain to their latest commits, wiring active editor tracking and caching OS property queries.\n\n**Cocoon (+1 commit):** Wire `window.didChangeActiveTextEditor` from Handler.ts into a minimal TextEditor stub derived from URI/languageId, patching `__activeTextEditor` on Context so extensions reading `vscode.window.activeTextEditor` synchronously in `activate()` see the current value. Upgrade `showTextDocument` from a fire-and-forget notification to a `sendRequest` round-trip returning the TextEditor stub from Mountain, with a disposable fallback to prevent crashes when `await`ing and chaining `.selection` or `.revealRange`. Migrate ExtensionSecretStorage from `sendNotification` to `sendRequest` with namespaced methods (`secrets.get`, `secrets.store`, `secrets.delete`) and scoped `extensionId` isolation.\n\n**Mountain (+1 commit):** Cache OS property collection (type, release, arch, CPU topology) and Rosetta 2 detection behind `OnceLock` to eliminate ~10 ms subprocess overhead per IPC call. After document open, call `SetActiveDocumentURI` on application state and fire a fire-and-forget gRPC `window.didChangeActiveTextEditor` notification to keep Cocoon's shim in sync. Refactor `localPty:getTerminalLayoutInfo`/`setTerminalLayoutInfo` to use `GetStorageValue`/`UpdateStorageValue` on StorageProvider, removing manual JSON serialization.\n\nTogether these changes eliminate three extension-host crash categories (synchronous reads of undefined `activeTextEditor`, awaited `showTextDocument` returning undefined, and unhandled secret storage notification rejections) while reducing IPC latency for OS queries and keeping terminal layout persistence simpler.",
 			"SHA": "504dc46bc62f73b572c19cfe712435e193eba139"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:47:00Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				26,
-				4
-			],
-			"Message": "chore(Project): Synchronize Cocoon, Mountain, Output, and Sky submodules\n\nAdvance four Element submodules to their latest states, incorporating dependency updates, terminal state persistence logic, and build script formatting fixes.\n\n**Cocoon (+2 commits):** Update `@types/node` to 25.9.1 and `protobufjs` to 8.4.0 via Dependabot to align type definitions and protocol buffer runtime with upstream releases.\n\n**Mountain (+1 commit):** Implement terminal layout persistence by wiring `localPty:getTerminalLayoutInfo` and `localPty:setTerminalLayoutInfo` to the `StorageProvider`. This enables the restoration of active terminal tabs and dimensions after window reloads. Additionally, cache the native color scheme detection result in a `OnceLock` to eliminate repeated OS syscalls during boot and focus events.\n\n**Output (+1 commit):** Normalize indentation in `Run.sh` and `prepublishOnly.sh` case statements, replacing mixed tabs/spaces with consistent 0-tab labels and 1-tab branch bodies to adhere to project whitespace standards.\n\n**Sky (+2 commits):** Bump `@astrojs/ts-plugin` to 1.10.9 and `astro` to 6.3.5 via Dependabot to ensure toolchain compatibility.\n\nThese updates restore terminal state across reloads, improve startup performance, and maintain dependency alignment.",
-			"SHA": "a433ff6521a0ce8adb66d86c7a42e518cf1efd4c"
 		}
 	],
-	"TimeStamp": 1783352961669
+	"TimeStamp": 1783521074315
 }
