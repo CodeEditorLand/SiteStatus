@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:54:35Z",
+			"Date": "2026-06-12T23:40:44Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1861,
-				1
+				1877,
+				10
 			],
-			"Message": "feat(Mountain): Add TierShim env-var for deep-hook intercept layer\n\nIntroduce a new `TierShim` compile-time environment variable to build.rs that enables an experimental deep-hook intercept layer for VS Code service instantiation. The tier defines five progressive levels compiled out via `#[cfg]` gates:\n\n- `None` — zero overhead, all shim code omitted (default)\n- `Proxy` — audit-only observation of existing paths\n- `Replace` — individual service shim replacement\n- `Own` — Land owns the InstantiationService container\n- `Preempt` — Land controls BrowserMain.open()\n\nAdd the default emission in EmitTierDefaults and wire validation into IsDefaultTierValue. No behavioral change at default `None`.",
-			"SHA": "885383348767e1ef23c19da1124877eadf237a49"
+			"Message": "refactor(Mountain): Extract Keybinding, Label, and Themes routers from monolithic dispatch\n\nReplace the inline match arms for `keybinding:*`, `label:*`, and `themes:*` commands in `DispatchMatch.rs` with dedicated router modules, following the established pattern already used by `HistoryRouter`. Each new module (`Keybinding/Router.rs`, `Label/LabelRouter.rs`, `Themes/Router.rs`) owns its command-to-handler mapping, routes through the existing UI/Navigation atoms, and returns `Option<Result<Value, String>>` for safe fallthrough.\n\nAlso relay four `tests.*` notification channels through `RelayToSky` in the gRPC service dispatcher, forwarding test lifecycle events (controller_created, run_started, run_ended, result) to the Sky webview via the `sky://tests/*` URI scheme.\n\nThe monolithic `DispatchMatch.rs` match block shrinks by ~50 lines and each command namespace now lives alongside its own module declaration in `mod.rs`, making future additions self-contained without touching the central dispatch chain.",
+			"SHA": "f2eedba61768946d226f4440756c218af722cd04"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:41:29Z",
+			"Date": "2026-06-12T23:17:40Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1861,
-				1
+				1867,
+				17
 			],
-			"Message": "feat(Mountain): Fire onFileSystem activation on register_file_system_provider\n\nExtract `register_file_system_provider` from the catch-all handler group and give it a dedicated match arm that fires `$activateByEvent(\"onFileSystem:{scheme}\")` when an extension registers a virtual file-system provider. The scheme is read from the `scheme` key in the parameters object.\n\nThis ensures extensions declaring `\"activationEvents\": [\"onFileSystem:xyz\"]` in their manifest are activated on registration, matching VS Code's behaviour. The provider is still forwarded through `RegisterLanguageProvider` for handle tracking, and a warning is logged when the provider falls outside the known language-feature map.",
-			"SHA": "9f2f1783e8d68a4825ed628969e4297d12606d05"
+			"Message": "feat(Mountain): Add NativeBus for direct Rust handling of swallowed IPC methods\n\nIntroduce Source/Shim/NativeBus.rs — a dispatch layer that handles IPC methods intercepted by SwallowMap natively in Rust, bypassing the Cocoon gRPC round-trip entirely. Covers file I/O (`tokio::fs`), terminal PTY, search, dialogs, status bar, and telemetry discard.\n\nWiring changes: DispatchMatch.rs now calls NativeBus::handle for Mountain-targeted methods instead of returning a bare Null ack, and the Shim module entry point registers NativeBus as a public submodule. Scattered formatting cleanup across InvokeProvider, Gate, SwallowMap, and several IPC handlers strips single-line wrapping from straightforward method bodies to match project PascalCase conventions.\n\nThe NativeBus table documents the routed prefix-to-handler mapping, with unimplemented search and dialog handlers returning stub ack responses for future native integration.",
+			"SHA": "d1bbaa5a4aee20b182143bfd59060f9b463afbe4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:23:48Z",
+			"Date": "2026-06-12T22:34:52Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1861,
+				1866,
 				1
 			],
-			"Message": "style(Mountain): Fix indentation of diagnostic:getBootMarks match arm in DispatchMatch\n\nThe `diagnostic:getBootMarks` handler and its preceding doc comment were indented one tab level deeper than the surrounding match arms in `mountain_ipc_invoke`, creating an inconsistent brace depth relative to the other cases.\n\nDedent the arm and comment block by one level to align with the enclosing match statement's formatting. No behavioral change.",
-			"SHA": "9262422ce1ef71be84be4d5edeafe56025bdba8e"
+			"Message": "docs(Mountain): Document Shim tiers and architecture in Arch.md\n\nAdd a new Shim Compatibility section to Documentation/GitHub/Architecture.md covering both tiers of the deep-shim interception system:\n\n- **Low-Level Shim** (🟠, TierShim=Own|Preempt): Engine prototype hooks for Error, Emitter, Cancel, Dispose, Async, Timing interception.\n- **Coverage Shim** (🔵, TierShim=Proxy|Replace): Service-level routing for IPC SwallowMap, DI proxy, and AuditLog.\n\nAlso links to the Shim documentation and notes the Source/Shim/ Rust module location. This completes the documentation coverage for the interception layer introduced across the last five commits on the Current branch.",
+			"SHA": "e4e3956cf47b55f13c8e072726535c21e3ca7160"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:23:24Z",
+			"Date": "2026-06-12T22:26:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1861,
-				12
+				1866,
+				6
 			],
-			"Message": "feat(Mountain): Add language provider cancellation, decoration lazy-registration, and window event bridging\n\nImplement a cancellation system for language provider requests: store `watch::Sender<bool>` in the new `LanguageProviderCancellations` DashMap, keyed by renderer-supplied `requestId`, so that `language:cancelRequest` flips the sender locally instead of forwarding to Cocoon. Wire cancellation through `InvokeProvider` and `InvokeProviderMethod` by passing the cancellations map into `ForwardCancellable`.\n\nAdd lazy-decoration-type registration to `SetTextEditorDecorations`: when `decorationTypeKey` isn't in `KnownTypeKeys`, auto-forward a synthetic `createTextEditorDecorationType` to Sky so Monaco has styling registered before `setDecorationsByType` executes. Track known keys via `IsTypeKeyKnown` / `RegisterTypeKey` on `DecorationsState`.\n\nEmit `sky://window/maximize-changed` on maximize/unmaximize handlers and bridge `nativeHost:onDidChangeMaximizeState` from Cocoon to Sky. Emit `sky://storage/changed` on storage IPC handlers and `sky://webview/ready` on `WebviewReady` gRPC notification for reactive workbench consumers.\n\nSplit file-system IPC into its own `TierFileSystem` env var so `file:*` commands don't route to Cocoon (which has no disk provider). Replace the blocking 3-second `WaitForClientConnection` in `forward_to_cocoon` with a non-blocking `IsClientConnected` check, returning Null fallback when Cocoon is disconnected.\n\nForward `CommandNotFound` errors from Mountain's command registry to Cocoon's extension host via `proxy_cocoon` for both `executeCommand` and `commands:execute` paths, so palette-invoked extension commands that never reached Mountain's registry still execute.\n\nAdd `$acceptModelSaved` notification on `textFile:save` so `onDidSaveTextDocument` fires for extensions. Query real dirty URIs from `WorkingCopy::GetAllDirty` in `workspaces:getDirtyWorkspaces` instead of returning an empty array. Add empty-store short-circuit in `StorageGet` to skip trait dispatch on first boot. Raise gRPC connect initial delay from 50ms to 200ms matching real Cocoon bind times.\n\nLog unroutable `register_*` provider notifications on the gRPC service and return `false` instead of silently dropping them. Include `viewType` in `WebviewReady` log output.",
-			"SHA": "d1c2117a977bec02903d935702d30d37f4b0376b"
+			"Message": "feat(Mountain): Wire Shim interception into both IPC dispatch paths\n\nInsert the Shim layer at two entry points so swallowed methods are\nintercepted before reaching any domain handler:\n\n- **DispatchMatch.rs** — Shim pre-check in `mountain_ipc_invoke` reads\n  `Gate::is_enabled()` and `SwallowMap::should_swallow()` to decide\n  whether to return a Null ack (Mountain/None targets) or passthrough.\n\n- **CreateEffectForRequest/Shim.rs** — New domain module that gets first\n  crack at every gRPC method via `Try!(Shim)` in the dispatch chain,\n  placed before all other domain handlers. Returns a Null-ack effect for\n  swallowed methods or `None` to fall through.\n\nAlso clean up the remaining AI-internal annotations from the initial\nShim implementation: remove the 🟠🔵 color/tier table and the\n`.hermes/microsoft/` doc reference from `Shim/mod.rs`, drop \"Land\"\nqualifier from `SwallowMap.rs`, and deduplicate the repeated subsystem\nfeature declarations in `Cargo.toml`.\n\nThe interception layer is fully gated behind `TierShim` (default: `None`)\nand compiles to zero overhead via dead-code elimination.",
+			"SHA": "8e7ff15b9ef23c3c0a63203a1086dc97e0300645"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:37:48Z",
+			"Date": "2026-06-12T22:26:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1861,
-				1
+				1865,
+				2
 			],
-			"Message": "feat(Mountain): Route nativeHost picker to correct dialog type via options\n\nRead `canSelectFiles` and `canSelectFolders` from the options object passed by VS Code extensions in the `nativeHost:pickFolderAndOpen` handler, then route to `blocking_pick_folder` or `blocking_pick_file` accordingly. Previously the handler always opened a folder picker regardless of the caller's declared selection constraints.\n\nWhen neither flag is set (e.g. `canSelectFiles: false, canSelectFolders: false`) the handler returns early as cancelled, matching Electron's behaviour. Adds dev_log output for the resolved picker type.",
-			"SHA": "042dd2ddc3e825e506478afbe872243d772e8cab"
+			"Message": "style(Mountain): Strip AI-internal annotations and reorganize Cargo features\n\nRemove emoji markers (🟠🔵) and the .hermes/microsoft/ doc reference path\nfrom the Shim module comment, keeping only the functional description of the\ngated interception layer. Relocate inline Shim tier explanatory comments from\nthe default features list in Cargo.toml.\n\nReorganize feature flags into logical groups — tier flags, subsystem\nfeatures, and the Shim gate — for better maintainability alongside the\nexisting declarations per project policy on source cleanliness.",
+			"SHA": "0b9e8f0ca5e36019d5a812f965861eb01b7d668e"
 		}
 	],
-	"TimeStamp": 1783521059977
+	"TimeStamp": 1783610766185
 }

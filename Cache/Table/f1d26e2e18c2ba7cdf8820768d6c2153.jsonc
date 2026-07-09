@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T09:07:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				3
-			],
-			"Message": "fix(Mountain): Supplement cache-hit extension scan with user paths\n\nWhen the extension scan cache hits, the pre-baked extension map is returned immediately—but it only covers bundled paths (Mountain/Resources/extensions, Sky/Static/Application/extensions, VS Code Dependency extensions). User-writable paths like `~/.fiddee/extensions` and `~/.land/extensions` are never baked, so every VSIX-installed extension was invisible after a cache hit: `extensions:scanUserExtensions` returned 0 and the `@installed` view stayed empty.\n\nAdd a supplementary live-scan phase on cache hits that re-uses `Registry.GetExtensionScanPaths()` filtered through `Scanner::IsUserExtensionScanPath` so the classifier and the scan set stay coherent. Found entries overwrite cache entries with the same identifier—matching stock VS Code semantics where an installed VSIX shadows a built-in of the same ID.\n\nAlso make `IsUserExtensionScanPath` `pub(crate)` and add the legacy `~/.land/extensions` path to its classifier so extensions found at the path `ScanPathConfigure` registers (T3) are tagged as user-scope rather than built-in, fixing the sidebar classification mismatch.\n\nFinally, add the missing `TierCommandEventBroadcast` entry to `Info.plist` that was introduced in the tier-variable build.rs change but not recorded in the plist.",
-			"SHA": "02553de5f8cb49b60be80a8931ae356564abd157"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-26T08:11:08Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				4
-			],
-			"Message": "feat(Mountain): Add tier-gated command broadcast and IPC notification relays\n\nAdd three missing IPC notification handlers in WindServiceHandlers and an opt-in dual-emit mechanism for command execution events from the extension host.\n\n`localPty:setInteracted` forwards terminal interaction state (OSC 633 B) as `$acceptTerminalStateChanged`, enabling `onDidChangeTerminalState` subscribers in Node-resident extensions. `sky:editor:diffInformationChanged` relays Monaco diff metadata as `$acceptTextEditorDiffInformationChanged`. `sky:editor:viewColumnChanged` forwards editor group movement as `$acceptTextEditorViewColumnChanged`, completing the notification surface for `onDidChangeTextEditorDiffInformation` and `onDidChangeTextEditorViewColumn`.\n\nIntroduce `TierCommandEventBroadcast` (default `Off`) in build.rs. When set to `On`, Mountain dual-emits `$acceptCommandExecuted` over Vine after gRPC `Command.Execute` from Cocoon, ensuring `vscode.commands.onDidExecuteCommand` fires even for commands not locally registered in the extension host. The tier variable is surfaced in LandFixTier runtime diagnostics.",
-			"SHA": "a51086049e21a27597657cfe97db6b996922f356"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:15:51Z",
+			"Date": "2026-05-26T17:57:31Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1746,
 				2
 			],
-			"Message": "fix(Mountain): Relay terminal shell execution events to Cocoon extension host\n\nAdd two new IPC notification handlers in WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, bridging terminal shell execution events from Sky to the Node.js extension host.\n\n`$acceptTerminalShellExecutionStart` fans to Cocoon so `vscode.window.onDidStartTerminalShellExecution` fires for extension subscribers. `$acceptTerminalShellExecutionEnd` fans two Vine notifications: `$acceptTerminalShellExecutionEnd` (for `onDidEndTerminalShellExecution`) and a derived `$acceptExecutedTerminalCommand` so `vscode.window.onDidExecuteTerminalCommand` subscribers observe the executed command without an additional Sky-side detection pass.\n\nAlso inline a multi-line closure chain in `CreateEffectForRequest/Diagnostics.rs` to a single-line filter_map for consistency with surrounding code style.",
-			"SHA": "275e31a312378afe6b7deb7a8e7f6f579e52b42c"
+			"Message": "fix(Mountain): Realign SCM DTO import path and enable native window capabilities\n\nFix the `SourceControlManagementResourceDTO` import in `UpdateScmGroup` to use the reorganized `DTO` submodule path under `CommonLibrary::SourceControlManagement`, correcting the module resolution after Common's struct rehoming.\n\nAdd window management capability permissions (`start-dragging`, `toggle-maximize`, `maximize`, `unmaximize`, `minimize`, `close`, `internal-toggle-maximize`) to `capabilities/default.json`, enabling the Sky UI to drive native window chrome operations — dragging the titlebar, maximizing/minimizing/closing — through Tauri's IPC permission layer.\n\nWithout these capabilities, the editor's custom titlebar was non-interactive and the workbench window could not be controlled programmatically from the frontend.",
+			"SHA": "4a6097c8945fea0e487dc49487de53a47983988f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T22:08:42Z",
+			"Date": "2026-05-26T17:23:27Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				6
+			],
+			"Message": "fix(Mountain): Replay SCM resource groups and persist snapshots for late subscribers\n\nCocoon fires `register_scm_resource_group` before SkyBridge's listener is attached (Tauri events are not buffered), so the workbench booted with the SCM provider header visible but zero groups — and even when `update_scm_group` arrived, the resource tree stayed empty because the event was consumed without persisting the snapshot for boot-time replay.\n\n- **UpdateScmGroup**: Persist each incoming `ResourceStates` array into MarkerState as `SourceControlManagementResourceDTO` entries keyed by `(ProviderHandle, GroupId)`, so the replay loop can re-emit the latest snapshot.\n- **ReplayEvents**: Add two new replay legs — group registration (`sky://scm/registerGroup`) and resource update (`sky://scm/updateGroup`) — reconstructing the same `GroupHandle = \"{ProviderHandle}/{GroupId}\"` that the live wire path produces, resolved through the provider identifier map (defaulting to \"git\").\n- **LoggingPlugin**: Cap `tauri::manager` and `tauri::manager::asset` to Warn, `tauri::webview` and `wry` to Info, to suppress the flood of expected 404 fallback probes for sourcemap/module URLs that WebKit auto-fetches with the wrong base under `tauri://localhost`.\n- **LocalPTYGetProfiles**: Rename `Arguments` → `args` (lowercase) to match VS Code's `ITerminalProfile.args` — the uppercase key silently mis-parsed and the profile picker fell back to `$SHELL`.\n- **SCM Effect**: Accept `git.openChange` / `git.openFile` as diff-forwarding aliases alongside `vscode.diff` / `$scm:openDiff`; these are the actual command IDs the built-in vscode.git extension uses on resource state entries.\n- **build.rs**: Normalize array formatting in `PropagatePostHogSentinel`.\n\nThe SCM panel now populates with groups and working-tree state at boot, and terminal profiles render with their configured arguments.",
+			"SHA": "2db7957cc5af3113a94be7ee360e1f2cb34cb769"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T17:22:53Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				7
+			],
+			"Message": "refactor(Mountain): Rename OTLP env vars and tighten default trace categories\n\nRename the baked compile-time environment variables `OTLPEndpoint` to `Pipe` and `OTLPEnabled` to `Emit` across build.rs, PostHogPlugin constants, runtime hydration, Cocoon process environment propagation, and OTLP span emitter docs. The shorter names reduce line noise in the env map and align with the single-word naming convention of sibling keys (`Capture`, `Beam`, `Brand`, `Report`).\n\nNarrow the `Trace` sentinel value in Info.plist from the catch-all `\"all\"` to an explicit comma-delimited list of active trace categories, ensuring debug log output only covers relevant subsystems instead of flooding stderr with every DevLog call.\n\nAlso fix a stale doc comment reference in CaptureAllowed.rs that mentioned `OTLPEnabled` instead of the current `Emit` toggle name.",
+			"SHA": "b1ff14804289a99599bd3c0aab3c552e49564057"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T14:51:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				1
+			],
+			"Message": "Merge pull request #60 from CodeEditorLand/dependabot/github_actions/ad-m/github-push-action-1.3.0\n\nchore(deps): Bump ad-m/github-push-action from 1.1.0 to 1.3.0",
+			"SHA": "2add8ef9dc6ce3535b0359c1e99417c0de6a04c6"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T14:02:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1746,
 				4
 			],
-			"Message": "fix(Mountain): Forward editor state change notifications to Cocoon extension host\n\nAdd five missing Vine notification relays so VS Code API subscribers inside the Node.js extension host observe changes Mountain already delivers to the renderer:\n\n- **ThemesSet.rs**: Fan `$acceptActiveColorTheme` on theme switch, computing the workbench theme kind (Light/Dark/HighContrast) from the theme id. Without this, `vscode.window.onDidChangeActiveColorTheme` never fires for Node-resident extensions (GitLens, Roo Code, rust-analyzer).\n\n- **WindServiceHandlers/mod.rs**: Relay four Sky-detected editor state changes as Cocoon notifications: `$acceptVisibleEditorsChanged` (`onDidChangeVisibleTextEditors`), `$acceptTabsChanged` (`onDidChangeTabs`/`onDidChangeTabGroups`), `$acceptVisibleRangesChanged` (`onDidChangeTextEditorVisibleRanges`), and `$acceptTextEditorOptionsChanged` (`onDidChangeTextEditorOptions`). Each forwards the Sky-provided payload directly.\n\n- **Diagnostics.rs**: After every `SetDiagnostics`/`ClearDiagnostics` call, fan `$acceptDiagnosticsChanged` back to Cocoon with the owner and affected URIs so `vscode.languages.onDidChangeDiagnostics` subscribers in peer extensions observe the change. For clears, emit an empty URI list — consumers should re-query `getDiagnostics(uri)`.\n\n- **DebugLifecycle.rs**: For `debug.addBreakpoints`/`debug.removeBreakpoints` only, fan `$onDidChangeBreakpoints` with added/removed/changed arrays so `vscode.debug.onDidChangeBreakpoints` fires in all extensions, not just the one that made the mutation.\n\nCompletes the Mountain-to-Cocoon notification pipeline for theme, editor, diagnostics, and debug breakpoint surfaces that were previously renderer-only.",
-			"SHA": "dd925de41e8f4558f960cb99f6d1a78674eba4e7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:53:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				2
-			],
-			"Message": "fix(Mountain): Relay executed command notifications to Cocoon extension host\n\nDual-emit `$acceptCommandExecuted` over Vine when a command is invoked via `sky://command/execute`, so that `vscode.commands.onDidExecuteCommand` callbacks fire inside extensions running in the Node.js extension host. The existing Tauri-emit only reaches the renderer (Sky); Cocoon has no Tauri runtime to subscribe to those events.\n\nCocoon's `Services/Handler/Notification/Handler.ts` maps `$acceptCommandExecuted` to an internal emitter that the `Commands/Namespace.ts` `onDidExecuteCommand` subscriber listens to. The Vine notification is fire-and-forget — failure is non-fatal since the renderer-side observers have already been notified via the Tauri event.\n\nAlso add the `tauri::Emitter` trait import in `CreateEffectForRequest/Commands.rs` to satisfy the compiler for the Tauri event emit.",
-			"SHA": "eeb3d39b739ebe9019b39f18ad4415ad9ad0fcb2"
+			"Message": "refactor(Mountain): Simplify binary, library, and product name to Mountain\n\nRevert the binary, library, package, and product name from the verbose encoded build configuration string back to the simple canonical name \"Mountain\". The previous encoding embedded the full DevelopmentNodeEnvironment_MicrosoftVSCodeDependency_22NodeVersion_Bundle_Clean_Debug_ElectronProfile_EsbuildCompiler string into artifact names, causing developer friction during local tooling integration and debugging.\n\nAlso tidy up tauri.conf.json by normalizing array formatting, reordering resource entries for consistency, adding the missing shell-integration/zsh.zsh resource, and restoring the identifier to fiddee.editor.binary. Remove the stale .Backup files left behind when the encoding was introduced.",
+			"SHA": "3e26a02371e60ff23f0017843e4209fb76d47807"
 		}
 	],
-	"TimeStamp": 1783521093767
+	"TimeStamp": 1783610780738
 }

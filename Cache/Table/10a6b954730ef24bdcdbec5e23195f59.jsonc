@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T01:23:46Z",
+			"Date": "2026-04-30T23:34:25Z",
 			"File": [
-				"⡇⠀⠀⠀⠀",
-				294,
-				28
+				"⠁⠀⠀⠀⠀",
+				365,
+				7
 			],
-			"Message": "feat(Output): Add Network/ChromiumIPC excludes, WKWebView lazy-paint fixes\n\nAdd three ESBuild exclude lists to strip dead code from the bundle:\n- Network.ts excludes external endpoints (update service, marketplace,\n  telemetry appenders, Live Share, experiments, surveys)\n- ChromiumIPC.ts excludes Electron IPC/MessagePort/sandbox modules that\n  never run in our non-Electron environment\n- Telemetry.ts was already present but commented out; now enabled\n\nAdd four new workbench transforms to fix WKWebView rendering issues:\n- InjectDisableLazyPaint: Replace requestAnimationFrame with coalesced\n  setTimeout(0) queue, stub IntersectionObserver to fire-on-observe,\n  strip content-visibility/contain:paint from CSS\n- InjectWorkbenchInteractivityCSS: Force pointer-events:auto, visibility,\n  opacity on workbench parts, zero transition durations\n- InjectWorkbenchPaintPrime: Force compositor layout commit via\n  offsetHeight reads on each workbench part\n- InjectTelemetryConsentOff: Pre-bake telemetry.telemetryLevel=off into\n  workbench bootstrap so even straggler consumers take disabled branches\n\nAlso fix InjectEditorGPULayerCSS and InjectTerminalGPULayerCSS: scope\ncontain:paint to canvas only, not row containers (view-lines, xterm-viewport)\nto prevent glyph clipping from paint boundaries in WKWebView. Adds\nimage-rendering hints for nearest-neighbor rasterization.\n\nBundle size impact: ~25 KB net reduction from Network/ChromiumIPC excludes.\nRuntime impact: Zero network pings, panels render immediately on show.",
-			"SHA": "13d8a561c773f0b047f323594af80a5b06565258"
+			"Message": "feat(Output): Add RewriteWebviewShellCSP transform and fix icon URL rewriting\n\nAdd a new transform plugin that loosens the webview shell's CSP script-src from a stale sha256 hash to `'unsafe-inline' 'self' blob:`. Stock VS Code pins the hash; WKWebView computes it differently from Chromium, and any transform that touches the inline script body silently invalidates it. This matches Land's single-user desktop threat model and lets every extension webview boot.\n\nAlso fix RewriteIconsStyleSheetURLs to handle a third URL scheme that leaks through under Tauri/WKWebView: plain `file:///` URLs. Stock VS Code's FileAccess.uriToBrowserUri only converts file→vscode-file when process.versions.node exists, but the shim isn't always installed before iconsStyleSheet.getCSS() runs. The @font-face rule then fetches a 0-byte mixed-scheme response and codicons render as missing-glyph boxes. Add a third replace: `file:///...` → `<origin>/Extension/...`.\n\nBump marker version to _V2 so prior builds get re-patched rather than skipped. Update regex patterns to handle trailing replace chains from previous transform versions.",
+			"SHA": "8a3e8d281a0c6815422cea9dd2278e24923ff677"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T22:36:27Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				276,
-				2
-			],
-			"Message": "fix(Output): Fix GPU layer CSS clipping glyph rows in WKWebView\n\nBoth InjectEditorGPULayerCSS and InjectTerminalGPULayerCSS transforms incorrectly applied `contain: paint` to row containers (view-lines, lines-content, xterm-viewport, xterm-screen). Under macOS WKWebView, this creates a paint boundary at the layer edge; combined with `translateZ(0)` and subpixel row offsets, glyph pixels near the boundary get clipped — users see characters sliced in half.\n\nThe fix scopes GPU promotion (will-change, translateZ(0), backface-visibility) to host elements and canvas only, while restricting `contain: paint` to self-contained pixel grids (canvas elements) that don't have descendant content crossing the boundary. Also adds image-rendering hints (pixelated, crisp-edges) to force nearest-neighbor rasterization so subpixel row edges don't blend across the layer boundary.\n\nThis resolves the reported rendering glitches where editor and terminal text appeared sliced or half-clipped.",
-			"SHA": "24f95fc8e387142666faa67ed464a52020940817"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T22:17:52Z",
+			"Date": "2026-04-30T20:27:12Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
-				276,
-				12
+				363,
+				19
+			],
+			"Message": "feat(Output): Add macOS titlebar offset and z-index CSS transforms\n\nAdd two new Output transforms that inject runtime CSS to fix WKWebView visual issues:\n\n- InjectMacTitlebarOffsetCSS: Reserve ~80px on the left of the workbench titlebar so the in-window menubar (`File / Edit / View / ...`) and command-center quick-pick stop overlapping with macOS traffic lights. Targets `.monoco-workbench.mac` only via the standard marker pattern.\n\n- InjectPartZIndexCSS: Establish explicit z-index hierarchy for every workbench part (`isolation: isolate` + numeric z-indexes) so a sibling that accidentally creates a stacking context (transform, opacity) can't hide the activity bar, sidebar, panel resize handle, status bar badges, or command-center dropdown.\n\nAlso expand StripWebviewIframeSandbox to patch BOTH the outer iframe creation site (`webviewElement.js`'s `element.sandbox.add(...)`) AND the pending-frame-swap site (`pre/index.html`'s `setAttribute('sandbox', ...)`). The earlier single-file patch wasn't sufficient - the outer iframe remained sandboxed and blocked all webview loads with the \"custom protocol from sandboxed iframe\" error.\n\nAdd RewriteWebviewShellCSP: loosen the webview shell's CSP script-src from a stale sha256 hash (WKWebView normalizes CR/LF differently) to `'unsafe-inline' 'self' blob:`. Matches Land's single-user desktop threat model; every extension webview now boots.",
+			"SHA": "0d47460778c1a546313b88539815d6ebde3bb03e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T18:59:27Z",
+			"File": [
+				"⣿⣿⡟⠀⠀",
+				350,
+				189
 			],
 			"Message": "",
-			"SHA": "087dbf0bcee05c59dcd736eb09ed0c23d52faa60"
+			"SHA": "fc91741983660b9ae401dd22f9fbfa1fa3a1301f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T18:50:01Z",
+			"Date": "2026-04-30T05:00:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				270,
-				2
-			],
-			"Message": "fix(Output): Correct ViewContainersRegistry registry ID in ViewRegistrySnapshot\n\nThe ViewRegistrySnapshot diagnostic function was reporting containers=0\nbecause it used a guessed registry ID 'workbench.view.containersRegistry'\nwhich returned null from Registry.as(). The correct stock VS Code registry\nID (documented in vs/workbench/common/views.ts:35) is\n'workbench.registry.view.containers'. This fixes SkyBridge's diagnostic\nprobe so it now correctly reports the actual container and view counts\nfor extension manifests (Roo, Claude, gitlens, ...) reaching the workbench.",
-			"SHA": "1f47ba960742d3e508694b6d695fb5174466af89"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T18:37:59Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				270,
+				255,
 				1
 			],
-			"Message": "",
-			"SHA": "8990969b75a5f51a932dca0721304cf14a075ac9"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
+			"SHA": "151dce184be08ba55c2f5dc406c5ff914a82ea70"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T04:54:25Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				255,
+				15
+			],
+			"Message": "feat(Output): Expand workbench service exposure and add config/storage overlays\n\nAdd 21 new service handles to ExposeWorkbenchAccessor for Wind consumption:\nConfiguration, Storage, Lifecycle, Theme, WorkbenchTheme, Keybinding,\nNotification, File, Dialog, FileDialog, Clipboard, ContextKey, Host,\nExtension, Workspace, Product, Progress, Editor, EditorGroups, TextFile,\nActivity, Title, PaneComposite, ViewDescriptor, Layout.\n\nAdd two new transforms enabling Wind to inject runtime overrides without\ndisk persistence:\n- InjectConfigurationOverlay: consults `globalThis.__CEL_OVERRIDE_CONFIG__`\n  before upstream's default→user→workspace→folder chain in\n  IConfigurationService.getValue(). Bag is opt-in; unset preserves\n  upstream behavior.\n- InjectStorageOverlay: consults `globalThis.__CEL_OVERRIDE_STORAGE__` on\n  every AbstractStorageService.{get,getBoolean,getNumber,getObject} call.\n  Composite key `<scope>:<key>` disambiguates across\n  APPLICATION/PROFILE/WORKSPACE scopes.\n\nOther changes:\n- RewriteWorkerURLs: generalize pattern from specific file paths to\n  `*WorkerMain.ts` / `*Iframe.html` glob so future worker types are\n  covered automatically. Also handle `.ts`→`.js` suffix mapping.\n- StaticToDynamicImport: skip rewrite when `Pack` env var is set (bundled\n  profiles), since Vite needs static imports to walk the graph for CSS\n  extraction and tree-shaking.\n- ESBuild: add `.css` to copy-loader to avoid esbuild's default CSS\n  parser silently dropping modern syntax (@property, container queries).",
+			"SHA": "b20d23f9eed8c644fca5b50dc734a87d1fb03f53"
 		}
 	],
-	"TimeStamp": 1783521100247
+	"TimeStamp": 1783610783316
 }

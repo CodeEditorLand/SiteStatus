@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-24T15:40:56Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				81,
+				2
+			],
+			"Message": "test(Maintain): Expand Eliminate tests for casts, derefs, and Mountain patterns\n\nExtend `tests/Eliminate.rs` with Batch-2 coverage to validate complex inlining scenarios identified during core backend optimization. The new tests verify:\n\n1. **Expression Handling**: Correct parenthesization of cast expressions in binary operations, dereferencing of `OnceLock` results into `json!` macros, and negated boolean guards.\n2. **Control Flow**: Inlining into match scrutinees, discriminants, and `if let` guards, including block expressions that manage mutex guards.\n3. **Async & Closures**: Collapsing single-use bindings inside async blocks and closure bodies (e.g., `.map()` iterators) where variables feed directly into struct literals.\n4. **Mountain Patterns**: Real-world reproductions from `Mountain` including exit code casting, clipboard text passing, terminal revival chains, and stat metadata extraction.\n5. **Safety Constraints**: Ensuring multi-use variables (e.g., range bounds, borrow aliases in `json!`) and pre-clone bindings for move closures are preserved.\n\nThese additions ensure the transformer safely handles the dense expression chains common in the Rust backend while respecting scope and lifetime constraints.",
+			"SHA": "154dbdfb2d3994b6cabd2f2590e95712e7d93689"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-24T09:13:05Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "test(Maintain): Add integration tests for format literal scanning and Mountain patterns\n\nExpand `tests/Eliminate.rs` to cover critical edge cases identified during the implementation of implicit format capture detection. The new tests validate:\n\n1. **Format Literal Scanning**: Cases where variables are used only inside `format!(\"{Var}\")` or mixed explicit/implicit usage, ensuring the `CountReferences` visitor correctly identifies these as multi-use to prevent incorrect inlining.\n2. **Complex Inlining Chains**: Scenarios involving three-level binding chains (`A→B→C`), match expressions with early returns, and borrows of inline temporary expressions.\n3. **Real-World Mountain Patterns**: Specific reproductions of code found in `Mountain` (Key derivation, `TerminalProvider` JSON payloads, `ProvideHover` URI handling, and `Decrypt` match-block inlining) to guarantee the transformer handles actual backend logic safely.\n4. **Idempotency**: Verification that re-running the transformer on already-minimized code produces no further changes.\n\nThese additions solidify confidence in the `Eliminate` module's correctness before applying it to the core Rust backend.",
+			"SHA": "614b9e88eb0198feb73614f827faba1d4dfb8349"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-24T09:09:49Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				81,
+				2
+			],
+			"Message": "fix(Maintain): Correctly count Rust 1.58+ implicit format captures\n\nThe `Eliminate` module previously failed to detect variable usage inside Rust 1.58+ implicit format captures (e.g., `format!(\"{Var}\")`). Since `syn` treats macro token streams as opaque, the reference counter missed these occurrences, leading the transformer to incorrectly inline single-use bindings that were actually used inside format strings.\n\nImplement `CountIdentInFormatLiteral` to recursively scan `TokenTree::Literal` strings for `{Target}` patterns, handling format specifiers (`{Var:.2}`), debug flags (`{Var!r}`), and escaped braces (`{{Var}}`). This ensures mixed explicit/implicit usage (e.g., `println!(\"{}\", X); println!(\"{X}\")`) is correctly counted as multi-use.\n\nUpdate `tests/Eliminate.rs` with comprehensive integration tests covering implicit captures, chain inlining with format macros, and real-world patterns from the Mountain backend (Key derivation, DTO construction, decrypt flows).",
+			"SHA": "cdb0c9750f8385e3f46e828390ae57be951176c9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-24T07:54:34Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				81,
+				13
+			],
+			"Message": "style(Maintain): Enforce compact struct initialization and formatting\n\nApply consistent compact formatting across the `Eliminate` module by removing unnecessary whitespace in struct literals and function signatures. Specifically, update `Cli`, `Options`, `Stats`, `Candidate`, and internal visitor structs (`ExprCounter`, `Substitutor`, etc.) to use compact initialization syntax (e.g., `Field:Value` instead of `Field: Value`).\n\nAdditionally, refactor `Collect.rs` to correctly handle `Pat::Type` patterns, allowing the elimination logic to process let-bindings with explicit type annotations (e.g., `let X: i32 = 5;`). Update `Count.rs` and `Inline.rs` to explicitly handle `Stmt::Macro` via `visit_stmt_macro` and `visit_stmt_macro_mut`, ensuring macro invocations appearing as statements (not just expressions) are correctly scanned for identifier references and substitutions. Refine closure capture detection logic to only flag `InClosure` when the target identifier is actually referenced within the closure body, preventing false positives where a variable appears in the same scope but outside the closure.\n\nThese changes improve code consistency and ensure robust handling of typed bindings and statement-level macros in the Rust AST transformation pipeline.",
+			"SHA": "c278a8cccd7ceb422776d18b6ce91963918ae0a4"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-24T07:11:48Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "feat(Maintain): Handle macro token streams in Eliminate counting and substitution\n\nPreviously, the Eliminate module treated macro invocations (e.g. `json!(…)`, `dev_log!(…)`, `format!(…)`) as opaque — syn's AST visitor does not recurse into `Macro::tokens`. This caused two correctness bugs:\n  1. A variable used only inside a macro was counted as zero references and never inlined.\n  2. A variable used in both a macro and a plain expression was counted as single-use, leading to an incorrect inline that would drop the macro reference.\n\nFix both by implementing recursive token-tree scanning in `CountReferences` and `SubstituteRef` using `proc_macro2`. The `CountIdentsInTokenStream` function walks `TokenTree::Group` delimiters and matches `Ident` tokens, while `SubstituteInTokenStream` replaces the first matching identifier token with the replacement's token stream.\n\nAdd corresponding `VisitMut` handlers (`visit_expr_macro`, `visit_expr_macro_mut`) to both `ExprCounter` and `Substitutor` so that the pipeline correctly processes macro arguments.\n\nDependency changes: add `proc-macro2 = \"1\"` and `quote` to `Cargo.toml` for token-stream manipulation.\n\nTest additions:\n- `Inline.rs`: test cases for `InlineIntoJsonMacro`, `MacroAndExprMultiUseKept`, `MacroDoubleUseKept`.\n- `Count.rs`: test cases for `MacroAndExprBothCounted`, `MacroOnlyUse`, `MacroDoubleUse`.\n- `tests/Eliminate.rs`: 12 real-world Mountain pattern tests (e.g. `MountainDataStringIntoJsonMacro`, `MountainUriDoubleUseKept`, `MountainParametersIntoSendRequest`) that validate correct behaviour on actual Cocoon service code.\n\nThis fix ensures that the Eliminate module correctly handles the common Rust pattern of constructing values inside `json!` and similar macros, making it safe to apply to the Mountain codebase.",
 			"SHA": "e524c6a20d73b2cef59b4367cb24353fc5649a83"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T07:05:53Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				81,
-				15
-			],
-			"Message": "feat(Maintain): Add Eliminate module to inline single-use Rust let bindings\n\nIntroduce a new `Eliminate` module under the Maintain component that analyses Rust source files and inlines `let` bindings used exactly once, are non-mutated, and are not captured by closures. This mirrors the TypeScript Eliminate project but targets Rust ASTs via `syn` and `prettyplease`.\n\nThe module provides:\n- `Source/Eliminate/mod.rs` — Module root with documentation and re-exports.\n- `Source/Eliminate/CLI.rs` — Clap-based command-line interface for batch processing (with dry-run, verbose, and glob options).\n- `Source/Eliminate/Constant.rs` — Default glob pattern, max iterations, and initialiser size limit.\n- `Source/Eliminate/Definition.rs` — `Options` and `Stats` data structures.\n- `Source/Eliminate/Error.rs` — Custom error type wrapping IO, parse, and glob errors.\n- `Source/Eliminate/Fn.rs` — Top-level entry point that parses CLI arguments and runs the pipeline.\n- `Source/Eliminate/Logger.rs` — Initialises `env_logger` with a coloured format.\n- `Source/Eliminate/Process.rs` — File discovery (walkdir + globset) and orchestration of the transform per file.\n- `Source/Eliminate/Transform/` — Core AST transformation pipeline:\n    - `Collect.rs` — Scans blocks for structurally eligible `let` bindings.\n    - `Count.rs` — Counts references in subsequent statements (with shadow and closure detection).\n    - `Inline.rs` — `VisitMut` implementation that iteratively eliminates single-use bindings and wraps compound replacements in parentheses when needed.\n    - `Safe.rs` — Safety predicate: rejects `unsafe { … }` and oversized initialisers.\n    - `mod.rs` — Pipeline entry point: parse → iterate elimination → pretty-print.\n\nThe module is integrated into `Library.rs` via a new `pub mod Eliminate` and a branch in `main()` for the `eliminate` subcommand. Integration tests in `tests/Eliminate.rs` cover 25+ scenarios: simple inlining, chained bindings, shadowing, closure capture, safety constraints, and idempotency.\n\nThis addition improves codebase conciseness by removing unnecessary intermediate variables while respecting safety, size thresholds, and semantic correctness.",
-			"SHA": "6bdf13a8984a6e4cb25b88af566e77375f3feb50"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T06:26:04Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				65,
-				1
-			],
-			"Message": "Merge commit 'd0ebea2c0de3be797fbdf7daa66398bf6c80f197' into Current",
-			"SHA": "e34a948340e48a1419f23e9d486df6b6dc727eb8"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-24T02:27:40Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				65,
-				1
-			],
-			"Message": "",
-			"SHA": "d0ebea2c0de3be797fbdf7daa66398bf6c80f197"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T04:26:34Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				65,
-				1
-			],
-			"Message": "style(Maintain): Suppress lints in build script\n\nAdd `#![allow(...)]` directives to `build.rs` to silence `non_snake_case`, `non_camel_case_types`, `non_upper_case_globals`, `dead_code`, and unused variable/import warnings.\n\nThis aligns the build script's lint suppression strategy with the main crate in `Library.rs`, consolidating crate-level allowances and preventing a noisy build output from generated or placeholder code within the build process.",
-			"SHA": "934e9db306fc5938a8f9075cb6748d39786e2b05"
 		}
 	],
-	"TimeStamp": 1783521070096
+	"TimeStamp": 1783610770954
 }

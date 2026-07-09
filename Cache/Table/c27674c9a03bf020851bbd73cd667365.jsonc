@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:36:56Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1551,
-				28
-			],
-			"Message": "feat(Mountain): Implement comprehensive WindService IPC handlers for Cocoon, ExtensionHost, and Native bridges\n\nExpanded the IPC dispatch layer to bridge the Rust backend (Mountain) with the Renderer (Wind/Sky) and Extension Host (Cocoon). This commit introduces a suite of new handlers to support VS Code's core workbench requirements, ensuring feature parity with Electron-based architectures.\n\nKey additions include:\n- **Cocoon Bridge**: Implemented `cocoon:request` (RPC), `cocoon:notify` (fire-and-forget), and `cocoon:extensionHostMessage` to relay binary protocol data. Includes boot-race guards to handle latency during startup.\n- **ExtensionHost Lifecycle**: Added `extensionHostStarter:*` and `extensionhostdebugservice:*` handlers. Crucially, `start` now returns the actual Cocoon PID instead of the Mountain process ID, enabling debuggers to attach to the correct Node.js runtime.\n- **NativeHost Features**: Implemented cross-platform clipboard access (`arboard`), environment path resolution (with session-timestamped logs), `moveItemToTrash` (using osascript/gio/powershell), security-hardened `openExternal` (allowlisting schemes), and modal dialogs (`showMessageBox`, `showSaveDialog`).\n- **Terminal Resilience**: Added `localPty:attachToProcess` and `detachFromProcess` to support window reloads without losing active shell sessions. Includes `resize` protection against race conditions and `freePortKillProcess` for port binding conflicts.\n- **State Replay**: Introduced `sky:replay-events` to recover buffered tree-view, SCM, command, and terminal data emitted before the SkyBridge listeners were fully initialized, preventing UI elements from appearing empty on cold boot.\n- **Dynamic Dispatch**: Enhanced the `mountain_ipc_invoke` dispatcher to defer unknown commands to the Cocoon Node.js runtime (via gRPC) when `TierIPC=NodeDeferred` is set, covering language features, SCM, debug, and authentication namespaces.\n\nThese changes collectively resolve boot-time initialization races, enable full terminal lifecycle management, and provide the necessary native capabilities for a robust code editing experience.",
-			"SHA": "69f0bb7bceacea46817ccd097aa254567b4dc5e3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:42:07Z",
+			"Date": "2026-05-20T01:07:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1522,
-				6
-			],
-			"Message": "feat(Mountain): Wire Mountain IPC commands into Tauri 2 ACL system\n\nMountain's native Tauri commands (e.g., `MountainProvideHover`, `MountainWorkspaceOpenFolder`, `DnsResolve`) were being rejected at runtime with \"Plugin not found\" errors because Tauri 2 requires explicit permission entries for all `#[tauri::command]` definitions.\n\nIntroduce `permissions/default.toml` to define the custom permission identifier `allow-mountain-commands`. This file aggregates the complete allow-list for every Mountain IPC handler defined in `Source/Binary/Main/Entry.rs`.\n\nUpdate `capabilities/default.json` to reference this new `default` permission set alongside existing `fs`, `log`, and core plugin permissions. Regenerate the ACL manifests and JSON schemas (`gen/schemas/`) to reflect the new permission identifiers.\n\nThis ensures the webview can invoke Mountain's native methods without failing the security check, completing the IPC bridge required for Wind/Sky to communicate with the Rust backend.",
-			"SHA": "bff5321e154a82323fa9e65a9e0aaa3ff6c0358b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:06:40Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1520,
+				1568,
 				1
 			],
-			"Message": "feat(Mountain): Inject Tauri IPC diagnostic script for early failure detection\n\nIntroduce a diagnostic initialization script in WindowBuild.rs that executes at document_start, prior to any application scripts. This script captures the state of Tauri's IPC bridge and global objects (window.__TAURI_INTERNALS__, window.__TAURI__, window.ipc) immediately upon injection.\n\nThe script populates a global window.__MOUNTAIN_TAURI_DIAG object with timestamps and boolean flags indicating the presence and functionality of core IPC methods. It also records lifecycle events (DOMContentLoaded, load) to help pinpoint timing-related race conditions.\n\nThis addition enables developers to verify the integrity of the Tauri runtime and capability scoping directly from the DevTools console if the editor fails to initialize, without relying on the full bundle loading or downstream error handling.",
-			"SHA": "b5d79001860a7305fbe97f13f69ce906bdded054"
+			"Message": "refactor(Mountain): Clarify logger command fallback handling\n\nUpdate the comment block for logger commands (`logger:log`, `logger:warn`, etc.) in `Source/IPC/WindServiceHandlers/mod.rs`. The inline acknowledgment explicitly states that these high-frequency calls are now primarily managed by the `IS_HIGH_FREQUENCY` fast-path short-circuit established in recent commits.\n\nThe fallback arms in the `mountain_ipc_invoke` dispatcher are described as a safety net to ensure `Mountain.dev_log` receives output if the high-frequency detection logic changes or fails. This aligns the documentation with the current architectural optimization for the IPC dispatch layer.",
+			"SHA": "db5faf8431473f060005b186245adfebef81bd7d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:00:22Z",
+			"Date": "2026-05-20T01:06:12Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1520,
+				1568,
+				1
+			],
+			"Message": "refactor(Mountain): Remove redundant menubar update handler logic\n\nThe inline `menubar:updateMenubar` handler, which implemented a per-100-call logging counter and returned `Null`, is removed. These high-frequency calls are now processed exclusively in the `IsHighFrequencyCommand` fast-path block established previously.\n\nThis cleanup eliminates the dead code fallback in `Source/IPC/WindServiceHandlers/mod.rs`, ensuring the IPC dispatch layer relies on the optimized path for menubar updates while maintaining a minimal fallback for command routing integrity.",
+			"SHA": "8fd7bc239ad2beac6260602e1d1a12261f11e188"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T01:05:01Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1568,
+				1
+			],
+			"Message": "refactor(Mountain): Remove stub acknowledgments for workspace folder events\n\nThe `workspaces:onDidChangeWorkspaceFolders` and `workspaces:onDidChangeWorkspaceName` commands previously returned a `Null` value as a stub acknowledgment to simulate a Tauri event listener handshake on the IPC binary rail.\n\nThese explicit handlers are removed as the actual workspace change notifications are now broadcast directly via Tauri events without requiring a corresponding `ack` response on the gRPC/Vine protocol rail. This cleanup eliminates dead code paths and streamlines the `mountain_ipc_invoke` dispatch logic in `Source/IPC/WindServiceHandlers/mod.rs`.\n\nThe workspace state change propagation remains intact through the existing event emission mechanism, ensuring the Wind UI layer still receives updates without unnecessary binary rail overhead.",
+			"SHA": "893b99ac4810581ca194db97cdbef1ff40bd3e08"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T00:48:43Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1568,
 				5
 			],
-			"Message": "",
-			"SHA": "21065aa39c3c860d98d46791dc5ab3a3019fb968"
+			"Message": "feat(Mountain): Add glob pattern normalization and text edit utilities\n\nIntroduce two new utility modules under `Source/Environment/Utility` to support workspace scanning and document manipulation. `GlobPattern.rs` normalizes VS Code glob patterns from various serialized shapes (bare strings, `RelativePattern` objects, legacy `value` fields) into a unified string and extracts optional base directories for bounded file walks. `TextEdit.rs` provides pure side-effect-free helpers for computing UTF-16 line offsets and converting `(line, character)` positions to byte offsets, adhering to VS Code's `Range`/`Position` semantics. It also includes a self-contained percent-decoder for `file://` URIs.\n\nThese utilities are exported in `mod.rs` to be consumed by the `FindFiles` workspace provider and language service layers. Additionally, the build system is updated in `build.rs` to recognize `TierIPC` as a runtime-only configuration variable, and the logging utility `LandFixTier.rs` is enhanced to emit this runtime tier value alongside the build-baked tiers.",
+			"SHA": "00a3ccf53ec931b07171c9e1217f006a6cbd4a86"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:40:56Z",
+			"Date": "2026-05-20T00:46:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1519,
-				16
+				1566,
+				3
 			],
-			"Message": "",
-			"SHA": "14a5ec8100c65cd46fa4a7393f614ee5ae7daa3d"
+			"Message": "feat(Mountain): Implement extension manifest NLS resolution and default config collection\n\nIntroduce two new modules in `Source/ExtensionManagement` to prepare extension manifests for runtime consumption. `NLSResolver.rs` handles the resolution of `%key%` placeholders found in VS Code `package.json` manifests by loading and parsing `package.nls.json` bundles, supporting both string and `{message, comment}` object formats. `DefaultConfigurations.rs` scans all scanned extensions to recursively merge `contributes.configuration.properties` into a single flat JSON object, utilizing dot-notation for nested keys and guarding against circular references.\n\nThese changes ensure that localized UI strings and default user settings are correctly extracted from extension definitions before they are processed by the extension host or applied to the settings engine. Both modules are exported in `mod.rs` to enable integration with the extension scanner and IPC handlers.",
+			"SHA": "df0df3f19cd2aa052a86a6ac4745b35845d1164a"
 		}
 	],
-	"TimeStamp": 1783352980509
+	"TimeStamp": 1783610788028
 }

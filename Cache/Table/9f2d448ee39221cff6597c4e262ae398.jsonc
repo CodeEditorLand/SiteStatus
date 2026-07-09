@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:22:38Z",
+			"Date": "2026-05-20T00:44:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1517,
+				1564,
 				1
 			],
-			"Message": "feat(Mountain): Wire workspace save/saveAs/saveAll through to Sky\n\nAdd three IPC handler arms to the Workspace dispatch table in CreateEffectForRequest so Cocoon's vscode.workspace.save() and related extension API calls reach the workbench textfile service running in Sky.\n\n- `Workspace.Save` — extracts the URI from parameter position 0 or the \"uri\" key, routes to `sky://workspace/save`, and returns the URI on success so the caller can confirm persistence.\n- `Workspace.SaveAs` — mirrors the Save path but dispatches to `sky://workspace/saveAs`; the Sky handler can later drive a standalone Save-As dialog.\n- `saveAll` / `Workspace.SaveAll` — accepts the legacy `saveAll` method name (used by gRPC/Client.ts) and routes to `sky://workspace/saveAll`, returning null on failure instead of crashing the workbench.\n\nAll three handlers degrade gracefully: if Sky does not respond, they log a warning and return the original URI (for Save/SaveAs) or null (for SaveAll), preventing extension host crashes on missing handlers.",
-			"SHA": "5afb710dc67ede34e2939e573ca97cf05f3e8590"
+			"Message": "refactor(Mountain): Modularize update service IPC handlers\n\nExtract inline update command logic from `mountain_ipc_invoke` into dedicated atomic handler functions (`UpdateGetInitialState`, `UpdateIsLatestVersion`, etc.) within the `WindServiceHandlers` module. This aligns the update service with the established modular architecture used for clipboard, trash, and dialog operations.\n\nThe new handlers return the initial idle state or no-ops as the update server implementation is not yet active. This reduces code duplication in the IPC dispatch layer and centralizes future update server integration points.\n\nThis completes the modularization of the update service path in preparation for Air daemon integration.",
+			"SHA": "349ea7ae99984d74c81645a0e10c6fe7eaf244a2"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:53:10Z",
+			"Date": "2026-05-20T00:43:34Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1517,
+				1564,
+				3
+			],
+			"Message": "refactor(Mountain): Modularize tree-view, event replay, and language provider registration\n\nExtract inline logic for `tree:getChildren`, `sky:replay-events`, and `register_*` notifications into dedicated atomic handlers and sub-modules. This completes the modularization of the Cocoon bridge notification path and IPC dispatch layer.\n\nKey changes include:\n- **Tree-View & Replay Handlers**: Delegate `tree:getChildren` and `sky:replay-events` to `TreeGetChildren` and `SkyReplayEvents` in `Source/IPC/WindServiceHandlers`. Removes ~270 lines of inline boot-race logic, terminal buffering, and SCM state replay, centralizing error handling and shape normalization.\n- **Language Provider Modularization**: Introduce `RegisterLanguageProvider` in `Source/Vine/Server/Notification`. Consolidates 46+ `register_*` / `register_*_provider` variants into a single dispatch function that normalizes snake/camel case, maps provider types, and registers DTOs.\n- **Notification Modularity**: Register the new `RegisterLanguageProvider` module in `Source/Vine/Server/Notification/mod.rs` to replace the previous inline `match` block in the gRPC service.\n\nThese changes align the notification and IPC layers with the established atomic handler pattern, reducing code duplication and improving maintainability for extension host integration.",
+			"SHA": "d52ad894537c4ef509649cf4f4aa0dbed7efd4f3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T00:42:13Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1563,
 				4
 			],
-			"Message": "perf(Mountain): Cache OS properties and Rosetta; track active document\n\nReduce redundant OS syscalls and system-info queries while keeping Cocoon's\nactiveTextEditor shim in sync when Wind opens a document.\n\n**Cached OS Properties (OSProperties.rs):**\nWrap sysinfo::System-based OS attribute collection (type, release, arch,\nCPU topology) behind a OnceLock, extracting the computation into a\ncompute_os_properties() helper. Spawning sw_vers/uname and refreshing CPU\ndata on every IPC call was wasting ~10 ms per invocation.\n\n**Cached Rosetta Detection (mod.rs):**\nMove the sysctl.proc_translated subprocess behind a OnceLock — a process\neither runs under Rosetta 2 or it does not for its entire lifetime.\n\n**Active Document Tracking (ModelOpen.rs):**\nAfter opening a document, call SetActiveDocumentURI on the application\nstate and fire a fire-and-forget gRPC notification\nwindow.didChangeActiveTextEditor to Cocoon so its\nvscode.window.activeTextEditor shim updates immediately.\n\n**Terminal Layout Persistence (mod.rs):**\nRefactor localPty:getTerminalLayoutInfo and\nlocalPty:setTerminalLayoutInfo to use\nGetStorageValue(true, ...)/UpdateStorageValue(true, ...) on\nStorageProvider, eliminating manual JSON serialization and improving\nerror resilience.\n\nImpact: Reduced IPC latency for OS queries, correct active editor state\nfor extensions, simpler terminal layout persistence code.",
-			"SHA": "2a0e335eb7bc17b03b24d928c97dfd124542cd12"
+			"Message": "refactor(Mountain): Modularize extension host notification handlers into dedicated atoms\n\nExtract inline notification dispatch logic from the main IPC handler into dedicated atomic functions and sub-modules under `Source/RPC/CocoonService/GenericNotification/`. This completes the modularization strategy for the Cocoon bridge, decoupling the request parsing layer from the business logic execution.\n\nKey changes include:\n- **SkyEmit Module**: Introduce `SkyEmit.rs` to handle all `sky://` Tauri event emissions from the extension host. Consolidates logic for webview messages, status bar updates, output channel management, progress indicators, and `openExternal` into specific handler functions (`HandleWebviewPostMessage`, `HandleOutputAppend`, etc.).\n- **Atomic IPC Dispatch**: Replace inline `match` blocks for `cocoon:request`, `cocoon:notify`, and `extensionHostStarter` commands in `WindServiceHandlers/mod.rs` with calls to their respective atomic functions (e.g., `CocoonRequest`, `CocoonNotify`).\n- **Extension Host Reliability**: Refactor `extensionHostStarter:start` to delegate PID retrieval and `extensionHostDebugReload` to emit Tauri events via atomic wrappers, ensuring consistent error handling and separation of concerns.\n- **Modular Architecture**: Register the new `GenericNotification` (including `SkyEmit`, `Commands`, `LanguageProviders`) and `GenericRequest` modules in `Source/RPC/CocoonService/mod.rs`.\n\nThis refactoring reduces code duplication in the IPC layer, improves maintainability by grouping related UI bridge logic, and aligns the notification path with the request path's atomic function pattern.",
+			"SHA": "f7b87f51d861d81a15f5777511aa46a4f5e10974"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:46:15Z",
+			"Date": "2026-05-20T00:40:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1517,
-				2
+				1561,
+				8
 			],
-			"Message": "feat(Mountain): Wire terminal layout persistence and cache color scheme detection\n\nComplete the terminal state restoration cycle and optimize startup performance by implementing missing IPC handlers and caching expensive OS queries.\n\n**Terminal Layout Persistence:**\nImplement `localPty:getTerminalLayoutInfo` and `localPty:setTerminalLayoutInfo` to bridge the workbench's terminal panel state. These handlers now delegate to the `StorageProvider` service to read/write the `terminal:layoutInfo` key, enabling the restoration of active tabs and dimensions after window reloads (replacing previous `Value::Null` no-ops).\n\n**Color Scheme Caching:**\nIntroduce a `OnceLock` cache for the `NativeGetColorScheme` result. The underlying `detect_dark_mode` function now executes only once per process lifetime, reducing the ~5–15 ms OS syscall overhead on subsequent calls during boot and window focus events. This aligns Mountain's behavior with stock VS Code's expectation that users restart the editor to apply system theme changes.\n\nImpact: Terminal layouts persist across reloads; cold-start performance improves for theme detection calls.",
-			"SHA": "123d5b073d0bdec64ccbae19fe9b245979ea5141"
+			"Message": "refactor(Mountain): Modularize Cocoon RPC handlers and IPC dispatch layer\n\nRefactor the Mountain IPC and RPC layers to extract inline logic into dedicated, composable modules. This aligns with the modular architecture established in recent commits and improves maintainability for the Cocoon bridge and native service handlers.\n\nKey changes include:\n- **WindService Refactoring**: Replace inline platform-specific implementations in `WindServiceHandlers/mod.rs` with atomic function calls (e.g., `NativeMoveItemToTrash`, `NativeReadClipboardText`). This consolidates OS-specific logic (macOS osascript, Linux gio, Windows PowerShell) into reusable handlers for clipboard, trash, and ARM64 translation checks.\n- **Cocoon RPC Modularity**: Split the generic request/notification dispatcher into semantic sub-modules under `Source/RPC/CocoonService`. Introduced `GenericRequest` modules for `Commands`, `FileSystem`, `Secrets`, and `WindowDialogs`, and `GenericNotification` for language provider registration.\n- **IPC Abstraction**: The new RPC handlers strictly follow the `(RequestId, Params, &Env)` signature, decoupling request parsing from business logic and enabling typed `GenericResponse` construction without referencing `CocoonServiceImpl` directly.\n- **UI Bridge Enhancements**: The `WindowDialogs` module now routes `showTextDocument`, `saveAll`, and `webview` operations via Tauri events (`sky://...`), completing the bridge between the Rust backend and the Sky frontend.\n\nThese changes reduce code duplication, clarify the separation of concerns between the native backend and the extension host, and prepare the codebase for further extension host integration.",
+			"SHA": "edd0bb6051ae22a8f12017d144a03a2bcab8253f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:44:44Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1517,
-				21
-			],
-			"Message": "refactor(Mountain): Extract shared notification relay/unregister helpers\n\nSixteen Cocoon-to-Mountain notification handler files contained nearly\nduplicated inline code — every output, progress, channel, and\nprovider-unregistration atom repeated the same three-step pattern\n(emit a Tauri sky:// event + dev_log, or extract a u32 handle +\nunregister + dev_log).\n\nCollapse all of them into two shared helpers under a new\n`Support/` submodule:\n\n- `RelayToSky` — calls `ApplicationHandle.emit(SkyEvent, Parameter)`\n  and optionally writes a dev-log line. Used by OutputAppend,\n  OutputClear, OutputCreate, OutputDispose, OutputShow,\n  OutputChannelClear, OutputChannelCreate, OutputChannelDispose,\n  OutputChannelShow, ProgressComplete, and ProgressUpdate — each now\n  a single delegation call.\n- `UnregisterByHandle` — reads a `handle` u64 from the parameter,\n  guards against zero, calls\n  `ProviderRegistration::UnregisterProvider`, and logs the provider\n  kind. Used by UnregisterAuthenticationProvider,\n  UnregisterDebugAdapter, UnregisterDebugConfigurationProvider,\n  UnregisterFileSystemProvider, UnregisterTaskProvider, and\n  UnregisterUriHandler.\n\n`UnregisterFileSystemProvider` and `UnregisterUriHandler` additionally\nlog their scheme field before delegating, preserving the traceability\ninformation that was unique to those atoms.\n\n21 files changed, 67 insertions, 231 deletions.\n\nNo behavioural changes — every handler produces the same Tauri\nsky:// event and the same dev-log output as before.",
-			"SHA": "3427a0c39e6129a8df9ff50b6b1015a70c4dd2e2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T21:41:36Z",
+			"Date": "2026-05-20T00:39:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1513,
-				13
+				1552,
+				4
 			],
-			"Message": "feat(Mountain): Terminal serialization/revival, fill IPC gaps\n\nComplete the terminal window-reload persistence cycle and close multiple VS Code Workbench IPC compatibility gaps:\n\n**Terminal state persistence (window reload):**\n- Add `SerializeTerminalState` — snapshot all active PTYs to `ISerializedTerminalState[]` with `shellLaunchConfig`, `processDetails`, and replay metadata, called by `localPty:serializeTerminalState` just before reload.\n- Add `ReviveTerminalProcesses` — respawn shells from the snapshot array, forwarding each entry to `TerminalCreate` and emitting `sky://terminal/create` for the xterm panel. Skips entries with an empty executable.\n- Wire `localPty:getRevivedPtyNewId` to `GetNextTerminalIdentifier()` (no longer a no-op) so the workbench pre-allocates collision-free IDs before revival.\n\n**Configuration/Theme IPC completeness:**\n- Alias `configuration:lookup` → `ConfigurationGet` — needed by `IConfigurationService.getValue(key)` in the Workbench singleton.\n- Implement `configuration:inspect` — returns `{value, default, user, workspace, workspaceFolder, memory}` with the current effective value in both `value` and `default`, null for all scope overrides (correct for Land where no user/workspace JSON overrides exist).\n- Alias `themes:getColorTheme` → `ThemesGetActive` — `IThemeService.getColorTheme()` Workbench channel method.\n- Extend `ThemesGetActive` response with numeric `ColorThemeKind` enum (`type`: 1-4) and `semanticHighlighting: false` so tokenization and colour-picker internals have the expected shape.\n\n**Dialog unwrapping for Wind consumption:**\n- `UserInterface.ShowOpenDialog` — unwrap `{canceled, filePaths}` envelope to bare `string[]` so Wind's `Array.isArray(result)` guard finds the paths.\n- `UserInterface.ShowSaveDialog` — unwrap `{canceled, filePath}` envelope to bare path string so Wind's `typeof result === \"string\"` guard succeeds.\n\n**Path format fix in sandbox config:**\n- Convert `appRoot`, `homeDir`, `tmpDir`, `userDataDir`, `backupPath` from `file://` URLs to plain OS filesystem paths. VS Code's `URI.file(path)` receives these via `AbstractNativeEnvironmentService` and double-encodes a `file://` string, producing broken `path.join` bases.\n\n**Provider registration for VS Code ≥1.87 APIs:**\n- Add `register_inline_completion_item_provider`, `register_inline_edit_provider`, `register_multi_document_highlight_provider`, `register_mapped_edits_provider`, `register_document_paste_edit_provider`, `register_document_drop_edit_provider` — each wires through `CreateProviderEffect` into the existing ProviderRegistration map so the Language Feature dispatch layer can proxy `$provideXxx` requests back to Cocoon.\n\n**Terminal show/hide via gRPC provider path:**\n- Wire `$terminal:show`/`$terminal:hide` and `Terminal.Show`/`Terminal.Hide` through `TerminalProvider` — Cocoon's window namespace shim calls these when extensions invoke `terminal.show(preserveFocus)` or `terminal.hide()`, and both call sites now share one implementation.\n\n**Debug configuration provider cleanup:**\n- Add gRPC notification `unregister_debug_configuration_provider` with `UnregisterDebugConfigurationProvider` handler — mirrors `UnregisterDebugAdapter` for the DebugConfiguration slot, invoked when an extension disposes a `vscode.debug.registerDebugConfigurationProvider` registration.\n\n**Stub-ack additions:**\n- Add `log:registerLogger`/`log:createLogger` alongside the existing `logger:*` stubs — VS Code 1.87+ calls both prefixes and was crashing on every boot with \"registered but no dispatch arm\".\n\n13 files changed, 479 insertions, 23 deletions.",
-			"SHA": "7d6b949d24c36559cb084154ef6c4be20b9a716e"
+			"Message": "feat(Mountain): Refactor IPC handlers and implement workspace glob matching\n\nRefactored the `mountain_ipc_invoke` dispatcher to delegate native operations to modular, reusable handlers and implemented a bounded workspace-contains glob matcher for VS Code extension activation.\n\nKey changes include:\n- **Handler Refactoring**: Extracted inlined logic for `nativeHost:showSaveDialog`, `UserInterface.ShowSaveDialog`, `nativeHost:showMessageBox`, `nativeHost:getEnvironmentPaths`, `localPty:resize`, and `localPty:freePortKillProcess` into dedicated functions (`NativeShowSaveDialog`, `UserInterfaceShowSaveDialog`, etc.) in `WindServiceHandlers/mod.rs`. This reduces code duplication, improves readability, and centralizes error handling.\n- **Clipboard Enhancements**: Added `NativeTriggerPaste` and `NativeReadImage` stubs to `NativeHost/Clipboard.rs`. These return safe fallbacks (`false` and empty array) to support the IPC contract while Tauri 2.x native implementations are finalized.\n- **Workspace Activation**: Introduced `WorkspaceContainsGlob` module to efficiently resolve `workspaceContains:<pattern>` activation events. The implementation supports literal paths, single-segment wildcards (`*`), and recursive wildcards (`**`) up to a depth of 3, with a safety cap of 4096 entries per root to ensure sub-100ms performance in large monorepos.\n\nThese changes align the IPC layer with the modular architecture established in recent commits and provide the necessary file-system introspection for correct extension lifecycle management.",
+			"SHA": "b37ff5594d3d5a121ee027062b90e8ca1c804fde"
 		}
 	],
-	"TimeStamp": 1783352981409
+	"TimeStamp": 1783610788354
 }

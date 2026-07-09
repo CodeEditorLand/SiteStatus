@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T04:01:14Z",
+			"Date": "2026-04-29T22:17:52Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				267,
-				5
+				"⠃⠀⠀⠀⠀",
+				276,
+				12
 			],
-			"Message": "fix(Output): Add user extension retry + short-circuit Promise probes\n\nTwo fixes to the Output build pipeline:\n\n1. ExtensionScannerIPC: Mirror retry logic on user extensions scan path\n   The system extensions path had retry on empty response but user\n   extensions did not. Without it, an empty initial user-extensions\n   response silently passes 0 extensions through to viewsExtensionPoint\n   and ExtensionsRegistry, leaving every user extension contribution\n   (gitlens, clangd, commands, configuration, languages) unregistered.\n   Also switch to exponential backoff (100, 200, 400, 800, 1500ms) from\n   fixed 1000ms delays - Mountain's scan usually completes in ~500ms.\n\n2. TauriMainProcessService: Short-circuit Promise protocol probes\n   When VS Code resolves a channel-returned thenable, the JS runtime\n   accesses .then, .catch, .finally, constructor, valueOf, toString,\n   toJSON, @@iterator, @@asyncIterator on the proxy to determine if it's\n   a Promise. Each access became a channel call with the property name,\n   surfacing as \"Unknown IPC command: localPty:then\" on every workbench\n   wake. Returning undefined synchronously matches stock VS Code's\n   IChannel behaviour for unknown methods - the runtime sees a non-\n   thenable and stops probing. Saves ~15-25ms of round-trip per probe\n   and removes the noisiest IPC error in the dev log.\n\nRefs a28351b7240a5a722ebef039f3370ac90240818c (system ext retry)",
-			"SHA": "2924f2ae8bb3b41fa32ae0fd965804a80d548dfa"
+			"Message": "",
+			"SHA": "087dbf0bcee05c59dcd736eb09ed0c23d52faa60"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T03:40:20Z",
+			"Date": "2026-04-29T18:50:01Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				267,
-				1
+				270,
+				2
 			],
-			"Message": "fix(Output): Add retry logic to user extension scan path\n\nThe system extension scan path had retry logic but user extension scan\ndid not. Without retry on the user path, an empty initial response\nsilently passes 0 user extensions through to viewsExtensionPoint and\nExtensionsRegistry, which means every user-extension contribution\n(gitlens panes, clangd views, commands, configuration, languages)\nstays unregistered for the rest of the session.\n\nAdd the same retry logic to `extensions:scanUserExtensions` as already\nexists for `extensions:scanSystemExtensions`. Also switch to exponential\nbackoff (100, 200, 400, 800, 1500ms) instead of fixed 1000ms delays,\nsince Mountain's scan usually completes in ~500ms and the longer delays\nwere just padding boot time.\n\nUser extensions now load properly at boot even if Mountain's async disk\nscan hasn't completed yet.",
-			"SHA": "a28351b7240a5a722ebef039f3370ac90240818c"
+			"Message": "fix(Output): Correct ViewContainersRegistry registry ID in ViewRegistrySnapshot\n\nThe ViewRegistrySnapshot diagnostic function was reporting containers=0\nbecause it used a guessed registry ID 'workbench.view.containersRegistry'\nwhich returned null from Registry.as(). The correct stock VS Code registry\nID (documented in vs/workbench/common/views.ts:35) is\n'workbench.registry.view.containers'. This fixes SkyBridge's diagnostic\nprobe so it now correctly reports the actual container and view counts\nfor extension manifests (Roo, Claude, gitlens, ...) reaching the workbench.",
+			"SHA": "1f47ba960742d3e508694b6d695fb5174466af89"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-04-29T03:39:30Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T18:37:59Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				267,
+				270,
 				1
 			],
 			"Message": "",
-			"SHA": "c7eef6cacab62664fa2fd8f62cd83b84fcfc397a"
+			"SHA": "8990969b75a5f51a932dca0721304cf14a075ac9"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:08:29Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				3
-			],
-			"Message": "fix(Output): Fix ExposeWorkbenchAccessor import markers and add service error isolation\n\nTwo fixes to the ExposeWorkbenchAccessor transform that were causing SkyBridge bridges to silently fail:\n\n1. Import marker quote style: The transform was using single-quote import markers that matched stock VS Code source, but esbuild/Land's Output bundler rewrites quotes to double quotes in the post-bundle file. The marker mismatch caused `Source.includes(ImportMarker)` to return false, silently no-opping the entire `__CEL_SERVICES__` patch. All SkyBridge hooks (search registration, SCM, status bar, tree views) were offline because `__CEL_SERVICES__` stayed undefined.\n\n2. Service error isolation: Each `invokeFunction` is now wrapped in its own try-IIFE. Previously, a single failed service lookup (interface decorator missing in this profile, service not yet registered) would throw out of the entire `__CEL_SERVICES__` object literal, leaving the whole facade undefined. Now each service degrades to `null` individually, preserving all other bridges.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNodeModulesPath + expose IMarkerService)",
-			"SHA": "f55a02821a2d7acad85060cf17796f62fda700d9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:03:39Z",
+			"Date": "2026-04-29T18:37:58Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				267,
-				8
+				270,
+				5
 			],
-			"Message": "feat(Output): Add RewritePerfBaselineWorker transform\n\nAdd a new build transform that fixes worker bootstrap crashes in the\nbundled editor's timer service. The transform replaces\n`timerService.js`'s `(function() { ... __name(fib, \"fib\"); ... }).toString()`\nperfBaseline worker source with a literal-string equivalent that omits\nthe cosmetic `__name(...)` decoration.\n\nSame OXC-mangling-truth fix as `RewriteNestedWorkerBootstrap`: when Vite\ninlines `timerService.js` into Sky's `_astro/partsSplash.*.js` chunk,\nthe chunk's `__name` helper gets mangled (e.g., `$4e`). The IIFE captured\nby `.toString()` carries the mangled `$4e` reference; the worker scope\nhas no `$4e` defined and crashes at module-eval with `ReferenceError:\nCan't find variable: $4e`. The literal-string replacement is\nmangler-immune.\n\nAlso update prepublishOnly.sh to gate debug profiles on `Debug=true`\ninstead of `NODE_ENV`. Tauri's `.env` file was silently overriding\nBuild.sh's `NODE_ENV=development` export, forcing `out-build` (mangled)\neven for debug builds that should pull from readable `out/`.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNestedWorkerBootstrap)",
-			"SHA": "14cc0d5941bd561c41c6d5ffd190256cc92eafb9"
+			"Message": "refactor(Output): Disable PatchTerminalGpuAcceleration, add ViewRegistrySnapshot\n\nTwo changes to the Output build pipeline:\n\n1. Remove PatchTerminalGpuAcceleration from BuildPipeline default order.\n   The transform fixed WebGL atlas font glitches (Menlo loading race) but\n   introduced a \"black shadow over text\" artifact from xterm's DOM-renderer\n   cursor/accessibility layer in WKWebView. Keeping the transform file on\n   disk for potential re-enablement after the input race fix lands.\n\n2. Add ViewRegistrySnapshot() to __CEL_SERVICES__ facade. This diagnostic\n   function queries the workbench's ViewContainersRegistry and ViewsRegistry\n   to return container/view counts + sample IDs. SkyBridge uses this to\n   verify extension manifests (Roo, Claude, gitlens) reached\n   viewsExtensionPoint's setHandler - the most common cause of silent\n   extension panel failures is contributions never flowing through\n   IExtensionService to the registry.",
+			"SHA": "325a4de7ad74ebc36c42725572c9f36d4d7b8c3f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T17:42:41Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				270,
+				6
+			],
+			"Message": "feat(Output): Add PatchTerminalGpuAcceleration transform for WKWebView terminal\n\nAdd a new transform plugin that patches the terminal configuration schema to default `terminal.integrated.gpuAcceleration` to `'off'` instead of stock VS Code's `'auto'`. Under WKWebView, xterm.js's WebGL renderer builds its texture atlas before the Menlo font resolves, causing wrong cell widths and rendering glitches (overlapping characters, double-width glyph gaps, halos around anti-aliased edges due to texImage2D premultiplication differences).\n\nThe transform is currently NOT wired into the BuildPipeline by default. It was disabled after enabling revealed a \"black shadow over text\" artifact from xterm's DOM-renderer cursor/accessibility layer in WKWebView. The transform exists on disk so it can be re-enabled if the original WebGL atlas font drift issue resurfaces after the deferred-create race fix lands.\n\nUsers can still opt into WebGL by setting `terminal.integrated.gpuAcceleration: \"on\"` in settings.json — the schema enum is unchanged.",
+			"SHA": "8d7a19d0e4241a66065c7e53257283843fae4c27"
 		}
 	],
-	"TimeStamp": 1783521102068
+	"TimeStamp": 1783610783989
 }

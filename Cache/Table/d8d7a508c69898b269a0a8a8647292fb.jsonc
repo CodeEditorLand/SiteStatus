@@ -3,6 +3,39 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T22:56:21Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				5214,
+				1
+			],
+			"Message": "feat(Project): Add DisableUnusedServices transform and sync dependencies across submodules\n\nCross-cutting Element submodule sync with functional improvements and dependency updates:\n\n1. Output: Add DisableUnusedServices ESBuild transform - Replaces upstream VS Code contribution barrels for features Land doesn't back (auto-update, issue reporter, MS account/sync, process explorer) with inert stubs. Removes broken UI surfaces and silences \"service not registered\" warnings, shortening boot time.\n\n2. Output: Fix ExtensionScannerIPC path matching - Now matches BOTH electron-browser AND browser variants of extensionsScannerService.js. Previously only matched electron-browser, but desktop.main.js loads the browser variant.\n\n3. Sky: Sync dependency updates - @xterm/xterm: 6.1.0-beta.202 → 6.1.0-beta.203, @astrojs/compiler-rs: 0.1.9 → 0.1.10, pozil/auto-assign-issue: 2.2.0 → 3.0.0\n\nImpact: Extension scanning now works correctly for desktop profile. Unused VS Code services are stubbed out, reducing boot noise and improving startup time.",
+			"SHA": "4c908a36d5a2b16ff9ab9e0e5dbc8c6964566d17"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T22:36:12Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				5214,
+				1
+			],
+			"Message": "refactor(Output): Replace runtime require() with static ES imports in workbench accessor\n\nRefactor the ExposeWorkbenchAccessor ESBuild transform to inject static ES import statements at the top of both web.main.js and desktop.main.js instead of using runtime require() calls. This eliminates AMD require() resolution that could fail in the WKWebView context.\n\nChanges include:\n- Anchor on stable import markers ('mark' from performance.js for web, 'localize' from nls.js for desktop)\n- Add IStatusbarService, ICommandService, CommandsRegistry, ISearchService, IViewsService, and Registry imports\n- Extract shared imports into SharedImportLines to avoid duplication\n- Add cel:services-ready DOM event dispatch on successful population\n- Add Mountain diagnostic logging for success/failure tracking\n- Add guard check for import marker to avoid matching unrelated files\n\nImpact: __CEL_SERVICES__ is now populated synchronously before the microtask queue drains, ensuring services are available for both web and Electron/Desktop profiles at runtime.",
+			"SHA": "96667ac6d621541665452df55118710d737719da"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T21:48:07Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				5214,
+				1
+			],
+			"Message": "feat(Project): Bridge VS Code binary IPC to Mountain backend\n\nCross-cutting submodule sync enabling real file explorer, search, settings, and storage persistence:\n\n1. Mountain: Add VS Code IPC command aliases in WindServiceHandlers to bridge binary IPC protocol to native Effect-TS layer. Configuration: `configuration:getValue`/`updateValue` → `configuration:get`/`update`. File system: `file:readFile` → `file:read`, `file:writeFile` → `file:write`, `file:rename` → `file:move`. Add stub handlers for `file:watch`/`file:unwatch` and `configuration:onDidChange` returning Null to prevent promise leaks.\n\n2. Output: Route VS Code binary IPC channels (25+ including localFilesystem, storage, configuration, search, terminal) to Mountain via MountainIPCInvoke instead of returning stub responses. Previously these channels returned FileNotFound, empty arrays, and empty objects.\n\n3. Cocoon: Enhance stderr filtering to suppress follow-up stack frames from extension errors.\n\nImpact: File explorer, search results, settings editor, and workspace storage now persist data to the real filesystem and backend instead of operating on in-memory stubs.",
+			"SHA": "846bf6296b9f994c5d60c3f5e1bced701332f8fb"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-24T21:25:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -22,40 +55,7 @@
 			],
 			"Message": "refactor(Project): Continue logging noise reduction across Mountain and Output\n\nSubmodule sync bringing continued log volume optimization:\n\n1. **Mountain (refactor):** Move high-frequency logging to verbose/opt-in tags. Command registration moves from `commands` → `commands-verbose` (~130/session), output channels from `grpc` → `output-verbose` (200+ appends), command registry from `grpc` → `command-register` (~100/session), provider registration to `grpc-verbose`/`provider-register`, extension scanning to `ext-scan-verbose` (203 candidates), and scheme assets to `scheme-assets`. All new tags added to SHORT_MODE_MUTED_TAGS.\n\n2. **Output (fix):** Suppress benign ENOENT errors in Tauri invoke logging. Extensions probe for optional workspace files (`.vscode/settings.json`, `.vscode/tasks.json`) that don't exist on fresh installs, each triggering log spam. Detect benign ENOENT patterns for `file:stat` and `file:readFile` and filter them.\n\n3. **Cocoon (sync):** Submodule update to latest commit.\n\nImpact: Default log volume reduced further while preserving error visibility and diagnostic capability.",
 			"SHA": "1271d7fded155a605359db1131df59c7eaf6be5f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:37:56Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				5214,
-				1
-			],
-			"Message": "feat(Project): Wire extension tree views and reduce Mountain log noise\n\nCross-cutting sync across four submodules:\n\n1. **Mountain (refactor):** Reduce high-frequency log noise in default mode by moving per-call firehose logs (vfs, grpc, storage, ipc operations) to verbose variants muted in `short` mode. Expand IPC skip list to include file:stat, file:readFile, file:readdir, file:writeFile, storage:getItems, storage:updateItems, configuration:lookup, configuration:inspect, themes:getColorTheme. Reduces default log volume from ~14k+ lines per session to ~500 while preserving error visibility.\n\n2. **Output (feat):** Expose IViewsService and TreeViewByViewId in workbench accessor ESBuild transform. Enables Sky to resolve ITreeView instances from ViewsRegistry by viewId, mirroring MainThreadTreeViews.getTreeView() in stock VS Code.\n\n3. **Sky (feat):** Wire extension tree views into workbench rendering pipeline. Attach data providers to tree views that call `tree:getChildren` via MountainIPCInvoke, converting Cocoon wire shape into workbench ITreeItem. Add retry logic (5 attempts, 150ms spacing) for async workbench init. Implement `cel:tree-view:refresh` and `cel:tree-view:dispose` handlers.\n\n4. **Cocoon (sync):** Submodule update.\n\nImpact: Extension-registered tree views (from extensions like GitLens, Debugger) now render in the workbench pane. Default logs are actionable rather than noisy.",
-			"SHA": "c26be973866e6bcb67c7da99093ef59e06ba2d0a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T20:35:03Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				5214,
-				1
-			],
-			"Message": "VS Code API Coverage Matrix\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "e9ca317693c51acb95c66c8df11556c35b625ab0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T17:08:49Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				5214,
-				1
-			],
-			"Message": "chore(Land): Sync Element submodule to e792634e04de\n\nUpdate Element from 991e3b3 to e792634e, pulling in upstream Cocoon extension host runtime improvements.\n\nThis sync brings the latest Cocoon submodule state (cb1a388) into the Land build, ensuring the extension host has access to recent runtime changes.",
-			"SHA": "83083f528b4c94eb04130b730863979183254a87"
 		}
 	],
-	"TimeStamp": 1783352981365
+	"TimeStamp": 1783610789691
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:59:03Z",
+			"Date": "2026-05-11T13:06:03Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "fix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with an early error return\n\nThe `$resolveCustomEditor` arm contained:\n\n    let resource_uri = Url::parse(resource_uri_str)\n        .unwrap_or_else(|_| Url::parse(\"file:///tmp/test.txt\").unwrap());\n\nThe `unwrap_or_else` silently swallowed a malformed or missing URI and\nsubstituted the hardcoded test path `file:///tmp/test.txt`. Two\nconsequences:\n\n  1. A caller that passes an empty or invalid URI (e.g., an extension\n     registering a custom editor for a virtual scheme that Mountain\n     does not yet translate) receives a resolved result for\n     `/tmp/test.txt` instead of an error. The provider's\n     `ResolveCustomEditor` then opens or creates that file, which:\n     - Leaks a sentinel file to the OS tmp directory on every\n       such call.\n     - Returns success to Cocoon, which treats the editor as\n       resolved. The extension's `openCustomDocument` never fires\n       for the real resource, and the editor panel stays empty.\n\n  2. The fallback URI makes the log completely undiagnosable: every\n     failed resolve shows `resource=file:///tmp/test.txt` regardless\n     of what the caller sent, masking the real resource path.\n\nFix: return an `Err` immediately when the URI is empty or fails to\nparse. The error string is deliberately plain (no `resource not\nfound` suffix) because a malformed URI is a caller contract violation,\nnot a benign 404 probe - it should surface at error level in the\n`grpc` log and NOT be swallowed by `LooksLike404`.",
-			"SHA": "8b3f1a90730370b689d1269d924f04f906624966"
+			"Message": "fix(SBAR): replace hardcoded identifier sentinels with real parameter extraction\n\n$statusBar:set now reads EntryIdentifier / ItemIdentifier / ExtensionIdentifier\nfrom the Parameters object (matching the shape the extension host sends).\nFalls back to empty string for ExtensionIdentifier (same as the RPC layer).\n\n$statusBar:dispose, $disposeStatusBarMessage, and $setStatusBarMessage now\nreturn Err when the required identifier parameter is absent instead of\nsubstituting the literal strings \"id\" / \"msg_id\", which caused every\ndispose call with a missing argument to silently target the wrong entry.",
+			"SHA": "3725d3920169612be44daed8b510141dacffa2b4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:57:08Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				1
-			],
-			"Message": "Merge pull request #46 from CodeEditorLand/fix/TVIEW-unreg-dispose-emit\n\nfix(TVIEW): wire tree.unregister + tree.dispose to provider; emit TreeViewDispose",
-			"SHA": "22734234c478e2281666ae644675fcab1aece7f7"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:54:41Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				1
-			],
-			"Message": "fix(TVIEW): wire tree.unregister + tree.dispose to provider + emit TreeViewDispose\n\n`tree.unregister` / `tree.dispose` were no-ops: the effect body\nlogged the handle but never called the provider and never emitted a\nSkyEvent. The consequence:\n\n  - Provider registry in `Sky/Source/TreeView/TreeViewService.ts`\n    kept the `_dataProvider` slot live after the extension called\n    `vscode.window.registerTreeDataProvider(...).dispose()`. A\n    subsequent re-registration from the same extension (reload,\n    update) produced a duplicate registration warning from Sky and\n    the new provider was ignored.\n\n  - `getChildren()` calls on a disposed tree continued to hit the\n    old provider pointer, producing stale results or panics if the\n    provider had been GC'd from the Cocoon side.\n\nFix: call `provider.UnregisterTreeDataProvider(view_id)`, emit\n`SkyEvent::TreeViewDispose` (parity with the register arm's\n`TreeViewCreate`), and log both outcomes under the same `tree-view`\nand `grpc` tags used by the register arm.",
-			"SHA": "90a62cdda4de6b6184a0e80498676c96d39f3f4d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:51:24Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				1
-			],
-			"Message": "fix(FSSRV): add empty-path guard + URI strip to Stat, ReadDirectory, ReadFile\n\nFileSystem.Stat and FileSystem.ReadDirectory had no empty-path guard,\nunlike FileSystem.ReadFile which already had one (added in the\n`LooksLike404` classifier batch). An extension passing an empty string\nto `vscode.workspace.fs.stat` or `readDirectory` (probe-on-activate\npattern) hit PathBuf::from(\"\") which:\n  - On Stat: reached the OS with an empty path and returned a\n    platform-dependent error string that did NOT match any of the eight\n    known \"not found\" patterns in MountainVinegRPCService, so the\n    LooksLike404 guard logged it at grpc/error and incremented the\n    circuit-breaker counter.\n  - On ReadDirectory: same failure path, plus PathSecurity could emit\n    \"path outside workspace\" which was previously only guarded on the\n    ReadFile arm.\n\nFix: mirror the ReadFile guard verbatim on both Stat and ReadDirectory.\nThe \"resource not found\" suffix in the error string is the canonical\nkey the LooksLike404 classifier matches on, so these errors now\ndowngrade to grpc-verbose and use code -32004 like ReadFile does.\n\nStripFileUriScheme is already called on the path_str in both arms;\nthis commit makes that call consistent - the strip was missing on\nReadDirectory before the empty-path branch was added, leaving\nfile:///absolute/path inputs reaching the OS with the scheme intact\nand 404-ing with a literal \"file:\" prefix in the error.",
-			"SHA": "701563143aa3d55befc5f0b1adc173057a1dc30c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T16:25:54Z",
+			"Date": "2026-05-11T13:03:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				2
 			],
-			"Message": "docs: expand //! headers in FileSystemProvider sub-modules",
-			"SHA": "3bd8a8e5afc64a9c7e8be094baf35b6e5246ec03"
+			"Message": "Merge pull request #50 from CodeEditorLand/fix/docsv-fralias-uri-guards\n\nfix(DOCSV+FRALIAS): replace /tmp sentinel fallback and add StripFileUriScheme to legacy aliases",
+			"SHA": "e1ae65a16f051e667641e41ffb89a71c9fa9dc75"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-11T13:00:49Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				2
+			],
+			"Message": "fix(DOCSV+FRALIAS): replace /tmp sentinel fallback and add StripFileUriScheme to legacy aliases\n\nDOCSV — Documents.rs:\n- Document.Save and Document.SaveAs previously fell back to\n  `file:///tmp/test.txt` when the incoming URI was empty or unparseable.\n  This caused SaveDocument/SaveDocumentAs to silently operate on the\n  wrong file. Both handlers now return Err(...) for an empty URI, and\n  use Url::parse(...).map_err(...) for an invalid one, matching the\n  pattern used in Debug.Start.\n\nFRALIAS — FileReadAlias.rs:\n- The legacy `openDocument`, `readFile`, and `stat` routes extracted the\n  path string and passed it directly to PathBuf::from without calling\n  StripFileUriScheme. Cocoon sends full `file:///` URIs through these\n  routes; without stripping, PathBuf roots at the literal scheme string\n  and every read 404s. Added StripFileUriScheme (imported from\n  FileSystem.rs's module — inlined here since it lives in a sibling\n  module) and applied it before PathBuf construction. Also added\n  empty-path guard matching the FileSystem.* contract.",
+			"SHA": "2ebd1eb38a2618ebaef48744f7558991ea1ec115"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-11T12:52:45Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
+			],
+			"Message": "Merge pull request #49 from CodeEditorLand/fix/CFGDP-config-arms-helper\n\nrefactor(CFGDP): unify config update arms behind shared helper",
+			"SHA": "d24022dc2d2823b810b7d6f25ecb96702ab71ac4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-11T12:50:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
+			],
+			"Message": "Merge pull request #48 from CodeEditorLand/fix/CFGUP-update-err-log-parity\n\nfix(CFGUP): add side-effect error logging parity to config.update",
+			"SHA": "73c7984ada0f05282d331d21e51174f89dbf6387"
 		}
 	],
-	"TimeStamp": 1783352994373
+	"TimeStamp": 1783610801074
 }
