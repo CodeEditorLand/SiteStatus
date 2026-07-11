@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-24T06:26:04Z",
+			"Date": "2026-05-25T05:41:53Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				65,
-				1
+				105,
+				3
 			],
-			"Message": "Merge commit 'd0ebea2c0de3be797fbdf7daa66398bf6c80f197' into Current",
-			"SHA": "e34a948340e48a1419f23e9d486df6b6dc727eb8"
+			"Message": "fix(Eliminate): preserve comments, blank lines and layout via text-level substitution\n\nPreviously Transform::Run always called prettyplease::unparse(&Ast) for\nany file where at least one binding was inlined. Because syn's AST does\nnot carry non-doc comment tokens, blank-line trivia, or indentation\ninformation, every such reprint permanently destroyed:\n\n- All // and /* */ comments not attached to an AST node (inline\n  comments, section banners, explanatory notes).\n- Every intentional blank line between items, between let statements,\n  and between match arms.\n- The original indentation style (tabs vs. 4-space).\n- Deliberately-named clone variables whose purpose was readability, by\n  synthesising .clone() call-sites that the author never wrote.\n\nFix strategy\n------------\nUse the AST pass only to *identify* which let bindings are safe to\ninline, then reconstruct those substitutions directly on the original\nsource text via a line-range map, leaving every other character\nunchanged.\n\n1. Definition.rs - add `Reformat: bool` (default false).  When true the\n   old prettyplease path is used as an opt-in \"aggressive normalise\"\n   mode, matching previous behaviour exactly.\n\n2. Transform/mod.rs - introduce `TextEdit` (byte-offset span + new\n   text), collect edits from the AST visitor, apply them to the\n   original source string in reverse order so offsets stay valid.\n   The Inline::Eliminator now accumulates TextEdit values rather than\n   mutating the AST in place when Options.Reformat is false.\n\n3. Transform/Inline.rs - split the mutation path: when collecting in\n   text-edit mode the visitor records (stmt_byte_range, replacement_src)\n   pairs produced by prettyplease on the *single affected statement*\n   only, rather than the whole file.\n\nCloses #60",
+			"SHA": "f0a3d4444def2f8a0ed4175d1817c4fbf86878ef"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T05:36:38Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				106,
+				2
+			],
+			"Message": "fix(eliminate): preserve inline comments and blank lines via span-based text patching\n\nFixes the root cause of the formatting regression reported in the issue.\n\nBefore this change, Transform::Run called prettyplease::unparse on the\nentire syn::File whenever any elimination occurred. prettyplease only\nsees the AST; it has no view of inline // comments, blank lines, or\noriginal spacing trivia. Every touched file was fully reprinted in\nprettyplease canonical style, which removed comments and restructured\nwhitespace across regions of the file that had nothing to do with the\neliminated bindings.\n\nThis change replaces the full reprint with a span-based text-patch\napproach:\n\n1. Run::Run now takes the original source string and the post-elimination\n   AST side-by-side.\n2. A new Patch module collects the byte-span of each removed let\n   statement and the byte-span of the use site where the initialiser\n   was substituted, sourced from proc_macro2 span start/end offsets on\n   the original parsed tokens.\n3. PatchSource applies those edits as a sorted, non-overlapping set of\n   byte-range replacements against the original source string, leaving\n   every other byte - including comments, blank lines, and all\n   formatting trivia - untouched.\n4. If span information is unavailable (proc_macro2 built without\n   span-locations feature, or spans are call_site), the pipeline falls\n   back to prettyplease so behaviour is never worse than before.\n\nThe fallback path keeps all existing tests passing without modification.\nNew tests in Patch.rs verify the splice logic directly.",
+			"SHA": "5a183b72104fb140900f03aba2e46a4efca42e06"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T05:31:32Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				105,
+				2
+			],
+			"Message": "fix(eliminate): skip inlining when substitution site is inside a loop body\n\nAddresses finding C from issue #55.\n\nBefore this change, a binding used only inside a for/while/loop body was\ncounted as RefCount=1 and inlined, moving the initialiser expression\ninside the loop. This changes evaluation semantics: the initialiser now\nruns on every iteration instead of once before the loop. For\nside-effecting or expensive initialisers this is a behavioural change.\nFor move-only types it causes a compile error on the second iteration.\n\nCountReferences now returns a third value InLoop alongside InClosure.\nInLoop is true when the single reference to Target is found inside the\nbody of a for, while, or loop expression. EliminateBlock skips the\ncandidate when InLoop is true.\n\nThe existing LoopBodyCountedAsOne test is updated to document the new\nbehaviour: count remains 1 (we do not hoist the loop counter) but\nInLoop is now true, which prevents inlining.",
+			"SHA": "88a03f43adb323bcd1a0498158c616ca64c223c0"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T05:17:57Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				105,
+				2
+			],
+			"Message": "fix(eliminate): skip inlining when free vars in Init are moved before substitution site\n\nFixes #56.\n\nBefore this change, a candidate like:\n\n  let display = var.clone();\n  ... var moved into struct field ...\n  devlog!(..., display, ...);\n\npassed every safety check (count=1, not in closure, not unsafe, not\noversized) and was inlined, placing var.clone() after the move, which\nproduces E0382.\n\nThe new IsFreeVarSafe function in Safe.rs collects all plain-identifier\nfree variables from Init, then scans the statements between the\ncandidate declaration and the substitution site. If any of those\nstatements contain a by-value use (pass to a function, struct field\nshorthand, or assignment) of a free variable, the candidate is skipped.\n\nThe check is conservative: it only looks at Expr::Path single-segment\nidentifiers, so it never produces false negatives for qualified paths or\nmethod receivers. It may produce false positives (keeping a binding that\nwould actually have been safe) but never produces a false negative that\nresults in a compile error.\n\nA regression test covering the exact get_file_info / get_configuration\npattern from Mountain/Source/Air/AirClient.rs is included in Inline.rs.",
+			"SHA": "f495f73bfda5e0a7422b4ae1f63f2c0ff71cd68c"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-05-24T02:27:40Z",
+			"Date": "2026-05-25T02:35:57Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				65,
+				"⠀⠀⠀⠀⠀",
+				105,
 				1
 			],
 			"Message": "",
-			"SHA": "d0ebea2c0de3be797fbdf7daa66398bf6c80f197"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T04:26:34Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				65,
-				1
-			],
-			"Message": "style(Maintain): Suppress lints in build script\n\nAdd `#![allow(...)]` directives to `build.rs` to silence `non_snake_case`, `non_camel_case_types`, `non_upper_case_globals`, `dead_code`, and unused variable/import warnings.\n\nThis aligns the build script's lint suppression strategy with the main crate in `Library.rs`, consolidating crate-level allowances and preventing a noisy build output from generated or placeholder code within the build process.",
-			"SHA": "934e9db306fc5938a8f9075cb6748d39786e2b05"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T04:22:07Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				65,
-				4
-			],
-			"Message": "style(Maintain): Suppress dead_code and unused variable warnings\n\nRemove redundant `#[allow(dead_code)]` attributes from `Guard::Note` and `start_hot_reload_watcher` by enabling `dead_code`, `unused_imports`, `unused_variables`, and `unused_assignments` at the crate level in `Library.rs`.\n\nThis aligns the compiler suppression strategy with the project's non-public API surface and placeholder implementations, ensuring a cleaner build output without scattering attributes across modules. The hot-reload watcher remains a stub for future functionality.",
-			"SHA": "802f9154e0f3718e91050f265cc557ee42b69c1f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T02:57:33Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				65,
-				1
-			],
-			"Message": "chore(Maintain): Update Documentation/Rust submodule to Nightly 1.97.0\n\nAdvance the Documentation/Rust submodule (cfa1ca1..03179b5) to incorporate rustdoc regenerated against Rust nightly 1.97.0 (d3cd04068, 2026-05-16), moving from nightly 1.96.0.\n\nThis 455-file delta refreshes all static asset hashes, rebuilds search indices, and updates source line references for blanket impl pages. Notable changes include renaming the \"Methods\" heading to \"Associated Functions\" and adding const-stability annotations to CloneToUninit.\n\nThis ensures the Maintain component's documentation aligns with the current toolchain.",
-			"SHA": "2fb84b20a764e0d1764526fe78f93f29e953c8bb"
+			"SHA": "272f255c5bd1f37f9c1398251fa8bf5ec88c9112"
 		}
 	],
-	"TimeStamp": 1783259746383
+	"TimeStamp": 1783777328730
 }

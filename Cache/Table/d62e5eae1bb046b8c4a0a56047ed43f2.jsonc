@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T02:17:51Z",
+			"Date": "2026-05-20T08:21:51Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1573,
-				42
+				"⠀⠀⠀⠀⠀",
+				1580,
+				4
 			],
-			"Message": "feat(Mountain): Implement hierarchy prepare, editor text IPC, and selection forwarding\n\nAdd call hierarchy and type hierarchy prepare entry-points across the full gRPC+LSP provider pipeline. The new `PerformCallHierarchy` and `PerformTypeHierarchy` provider modules in `Source/RPC/CocoonService/Provider/` parse the URI+position request and delegate to `PrepareCallHierarchy`/`PrepareTypeHierarchy` on the `LanguageFeatureProviderRegistry`, which invokes `$prepareCallHierarchyItems`/`$prepareTypeHierarchyItems` on the registered extension provider via Cocoon. This unblocks the incoming/outgoing calls and subtypes/supertypes panels in the editor UI.\n\nBridge two new Cocoon→Mountain→Sky notification atoms for extension-driven editor mutations: `window.setTextEditorDecorations` uses a channel-drain batching mechanism (16 ms frame-aligned aggregation, unbounded sender) to coalesce ~5-200+ calls/second into a single `sky://decoration/set-ranges` Tauri event per frame; `window.applyTextEdits` forwards `{uri, edits}` directly as `sky://editor/apply-text-edits` for `editor.edit(cb)` callers (formatters, code actions, vim-mode, Error Lens).\n\nAdd the `window.revealRange` Track Effect to `Source/Track/Effect/CreateEffectForRequest/Workspace.rs`, routing extension calls through `SendUserInterfaceRequest` to `sky://editor/revealRange` for go-to-definition and error-navigation scrolling.\n\nFire `document.willSave` to Cocoon before writing to disk in the workspace-save Track Effect, giving `onWillSaveTextDocument` listeners (format-on-save, organize-imports, trailing-whitespace strippers) a 1.5-second grace window before the actual disk write.\n\nWire two new Sky→Mountain IPC handlers in the `mountain_ipc_invoke` dispatcher — `sky:editor:selectionChanged` and `sky:editor:activeChanged` — which store the active document URI in workspace state and forward the notification to Cocoon so `activeTextEditor.selection` and `onDidChangeTextEditorSelection`/`onDidChangeActiveTextEditor` stay live.\n\nRecord `TierIPC: Mountain` in Info.plist alongside existing tier metadata.\n\nIncludes pervasive `cargo fmt` reformatting across 30+ source files: single-line short signatures, collapsed nested expressions, reordered import blocks for PascalCase alphabetic consistency.",
-			"SHA": "e85d15aa92cb2b7f45eb50f92c2c3613b10e4b56"
+			"Message": "refactor(Mountain): Consolidate bundle resources under Static/Application prefix\n\nTransition the Tauri bundle layout from flat resource paths to a structured \"Static/Application/\" prefix, unifying the bundle and development directory trees under a single source of truth. This eliminates the mismatch between the flat bundle layout (Contents/Resources/extensions) and the monorepo layout (Sky/Target/Static/Application/extensions).\n\nIn tauri.conf.json, remap all resource entries to target \"Static/Application/...\" and set frontendDist to null so the dev server delegates to the localhost plugin's static_root disk fallback. Add static_root resolution in LocalhostPlugin.rs that probes both the production bundle path (../Resources/) and the monorepo dev path (../../../Sky/Target/).\n\nIn ScanPathConfigure.rs, register the new canonical extensions path (Resources/Static/Application/extensions) before the legacy flat paths, which are retained as fallbacks for existing development environments.\n\nLegacy flat paths remain functional during the transition, so existing dev runs and CI pipelines continue to work until all resource mapping is migrated.",
+			"SHA": "58b34f8a23c47aec5c01e92c493060403c7159b4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:32:44Z",
+			"Date": "2026-05-20T06:37:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1569,
-				2
+				1576,
+				4
 			],
-			"Message": "feat(Mountain): Add stub utilities for PerformanceDashboard metrics\n\nIntroduce `DashboardHelpers` module under `Source/IPC/Enhanced/PerformanceDashboard` to provide deterministic, side-effect-free utility functions for the performance monitoring system.\n\nThe implementation includes stub functions for retrieving process memory and CPU usage (returning fixed values until platform metrics are wired) and UUID generators for trace, span, and alert identifiers. Additionally, a `metric_type_name` helper maps `MetricType` variants to human-readable display strings for the dashboard UI.\n\nThis change exports the new module in `mod.rs`, establishing the foundational layer for the PerformanceDashboard IPC feature while adhering to the pure function architecture for testability.",
-			"SHA": "e4c272b226471882b469bd9020eb70cb523cf39c"
+			"Message": "chore(Mountain): Strip verbose build identifiers, restore compact names\n\nRevert the DevelopmentNodeEnvironment_MicrosoftVSCodeDependency verbose naming scheme introduced in the previous commit for Cargo.toml bin/lib/package names and tauri.conf.json identifier/productName. Replace identifier with the stable \"fiddee.editor.binary\" key and set productName to \"Mountain\".\n\nAlso collapse externalBin and targets arrays back to single-line format (reverting the formatting change from the previous commit) and delete the .Backup files that were created alongside the verbose identifiers.\n\nThe verbose identifiers were only needed during a transitional Electron-profile debugging phase and are no longer required for the production Rust/Tauri pipeline.",
+			"SHA": "f3219cd8532d03baa1cef3f2a23e51c026653c44"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:07:24Z",
+			"Date": "2026-05-20T06:37:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1568,
+				1578,
 				1
 			],
-			"Message": "refactor(Mountain): Clarify logger command fallback handling\n\nUpdate the comment block for logger commands (`logger:log`, `logger:warn`, etc.) in `Source/IPC/WindServiceHandlers/mod.rs`. The inline acknowledgment explicitly states that these high-frequency calls are now primarily managed by the `IS_HIGH_FREQUENCY` fast-path short-circuit established in recent commits.\n\nThe fallback arms in the `mountain_ipc_invoke` dispatcher are described as a safety net to ensure `Mountain.dev_log` receives output if the high-frequency detection logic changes or fails. This aligns the documentation with the current architectural optimization for the IPC dispatch layer.",
-			"SHA": "db5faf8431473f060005b186245adfebef81bd7d"
+			"Message": "style(Mountain): Format arrays in tauri.conf.json\n\nReformat `externalBin` and `targets` arrays in tauri.conf.json from single-line to multi-line for consistency with the rest of the configuration file. Also strip the trailing newline to match convention.\n\nNo functional changes — purely cosmetic formatting.",
+			"SHA": "4b54b6c25ffbf182ea9e813b5027759384979cf7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:06:12Z",
+			"Date": "2026-05-20T06:13:28Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1568,
-				1
+				1578,
+				7
 			],
-			"Message": "refactor(Mountain): Remove redundant menubar update handler logic\n\nThe inline `menubar:updateMenubar` handler, which implemented a per-100-call logging counter and returned `Null`, is removed. These high-frequency calls are now processed exclusively in the `IsHighFrequencyCommand` fast-path block established previously.\n\nThis cleanup eliminates the dead code fallback in `Source/IPC/WindServiceHandlers/mod.rs`, ensuring the IPC dispatch layer relies on the optimized path for menubar updates while maintaining a minimal fallback for command routing integrity.",
-			"SHA": "8fd7bc239ad2beac6260602e1d1a12261f11e188"
+			"Message": "style(Mountain): Normalize dispatcher indentation; update Cargo/tauri build identifiers\n\nRe-indent the extracted GenericNotification/Dispatcher and GenericRequest/Dispatcher files to remove the spurious extra block indentation level that was carried over from their original inline positions in CocoonService/mod.rs. Reorder imports (std before third-party) and collapse import brace formatting. No logic changes in either dispatcher.\n\nUpdate Cargo.toml binary/lib/package names and tauri.conf.json identifier/productName to the verbose build configuration string for the development/debug Electron profile, distinguishing this build artifact from production Mountain releases. Preserve originals as .Backup copies.\n\nOutcome: dispatcher code now matches project style conventions, and the development build artifact is correctly labelled for toolchain identification.",
+			"SHA": "e78bf315d71ba4a49c4200d7f7002d24f6058255"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T01:05:01Z",
+			"Date": "2026-05-20T06:13:01Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1568,
-				1
+				1576,
+				9
 			],
-			"Message": "refactor(Mountain): Remove stub acknowledgments for workspace folder events\n\nThe `workspaces:onDidChangeWorkspaceFolders` and `workspaces:onDidChangeWorkspaceName` commands previously returned a `Null` value as a stub acknowledgment to simulate a Tauri event listener handshake on the IPC binary rail.\n\nThese explicit handlers are removed as the actual workspace change notifications are now broadcast directly via Tauri events without requiring a corresponding `ack` response on the gRPC/Vine protocol rail. This cleanup eliminates dead code paths and streamlines the `mountain_ipc_invoke` dispatch logic in `Source/IPC/WindServiceHandlers/mod.rs`.\n\nThe workspace state change propagation remains intact through the existing event emission mechanism, ensuring the Wind UI layer still receives updates without unnecessary binary rail overhead.",
-			"SHA": "893b99ac4810581ca194db97cdbef1ff40bd3e08"
+			"Message": "refactor(Mountain): Extract CocoonService dispatchers; fix Send-ness in InitData; retry AppDataPrefix\n\nThe 1400+ line `process_mountain_request` and 600+ line `send_mountain_notification` handlers were inlined in `CocoonService/mod.rs`, making the file unwieldy and obscuring the gRPC service boundary. Extract both match blocks into dedicated `GenericRequest::Dispatcher` and `GenericNotification::Dispatcher` modules, reducing `mod.rs` by ~1900 lines.\n\nIn `InitializationData.rs`, the `MutexGuard` on `WorkspaceFolders` was held across an `.await` call, making the future non-`Send` and breaking `tauri::async_runtime::spawn`. Scope the guard to a block so it is dropped before any await point; extract logging scalars before moving `FoldersWire` into `WorkspaceDTO`.\n\nIn `AppDataPrefix.rs`, replace the `OnceLock<Option<String>>` that caches `None` forever (routing all dev logs to `/tmp` after the first failed resolution) with a two-phase system: `RESOLVED: OnceLock<String>` for the permanent prefix, and `RETRY: Mutex<bool>` that stays `true` on first failure so subsequent writes retry after Tauri has created the app-data directory.\n\nIn `WindServiceHandlers/mod.rs`, the previous boot-latency fix used a bare `return Ok(...)` inside a match arm, which exits the enclosing async block (not just the arm), changing the block's inferred return type from `()` to `Result<Value, _>` and breaking `Scheduler::Submit`'s `Output = ()` bound. Replace with an `if/else` expression that evaluates to `Ok(...)` in both branches.\n\nAlso fix a minor clippy-nit in `AliasPath.rs` by removing the redundant `.as_str()` call.",
+			"SHA": "47a603158ca0d368b2ae744ef8fd7edcf5ed7410"
 		}
 	],
-	"TimeStamp": 1783259758549
+	"TimeStamp": 1783777339309
 }

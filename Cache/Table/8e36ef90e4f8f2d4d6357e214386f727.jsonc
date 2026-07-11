@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:40:50Z",
+			"Date": "2026-05-20T05:13:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1561,
-				8
+				1574,
+				3
 			],
-			"Message": "refactor(Mountain): Modularize Cocoon RPC handlers and IPC dispatch layer\n\nRefactor the Mountain IPC and RPC layers to extract inline logic into dedicated, composable modules. This aligns with the modular architecture established in recent commits and improves maintainability for the Cocoon bridge and native service handlers.\n\nKey changes include:\n- **WindService Refactoring**: Replace inline platform-specific implementations in `WindServiceHandlers/mod.rs` with atomic function calls (e.g., `NativeMoveItemToTrash`, `NativeReadClipboardText`). This consolidates OS-specific logic (macOS osascript, Linux gio, Windows PowerShell) into reusable handlers for clipboard, trash, and ARM64 translation checks.\n- **Cocoon RPC Modularity**: Split the generic request/notification dispatcher into semantic sub-modules under `Source/RPC/CocoonService`. Introduced `GenericRequest` modules for `Commands`, `FileSystem`, `Secrets`, and `WindowDialogs`, and `GenericNotification` for language provider registration.\n- **IPC Abstraction**: The new RPC handlers strictly follow the `(RequestId, Params, &Env)` signature, decoupling request parsing from business logic and enabling typed `GenericResponse` construction without referencing `CocoonServiceImpl` directly.\n- **UI Bridge Enhancements**: The `WindowDialogs` module now routes `showTextDocument`, `saveAll`, and `webview` operations via Tauri events (`sky://...`), completing the bridge between the Rust backend and the Sky frontend.\n\nThese changes reduce code duplication, clarify the separation of concerns between the native backend and the extension host, and prepare the codebase for further extension host integration.",
-			"SHA": "edd0bb6051ae22a8f12017d144a03a2bcab8253f"
+			"Message": "fix(IPC): Enhance file write and save handlers to update metadata and notify configuration changes\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "37d18e0da89ec21186531428f1ddec68815699df"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:39:07Z",
+			"Date": "2026-05-20T05:06:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1552,
-				4
+				1574,
+				5
 			],
-			"Message": "feat(Mountain): Refactor IPC handlers and implement workspace glob matching\n\nRefactored the `mountain_ipc_invoke` dispatcher to delegate native operations to modular, reusable handlers and implemented a bounded workspace-contains glob matcher for VS Code extension activation.\n\nKey changes include:\n- **Handler Refactoring**: Extracted inlined logic for `nativeHost:showSaveDialog`, `UserInterface.ShowSaveDialog`, `nativeHost:showMessageBox`, `nativeHost:getEnvironmentPaths`, `localPty:resize`, and `localPty:freePortKillProcess` into dedicated functions (`NativeShowSaveDialog`, `UserInterfaceShowSaveDialog`, etc.) in `WindServiceHandlers/mod.rs`. This reduces code duplication, improves readability, and centralizes error handling.\n- **Clipboard Enhancements**: Added `NativeTriggerPaste` and `NativeReadImage` stubs to `NativeHost/Clipboard.rs`. These return safe fallbacks (`false` and empty array) to support the IPC contract while Tauri 2.x native implementations are finalized.\n- **Workspace Activation**: Introduced `WorkspaceContainsGlob` module to efficiently resolve `workspaceContains:<pattern>` activation events. The implementation supports literal paths, single-segment wildcards (`*`), and recursive wildcards (`**`) up to a depth of 3, with a safety cap of 4096 entries per root to ensure sub-100ms performance in large monorepos.\n\nThese changes align the IPC layer with the modular architecture established in recent commits and provide the necessary file-system introspection for correct extension lifecycle management.",
-			"SHA": "b37ff5594d3d5a121ee027062b90e8ca1c804fde"
+			"Message": "feat(Mountain): Fire $acceptModelSaved after disk writes; strip Undo/Redo from native Edit menu\n\n**T1.4 save notification** — `FileWriteNative` and `TextfileWrite` now fire `$acceptModelSaved` via Vine after a successful disk write, so Cocoon can dispatch `onDidSaveTextDocument` to subscribed extensions (format-on-save, organize-imports, save listeners). The save is fire-and-forget (tokio::spawn) so a Vine failure never cascades back to the workbench IPC caller. Both handlers also gain `dev_log` instrumentation for write latency and byte count.\n\n**Cmd+Z routing fix** — On macOS, Tauri's default `Builder::default()` installs an Edit submenu with native Undo/Redo items that intercept Cmd+Z at the AppKit responder-chain level before the WKWebView's keydown handler fires, preventing VS Code's Monaco editor from seeing `meta+z`. The new `AppMenu::SetAppMenu` builds a custom Edit submenu containing only Cut/Copy/Paste/SelectAll, removing Undo/Redo so Cmd+Z and Cmd+Shift+Z reach the JS layer. Called from `AppLifecycleSetup` immediately after window creation. Non-fatal; logs a warning and keeps the default menu if the override fails. No-op on Windows/Linux.",
+			"SHA": "f79990166465444bbe3a00ca968af7527b0bea13"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:36:56Z",
+			"Date": "2026-05-20T04:39:32Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1551,
-				28
+				"⠀⠀⠀⠀⠀",
+				1573,
+				10
 			],
-			"Message": "feat(Mountain): Implement comprehensive WindService IPC handlers for Cocoon, ExtensionHost, and Native bridges\n\nExpanded the IPC dispatch layer to bridge the Rust backend (Mountain) with the Renderer (Wind/Sky) and Extension Host (Cocoon). This commit introduces a suite of new handlers to support VS Code's core workbench requirements, ensuring feature parity with Electron-based architectures.\n\nKey additions include:\n- **Cocoon Bridge**: Implemented `cocoon:request` (RPC), `cocoon:notify` (fire-and-forget), and `cocoon:extensionHostMessage` to relay binary protocol data. Includes boot-race guards to handle latency during startup.\n- **ExtensionHost Lifecycle**: Added `extensionHostStarter:*` and `extensionhostdebugservice:*` handlers. Crucially, `start` now returns the actual Cocoon PID instead of the Mountain process ID, enabling debuggers to attach to the correct Node.js runtime.\n- **NativeHost Features**: Implemented cross-platform clipboard access (`arboard`), environment path resolution (with session-timestamped logs), `moveItemToTrash` (using osascript/gio/powershell), security-hardened `openExternal` (allowlisting schemes), and modal dialogs (`showMessageBox`, `showSaveDialog`).\n- **Terminal Resilience**: Added `localPty:attachToProcess` and `detachFromProcess` to support window reloads without losing active shell sessions. Includes `resize` protection against race conditions and `freePortKillProcess` for port binding conflicts.\n- **State Replay**: Introduced `sky:replay-events` to recover buffered tree-view, SCM, command, and terminal data emitted before the SkyBridge listeners were fully initialized, preventing UI elements from appearing empty on cold boot.\n- **Dynamic Dispatch**: Enhanced the `mountain_ipc_invoke` dispatcher to defer unknown commands to the Cocoon Node.js runtime (via gRPC) when `TierIPC=NodeDeferred` is set, covering language features, SCM, debug, and authentication namespaces.\n\nThese changes collectively resolve boot-time initialization races, enable full terminal lifecycle management, and provide the necessary native capabilities for a robust code editing experience.",
-			"SHA": "69f0bb7bceacea46817ccd097aa254567b4dc5e3"
+			"Message": "fix(Mountain): Fix shell PATH, git cache, build constraints, and import paths\n\n**EnhanceShellEnvironment** — Allow shell PATH to override the Finder/Dock\nminimal default (`/usr/bin:/bin:/usr/sbin:/sbin`) when `IsTty()` is false,\nso git, Node, and language servers resolve correctly after launchd/Dock\nlaunches.\n\n**HandleIsAvailable** — Cache only a `true` result. A transient `false`\nfrom the first git probe (fired before EnhanceShellEnvironment extends\nPATH) must not permanently disable the SCM UI.\n\n**CocoonService/mod.rs** — Remove `prepare_call_hierarchy` and\n`prepare_type_hierarchy` gRPC handlers that were prematurely introduced\nin the previous commit. Rename `GenericNotification` and `GenericRequest`\nimports with `Msg` aliases to avoid name clashes with sibling modules.\n\n**Import path fixes** — Qualify `MountainVinegRPCService` path in\nRegisterLanguageProvider and call `RunTime()` as a method; fix `MetricType`\nimport alias in DashboardHelpers; add missing `CommandExecutor` import in\nGenericNotification and GenericRequest commands.\n\n**build.rs** — Gate `tauri_build::build()` behind an absent\n`CARGO_BUILDING_DOCS` var so `cargo doc` succeeds without Sky Astro assets.\n\n**tauri.conf.json** — Add Brotli pre-bake as `beforeBundleCommand`.\n\nBump `Record` to 1 in Info.plist.",
+			"SHA": "36c8655681c646f7f1119aac1cbca04346b69d91"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:42:07Z",
+			"Date": "2026-05-20T04:38:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1522,
-				6
-			],
-			"Message": "feat(Mountain): Wire Mountain IPC commands into Tauri 2 ACL system\n\nMountain's native Tauri commands (e.g., `MountainProvideHover`, `MountainWorkspaceOpenFolder`, `DnsResolve`) were being rejected at runtime with \"Plugin not found\" errors because Tauri 2 requires explicit permission entries for all `#[tauri::command]` definitions.\n\nIntroduce `permissions/default.toml` to define the custom permission identifier `allow-mountain-commands`. This file aggregates the complete allow-list for every Mountain IPC handler defined in `Source/Binary/Main/Entry.rs`.\n\nUpdate `capabilities/default.json` to reference this new `default` permission set alongside existing `fs`, `log`, and core plugin permissions. Regenerate the ACL manifests and JSON schemas (`gen/schemas/`) to reflect the new permission identifiers.\n\nThis ensures the webview can invoke Mountain's native methods without failing the security check, completing the IPC bridge required for Wind/Sky to communicate with the Rust backend.",
-			"SHA": "bff5321e154a82323fa9e65a9e0aaa3ff6c0358b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:06:40Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1520,
+				1573,
 				1
 			],
-			"Message": "feat(Mountain): Inject Tauri IPC diagnostic script for early failure detection\n\nIntroduce a diagnostic initialization script in WindowBuild.rs that executes at document_start, prior to any application scripts. This script captures the state of Tauri's IPC bridge and global objects (window.__TAURI_INTERNALS__, window.__TAURI__, window.ipc) immediately upon injection.\n\nThe script populates a global window.__MOUNTAIN_TAURI_DIAG object with timestamps and boolean flags indicating the presence and functionality of core IPC methods. It also records lifecycle events (DOMContentLoaded, load) to help pinpoint timing-related race conditions.\n\nThis addition enables developers to verify the integrity of the Tauri runtime and capability scoping directly from the DevTools console if the editor fails to initialize, without relying on the full bundle loading or downstream error handling.",
-			"SHA": "b5d79001860a7305fbe97f13f69ce906bdded054"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "681cfe8f308427aac8ffd722e8e54fa78590d634"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-20T02:49:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1568,
+				1
+			],
+			"Message": "",
+			"SHA": "36da8bc51580580fa19bb4f352b28c37e57a7073"
 		}
 	],
-	"TimeStamp": 1783259759079
+	"TimeStamp": 1783777339804
 }

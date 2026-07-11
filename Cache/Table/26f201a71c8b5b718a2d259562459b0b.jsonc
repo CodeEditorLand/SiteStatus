@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:06:24Z",
+			"Date": "2026-06-12T21:23:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1855,
-				11
-			],
-			"Message": "feat(Mountain): Background extension merge, ETag/304 scheme serving, gRPC cancellation, dialog action items\n\n**Extension scanner background merge** — Release the builtins-only manifest to `ScanReady` waiters immediately, then merge supplementary user-path extensions in a background `spawn_blocking` task. After merge, bump the `getInstalled` scan generation to invalidate any builtins-only cache entries, notify Cocoon of the delta via `$deltaExtensions`, emit `sky://extensions/installed` events for Sky's sidebar refresh, and re-run configuration merge so contributed `configuration` defaults from late-discovered extensions are applied. Full-scan path also bumps generation before notifying waiters.\n\n**Conditional GET (ETag/304) for scheme file handler** — Add `IfNoneMatchSatisfied` / `BuildNotModified` / `EmbeddedETag` / `CacheControlFor` helpers across all three serving paths (os-abs mmap, embedded asset resolver, fs-mmap StaticRoot). Fingerprinted bundle assets (`.js`, `.css`, `.woff2` under `Static/`) get `public, max-age=31536000, immutable`; everything else uses `public, max-age=3600` with ETag revalidation. The former separate `exists()`/`is_file()` stat() pair per request is eliminated — the mmap `LoadOrInsert` open is the existence probe, with `NotFound` falling through directly. Extract the sequential `replacen`-based path normalization into `NormalizePath` for a single-pass rewrite (query/fragment strip, `/out/` prefix removal, `Static/node_modules/` remap).\n\n**Background DNS server bind** — Move the Hickory DNS server start from a synchronous blocking call to `tauri::async_runtime::spawn_blocking`, overlapping the port probe with the rest of `AppLifecycleSetup`. `DnsPort` managed state is registered inside the background task rather than after the synchronous bind, eliminating a serialisation point during boot.\n\n**Optimized `.env.Land` candidate search** — Probe `.env.Land` up the exe ancestry first (most-likely path for non-TTY launches), removing redundant duplicate probes from the repo-layout section. Switch from separate `exists()` then `LoadEnvFile()` to using the `LoadEnvFile` open result as the existence check, eliminating one `stat()` per candidate.\n\n**Generation-based getInstalled cache invalidation** — Replace `OnceLock<Value>` per type with `Mutex<Option<(u64, Value)>>` keyed to a monotonic `SCAN_GENERATION` counter. The scanner bumps the generation after any post-`ScanReady` map mutation, so a builtins-only response cached during the early notify window is rebuilt from the merged extension map on the next call.\n\n**Per-request gRPC cancellation** — Register every `process_cocoon_request` call in `ActiveOperations` with a `CancellationToken`, race the dispatch future against it via `tokio::select!`. `cancel_operation` fires the token, the dispatch is dropped, and a `-32800` (request cancelled) error response is returned. The entry is unregistered on all exit paths, keeping the map bounded by in-flight requests. Validation and deserialization errors now carry structured `error.data` with the method name and detail.\n\n**Cocoon message dialog action buttons** — Add `repeated string Items` to the `ShowMessageRequest` protobuf message and propagate through `ShowErrorMessage`, `ShowInformationMessage`, and `ShowWarningMessage` so Cocoon's extension host can present action-button labels alongside native dialogs.\n\n**README badge fix** — Remove the ProtocolBuffers icon from the gRPC badge row, switching to a plain tonic badge.",
-			"SHA": "f4b7bf896a2fc2df297913360d8e110279b69e5c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:39:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
+				1861,
 				1
 			],
-			"Message": "fix(Mountain): Unshadow logger:getLevel handler from broad NOOP arm\n\nlogger:getLevel was matched by a broad logger:* + setVisibility => Ok(Value::Null)\narm before the dedicated handler (returning log::max_level() as u32) was reached.\nRemove logger:getLevel from the NOOP arm so the dedicated handler can execute.\nVS Code's LogLevel API now receives the correct numeric value.",
-			"SHA": "0a7c3ddeb29c720a1794413424713be12baa38df"
+			"Message": "style(Mountain): Fix indentation of diagnostic:getBootMarks match arm in DispatchMatch\n\nThe `diagnostic:getBootMarks` handler and its preceding doc comment were indented one tab level deeper than the surrounding match arms in `mountain_ipc_invoke`, creating an inconsistent brace depth relative to the other cases.\n\nDedent the arm and comment block by one level to align with the enclosing match statement's formatting. No behavioral change.",
+			"SHA": "9262422ce1ef71be84be4d5edeafe56025bdba8e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:36:48Z",
+			"Date": "2026-06-12T21:23:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1855,
-				2
+				1861,
+				12
 			],
-			"Message": "feat(Mountain): Add glob normalization to FindInFiles, realign README template\n\nAdd `NormalizeGlobArgument` helper that normalizes include/exclude arguments\nin `FindInFiles` — accepting either a single glob string or `string[]` — and\nplumb `maxResults` from the 6th positional argument. Rename `isRegex` to\n`isRegExp` to match the VS Code search contract, and extract the trailing\noptions `Value` from remaining arguments instead of consuming only the first\npositional object.\n\nOverhaul the `README.md` with the standardized Land element documentation\ntemplate: combine technology icon badges with crate/version badges using\nem-quad spacing, simplify tables to bare pipe-only format, add a\nCompatibility section documenting inter-element gRPC and IPC dependencies,\nremove the duplicate NLnet funding paragraph, fix Mermaid diagram entity\nencoding (`&amp;` → `&`), and align heading terminology and list formatting\nwith Land conventions.",
-			"SHA": "4a291a9c6e8083e6c6d15cb21c47330c48215e40"
+			"Message": "feat(Mountain): Add language provider cancellation, decoration lazy-registration, and window event bridging\n\nImplement a cancellation system for language provider requests: store `watch::Sender<bool>` in the new `LanguageProviderCancellations` DashMap, keyed by renderer-supplied `requestId`, so that `language:cancelRequest` flips the sender locally instead of forwarding to Cocoon. Wire cancellation through `InvokeProvider` and `InvokeProviderMethod` by passing the cancellations map into `ForwardCancellable`.\n\nAdd lazy-decoration-type registration to `SetTextEditorDecorations`: when `decorationTypeKey` isn't in `KnownTypeKeys`, auto-forward a synthetic `createTextEditorDecorationType` to Sky so Monaco has styling registered before `setDecorationsByType` executes. Track known keys via `IsTypeKeyKnown` / `RegisterTypeKey` on `DecorationsState`.\n\nEmit `sky://window/maximize-changed` on maximize/unmaximize handlers and bridge `nativeHost:onDidChangeMaximizeState` from Cocoon to Sky. Emit `sky://storage/changed` on storage IPC handlers and `sky://webview/ready` on `WebviewReady` gRPC notification for reactive workbench consumers.\n\nSplit file-system IPC into its own `TierFileSystem` env var so `file:*` commands don't route to Cocoon (which has no disk provider). Replace the blocking 3-second `WaitForClientConnection` in `forward_to_cocoon` with a non-blocking `IsClientConnected` check, returning Null fallback when Cocoon is disconnected.\n\nForward `CommandNotFound` errors from Mountain's command registry to Cocoon's extension host via `proxy_cocoon` for both `executeCommand` and `commands:execute` paths, so palette-invoked extension commands that never reached Mountain's registry still execute.\n\nAdd `$acceptModelSaved` notification on `textFile:save` so `onDidSaveTextDocument` fires for extensions. Query real dirty URIs from `WorkingCopy::GetAllDirty` in `workspaces:getDirtyWorkspaces` instead of returning an empty array. Add empty-store short-circuit in `StorageGet` to skip trait dispatch on first boot. Raise gRPC connect initial delay from 50ms to 200ms matching real Cocoon bind times.\n\nLog unroutable `register_*` provider notifications on the gRPC service and return `false` instead of silently dropping them. Include `viewType` in `WebviewReady` log output.",
+			"SHA": "d1c2117a977bec02903d935702d30d37f4b0376b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:23:34Z",
+			"Date": "2026-06-12T20:37:48Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1855,
+				1861,
 				1
 			],
-			"Message": "fix(Mountain): Harden boot init — cache machine ID, fallible URL construction, defensive windowId\n\nThree defensive hardening changes to `InitializationData` that prevent panics during rapid development restarts and eliminate a redundant disk read per boot.\n\nWrap the machine ID in a `OnceLock` so the second caller per boot (the extension-host init-data path) reads from memory instead of re-opening `machine-id.txt`.\n\nReplace the bare `unwrap()` on `ApplicationHandle.get_webview_window(\"main\")` with a `map`/`unwrap_or_else` fallback to `\"main\"`. During rapid Tauri restarts the webview window may not yet be registered, and this value is only a label sent to the frontend — a string default is harmless where a panic would abort the entire boot sequence.\n\nExtract `url::Url::from_directory_path` into a fallible `DirectoryUrl` helper that propagates via `CommonError::ConfigurationLoad` instead of calling `unwrap()`. Relative paths (common in dev environments without a real app bundle) previously panicked at all four call sites for `appRoot`, `globalStorageHome`, `workspaceStorageHome`, and `logsLocation`.\n\nNo behavioural change on production bundles where all paths are absolute and windows exist — the same values are produced, just without the panic risk on edge cases.",
-			"SHA": "8a9d7aa4844bc79a9847d17d6e9c10ad969ad7a1"
+			"Message": "feat(Mountain): Route nativeHost picker to correct dialog type via options\n\nRead `canSelectFiles` and `canSelectFolders` from the options object passed by VS Code extensions in the `nativeHost:pickFolderAndOpen` handler, then route to `blocking_pick_folder` or `blocking_pick_file` accordingly. Previously the handler always opened a folder picker regardless of the caller's declared selection constraints.\n\nWhen neither flag is set (e.g. `canSelectFiles: false, canSelectFolders: false`) the handler returns early as cancelled, matching Electron's behaviour. Adds dev_log output for the resolved picker type.",
+			"SHA": "042dd2ddc3e825e506478afbe872243d772e8cab"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:22:09Z",
+			"Date": "2026-06-12T20:34:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1855,
-				2
+				1861,
+				1
 			],
-			"Message": "perf(Mountain): Parallelize PostSetup boot stages, cache machine-id read\n\nThe sequential PostSetup lifecycle — config pass 1, extension scan, config re-merge, Vine gRPC bind, Cocoon start, Air start — wasted wall-clock time running independent work serially. The machine-ID file was also read from disk twice (sandbox config + extension-host init data) with no cache.\n\nRestructure the boot pipeline into three parallel stages using `tokio::join!`:\n- Stage 1: configuration pass 1 ∥ extension scan (no mutual dependency)\n- Stage 2: configuration re-merge (requires finished scan) ∥ Vine gRPC server bind (depends on neither)\n- Stage 3: Cocoon ∥ Air sidecar starts (both connect to Vine, neither depends on the other)\n\nAdd a `DirsReady` await before the first config merge so the background userdata-dir task has finished writing defaults and the trust-key injection before settings.json is read.\n\nCache the persistent machine ID in a `OnceLock` inside `InitializationData` so `ConstructSandboxConfiguration` and `ConstructExtensionHostInitializationData` read the file once per boot instead of twice.\n\nReduces the serialised boot path and eliminates one redundant disk read.",
-			"SHA": "e0c0c055d1e36c19a16aa70fe7fbab0b4d8c603e"
+			"Message": "style(Mountain): Replace em dashes with hyphens in README.md\n\nConsistently replace all em dash characters (`—`) with standard hyphens (`-`) throughout the README.md, affecting the Feature list, Architecture table, Dependencies table, Security table, and Related Documentation links. The change moves from typographic punctuation to plain ASCII for consistency with the surrounding codebase documentation conventions.\n\nNo behavioral or semantic changes — prose style alignment only.",
+			"SHA": "c8f239f13c0c09ef81f4d73cf9180e840f67beed"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T20:04:43Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				1861,
+				90
+			],
+			"Message": "docs(Mountain): Add doc comments across RPC, Environment, and Vine modules\n\nAdd module-level `///` doc comments to every `pub mod` declaration in the\nCocoonService handler suite (Auth, Command, Debug, Extension, FileSystem,\nInitialization, Output, Provider, SCM, Secret, Task, Terminal, TreeView, Window,\nWorkspace — ~40 submodule files) and the remaining RPC services (Commands,\nConfiguration, Debug, EchoAction, Processes, SCM, Telemetry, Terminals, Types,\nVine, Windows, Workspace).\n\nAdd doc comments to Environment submodule declarations (DebugProvider, Feature-\nMethods, Utility, WebviewProvider), the ConfigurationProvider::Loading public\nre-export, and complete the TestProvider documentation pass with field-level\ndocs on TestRun, TestRunStatus, and TestResult structs plus blank-line\nseparators between enum variant docs across all TestProvider types.\n\nReplace `// TODO:` stubs in SecretProvider with structured docs noting the\nplanned Air integration and current NotImplemented return. Add section docs to\nSearchProvider::de_glob_list and UserInterfaceProvider::SendUserInterfaceRequest.\nTighten Vine module docs: replace \"Manages\"/\"Handles\" with \"Forwards\"/\n\"Dispatches\" on notification dispatchers, fix grammar in Client module docs.\n\nNon-docs: disable DevTools web inspector and clear trace logging in Info.plist;\nstrip lint blank lines from bootstrap-fork.js; fix shell-integration redirect\nsyntax; wrap README.md and Architecture.md to consistent 80-column prose.",
+			"SHA": "f0cb6d150f0b7848962fd194f992e0d48e326e8b"
 		}
 	],
-	"TimeStamp": 1783259742231
+	"TimeStamp": 1783777325148
 }

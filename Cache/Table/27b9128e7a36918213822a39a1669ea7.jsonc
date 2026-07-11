@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T02:01:26Z",
+			"Date": "2026-06-12T18:48:33Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				80,
-				1
+				"⡟⠀⠀⠀⠀",
+				120,
+				18
 			],
-			"Message": "docs(Grove): Enrich crate-level doc comments with cross-references and links\n\nConvert the crate-level description in Library.rs to a proper markdown heading augmented with an emoji and a link to editor.land. Add a cross-reference to the Architecture.md documentation to help developers navigate the broader Land system doc tree. Upgrade the bare `// Library version` comment on the VERSION constant to a fully documented doc comment with the source-of-truth annotation.\n\nTidying the entry-point documentation improves discoverability and sets a consistent doc-standards baseline for new contributors.",
-			"SHA": "c6d97890fe7db7a32b701e06a9b652001d36d0ee"
+			"Message": "refactor(Grove): Atomize FunctionExport into directory module; standardize crate doc comments\n\nSplit the monolithic FunctionExport.rs (788 lines) into a directory-based module at Source/WASM/FunctionExport/ with dedicated files for HostFunctionRegistry, FunctionStats, ExportConfig, Default, and FunctionExportImpl, plus a re-exporting mod.rs. This completes the Source-level atomization work across the crate.\n\nStandardize doc comments across Common/Traits.rs, Common/mod.rs, API/Types.rs, Library.rs, and main.rs to use consistent period-terminated third-person descriptions aligned with Rust API doc convention. Replace bare //! header comments with \"# Module — Description\" format and convert Library.rs's flat module list to a markdown table for readability.\n\nFix ActivationEngine and ActivationHandler type paths to use qualified `Module::Struct` form (e.g. ActivationEvent::ActivationEvent::from_str), required after the prior Activation.rs and SpineActionClient atomization resolved E0573 naming ambiguities. Add a Debug implementation for MistTransport exposing its address and connection state. Relocate the Mist dependency from build-dependencies to the optional dependencies block for proper feature gating.",
+			"SHA": "1e05787f79a9be892a67a3542aaa09c77e21c785"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T00:05:49Z",
+			"Date": "2026-06-12T18:23:49Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				80,
+				"⠀⠀⠀⠀⠀",
+				114,
 				1
 			],
-			"Message": "docs(Grove): Restructure README with compact overview and simplified layout\n\nReduce the README from 124 to 28 lines by removing the decorative HTML table header, consolidating the introductory text into a single concise overview paragraph, and integrating the Key Features, Security, and Compatibility sections into inline prose rather than standalone bullet/table blocks. Drop the redundant \"Grove in the Land Ecosystem\" role table, the \"Deep Dive & Component Breakdown\" source-link section, the Changelog reference, the License section, and the verbose Project Maintainers footer. Move the Project Structure tree higher for quicker orientation. Replace the funding/logos HTML table with a compact Markdown image grid. Fix three badge links from /tree/Current/ to /blob/Current/ for LICENSE and version badges.\n\nThis preserves all technical content while improving scanability and reducing visual noise for a README that serves as a quick introduction rather than full documentation.",
-			"SHA": "0b017fded7546c0aeca13bbfdd799d42ca0c5e8d"
+			"Message": "feat(Grove): Auto-reconnect MistTransport on transport disconnect\n\nWire the recent Dial/Reconnect/LiveClient additions into the core MistTransport invoke and notify paths so that transient WebSocket drops are handled transparently rather than surfacing as errors.\n\n- **connect()** delegates to Dial() instead of inlining Client::connect(), unlocking MountainWebSocketSecret-based authentication via Mist's SharedSecret.\n- **invoke() and notify()** replace GetClient() with LiveClient(), which silently reconnects a stale connection before dispatching. On mid-request disconnect, both now catch the error, call Reconnect() with exponential backoff, and retry the call on the fresh client.\n\nCombined with the existing backoff loop in Reconnect(), this creates end-to-end resilience: every outgoing request either succeeds or exhausts the retry budget, without callers needing to manage connection state.",
+			"SHA": "38c32f3de0bf8b36f402a5f93edf256eaa5003cd"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T18:01:56Z",
+			"Date": "2026-06-12T18:20:40Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				80,
-				1
+				"⡿⠀⠀⠀⠀",
+				114,
+				19
 			],
-			"Message": "",
-			"SHA": "270d4e52c9a4bffbcb33b4e1969250b0fce3185f"
+			"Message": "refactor(Grove): Atomize Activation.rs into directory module; extract remaining SpineActionClient types; add Mist reconnect logic\n\n**Activation module atomization** — Split the monolithic Activation.rs (986 lines) into a dedicated Source/Host/Activation/ directory with seven focused files:\n\n- ActivationContext.rs: context data passed to extensions during activation\n- ActivationEvent.rs: typed activation event enum with from_str/to_string parsing\n- ActivationEngine.rs: core activation lifecycle (activate, deactivate, trigger, perform_activation with WASM dispatch)\n- ActivationHandler.rs: per-extension event handler tracking\n- ActivationRecord.rs: serializable activation history log\n- WildMatch.rs: simple wildcard pattern matching for activation events\n- Tests.rs: unit coverage for event parsing, context defaults, and wildcard matching\n\nThe original Activation.rs is retained as Activation.rs.bak for reference, then the mod.rs re-exports the new submodule hierarchy.\n\n**SpineActionClient type extraction** — Complete the atomization begun in the prior commit by moving the remaining inline structs, enums, and helper functions from the monolithic mod.rs into dedicated files:\n\n- ConnectionStatus.rs, GroveCapabilities.rs, HostInfo.rs, ReconnectStrategy.rs, SpineConfig.rs, calculate_backoff.rs, Tests.rs\n- mod.rs becomes a re-export hub referencing each sub-file\n- The primary client implementation remains in SpineActionClient.rs (renamed from mod.rs for structural consistency)\n\n**MistTransport reconnect resilience** — Add three methods and one utility function to the websocket block:\n\n- Dial(): opens a fresh Mist client, optionally authenticating with MountainWebSocketSecret via Mist's SharedSecret when present in the environment\n- Reconnect(): exponential-backoff retry loop (100/200/400/1000/2000 ms, 5 attempts), stores and returns the live client\n- LiveClient(): returns the stored client, transparently calling Reconnect() if the connection is detected as closed\n- IsDisconnect(): pattern-matches error strings to distinguish transport drops from server-side handler errors\n\nThese changes complete the Source/ module-level atomization and add production-grade reconnection to the Mist transport path.",
+			"SHA": "75015ef4b0ae3c9c21ea1eff52e6401022ad7ea8"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T15:20:04Z",
+			"Date": "2026-06-12T17:57:44Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				80,
-				1
+				"⣿⠀⠀⠀⠀",
+				97,
+				20
 			],
-			"Message": "fix(Documentation): Correct GitHub source links — /tree/ only, absolute element repo paths\n\nAll links verified against on-disk paths. /blob/ → /tree/ rule enforced.\nLICENSE and CHANGELOG links now point to specific files, not bare repo roots.\n\nGenerated-By: PostHog Code\nTask-Id: 88c0b3de-fc57-4c33-b3af-3a7b47e0c4e1",
-			"SHA": "c6a465df72f9c4dae3e7a44ee4f67a4f2f8a4dfd"
+			"Message": "refactor(Grove): Atomize API/VSCode.rs into directory-based module\n\nAPI/VSCode.rs (986 lines) → API/VSCode/mod.rs + 14 individual files\n(ProviderStore, VSCodeAPI, CommandNamespace, Window, OutputChannel,\nWorkspace, WorkspaceConfiguration, LanguageNamespace, DocumentSelector,\nCompletionItemProvider, DiagnosticCollection, Disposable,\nExtensionNamespace, Env) + Tests. SpineActionClient.rs atomization\nstarted (directory created).",
+			"SHA": "1e4ddb2e22f8e72cb08b24fa6d32207cae1f9754"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T12:49:30Z",
+			"Date": "2026-06-12T16:36:34Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				80,
-				1
+				2
 			],
-			"Message": "docs(Grove): Update documentation links to use Editor.Land capitalization\n\nThe README.md references to Grove documentation, architecture overview, and WebAssembly rationale used lowercase 'editor.land' URLs. Update all three links to use the proper 'Editor.Land' capitalization matching the project's canonical domain presentation.\n\nThis ensures consistency with the official branding across all Grove documentation entry points.",
-			"SHA": "e6821080673f166807403117890e4cb91aa4fd29"
+			"Message": "docs(Grove): Add branded header and polish architecture docs\n\nApply the project-standard dark/light logo banner to the Architecture doc, replacing the plain H1 heading with a branded HTML table header that pairs the Land logo with the Grove title. Update the architecture introduction to use bold formatting on the crate name and align with the 'Architecture' sub-title convention seen across Element docs.\n\nFix the DeepDive opening sentence by removing the superfluous narrative framing ('This document provides the technical foundation for the') and starting directly with the subject ('Grove provides the technical foundation').\n\nBoth documentation pages now follow CodeEditorLand's branded header conventions and present a more direct, scannable opening for readers.",
+			"SHA": "a4911db2b714e4c72b02757347beaf45faec2019"
 		}
 	],
-	"TimeStamp": 1783259741417
+	"TimeStamp": 1783777324920
 }

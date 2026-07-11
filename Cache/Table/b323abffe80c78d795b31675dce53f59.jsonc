@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T03:01:18Z",
+			"Date": "2026-05-20T00:40:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
-				14
+				1561,
+				8
 			],
-			"Message": "feat(Mountain): Implement custom editor registry, wire file watcher and PTY resize, optimize hot paths\n\nComplete several IPC/RPC stubs with actual implementations:\n- Store ViewType-to-sidecarId mappings in CustomEditorProvider's global\n  once-locked registry, enabling proper cleanup on unregistration\n- Route watch_file gRPC to FileWatcherProvider::RegisterWatcher for real\n  FSEvents/inotify monitoring instead of a no-op stub\n- Route resize_terminal gRPC through TerminalProvider to resize the PTY\n  (delivers SIGWINCH to the shell) alongside the existing Tauri event\n- Add extensions:activate handler sending $activateByEvent to Cocoon so\n  Wind's ExtensionsService triggers activation programmatically\n\nRefine IPC dispatch and sidecar routing:\n- Emit sky://commands/executed after commands:execute dispatch so\n  telemetry collectors and command subscribers observe every command\n- Look up debug configuration provider from ApplicationState.Feature.Debug\n  for correct sidecar routing instead of hardcoding cocoon-main\n\nOptimize high-frequency and hot paths:\n- Add StorageWriteDebouncer with 100ms write coalescing, replacing\n  per-call tokio::spawn disk writes with batched single-writes\n- Strip osascript subprocess from nativeHost:getCursorScreenPoint,\n  returning (0,0) to eliminate ~50ms macOS process spawn per invocation\n- Gate logger info/debug/trace to opt-in vscode-log tag; forward\n  error/warn/critical to dev_log consistently\n- Replace SystemTime-based ID generation with atomic sequence counters\n  in Notification and WindowUI, eliminating syscall overhead\n\nUpdate Tauri ACL manifests with the new tray allow-set-icon-with-as-template\npermission.",
-			"SHA": "e2e1d1e1b9088429512644b8901afcf9dd8d2347"
+			"Message": "refactor(Mountain): Modularize Cocoon RPC handlers and IPC dispatch layer\n\nRefactor the Mountain IPC and RPC layers to extract inline logic into dedicated, composable modules. This aligns with the modular architecture established in recent commits and improves maintainability for the Cocoon bridge and native service handlers.\n\nKey changes include:\n- **WindService Refactoring**: Replace inline platform-specific implementations in `WindServiceHandlers/mod.rs` with atomic function calls (e.g., `NativeMoveItemToTrash`, `NativeReadClipboardText`). This consolidates OS-specific logic (macOS osascript, Linux gio, Windows PowerShell) into reusable handlers for clipboard, trash, and ARM64 translation checks.\n- **Cocoon RPC Modularity**: Split the generic request/notification dispatcher into semantic sub-modules under `Source/RPC/CocoonService`. Introduced `GenericRequest` modules for `Commands`, `FileSystem`, `Secrets`, and `WindowDialogs`, and `GenericNotification` for language provider registration.\n- **IPC Abstraction**: The new RPC handlers strictly follow the `(RequestId, Params, &Env)` signature, decoupling request parsing from business logic and enabling typed `GenericResponse` construction without referencing `CocoonServiceImpl` directly.\n- **UI Bridge Enhancements**: The `WindowDialogs` module now routes `showTextDocument`, `saveAll`, and `webview` operations via Tauri events (`sky://...`), completing the bridge between the Rust backend and the Sky frontend.\n\nThese changes reduce code duplication, clarify the separation of concerns between the native backend and the extension host, and prepare the codebase for further extension host integration.",
+			"SHA": "edd0bb6051ae22a8f12017d144a03a2bcab8253f"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:56:16Z",
+			"Date": "2026-05-20T00:39:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
+				1552,
+				4
+			],
+			"Message": "feat(Mountain): Refactor IPC handlers and implement workspace glob matching\n\nRefactored the `mountain_ipc_invoke` dispatcher to delegate native operations to modular, reusable handlers and implemented a bounded workspace-contains glob matcher for VS Code extension activation.\n\nKey changes include:\n- **Handler Refactoring**: Extracted inlined logic for `nativeHost:showSaveDialog`, `UserInterface.ShowSaveDialog`, `nativeHost:showMessageBox`, `nativeHost:getEnvironmentPaths`, `localPty:resize`, and `localPty:freePortKillProcess` into dedicated functions (`NativeShowSaveDialog`, `UserInterfaceShowSaveDialog`, etc.) in `WindServiceHandlers/mod.rs`. This reduces code duplication, improves readability, and centralizes error handling.\n- **Clipboard Enhancements**: Added `NativeTriggerPaste` and `NativeReadImage` stubs to `NativeHost/Clipboard.rs`. These return safe fallbacks (`false` and empty array) to support the IPC contract while Tauri 2.x native implementations are finalized.\n- **Workspace Activation**: Introduced `WorkspaceContainsGlob` module to efficiently resolve `workspaceContains:<pattern>` activation events. The implementation supports literal paths, single-segment wildcards (`*`), and recursive wildcards (`**`) up to a depth of 3, with a safety cap of 4096 entries per root to ensure sub-100ms performance in large monorepos.\n\nThese changes align the IPC layer with the modular architecture established in recent commits and provide the necessary file-system introspection for correct extension lifecycle management.",
+			"SHA": "b37ff5594d3d5a121ee027062b90e8ca1c804fde"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T00:36:56Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1551,
+				28
+			],
+			"Message": "feat(Mountain): Implement comprehensive WindService IPC handlers for Cocoon, ExtensionHost, and Native bridges\n\nExpanded the IPC dispatch layer to bridge the Rust backend (Mountain) with the Renderer (Wind/Sky) and Extension Host (Cocoon). This commit introduces a suite of new handlers to support VS Code's core workbench requirements, ensuring feature parity with Electron-based architectures.\n\nKey additions include:\n- **Cocoon Bridge**: Implemented `cocoon:request` (RPC), `cocoon:notify` (fire-and-forget), and `cocoon:extensionHostMessage` to relay binary protocol data. Includes boot-race guards to handle latency during startup.\n- **ExtensionHost Lifecycle**: Added `extensionHostStarter:*` and `extensionhostdebugservice:*` handlers. Crucially, `start` now returns the actual Cocoon PID instead of the Mountain process ID, enabling debuggers to attach to the correct Node.js runtime.\n- **NativeHost Features**: Implemented cross-platform clipboard access (`arboard`), environment path resolution (with session-timestamped logs), `moveItemToTrash` (using osascript/gio/powershell), security-hardened `openExternal` (allowlisting schemes), and modal dialogs (`showMessageBox`, `showSaveDialog`).\n- **Terminal Resilience**: Added `localPty:attachToProcess` and `detachFromProcess` to support window reloads without losing active shell sessions. Includes `resize` protection against race conditions and `freePortKillProcess` for port binding conflicts.\n- **State Replay**: Introduced `sky:replay-events` to recover buffered tree-view, SCM, command, and terminal data emitted before the SkyBridge listeners were fully initialized, preventing UI elements from appearing empty on cold boot.\n- **Dynamic Dispatch**: Enhanced the `mountain_ipc_invoke` dispatcher to defer unknown commands to the Cocoon Node.js runtime (via gRPC) when `TierIPC=NodeDeferred` is set, covering language features, SCM, debug, and authentication namespaces.\n\nThese changes collectively resolve boot-time initialization races, enable full terminal lifecycle management, and provide the necessary native capabilities for a robust code editing experience.",
+			"SHA": "69f0bb7bceacea46817ccd097aa254567b4dc5e3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T23:42:07Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1522,
+				6
+			],
+			"Message": "feat(Mountain): Wire Mountain IPC commands into Tauri 2 ACL system\n\nMountain's native Tauri commands (e.g., `MountainProvideHover`, `MountainWorkspaceOpenFolder`, `DnsResolve`) were being rejected at runtime with \"Plugin not found\" errors because Tauri 2 requires explicit permission entries for all `#[tauri::command]` definitions.\n\nIntroduce `permissions/default.toml` to define the custom permission identifier `allow-mountain-commands`. This file aggregates the complete allow-list for every Mountain IPC handler defined in `Source/Binary/Main/Entry.rs`.\n\nUpdate `capabilities/default.json` to reference this new `default` permission set alongside existing `fs`, `log`, and core plugin permissions. Regenerate the ACL manifests and JSON schemas (`gen/schemas/`) to reflect the new permission identifiers.\n\nThis ensures the webview can invoke Mountain's native methods without failing the security check, completing the IPC bridge required for Wind/Sky to communicate with the Rust backend.",
+			"SHA": "bff5321e154a82323fa9e65a9e0aaa3ff6c0358b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T23:06:40Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1520,
 				1
 			],
-			"Message": "perf(Mountain): Reduce command registration yield delay to 20ms\n\nThe 50ms `tokio::time::sleep` after extension activation was conservatively oversized since the `registerCommand` IPC channel drains in roughly 16ms. Lower the yield to a single 20ms frame, matching the actual batch-flush cadence of the Tauri event system.\n\nThis shaves 30ms from the extension activation hot path, accumulating measurably when multiple extensions register commands during startup.",
-			"SHA": "7c91748de9acede25cf29c983732453e7ffc2d4e"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-19T02:49:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
-				1
-			],
-			"Message": "",
-			"SHA": "32a00801945f697b6a7504c419666c2c5ea56267"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:20:46Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
-				3
-			],
-			"Message": "",
-			"SHA": "af45c696979f36bc068823417654b96805b2d491"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:20:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1510,
-				7
-			],
-			"Message": "feat(Mountain): Implement native file descriptor API and refine Tauri window handlers\n\nComplete the implementation of the `nativeHost` IPC surface by adding `file:open` and `file:close` handlers. These functions establish a process-global file descriptor table (backed by `HashMap<u32, File>` and `AtomicU32`) to support VS Code's `DiskFileSystemProvider` for large binary I/O, replacing previous full-read/write fallbacks.\n\nRefine window management handlers: implement `setDocumentEdited` for the macOS dirty-dot indicator, `setMinimumSize` to prevent workbench collapse, and `positionWindow` for multi-window restoration. Update `setRepresentedFilename` to display the filename component in the title bar. Re-evaluate `is_alive` connection logic to remove artificial sleep delays.\n\nOptimize `tree-view/create` event emission in `EnqueueTreeViewEmit` by migrating from per-call `tokio::spawn` to a persistent mpsc channel with a 16ms frame-aligned batcher. This eliminates task overhead during boot. Additionally, reduce the terminal startup delay from 120ms to 20ms, matching M-series hardware capabilities, and improve `LifecyclePhaseState` formatting.",
-			"SHA": "8cde99c082f32ec6c8726e947e7a696d2c3ccf7e"
+			"Message": "feat(Mountain): Inject Tauri IPC diagnostic script for early failure detection\n\nIntroduce a diagnostic initialization script in WindowBuild.rs that executes at document_start, prior to any application scripts. This script captures the state of Tauri's IPC bridge and global objects (window.__TAURI_INTERNALS__, window.__TAURI__, window.ipc) immediately upon injection.\n\nThe script populates a global window.__MOUNTAIN_TAURI_DIAG object with timestamps and boolean flags indicating the presence and functionality of core IPC methods. It also records lifecycle events (DOMContentLoaded, load) to help pinpoint timing-related race conditions.\n\nThis addition enables developers to verify the integrity of the Tauri runtime and capability scoping directly from the DevTools console if the editor fails to initialize, without relying on the full bundle loading or downstream error handling.",
+			"SHA": "b5d79001860a7305fbe97f13f69ce906bdded054"
 		}
 	],
-	"TimeStamp": 1783259759896
+	"TimeStamp": 1783777340551
 }

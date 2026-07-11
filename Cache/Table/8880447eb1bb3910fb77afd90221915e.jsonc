@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T13:37:14Z",
+			"Date": "2026-06-12T21:41:32Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				154,
-				1
+				"⠁⠀⠀⠀⠀",
+				155,
+				2
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "247eb645c1ed37f0cad07bd4494389d9a100c8c0"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-06-12T03:34:10Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				154,
-				1
-			],
-			"Message": "",
-			"SHA": "80d727bcca774e2230dae9346bb341f2f0c2f736"
+			"Message": "feat(Sky): Bridge comment-thread channels from Mountain/Cocoon\n\nCocoon forwards extension-registered CommentController data to Mountain, which emits `sky://comments/thread-created` et al. Add a `Bridge/InstallComments.ts` module that:\n  - Dispatches `cel:comments:*` DOM CustomEvents for Sky-side consumers (future comment-pane widget, monaco contribution)\n  - Probes `__CEL_SERVICES__?.CommentService` and invokes `ICommentService` methods when available (forward-compatible — no code change needed once the workbench plugin exposes the service)\n  - Logs a deterministic one-shot gap message to Mountain's dev log when `ICommentService` is absent\n\nWire the installer into `Bridge.ts` alongside the existing progress/terminal/workspace relay. The four channels registered are: `thread-created`, `thread-disposed`, `updated`, and `controller-disposed`.\n\nNo functional impact on existing comment workflows — `ICommentService` is not yet exposed in `__CEL_SERVICES__`, so all thread data reaches the DOM event bus and the gap is visible in Mountain logs. Inline gutter balloons and the comment-pane will render once the workbench accessor plugin is updated.",
+			"SHA": "f521c4b2eed2b535ea0bac9e1acd7164c8484ac4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T02:22:48Z",
+			"Date": "2026-06-12T21:22:24Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				154,
-				2
+				5
 			],
-			"Message": "chore(Sky): Rename product identifiers to fcd, restore README badges\n\nUpdate the server data folder name and Darwin bundle identifier in product.json from the legacy `fiddee` prefix to `fcd`, aligning with the current product branding. The README loses existing badges in its prior rewrite; restore the dark/light-themed GitHub badges table and replace the funding logos section with a proper HTML table using higher-quality NLnet and NGI0 Commons Fund SVG assets.\n\nAdditional formatting: rewrap long paragraphs and table rows at a consistent 80-100 character width throughout the README body for improved readability.",
-			"SHA": "159c27d881350a9f2b4d1e40a95f0799783e7ae9"
+			"Message": "refactor(Sky): Consolidate edit-apply and expand Bridge channels\n\nExtract `ApplyEntriesToModels` as a shared edit-apply helper in InstallEditorAndOutput, unifying the IBulkEditService→direct-model fallback path previously duplicated across `sky://workspace/applyEdit` and `sky://editor/applyEdits`. The latter gains IBulkEditService support it lacked, and both now share ~200 lines of identical range-normalisation and URI-extraction logic.\n\nInstallDebug: Remove the `if (GetServices)` guard around breakpoint channel registration, making `GetServices` a required parameter. The two breakpoint channels now wire `IDebugService` unconditionally, not only when the optional accessor was provided.\n\nInstallEditorOperations: Subscribe to `ITextFileService.files.onDidSave` to forward workbench saves (Cmd+S, auto-save, save-all) via MountainIPCInvoke `textFile:save`. The buffered `file:open`/`write`/`close` path never reached Mountain's `$acceptModelSaved` notification; the unbuffered `file:writeFile` path already did. This closes the gap for the buffered path.\n\nInstallScm: Introduce a mutable `CommitTemplateValue` backing variable so the SCM provider's `commitTemplate` observable can be updated from `sky://scm/provider/changed` payloads. Store the provider's `ChangeEmitter` directly and fire it instead of reaching into the private `_emitter`.\n\nInstallStatusbar: Add `NormalizeColor` helper to handle `ThemeColor` values arriving as plain strings, `{ id }`, or serialized `{ _id }` shapes. Handle `visible: false` on statusbar items by disposing the entry, matching stock VS Code's `$disposeEntry` behaviour.",
+			"SHA": "253dd8a4c59cb2fdc388e62daaa50e65b1770147"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T00:06:53Z",
+			"Date": "2026-06-12T20:36:56Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				154,
 				1
 			],
-			"Message": "docs(Sky): Rewrite README with concise structure and consistent formatting\n\nReplace the verbose, HTML-heavy README with a clean markdown document organized into Overview, Architecture, Key Components, In the Land Project, Getting Started, API Reference, and Funding sections. Key improvements include:\n\n- Replace decorative HTML table headers and emoji spacers (U+2001) with simple markdown headings\n- Standardize Editor.Land domain casing across all links\n- Update the Mermaid diagram node labels to match new emoji (Sky ☀️, Wind 🌬️)\n- Convert the funding/logos HTML table to a concise markdown table with proper Asset-based SVG logos\n- Add formal NLnet NGI0 grant agreement number (No 101135429)\n- Remove verbose \"Interaction Flow\" walkthrough in favor of architectural summary\n- Simplify Getting Started section with clean markdown tables and compact examples\n\nThis makes the README more scannable, maintainable, and consistent with other Land project documentation.",
-			"SHA": "d74a0ce3d28054666805c9ef4780f61d716645fc"
+			"Message": "fix(Sky): Route applyEdits through Monaco ModelService instead of theme command\n\nThe `sky://editor/applyEdits` handler was routing text edit payloads through `workbench.action.applyThemeFromFile` — a theme-application command that never applied editor edits. Replace the broken workbench command indirection with direct Monaco ModelService edits.\n\nThe rewrite accesses the model registry via `globalThis.__CEL_SERVICES__`, extracts URIs from multiple serialisation formats (string, branded toString, vscode.Uri with `_scheme`/`_path`), normalises VS Code's 0-based extHost range fields (`_start._line`) to Monaco's 1-based coordinates (`startLineNumber`), and iterates each entry to call `Model.applyEdits()` with properly converted range objects. Malformed entries are silently skipped.\n\nText edits requested via the Sky Bridge now actually reach the editor buffer.",
+			"SHA": "ae7830ef4a9e8598a91410cd07eabcf1c0c7990b"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T23:12:53Z",
+			"Date": "2026-06-12T20:34:40Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				154,
 				1
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "6f0fcca9c60479ded81a437b1cc575bc26c7a79f"
+			"Message": "style(Sky): Normalize em-dashes and consolidate Workbench table in README\n\nReplace em-dashes (`—`) with hyphens (`-`) throughout README.md for consistency with standard markdown conventions. Restructure the Key Features section to inline the Workbench Variants overview as a table, removing the duplicate standalone section. Simplify all markdown table header separators to use bare `---` without colons, matching minimal table syntax.\n\nNo functional impact — documentation formatting only.",
+			"SHA": "ecf0b039ec0dd8ec3ae5db0fbfb8d1da4bb0c4bc"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T20:04:07Z",
+			"File": [
+				"⣿⡏⠀⠀⠀",
+				154,
+				49
+			],
+			"Message": "style(Sky): Remove redundant blank lines after opening braces\n\nStrip the blank line that immediately follows opening `{`, `[`, and `(`\nthroughout the SkyBridge installers, workbench entry points, smoke-test\ndiagnostics, Astro config, Polyfills, OTELBridge, PostHog bridge,\nTraceparent bridge, env declarations, and both README/Doc files. The\nblank line served no structural purpose — it was left after the closing\n`}` blank line convention was enforced in the previous formatting pass\nbut the matching opening-brace rule was missed.\n\nAffects ~50 TypeScript source files plus DeepDive.md and README.md\n(the latter two get pure line-wrap rewrapping). The three dynamic\nimport expressions in Bootstrap.ts that were broken across two lines\nin commit 97432a68 revert to a single line because the surrounding\nindentation collapse no longer pushes them past the max-width limit.\n\nThe Extension Change Subscriber in Electron/Extension/Change/\nSubscriber.ts and the Bundled Electron entry see minor type-annotation\nreformatting driven by the same brace-byte-offset change.\n\nNo functional impact — whitespace only.",
+			"SHA": "3d78380f701c301a658d9eb4072dd5d78edb6f3a"
 		}
 	],
-	"TimeStamp": 1783259744417
+	"TimeStamp": 1783777327563
 }

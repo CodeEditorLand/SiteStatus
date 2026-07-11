@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-02T00:15:33Z",
+			"File": [
+				"⣿⣿⠀⠀⠀",
+				28,
+				11
+			],
+			"Message": "perf(Element): Coalesce high-frequency IPC emits and restore webview rendering\n\nSynchronize 11 Element submodules to address IPC saturation during extension boot and fix webview initialization failures.\n\nMountain introduces batched emits for Decoration, Progress, and TreeView handlers, grouping high-frequency notifications (e.g., 6000+ git progress updates) into 16ms frames to prevent WKWebView channel starvation. Implement deduplication for filesystem watchers and single-flight directory walks to reduce kernel resource exhaustion. Standardize IPC variable names to PascalCase and fix URI normalization for workspace paths.\n\nSky adds a placeholder registry for webview creation to prevent silent drops of `set-html` calls before the workbench accessor is ready, and optimizes bridge logging to emit only on first resolution. Wind normalizes trailing slashes in workspace folder URIs to ensure correct relative path resolution for breadcrumbs.\n\nOutput restores eager paint overrides and re-enables `isolation: isolate` CSS to fix layout issues, while injecting the missing `IWebviewWorkbenchService` to render extension panels like Roo and Claude. Other submodules (Cocoon, Common, Echo, etc.) sync to include dependency updates (pnpm, wrangler) and maintain consistency.\n\nThese changes restore input responsiveness during heavy extension activation and ensure reliable rendering of complex extension features.",
+			"SHA": "ffb68d18bd2e474842cbbdc8c1ae580b32b0ddcd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-01T01:32:38Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				28,
+				4
+			],
+			"Message": "refactor(Element): Sync submodules with PascalCase naming convention\n\nSynchronize four Element submodules with PascalCase refactoring:\n- Air: Rename CLI handlers (handle_status → Status, handle_restart → Restart, handle_config → Config, handle_metrics → Metrics, handle_logs → Logs, handle_debug → Debug) and plugin trait methods (handle_message → Message, handle_event → Event)\n- Grove: Rename handle_call → Call in APIBridgeImpl\n- Mountain: Rename IPC handler functions (handle_commands_execute → CommandsExecute, handle_configuration_get → ConfigurationGet, handle_incoming_message →IncomingMessage, etc.)\n\nThese changes align with the project's naming convention specified in CLAUDE.md, removing handle_ prefixes for shorter, consistent method names across the codebase.\n\nAdditionally, Sky adds an event-driven installation path for Wind's LandWorkbench bridge that listens for cel:services-ready, ensuring proper sequencing: services DI container populated → install Wind bridge → notify subscribers.",
+			"SHA": "e86cbf076d24ae8068136ca73697bf3d16e1ce3c"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-01T01:17:53Z",
 			"File": [
 				"⡟⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "perf(Element): Reduce IPC channel saturation to fix keystroke lag during extension boot\n\nSynchronize five Element submodules with performance optimizations addressing input lag caused by IPC channel saturation:\n- Mountain: Gate mountain_sync_status_update and mountain_performance_update events behind LAND_SYNC_STATUS_EMIT and LAND_PERF_EMIT env vars. Add subscriber fast-path to skip lock-and-drain when Subscribers.is_empty().\n- Output: Remove success-case tauri-invoke logging in InvokeMountain and fire-and-forget channel stub logging. Only log drift disposition (uncovered commands).\n- Sky: Remove per-fire _CelDispatchLog traces (now requires __LAND_TRACE_CEL_DISPATCH__=true). Diagnostic bridges for markers-bridge and webview-bridge now only log on pushable=false or hasRegister=false.\n- Wind: Remove success-case tauri-invoke forward (failures still forwarded). Remove fire-and-forget stub logging entirely. Only forward drift disposition case.\n\nThese changes prevent 50-100 log/emits per second during extension boot from saturating Tauri's invoke channel and starving keystroke delivery on the shared WebKit message channel.",
 			"SHA": "2082615be7eab87db7b9a1b0931b9697d916fdb5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:35:03Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				28,
-				4
-			],
-			"Message": "chore(Element): Sync submodule updates with Disable env var for regression bisection\n\nSynchronize four Element submodules to their latest downstream versions adding a master Disable gate for bisecting typing/input regressions:\n\n- Mountain (14b86ef): Fix first-click focus by setting accept_first_mouse(true) so WKWebView doesn't swallow the initial click as a \"make me key\" no-op. Add Disable=true env var that skips Cmd+W intercept, Cocoon/Air sidecar spawn, and Wind/SkyBridge registration.\n\n- Output (44e160c6, 8a3e8d28): Add RewriteWebviewShellCSP to loosen script-src from stale sha256 to 'unsafe-inline' for extension webviews. Fix icon URL rewriting for file:/// scheme under Tauri. Add ForceTextAreaInput to disable EditContext API and route input through legacy textarea. Refine WorkbenchInteractivityCSS with pointer-events rules to survive z-index isolation. Add LandDisableAll gate for vanilla VS Code builds.\n\n- Sky (e525930): Add Disable=true build/runtime gate that short-circuits SkyBridge registration and skips Bootstrap. Add AutoDiagnoseInput diagnostic for the Disable mode. Remove eager focus restore that caused regressions with search boxes. Rename LAND_SMOKE_TEST to Smoke (PascalCase).\n\nThese changes enable developers to bisect whether typing/input regressions originate in our customizations or upstream/Tauri/WKWebView by running with Disable=true.",
-			"SHA": "b935ebb7fc955b9bd68dbe551ad834a9f2444519"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T20:27:43Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				28,
-				5
-			],
-			"Message": "chore(Element): Sync submodule updates with macOS UX fixes and extension webview support\n\nSynchronize five Element submodules to their latest downstream versions delivering critical macOS UX improvements and extension webview infrastructure:\n\n- Mountain (fb254ade, 54650acd): Fix boot race and close handling for macOS (Cmd+W intercept, DevTools focus opt-in) and add vscode-webview:// URI scheme handler for extension webviews (Roo Code, Claude, GitLens)\n- Output (0d474607): Add macOS titlebar offset and z-index CSS transforms, expand sandbox stripping to both iframe sites, rewrite webview shell CSP\n- Sky (1270c609): Add window close handler (Cmd+W closes active editor first), lifecycle focus after restoration, and opt-in command catalog smoke test\n- Wind (31a0dd9f): Update service layer with latest Effect-TS changes\n\nThese fixes resolve the \"I can't type or keybind\" issue, empty Explorer on first launch, and enable sideloaded extension webviews to render properly.",
-			"SHA": "0ebddba9c443930843c63da5c57e55c771d63970"
 		}
 	],
-	"TimeStamp": 1783259751821
+	"TimeStamp": 1783777334185
 }

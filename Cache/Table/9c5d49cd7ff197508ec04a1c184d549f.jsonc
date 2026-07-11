@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:48:24Z",
+			"Date": "2026-06-12T22:26:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1858,
-				5
-			],
-			"Message": "docs(Mountain): Rewrite rustdoc comments to meet quality standards\n\nReplace meta-instructional doc text (\"This struct does X\" → \"X\", \"Represents Y\" → \"Y\"), remove empty and blank doc-comment lines, and convert TODO-section module stubs into proper //! module documentation with structured lists.\n\nChanges:\n- `MountainEnvironment.rs`: Condensed struct-level doc to remove \"Primary dependency injection container\" preamble in favour of a direct description.\n- `CocoonService/mod.rs`: Promoted stale \"thin-wrapper dispatcher\" ASCII comment to proper //! module doc with formatted item list; rewrote struct- and field-level docs to drop \"This struct\" / \"Provides\" meta-text.\n- `RPC/mod.rs`: Expanded module doc to a formatted //! block.\n- `rewrite_docs.py`, `fix_rustdocs.py`: Added automation scripts for ongoing rustdoc quality enforcement across the IPC and core modules.",
-			"SHA": "725b11e0cfe12294c5830848c3cd74d0efa0d32f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:24:00Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1856,
-				1
-			],
-			"Message": "chore(Mountain): Remove stale .commit-message.json artifact\n\nThe `.commit-message.json` file at the Mountain root was left behind from the commit message generation workflow and contains the message text of the most recent commit (3e14d7e8). This file has no purpose outside the generation pipeline and should not be tracked.\n\nUnstage and delete the artifact.",
-			"SHA": "b991e9aa7f464743fe1aa8efc9d545504871e0cf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:23:20Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
-				1
-			],
-			"Message": "feat(Mountain): Bridge WebSocket frames to MountainIPCInvoke dispatch\n\nRegister a default handler on the Mist handler registry that bridges every\ninbound `{ method, params }` WebSocket frame into the\n`crate::IPC::WindServiceHandlers::mountain_ipc_invoke` dispatch path — the\nsame Tauri command used by the Sky frontend — so the full\nWindServiceHandlers surface is reachable over the Mist WebSocket transport\nwithout per-method registration.\n\nThe handler normalises params into a Vec<Value> (Array passes through,\nNull becomes empty, scalars wrap into single-element) and delegates to the\nexisting mountain_ipc_invoke. The Mist secret is wrapped in Some() for\nconsistent optional semantics on ServeLocal.\n\nThis eliminates the staged handler-registration plan described in the\nprevious comment: the fallback makes every method available immediately.",
-			"SHA": "3e14d7e8b3d31fb0c80ff943a64015d2d7d3f3d0"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:22:25Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
-				2
-			],
-			"Message": "feat(Mountain): Add CancelOnDrop guard to provider forward calls\n\nReplace the direct `IPCProvider::SendRequestToSideCar` in `InvokeProvider`\nand `InvokeProviderMethod` with `ForwardCancellable`, a wrapper that runs\nthe Vine call on a detached `tokio::spawn` task guarded by a drop-triggered\nwatch signal. A new `CancelOnDrop` guard flips the signal when the calling\nfuture is dropped — from gRPC cancellation, typed-rail `CancelOperation`,\npeer disconnect, or any caller-side `select!` loss — so the detached task\ndelivers `CocoonService.CancelOperation` for the wire request id before\nexiting, terminating the side-car provider instead of computing a result\nnobody is waiting for.\n\nBoth provider-invocation paths now use `FnCancellable` from the Vine\nclient instead of the old blocking `SendRequestToSideCar`, eliminating\nthe `Arc<dyn IPCProvider>` / `Require()` dependency in both modules.",
-			"SHA": "c1eb47dc38cbaf90ea0132444cba790bf24f046b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:20:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1855,
+				1866,
 				6
 			],
-			"Message": "feat(Mountain): Mount CocoonService on shared port, invalidate extension install cache, pipe session ID to Cocoon\n\nMount `CocoonServiceServer` (typed `CocoonServiceImpl`) on the same tonic router as `MountainServiceServer` so both services share port 50051, replacing the previous unused-variable pattern. Derive `MAX_MESSAGE_SIZE` from `Vine::Client::Shared::MAX_MESSAGE_SIZE_BYTES` for lockstep configuration across the client-server boundary.\n\nCall `BumpScanGeneration()` on extension install and uninstall so that cached `extensions:getInstalled` responses from an earlier scan generation are invalidated, preventing stale builtins-only manifests from being served after user-path extensions are added or removed.\n\nInject `CocoonSessionId` into the Cocoon sidecar environment, carrying the same session UUID used for `telemetryInfo.sessionId` in initialization data. This lets `vscode.env.sessionId` resolve correctly in Cocoon before the extension-host handshake completes. Promote `SessionId()` from `fn` to `pub(crate) fn` for cross-module access.\n\nReplace the `dev_log`-based subscriber-lag warning in `VineSubscribeCommand` with a call to `Vine::Client::Shared::ReportNotificationLag`, upgrading a local log message to structured instrumentation that consumers can act upon.",
-			"SHA": "7723552a9ff1ccd21397cddd7058838a788c775e"
+			"Message": "feat(Mountain): Wire Shim interception into both IPC dispatch paths\n\nInsert the Shim layer at two entry points so swallowed methods are\nintercepted before reaching any domain handler:\n\n- **DispatchMatch.rs** — Shim pre-check in `mountain_ipc_invoke` reads\n  `Gate::is_enabled()` and `SwallowMap::should_swallow()` to decide\n  whether to return a Null ack (Mountain/None targets) or passthrough.\n\n- **CreateEffectForRequest/Shim.rs** — New domain module that gets first\n  crack at every gRPC method via `Try!(Shim)` in the dispatch chain,\n  placed before all other domain handlers. Returns a Null-ack effect for\n  swallowed methods or `None` to fall through.\n\nAlso clean up the remaining AI-internal annotations from the initial\nShim implementation: remove the 🟠🔵 color/tier table and the\n`.hermes/microsoft/` doc reference from `Shim/mod.rs`, drop \"Land\"\nqualifier from `SwallowMap.rs`, and deduplicate the repeated subsystem\nfeature declarations in `Cargo.toml`.\n\nThe interception layer is fully gated behind `TierShim` (default: `None`)\nand compiles to zero overhead via dead-code elimination.",
+			"SHA": "8e7ff15b9ef23c3c0a63203a1086dc97e0300645"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:26:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1865,
+				2
+			],
+			"Message": "style(Mountain): Strip AI-internal annotations and reorganize Cargo features\n\nRemove emoji markers (🟠🔵) and the .hermes/microsoft/ doc reference path\nfrom the Shim module comment, keeping only the functional description of the\ngated interception layer. Relocate inline Shim tier explanatory comments from\nthe default features list in Cargo.toml.\n\nReorganize feature flags into logical groups — tier flags, subsystem\nfeatures, and the Shim gate — for better maintainability alongside the\nexisting declarations per project policy on source cleanliness.",
+			"SHA": "0b9e8f0ca5e36019d5a812f965861eb01b7d668e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:20:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1865,
+				5
+			],
+			"Message": "feat(Mountain): Add Shim module with Gate and SwallowMap for IPC interception\n\nEstablish the Rust-level foundation for the deep-shim interception layer introduced by the TierShim env-var in the prior commit. Two new modules live behind the `pub mod Shim` declaration in Library.rs:\n\n- **Gate** — Compile-time tier gate reading `env!(\"TierShim\")` (baked by build.rs via EmitTierDefaults), exporting boolean guards (`is_enabled`, `is_proxy`, `is_replace_or_deeper`, `is_own_or_preempt`, `is_preempt`) that drive `#[cfg]` gating throughout Mountain. Zero overhead at default `None` tier via dead-code elimination.\n\n- **SwallowMap** — Pattern-matching decision engine that maps IPC method names (e.g. `statusbar:`, `telemetry:`) to a `SwallowAction`/`RedirectTarget` pair, determining whether Mountain handles the call locally, forwards it to Wind/Cocoon/Output/Sky, or discards it entirely (telemetry). Rules are checked in insertion order; first match wins with a default `Passthrough → None` fallback.\n\nCargo.toml gains inline comments documenting the four active shim tiers and their corresponding Rust features. This completes the Rust-side routing infrastructure for the Land Shim plan.\n\nSee: `.hermes/microsoft/05-Mountain-Rust-Intercept.md`",
+			"SHA": "d22f305e382b83b58e9a6ac5f32ce87c7369afc3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:54:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1861,
+				1
+			],
+			"Message": "feat(Mountain): Add TierShim env-var for deep-hook intercept layer\n\nIntroduce a new `TierShim` compile-time environment variable to build.rs that enables an experimental deep-hook intercept layer for VS Code service instantiation. The tier defines five progressive levels compiled out via `#[cfg]` gates:\n\n- `None` — zero overhead, all shim code omitted (default)\n- `Proxy` — audit-only observation of existing paths\n- `Replace` — individual service shim replacement\n- `Own` — Land owns the InstantiationService container\n- `Preempt` — Land controls BrowserMain.open()\n\nAdd the default emission in EmitTierDefaults and wire validation into IsDefaultTierValue. No behavioral change at default `None`.",
+			"SHA": "885383348767e1ef23c19da1124877eadf237a49"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:41:29Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1861,
+				1
+			],
+			"Message": "feat(Mountain): Fire onFileSystem activation on register_file_system_provider\n\nExtract `register_file_system_provider` from the catch-all handler group and give it a dedicated match arm that fires `$activateByEvent(\"onFileSystem:{scheme}\")` when an extension registers a virtual file-system provider. The scheme is read from the `scheme` key in the parameters object.\n\nThis ensures extensions declaring `\"activationEvents\": [\"onFileSystem:xyz\"]` in their manifest are activated on registration, matching VS Code's behaviour. The provider is still forwarded through `RegisterLanguageProvider` for handle tracking, and a warning is logged when the provider falls outside the known language-feature map.",
+			"SHA": "9f2f1783e8d68a4825ed628969e4297d12606d05"
 		}
 	],
-	"TimeStamp": 1783259741957
+	"TimeStamp": 1783777324892
 }

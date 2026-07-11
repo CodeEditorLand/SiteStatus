@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T02:08:23Z",
+			"Date": "2026-06-12T14:47:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1872,
-				10
+				1854,
+				1
 			],
-			"Message": "style(Mountain): Tidy formatting across Environment subsystem\n\nConsolidate multi-line import blocks into single lines in all four LanguageFeatureProvider feature method files (InvokeProvider, InvokeProviderMethod, ProvideHover, ProvideOnTypeFormattingEdits). Add consistent blank-line separators between match arms throughout WhenClause.rs — tokenizer character dispatch, parser expression handling, and evaluator branches. Reflow SearchProvider.rs closures and chained calls for readability; collapse FileWatcherIgnore test assertion to one line; reflow ConnectPipeServerAdapter and SpawnExecutableAdapter error-format strings to avoid 100-char overhang.\n\nPure code-style pass over the Source/Environment/ tree — no semantic or logic changes.",
-			"SHA": "3ab438005c3290c5955d13ed0b5c19fb777f949b"
+			"Message": "refactor(Mountain): Prune terminal, extension host, and redundant workspace inline dispatch arms; route through routers\n\nReplace the remaining inline `terminal:*` call! macros and the entire `localPty:*` block (43 match arms spanning ~700 lines) with a unified `command.starts_with(\"terminal:\") || command.starts_with(\"localPty:\")` guard delegating to TerminalRouter::route(). This completes the terminal consolidation alongside the earlier WorkspacesRouter, OutputRouter, and HistoryRouter extractions — all terminal lifecycle (create, sendText, dispose, show, hide), local PTY lifecycle (getProfiles, createProcess, resize, input, shutdown, ack), and the workbench-facing IPtyService surface (getTerminalLayoutInfo, listProcesses, refreshProperty, setActive, shellExecutionStart/End, installAutoReply, etc.) now pass through a single router.\n\nRemove the inline extension host starter/debug/message arms (extensionHostStarter:*, extensionhostdebugservice:*, cocoon:extensionHostMessage) and replace with a guard delegating to ExtensionHostRouter::route(). All extension host lifecycle (create/start/kill/waitForExit), debug session attach/terminate/reload/close, and the cocoon:extensionHostMessage relay are now routed consistently.\n\nPrune the dead inline workspaces:* arms (getRecentlyOpened, addRecentlyOpened, enterWorkspace, getWorkspaceIdentifier, etc.) that were shadowed by the `command.starts_with(\"workspaces:\")` guard added in the prior commit. These fallthrough paths were unreachable but remained as dead code — removing them eliminates the duplicate dispatch and the stale import dependencies.\n\nPure structural consolidation — no behavioural change to terminal PTY semantics, extension host debugging, or workspace lifecycle across any of the three domains.",
+			"SHA": "09a73d72dc86af6af32bc178b11deb3200fef970"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T02:08:05Z",
+			"Date": "2026-06-12T14:41:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1872,
-				10
+				1854,
+				2
 			],
-			"Message": "chore(Mountain): Reformat source files and rename product identifier to fcd\n\nApply code-style improvements across several Mountain subsystems — consolidate multi-line imports into single lines, add consistent blank-line separators in match arms, reflow doc comments to 100-char wrapping, and tighten brace placement around expression blocks. These are purely stylistic; no logic changes.\n\nRename the Tauri URI scheme protocol and PostHog event $app property from \"fiddee\" to \"fcd\", adopting the shorter product identifier. Touches Entry.rs (.register_asynchronous_uri_scheme_protocol) and CaptureEvent.rs (Event.insert_prop(\"$app\", ...)).\n\nAffected files: KeybindingState, GetUserKeybindings, RegisterExtensionKeybindings, CheckKeybindingConflicts, Bootstrap, Keybinding, SourceControlManagement, AirStart, CaptureEvent, Entry.",
-			"SHA": "f0610eefff4962308fab5c4fdb3e7db72bd713d4"
+			"Message": "feat(Mountain): Route workspaces:getRecentlyOpened through WorkspacesRouter; consolidate remaining inline workspace dispatch\n\nAdd the `workspaces:getRecentlyOpened` route to WorkspacesRouter, delegating to the recently-developed `ReadRecentlyOpened` function for direct state access. This completes the recently-opened bookkeeping trio alongside add/remove/clear.\n\nReplace the remaining inline workspace match arms in DispatchMatch.rs (`getFolders`, `addFolder`, `removeFolder`, `getName`) with a single `command.starts_with(\"workspaces:\")` guard that delegates fully to `WorkspacesRouter::route()`. All four existing workspace lifecycle commands preserve their exact semantics — folder retrieval, folder addition/removal, and name resolution all pass through unchanged.\n\nPure structural consolidation with one new IPC command handler — no behavioural change to workspace lifecycle or recently-opened mutation semantics.",
+			"SHA": "30b70a218595124841a0b795135555b201c5601d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T02:07:41Z",
+			"Date": "2026-06-12T14:39:28Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1872,
-				4
+				"⠁⠀⠀⠀⠀",
+				1854,
+				47
 			],
-			"Message": "feat(Mountain): Add per-subsystem compile-time feature gating from tier env vars\n\nDeclare 14 subsystem Cargo features (Terminal, SCM, Debug, LanguageFeatures, Search, OutputChannel, NativeHost, TreeView, Storage, Model, FileSystem, Encryption, Tasks, Auth) in the default features set and implement the build.rs `EmitTierFeatures` pipeline. A new `emit_feature_from_tier` helper reads each `Tier*` key from `.env.Land` and emits `cargo:rustc-cfg=feature=\"...\"` when the value is neither `Disabled` nor `Node`, meaning the native Mountain handler is active.\n\nThe `IsDeclaredTierFeature` whitelist is extended to include all 14 subsystem names so unknown combinations surface as build warnings rather than silent no-ops.\n\nTogether with the existing per-subsystem `RouteTier` enum (NodeDeferred mode), this lets `#[cfg(feature = \"...\")]` gates guard native dispatch paths at compile time — a subsystem whose tier defaults to Node silently omits Mountain's handler code from the binary.\n\nAlso update Info.plist: remove Inspect flag, add ProductFlavor identifier, clear Record and Trace defaults. Rewrite README with badge tables, narrower paragraph wrapping, and a funding-section logo grid.",
-			"SHA": "5bcb63a34e206f5ecc46a4127b251323654015d4"
+			"Message": "refactor(Mountain): Consolidate output, model, terminal, and extension host dispatch into routers; prune empty Dispatcher/ stubs\n\nContinue the modularization pattern established by SearchRouter, HistoryRouter, and ExtensionsRouter by extracting four additional dispatch domains from the inline match block in DispatchMatch.rs:\n\n- **OutputRouter** — routes all `output:*` commands (create, append, appendLine, clear, show, replace, dispose) into a dedicated module under Output/OutputRouter.rs.\n- **ModelRouter** — routes `model:*`, `textFile:*`, `text:*`, and `workspace:openTextDocument` commands into Model/ModelRouter.rs, preserving the Sky Tauri event relay for document open intent.\n- **TerminalRouter** — routes all `terminal:*` and `localPty:*` commands into Terminal/TerminalRouter.rs, carrying the full terminal lifecycle (localPty:createProcess, layout persistence, shell execution events, auto-reply rules) from the previously inline block.\n- **ExtensionHostRouter** — routes extension host lifecycle commands (starter, debug service, Cocoon message relay) into ExtensionHost/ExtensionHostRouter.rs.\n\n**WorkspacesRouter** is substantially expanded to include recently-opened bookkeeping (add/remove/clear), workspace identifier derivation (hash of first folder URI), workspace display name delegation, and dirty-workspace stubs — replacing the earlier thin wrapper that only handled folder retrieval and enter/create/delete.\n\n**Dispatcher/ module** is stripped: all 31 per-domain stub files deleted and the mod.rs reduced to a doc comment noting dispatch now lives inline in DispatchMatch.rs. The deleted stubs had been empty shells since the original Consolidation pass — their function-level handlers were already imported directly.\n\nDispatchMatch.rs imports are cleaned up: Model, Output, and TextFile function imports removed, replaced by the corresponding router path. The new dispatch arms use `command.starts_with(\"...\")` guards with `unwrap_or_else(|| Ok(Value::Null))` fallback, matching the convention established by SearchRouter and HistoryRouter.\n\nPure structural consolidation — no behavioural change to output channels, text model lifecycle, terminal PTY semantics, extension host debugging, or workspace folder/recently-opened handling.",
+			"SHA": "1b4f8f6e8dcc4d3a4b57db2e804594b27c889359"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T00:06:04Z",
+			"Date": "2026-06-12T13:53:32Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1872,
-				4
+				1882,
+				2
 			],
-			"Message": "refactor(Mountain): Extract dispatch match logic, add terminal update property handler, and simplify README\n\nContinue the Mountain modularization effort by extracting the main IPC dispatch\nmatch block from the `mod.rs` module registry into a dedicated\n`DispatchMatch.rs` file, keeping `mod.rs` as a pure module declaration\nregistry with thin forwarding wrappers.\n\nAdd `LocalPTYUpdateProperty.rs` under `WindServiceHandlers/Terminal/` to\nimplement the `localPty:updateProperty` wire method. The handler persists\nterminal title (prop 2), override name (prop 3), and shell type (prop 5) to\nthe feature state's `ActiveTerminals` map, emitting `TerminalPropertyChanged`\nto Sky for live xterm tab label and icon updates.\n\nSimplify the README: replace the complex HTML table header and emoji deco\nwith clean markdown, consolidate sections (Overview, Key Features,\nArchitecture, Key Components, In the Land Project), flatten badge layout\nonto inline links, and replace the multi-column logo table with a compact\nimage grid in the Funding section. Remove redundant Deep Dive references\nand editorializing about Electron's RAM tax.\n\nFollows the established pattern of extracting monolithic files into\nsingle-responsibility modules seen across URI schemes, debug providers,\nLSP features, WindAdvancedSync, and CocoonManagement.",
-			"SHA": "1ff126034b179833a45152d79b259b41d3a735dc"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "8720aa5b8affdca0f2c9ee4e9ef5729c2b9da7a0"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T23:18:26Z",
+			"Author": "github-actions[bot]",
+			"Date": "2026-06-12T07:53:02Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1870,
-				5
+				1879,
+				1
 			],
-			"Message": "refactor(Mountain): Organize modules by introducing dedicated files for Scheme, DebugProvider, LanguageFeatureProvider, WindAdvancedSync, and CocoonManagement\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "16c08aa0811d932fa02a890342da2da7a64c386e"
+			"Message": "Merge pull request #73 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-4.0.1\n\nchore(deps): Bump pozil/auto-assign-issue from 4.0.0 to 4.0.1",
+			"SHA": "f7f11dff41e9e915b10a5354313726fed668f318"
 		}
 	],
-	"TimeStamp": 1783259743875
+	"TimeStamp": 1783777326773
 }

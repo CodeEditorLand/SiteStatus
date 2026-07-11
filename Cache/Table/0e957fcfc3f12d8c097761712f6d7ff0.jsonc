@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T02:29:54Z",
+			"Date": "2026-06-11T22:59:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1768,
-				15
+				1870,
+				19
 			],
-			"Message": "style(Mountain): Normalize formatting across IPC handlers and Cocoon management\n\nApply consistent formatting to Vine gRPC notification calls across WindServiceHandlers dispatchers (Configuration, Sky, Storage, TreeView), ExtensionHost debug services, NativeHost openExternal, and the main mountain_ipc_invoke router. Condense multi-line variable bindings in CocoonManagement restart loop and terminal property updates. Fix shell integration redirect syntax (2>/dev/null → 2> /dev/null). Add whitespace separation between Send/Sync impl blocks in MountainEnvironment.\n\nNo functional changes — purely cosmetic improvements for readability and consistency.",
-			"SHA": "4766ea68e2da6a8cfb55150513fdd00918d1d080"
+			"Message": "refactor(Mountain): Modularize WindAdvancedSync and CocoonManagement into dedicated modules\n\nContinue the Mountain modularization effort by extracting monolithic implementations into focused single-responsibility modules across two subsystems:\n\nWindAdvancedSync (Source/IPC/WindAdvancedSync/):\n- 10 new modules covering the full document/Ui-state synchronization pipeline:\n  ApplyDocumentChange, BroadcastRealTimeUpdates, BroadcastUpdates,\n  CalculateSyncStatus, CheckForConflicts, New, StartPerformanceMonitoring,\n  StartSyncTask, SynchronizeDocuments, UpdateSyncStatus\n- Each module exposes a single public `Fn` entry point; WindAdvancedSync.rs\n  becomes a clean delegation layer (~200 lines down from ~900)\n- Circuit-breaker logic, conflict detection, and real-time broadcast fast-path\n  preserved in their respective modules\n\nCocoonManagement (Source/ProcessManagement/CocoonManagement/):\n- 19 new modules covering the complete Cocoon sidecar lifecycle:\n  BuildCocoonEnvironment, CocoonProcessState, ConnectToCocoonGrpc,\n  FindMatchingWorkspaceContainsPatterns, FireRootConfigActivationEvents,\n  FireWorkspaceContainsEvents, HardKillCocoon, LaunchAndManageCocoonSideCar,\n  MonitorCocoonHealthTask, PatternMatchesAnyEntry, ResolveBootstrapScript,\n  RestoreWebviewPanels, SeedOpenDocuments, SeedOpenTerminals,\n  SegmentMatch, SendInitializationHandshake, SingleSegmentMatch,\n  SpawnCocoonIoForwarders, SpawnRestartHandler, SpawnStartupActivationTask,\n  SweepStaleCocoon\n- Zombie-process sweep (Atom I6), exponential-backoff gRPC connect with\n  child-exit detection, workspaceContains pattern matching, and automatic\n  restart handler all extracted to independent, testable units\n- Original CocoonManagement.rs reduced from ~1700 lines to ~150 lines of\n  orchestration\n\nImpact: Drastically improves maintainability, enables independent unit testing\nof each subsystem component, and establishes consistent modular patterns for\nfuture Mountain development. Follows the same architectural approach as the\nprior URI scheme, debug provider, LSP feature, and Tauri IPC modularization.",
+			"SHA": "5ac832301cb2362a5be618b965ada8972baaf5d3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T02:22:30Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1768,
-				6
-			],
-			"Message": "feat(Mountain): Seed Cocoon with existing terminals and expand IPC method handlers\n\nCocoon's gRPC channel opens after the workbench restores terminals, leaving `vscode.window.terminals` empty for extensions that read it synchronously in `activate()`. After the sidecar connects, iterate `ApplicationState.Feature.Terminals` and resend each open terminal via the `$acceptTerminalOpened` notification so the terminal list is populated before extensions activate.\n\nAlso extend the Effect request routing matchers:\n- FileWatcher: add `Register` and `Unregister` methods\n- Storage: add `GetItems` method\n- Task: add `terminate_task` and `Task.Terminate` methods\n- Workspace: add `RequestResourceTrust`, `IsResourceTrusted`, `Save`, `SaveAs`, `saveAll`, `SaveAll` methods\n\nFix minor shell integration syntax: `2> /dev/null` → `2>/dev/null`.\n\nImpact: Extensions no longer see an empty terminal list on startup, and the Mountain backend now handles the full surface of FileWatcher, Storage, Task, and Workspace IPC requests from Cocoon.",
-			"SHA": "ec51929472623ef48d7a09a541edc668f24c0f6b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T20:22:00Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1768,
-				1
-			],
-			"Message": "refactor(Mountain): Move Cocoon restart loop to dedicated thread with LocalSet\n\nThe Cocoon sidecar restart logic was running via `tokio::task::spawn_local` on Tauri's single-threaded runtime, but `LaunchAndManageCocoonSideCar` is `!Send` because it holds `parking_lot` guards across `.await` points. This created a soundness risk on the shared executor.\n\nReplace with a dedicated OS thread (`cocoon-restart`) that owns a `current_thread` Tokio runtime wrapped in a `LocalSet`. The restart receiver, `AppHandle`, and `Arc<MountainEnvironment>` are all `Send` and cross the thread boundary safely. The `LocalSet` enables `spawn_local` for the async restart loop without requiring the future to be `Send`.\n\nImpact: Eliminates the `!Send` future on the main Tauri runtime, maintains exponential backoff restart semantics, and isolates Cocoon lifecycle management on its own executor.",
-			"SHA": "38160a1a67b1803a20b230914efc91e76bb31a2c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T20:21:36Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1768,
-				16
-			],
-			"Message": "fix(Mountain): Correct Send/Sync impls, fix Vine typo, simplify storage flush, and harden Cocoon spawn\n\nAdd `unsafe impl Send + Sync` for `MountainEnvironment` to satisfy trait bounds across async boundaries. Fix `cratecrate` typo in `MountainVinegRPCService` that broke gRPC request/notification forwarding. Simplify storage flush logic in `StorageDispatcher` and `mod.rs` by removing redundant `.ok().map()` chains and unwrapping locks directly. Correct debug session registration to use `RunTime.Environment.ApplicationState` path consistently.\n\nReplace `tokio::spawn` with `tauri::async_runtime::spawn` for Cocoon activation events and use `tokio::task::spawn_local` with safety comment for restart loop, since `LaunchAndManageCocoonSideCar` holds `parking_lot` guards across `.await` points and runs on Tauri's single-threaded runtime. Add `IsVisible:false` to sidecar and tree view provider registrations. Drop `path_resolver` early in Cocoon launch to avoid holding it across awaits. Clean up import paths across all WindServiceHandlers dispatchers and add missing `tauri::Emitter` where events are emitted.\n\nImpact: Resolves thread-safety violations, fixes gRPC client calls, eliminates lock-unwrap panics, and ensures Cocoon sidecar management runs on the correct executor.",
-			"SHA": "00ea3ea3348955d7ee80e8e98e59b5cbe397ddc3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T14:37:24Z",
+			"Date": "2026-06-11T22:55:15Z",
 			"File": [
 				"⠃⠀⠀⠀⠀",
-				1768,
-				103
+				1855,
+				74
 			],
-			"Message": "Refactor: Clean up code by removing unnecessary whitespace and comments\n\n- Removed redundant whitespace in multiple files to improve code readability.\n- Consolidated comments for clarity and consistency.\n- Streamlined the handling of parameters and responses in various functions.\n- Enhanced the overall structure of the codebase for better maintainability.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "5c10b95f63323c3da8a410c3c75d1c15d750be6a"
+			"Message": "refactor(Mountain): Modularize URI schemes, debug provider, LSP features, IPC server, and Cocoon management into dedicated modules\n\nExtract monolithic implementations into focused single-responsibility modules across multiple Mountain subsystems:\n\nURI Scheme Handlers (Source/Binary/Build/Scheme/):\n- ForwardHttpRequest, LandSchemeHandler, MimeFromExtension, ParseHttpResponse,\n  VscodeFileSchemeHandlerInner, VscodeWebviewSchemeHandlerInner\n- Each handler now lives in its own file with clear public `Fn` entry points\n- Original Scheme.rs reduced from 1300+ lines to ~100 lines of delegation\n\nDebug Provider (Source/Environment/DebugProvider/):\n- ConnectPipeServerAdapter, ConnectServerAdapter, RegisterDebugAdapterDescriptorFactory,\n  RegisterDebugConfigurationProvider, SendCommand, SpawnExecutableAdapter,\n  StartDebugging, StopDebugging\n- Trait impl in DebugProvider.rs now delegates to per-method modules\n- Eliminates 1000+ line trait implementation block\n\nLSP Language Features (Source/Environment/LanguageFeatureProvider/FeatureMethods/):\n- 31 feature methods extracted (ProvideCompletions, ProvideHover, ProvideDefinition,\n  ProvideReferences, ProvideCodeActions, ProvideCodeLenses, ProvideDocumentSymbols,\n  ProvideWorkspaceSymbols, ProvideSignatureHelp, ProvideDocumentFormattingEdits,\n  ProvideDocumentRangeFormattingEdits, ProvideOnTypeFormattingEdits, ProvideRenameEdits,\n  PrepareRename, ProvideDocumentHighlights, ProvideDocumentLinks, ProvideFoldingRanges,\n  ProvideSelectionRanges, ProvideSemanticTokensFull, ProvideInlayHints,\n  ProvideInlineCompletionItems, ProvideFileDecoration, ProvideLinkedEditingRanges,\n  ProvideCallHierarchyIncomingCalls, ProvideCallHierarchyOutgoingCalls,\n  PrepareCallHierarchy, PrepareTypeHierarchy, ProvideTypeHierarchySupertypes,\n  ProvideTypeHierarchySubtypes)\n- Shared helpers InvokeProvider and InvokeProviderMethod also modularized\n- FeatureMethods.rs becomes a clean delegation layer\n\nTauri IPC Server (Source/IPC/TauriIPCServer/):\n- DecryptMessage, Dispose, InitializeDefaults, ProcessMessageQueue,\n  ReceiveMessage, SendMessage, StartHealthMonitoring, ValidatePermission\n- Core struct methods now single-line delegations\n\nCocoon Process Management (Source/ProcessManagement/CocoonManagement/):\n- 14 new modules covering full lifecycle: BuildCocoonEnvironment, CocoonProcessState,\n  ConnectToCocoonGrpc, FireRootConfigActivationEvents, FireWorkspaceContainsEvents,\n  HardKillCocoon, MonitorCocoonHealthTask, ResolveBootstrapScript,\n  RestoreWebviewPanels, SeedOpenDocuments, SeedOpenTerminals,\n  SendInitializationHandshake, SpawnCocoonIoForwarders, SpawnRestartHandler,\n  SpawnStartupActivationTask\n- Replaces ad-hoc inline logic with structured, testable units\n\nCocoon gRPC Service (Source/RPC/CocoonService/):\n- SpawnChannelReadPump extracted for bidirectional stream handling\n- CHANNEL_REGISTRY made pub(crate) for cross-module access\n\nImpact: Drastically improves maintainability, enables independent testing of each subsystem,\nand establishes consistent modular patterns for future Mountain development.",
+			"SHA": "d0e13211efcd644d4a27bec1eed37d26d224e298"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-11T22:40:23Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1782,
+				1
+			],
+			"Message": "refactor(Mountain): Introduce tier-based IPC routing with NodeDeferred mode\n\nReplace the boolean `tier_routes_to_node` with a three-state `RouteTier` enum (Mountain, Node, NodeDeferred) and add per-subsystem tier gates evaluated before Mountain-native arms. This implements the Routing-Schema.md tier resolution table so a single shell export (e.g. `export TierTerminal=Node`) reroutes an entire command family to Cocoon without a rebuild.\n\nKey changes:\n- New `resolve_route_tier` reads env var at runtime, falling back to baked const; unrecognised values default to Mountain for safety.\n- Tier gates added for Terminal, OutputChannel, Search, TreeView, Model, LanguageFeatures, Debug, Encryption, and NativeHost families.\n- `NodeDeferred` tier keeps Mountain arms for implemented commands while deferring unimplemented family members to Cocoon via the unknown-command catch-all.\n- Storage lifecycle null-acks (`storage:isUsed`, `storage:close`) now conditional on `TierStorage != Node` so they forward to Cocoon when storage lives there.\n- Duplicate null-ack entries consolidated; ack-only stub list extended.\n\nImpact: Operators can migrate subsystems to Node incrementally (starting with tasks/auth which already default Node) and teams can develop Mountain and Cocoon implementations in parallel behind the same command surface.",
+			"SHA": "824e85648d43b9059ced50e8f0fd3685b5e24e8d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-11T22:30:15Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1782,
+				24
+			],
+			"Message": "feat(Mountain): Implement SCM commands, workspace lifecycle, search cancellation, and IPC handlers\n\nReplace stub implementations across Source Control Management, workspace\nmanagement, and text search with functional logic that integrates with\ngit subprocesses, the ApplicationState registry, and Sky workbench events.\n\nSource Control Management:\n- Add RepositoryCwd resolver (first workspace folder) for git working\ndirectory.\n- Implement CheckoutSCMBranch via `git checkout` with stderr surfacing.\n- Implement ExecuteSCMCommand for commit/push/pull/fetch via shared\nRunGit runner (PID registry + 30s timeout).\n- Implement GetSCMBranches via `git branch -a` with tab-separated format\nfor current-branch marker and upstream tracking.\n- Implement GetSCMCommitHistory via `git log` with pretty format yielding\nhash, author, ISO date, parents, subject.\n- Implement StageSCMResource via `git add --` / `git restore --staged --`\nwith file:// URI and raw path support.\n- Register all SCM commands in Bootstrap.\n\nWorkspace lifecycle (`.code-workspace`):\n- CreateUntitledWorkspace writes empty workspace to app-data\n`.untitled-workspaces` and returns VS Code identifier shape.\n- DeleteUntitledWorkspace canonicalises target and enforces containment\ninside untitled directory (rejects outside paths silently).\n- EnterWorkspace parses serialised vscode.Uri or bare string, reads\nworkspace JSON, resolves relative folder paths against workspace file\ndirectory, replaces workspace folders via UpdateWorkspaceFoldersAndBroadcast,\nemits `sky://workspace/enter` for workbench reload.\n- Extract handlers to dedicated modules; both canonical and domain\ndispatchers call the same functions.\n\nSearch cancellation:\n- Add SearchCancellationFlags (AtomicBool per search_id) to FeatureState.\n- FindInFiles mints search_id, registers flag, threads `__searchId` into\noptions payload.\n- TextSearchProvider polls flag per walker entry (synchronous ripgrep\nwalk never hits await points; task abort alone is insufficient).\n- search:cancel sets cooperative flag then aborts task handle.\n\nExtensions gallery offline mode:\n- extensions:search returns proper IGalleryQueryResult envelope.\n- extensions:getCoreTranslation returns null (fallback to bundled).\n- extensions:download returns explicit error instead of TypeError.\n- extensions:getManifest extracted to dedicated handler.\n\nOther improvements:\n- FileWatcherIgnore adds \"Target\" (capitalized) for Rust cargo output\n(case-sensitive matcher).\n- CommandSaveDocument rewritten: fires document.willSave at Cocoon\n(bounded 1.5s), delegates save to Sky via sky://workspace/save, notifies\n$acceptModelSaved for onDidSaveTextDocument.\n- CommandCloseDocument forwards to Sky via sky://command/execute for\nworkbench.action.closeActiveEditor.\n- Keybinding commands registered in Entry.\n- localPty:listProcesses returns real IProcessDetails[] from live PTY\nregistry.\n- process:getMemoryInfo returns resident-set KB via sysinfo.\n- languages:getLanguages merges builtin baseline with extension\ncontributes.languages ids.\n- WhenClause.NormalizeKeyExpression uses VS Code canonical modifier\norder (ctrl shift alt cmd) for chord-aware equality.\n\nImpact: SCM viewlet, workspace picker, Extensions view, Search view, and\nkeybinding system now operate on live data instead of stubs.",
+			"SHA": "446ab75631fcfd22480366604d7cd05da20a2f6e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-11T22:01:22Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1775,
+				4
+			],
+			"Message": "fix(Mountain): Complete keybinding command implementations\n\nReplace stub implementations in the keybinding command module with functional\nlogic that wires into the ApplicationState keybinding registry.\n\n- `CheckKeybindingConflicts` now queries `KeybindingProvider::GetResolvedKeybinding`,\n  normalizes the candidate key expression via `WhenClause::NormalizeKeyExpression`\n  (collapsing modifier aliases, canonicalizing order, chord-aware comparison),\n  and returns every matching rule with its command, when clause, source tag,\n  and a `guarded` flag indicating whether a when clause is present.\n- `UnregisterExtensionKeybindings` invokes\n  `ApplicationState::Feature::Keybindings::RemoveKeybindingsBySource` and\n  returns the count of removed entries, enabling precise cleanup on extension\n  deactivation.\n- `GetUserKeybindings` updates its imports to use the `ApplicationRunTime`\n  trait for future persistence integration.\n- Module documentation in `Keybinding.rs` is updated to reflect the current\n  behavior: resolved bindings merge extension contributions + dynamic registry\n  + user overrides; negative commands (`-command`) act as unbind rules at the\n  user layer.\n\nAll four commands now operate on the live registry instead of returning\nplaceholder values, completing the keybinding system introduced in the prior\ncommit.",
+			"SHA": "d826b41a78dadf6c569edbe6c68aa3a6cae1eba8"
 		}
 	],
-	"TimeStamp": 1783259744959
+	"TimeStamp": 1783777327842
 }

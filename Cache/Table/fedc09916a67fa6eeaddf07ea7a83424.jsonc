@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-21T21:28:09Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				1580,
-				113
-			],
-			"Message": "style(Mountain): Enforce consistent vertical spacing, harden shell/encryption paths\n\nApply blank-line-after-declaration formatting uniformly across ~260 Rust source files, removing discretionary spacing variations that accumulated during iterative development. The change is purely cosmetic in the large majority of files — no logic, control flow, or semantics are altered.\n\nThree functional changes are bundled in this pass:\n\n- Key.rs: `DeriveKey` now returns `Result<[u8; 32], String>` and `ReadMachineId` returns `Option<String>`, removing the fallback to executable-path hash when no hardware-bound machine ID is available. This eliminates a path where ciphertext could be encrypted with a predictable seed on headless or restricted systems. Callers in Encrypt.rs/Decrypt.rs propagate the `Err` upward.\n- InstallShellCommand.rs, MoveItemToTrash.rs, UninstallShellCommand.rs: Replace string-interpolated AppleScript/PowerShell arguments with environment-variable-passed paths using `quoted form of` / `$env:` patterns, preventing shell injection via crafted file paths.\n- Info.plist: Switch `TierSchemeAssets` from `Embedded` to `FileSystem`, selecting the disk-layout asset deployment mode at the daemon config level rather than relying solely on build-time env vars.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "4dcdc190d8f11e7fb102b0b16c38872367979fbf"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-21T02:52:57Z",
+			"Date": "2026-05-22T10:35:58Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1580,
+				1589,
 				1
 			],
 			"Message": "",
-			"SHA": "b702320d74f87a6d04c892b6dfd073fc8c00bd17"
+			"SHA": "d54260e4ede053270aba03d438af776baa2e9cbc"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:38:25Z",
+			"Date": "2026-05-22T10:35:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1580,
-				1
+				1589,
+				8
 			],
-			"Message": "feat(Mountain): Read TierSchemeAssets from .env.Land as env fallback\n\nAdd the helper function `ReadTierValueFromEnvFile` to build.rs that walks up the directory tree from `CARGO_MANIFEST_DIR` (up to 5 ancestors) looking for `.env.Land` or `.env.Land.Sample` to resolve the `TierSchemeAssets` key. The resolution priority is: process environment variable first, then the env file, then the hard-coded default of `\"Embedded\"`.\n\nThis mirrors the file-reading logic already used by `PropagateTierGating` in the Rust tier system, ensuring the tauri.conf.json mutation in build.rs agrees with the cfg-gated Rust code even when a shell has a stale exported `$TierSchemeAssets` from a previous build tier. If the env file is found but the key is absent, the function returns `None` immediately rather than falling through to a parent directory — preventing accidental cross-project key leakage.",
-			"SHA": "4ba376b9241d0f9cc58e68f6cb1be03affa8000c"
+			"Message": "refactor(Mountain): Normalize IPC handler exports to Fn convention\n\nRename the three Cocoon IPC handler entry points from descriptive names (CocoonExtensionHostMessage, CocoonNotify, CocoonRequest) to the uniform `Fn` ident, and add the matching `as` aliases in the mod.rs re-exports so downstream callers are unaffected.\n\nAdd four new ExtensionHost IPC handlers also exporting as `Fn`:\n\n- **DebugServiceClose:** Emits `sky://exthost/debug-close` via Tauri's Emitter trait so Sky can react to debug-session teardown.\n- **DebugServiceReload:** Emits `SkyEvent::ExtHostDebugReload` as a typed event, giving Wind a signal to purge caches before Cocoon restarts.\n- **StarterCreate:** Returns a stub extension-host ID (`\"1\"`) to satisfy VS Code's extensionHostStarter:createExtensionHost protocol.\n- **StarterStart:** Returns the real Cocoon PID (via GetCocoonPid) or Mountain's own PID as fallback, enabling external debuggers to attach to the correct Node.js process.\n\nAll handler modules now follow a single convention: each file exposes `pub async fn Fn(...)` and is aliased at the mod.rs boundary. This eliminates naming guesswork when adding new IPC routes and keeps the interface consistent across all WindServiceHandlers.",
+			"SHA": "67e95cb626157a0f6e1a5b4f9d23dc35bebbf124"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:32:14Z",
+			"Date": "2026-05-22T10:30:13Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1580,
-				1
+				1585,
+				4
 			],
-			"Message": "",
-			"SHA": "52d240d6376d08d9e81c1bc50e34b336e36ead59"
+			"Message": "perf(Mountain): Cache getInstalled extension responses per type filter\n\nBuilding the serialized ILocalExtension[] array on every `extensions:getInstalled` IPC call re-serialized ~1.8 MB of extension metadata, visible as a multi-hundred-millisecond stall in the UI on startup. Add a `OnceLock`-backed static cache keyed by the three TypeFilter variants (None, System, User). The first call per type populates the cache; subsequent calls return the cached `Value` clone in <1 ms. Empty responses are not cached so a first-call timeout does not permanently poison the slot.\n\nAlso fix two reliability concerns in the same area:\n- **FileCloneNative:** Create the target parent directory via `tokio::fs::create_dir_all` before `fs::copy`. VS Code's local-history feature creates per-file history directories that may not exist yet, producing an OS-level ENOENT on clone.\n- **CocoonManagement IO forwarders:** Switch from `tokio::spawn` to `tauri::async_runtime::spawn` so the forwarder tasks live on Tauri's runtime handle and continue to be polled while the spawning async task is waiting elsewhere. Restructure the read loops from `while let Ok(Some(…))` to an explicit `loop` + `match` that handles EOF and read errors instead of silently dropping the pipe. Log a warning when a pipe handle is `None` (indicating `Stdio::piped()` was not configured), aiding debug of silent IO loss.\n\n**tauri.conf.json:** Add `Proto/Vine.proto` to the resource bundle so the .proto file is available at runtime from `Contents/Resources/` alongside the other bundled assets.",
+			"SHA": "a83e88eefa539b9b5bc7582822125fb8f7114d58"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T08:32:14Z",
+			"Date": "2026-05-22T08:38:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1580,
-				2
+				1585,
+				9
 			],
-			"Message": "feat(Mountain): Gate asset deployment strategy behind $TierSchemeAssets env var\n\nIntroduce a build-time gating mechanism that selects between two asset deployment modes: Embedded (default, assets Brotli-compressed into the binary) and FileSystem (full disk layout in Contents/Resources/ served via the localhost plugin static_root fallback).\n\nIn build.rs, read $TierSchemeAssets (defaults to \"Embedded\") and mutate tauri.conf.json at build time:\n- Embedded: frontendDist=\"../Sky/Target\", bundle.resources holds only Cocoon-needed files (bootstrap, extensions, nls, node_modules, product.json).\n- FileSystem: frontendDist=null, bundle.resources maps the full Sky/Target/ tree (Browser, BrowserProxy, Bundled, vs/, _astro/, index.html, etc.).\n\nIn LocalhostPlugin.rs, wrap the static_root resolution and Builder.static_root() call in #[cfg(feature = \"TierSchemeAssetsFileSystem\")] so the disk-fallback code is compiled only when FileSystem mode is active. Add \"TierSchemeAssetsFileSystem\" to IsDeclaredTierFeature and remove \"FileSystem\" from IsDefaultTierValue so it now emits a cfg feature rather than being a silent default.\n\nThis completes the foundation laid by the Static/Application/ prefix refactoring, making the deployment mode selectable at build time via a single environment variable rather than manual tauri.conf.json editing.",
-			"SHA": "a9e4b2d9bf9e3ed04251361f03325445f343e208"
+			"Message": "refactor(Mountain): Clean up dead vars and normalize scan paths lexically\n\nReplace the filesystem-backed `Canonicalize` closure in ScanPathConfigure\nwith `Normalize`, which resolves `..` segments lexically for non-existent\npaths - keeping extension scan-path log output clean regardless of path\nviability - while still calling `std::fs::canonicalize` for existing paths\nto resolve symlinks.\n\nDrop the stale `HandleSlot` accumulator in OutputChannelCoalesce (it was\nset but never meaningfully used after the previous refactor) and the\nunused `std::path::PathBuf` import in TryShipped.\n\nAdd stub IPC handlers for `browserView:*` (updateKeybindings, updateTheme,\nupdateConfiguration, openDevTools, closeDevTools -> Null;\ngetBrowserViews -> []), which Wind sends for Electron BrowserView\nmanagement but are no-ops under Tauri's single-webview architecture.\nRoute `extensionHostStarter:waitForExit` to a new async handler that\nresolves immediately with a stub exit-info so callers don't hang.\n\nFormatting-only: line-break Cocoon environment allow list one-per-entry,\ncollapse LocalhostUrl accessors, reflow WebviewWindowBuilder chain.",
+			"SHA": "167dfea1480a374254428bcbbafa11c6113041c5"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-22T08:36:57Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1585,
+				7
+			],
+			"Message": "fix(Mountain): Serve webview panels via localhost plugin URL\n\nSecondary webview panels (settings, webview extensions, etc.) used `WebviewUrl::App(\"WebviewHost.html\")` which routes through tauri::manager — but Mountain's tauri.conf.json has no `frontendDist`, so Tauri has no bundled assets to serve, leaving those webviews blank.\n\nFix by loading them from the localhost plugin instead (`http://localhost:PORT/Mountain/WebviewHost`). A new `LocalhostUrl` singleton (OnceLock in `IPC/WindServiceHandlers/Utilities/LocalhostUrl.rs`) is populated once during `AppLifecycleSetup` and consumed in `create_webview_panel_impl` to build the external URL. Falls back to port 15536 if the singleton is unset.\n\nAlso extracts the inline Cocoon subprocess environment-building and I/O forwarding into named functions (`BuildCocoonEnvironment`, `SpawnCocoonIoForwarders`) in CocoonManagement.rs — pure refactor with no behavioral change, reducing method complexity from ~200 inline lines to two clear helpers.",
+			"SHA": "88be9db9ea1de55af0b96158021b2b77c7f86f6c"
 		}
 	],
-	"TimeStamp": 1783259757485
+	"TimeStamp": 1783777337966
 }

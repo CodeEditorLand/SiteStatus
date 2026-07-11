@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Auto",
-			"Date": "2026-04-29T03:39:30Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T05:00:23Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				267,
+				255,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
+			"SHA": "151dce184be08ba55c2f5dc406c5ff914a82ea70"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T04:54:25Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				255,
+				15
+			],
+			"Message": "feat(Output): Expand workbench service exposure and add config/storage overlays\n\nAdd 21 new service handles to ExposeWorkbenchAccessor for Wind consumption:\nConfiguration, Storage, Lifecycle, Theme, WorkbenchTheme, Keybinding,\nNotification, File, Dialog, FileDialog, Clipboard, ContextKey, Host,\nExtension, Workspace, Product, Progress, Editor, EditorGroups, TextFile,\nActivity, Title, PaneComposite, ViewDescriptor, Layout.\n\nAdd two new transforms enabling Wind to inject runtime overrides without\ndisk persistence:\n- InjectConfigurationOverlay: consults `globalThis.__CEL_OVERRIDE_CONFIG__`\n  before upstream's default→user→workspace→folder chain in\n  IConfigurationService.getValue(). Bag is opt-in; unset preserves\n  upstream behavior.\n- InjectStorageOverlay: consults `globalThis.__CEL_OVERRIDE_STORAGE__` on\n  every AbstractStorageService.{get,getBoolean,getNumber,getObject} call.\n  Composite key `<scope>:<key>` disambiguates across\n  APPLICATION/PROFILE/WORKSPACE scopes.\n\nOther changes:\n- RewriteWorkerURLs: generalize pattern from specific file paths to\n  `*WorkerMain.ts` / `*Iframe.html` glob so future worker types are\n  covered automatically. Also handle `.ts`→`.js` suffix mapping.\n- StaticToDynamicImport: skip rewrite when `Pack` env var is set (bundled\n  profiles), since Vite needs static imports to walk the graph for CSS\n  extraction and tree-shaking.\n- ESBuild: add `.css` to copy-loader to avoid esbuild's default CSS\n  parser silently dropping modern syntax (@property, container queries).",
+			"SHA": "b20d23f9eed8c644fca5b50dc734a87d1fb03f53"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T03:48:56Z",
+			"File": [
+				"⣿⣿⣿⡟⠀",
+				251,
+				187
+			],
+			"Message": "refactor(Output): Switch from esbuild transform to byte-copy for VS Code sources\n\nChange VSCode.ts ESBuild config to use `loader: { \".js\": \"copy\" }` instead of parsing/transforming VS Code's `out/` tree. This byte-copies .js/.cjs/.mjs files directly to Target/, preserving tsc's original identifiers and formatting.\n\nWhy:\n- Output's Transform plugins (ExposeWorkbenchAccessor, InjectWorkerBootstrapShim, RewriteNestedWorkerBootstrap, etc.) are keyed on specific string patterns from VS Code's un-minified output\n- Previously esbuild's default minification + quote-rewriting silently no-oped every transform: the patterns never matched, and the workbench bootstrap crashed with `Unexpected token '<'` (404 HTML served as JS)\n- The `keepNames: false` + `minify: false` belt-and-suspenders ensure any future non-copied JS files also bypass mangling\n\nImpact:\n- Bundle profile: Sky's downstream Vite/Rollup re-mangles for bundled-electron production\n- Unbundled profile: `Static/Application/` serves readable identifiers (gzip-compressed, debuggable)\n- Transform plugins updated to match single-quoted form in tsc's original emit",
+			"SHA": "41381d88b50a83b655c0083b5360b790289a6f02"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-04-30T03:40:38Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				341,
 				1
 			],
 			"Message": "",
-			"SHA": "c7eef6cacab62664fa2fd8f62cd83b84fcfc397a"
+			"SHA": "1891515604d6bb24012b6d0c0275f78feb0e765a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T02:08:29Z",
+			"Date": "2026-04-30T02:20:26Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				267,
-				3
+				"⣿⠀⠀⠀⠀",
+				341,
+				64
 			],
-			"Message": "fix(Output): Fix ExposeWorkbenchAccessor import markers and add service error isolation\n\nTwo fixes to the ExposeWorkbenchAccessor transform that were causing SkyBridge bridges to silently fail:\n\n1. Import marker quote style: The transform was using single-quote import markers that matched stock VS Code source, but esbuild/Land's Output bundler rewrites quotes to double quotes in the post-bundle file. The marker mismatch caused `Source.includes(ImportMarker)` to return false, silently no-opping the entire `__CEL_SERVICES__` patch. All SkyBridge hooks (search registration, SCM, status bar, tree views) were offline because `__CEL_SERVICES__` stayed undefined.\n\n2. Service error isolation: Each `invokeFunction` is now wrapped in its own try-IIFE. Previously, a single failed service lookup (interface decorator missing in this profile, service not yet registered) would throw out of the entire `__CEL_SERVICES__` object literal, leaving the whole facade undefined. Now each service degrades to `null` individually, preserving all other bridges.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNodeModulesPath + expose IMarkerService)",
-			"SHA": "f55a02821a2d7acad85060cf17796f62fda700d9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-29T01:03:39Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				267,
-				8
-			],
-			"Message": "feat(Output): Add RewritePerfBaselineWorker transform\n\nAdd a new build transform that fixes worker bootstrap crashes in the\nbundled editor's timer service. The transform replaces\n`timerService.js`'s `(function() { ... __name(fib, \"fib\"); ... }).toString()`\nperfBaseline worker source with a literal-string equivalent that omits\nthe cosmetic `__name(...)` decoration.\n\nSame OXC-mangling-truth fix as `RewriteNestedWorkerBootstrap`: when Vite\ninlines `timerService.js` into Sky's `_astro/partsSplash.*.js` chunk,\nthe chunk's `__name` helper gets mangled (e.g., `$4e`). The IIFE captured\nby `.toString()` carries the mangled `$4e` reference; the worker scope\nhas no `$4e` defined and crashes at module-eval with `ReferenceError:\nCan't find variable: $4e`. The literal-string replacement is\nmangler-immune.\n\nAlso update prepublishOnly.sh to gate debug profiles on `Debug=true`\ninstead of `NODE_ENV`. Tauri's `.env` file was silently overriding\nBuild.sh's `NODE_ENV=development` export, forcing `out-build` (mangled)\neven for debug builds that should pull from readable `out/`.\n\nRefs cf8dea549df816cc3b534beb9449f90bf678f69f (RewriteNestedWorkerBootstrap)",
-			"SHA": "14cc0d5941bd561c41c6d5ffd190256cc92eafb9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T23:06:23Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				264,
-				10
-			],
-			"Message": "feat(Output): Add RewriteNodeModulesPath transform and expose IMarkerService\n\nAdd a new build transform and update an existing one:\n\n1. RewriteNodeModulesPath: Patch `vs/base/common/network.js`'s hardcoded paths (`vs/../../node_modules`, `vs/../../extensions`, etc.) to drop one `../` segment. Without this, the dev server resolves to `/Static/node_modules/` instead of `/Static/Application/node_modules/`, returns SPA `index.html` fallback, and all grammar/tokenization (textmate, oniguruma, language-detection) silently breaks across every extension.\n\n2. ExposeWorkbenchAccessor: Expose `IMarkerService` on `__CEL_SERVICES__.Markers` so SkyBridge can push extension diagnostics (rust-analyzer, TypeScript, ESLint) into the workbench. Mountain emits `sky://diagnostics/changed` events; the bridge now calls `Markers.changeOne(owner, uri, markers)` to paint red squiggles and populate the Problems panel.\n\nBoth transforms are idempotent and added to the BuildPipeline after RewriteNestedWorkerBootstrap.",
-			"SHA": "cf8dea549df816cc3b534beb9449f90bf678f69f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-28T21:54:01Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				261,
-				45
-			],
-			"Message": "feat(Output): Fix Monaco worker bootstrap crashes and add polyfill telemetry\n\nAdd two new build transforms that fix worker bootstrap crashes in the bundled editor:\n\n1. InjectWorkerBootstrapShim: Injects `__name`/`__defProp` shim into `webWorkerServiceImpl.js::getWorkerBootstrapUrl` blob factory so Monaco's language workers (TS/CSS/HTML/JSON services, semantic tokens) inherit the helpers in their module scope. Without this, workers crash with `ReferenceError: Can't find variable: $4e` when Vite/OXC mangling renames `__name` to `$4e`.\n\n2. RewriteNestedWorkerBootstrap: Replaces `polyfillNestedWorker.js`'s `(function... ).toString()` pattern with a literal JSON.stringified source that omits the cosmetic `__name(...)` decorations. The `.toString()` approach returns mangled source (`$4e`) which the blob worker can't evaluate since the identifier isn't defined in its scope.\n\n3. RewriteStaticBlockSelfRef: Replace hardcoded 2-file whitelist with auto-detection across all `vs/*.js` files - the whitelist silently failed because VS Code's out-build mangler emits different class names than expected.\n\n4. InstrumentVscodeGit: Add markers F (createModel done) and L (openRepository getRepositoryRoot done) for finer-grained Git extension activation diagnostics.\n\n5. Telemetry: Add global `__LAND_POLYFILL_TELEMETRY__` hook and wire it into ChildProcessPolyfill, IPCRendererShim, ProcessPolyfill, and SharedProcessProxy to route silently-caught failures to PostHog for monitoring.",
-			"SHA": "e0fda068f1befeb3a76f470689b34bd8378fe554"
+			"Message": "refactor(Output): Extract polyfill bodies to type-checked modules, add service stub transforms\n\nMove the inline polyfill IIFE bodies from Transform/*.ts to new Polyfill/*.ts\nmodules. Each polyfill is now a real TypeScript function that gets compiled\nand recovered via `.toString()` at transform time. This enables compile-time\ntype-checking, tree-shaking, and earlier bug detection - previously typos\nonly surfaced at runtime.\n\nKey changes:\n- Extract 6 polyfills to Source/Plugin/Polyfill/: DisableLazyPaint,\n  EagerExtensionActivation, EagerIdleValue, EagerLifecyclePhase,\n  StripBackgroundPolling, TelemetryConsentOff (moved from Transform),\n  WorkbenchInteractivityCSS (moved from Transform), WorkbenchPaintPrime\n  (moved from Transform)\n- Add 4 new Inject* transforms that import from Polyfill/ and use\n  `.toString()` to recover the prepend body\n- Add 3 new Replace* transforms: ReplaceTelemetryService,\n  ReplaceUpdateService, ReplaceExtensionGalleryService replace VS Code\n  service bodies with no-op stubs so static imports resolve while runtime\n  behavior is neutralized\n- Comment out the ESBuild Exclude/{Telemetry,Network,ChromiumIPC}.js lists:\n  the bundled-Vite walk follows static imports inside workbench.*.main.js;\n  excluding the files breaks the build. Body-rewrite via Replace* transforms\n  achieves the same effect while keeping imports intact.\n- Update prepublishOnly.sh to always use `out/` (unminified) for Microsoft/VSCode\n  instead of `out-build/` (gulp release). This ensures Output's transforms\n  operate on readable identifiers; Vite/Rollup re-mangles for bundled profiles.\n\nNew boot-time behavior:\n- InjectStripBackgroundPolling: stack-trace deny-match strips setInterval\n  timers from telemetry/update/sync services\n- InjectEagerLifecyclePhase: advances ILifecycleService.phase from Starting\n  to Eventually immediately, unblocking extension activations\n- InjectEagerExtensionActivation: fires activateByEvent onStartupFinished/*\n  at workbench-loaded so extension panels populate instantly\n- InjectEagerIdleValue: collapses requestIdleCallback to setTimeout(0) so\n  IdleValue<T> lazy-init resolves eagerly\n- ReplaceTelemetryService: body-rewrite to NullTelemetryService (no-op)\n- ReplaceUpdateService: body-rewrite to NullUpdateService (State.Idle forever)\n- ReplaceExtensionGalleryService: body-rewrite to offline stub (empty queries)",
+			"SHA": "c97cc8b17b24fa5a0afa9aac46d948340a371b32"
 		}
 	],
-	"TimeStamp": 1783259758831
+	"TimeStamp": 1783777340058
 }

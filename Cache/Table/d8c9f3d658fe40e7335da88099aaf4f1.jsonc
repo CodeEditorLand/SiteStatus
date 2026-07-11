@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-11T12:25:35Z",
+			"Date": "2026-05-11T17:48:46Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "Merge pull request #47 from CodeEditorLand/fix/WVIEW-resolv-editor-fallback-uri\n\nfix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with early error returns",
-			"SHA": "f3718d8a9e63c7bb170f17f09db2ef77ba3d3916"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-11T02:44:31Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
-				1
-			],
-			"Message": "",
-			"SHA": "48d8f0a267819c656ffb6700f5f6b256da744f18"
+			"Message": "fix(GITEX): wrap git subprocess with a 30s timeout (#55)\n\ntokio::process::Command::new(\"git\").output().await had no\ncancellation boundary. A slow or hanging git operation (large\nrepo, network mount, credential prompt, locked index) would\nhold the effect slot open indefinitely.\n\nWrap with tokio::time::timeout(Duration::from_secs(30), ...).\nOn expiry the child process is abandoned and a descriptive Err\nis returned so the extension host can surface the failure.\n\nThe 30s ceiling is generous enough for legitimate slow clones\nover gRPC but tight enough to prevent indefinite hangs. The\nelapsed dev_log is kept so timing is still observable in logs.",
+			"SHA": "4215c8a141c82a6bd07e3e642eccc2e4b3cade9e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:59:03Z",
+			"Date": "2026-05-11T17:48:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "fix(WVIEW): replace hardcoded fallback URI in $resolveCustomEditor with an early error return\n\nThe `$resolveCustomEditor` arm contained:\n\n    let resource_uri = Url::parse(resource_uri_str)\n        .unwrap_or_else(|_| Url::parse(\"file:///tmp/test.txt\").unwrap());\n\nThe `unwrap_or_else` silently swallowed a malformed or missing URI and\nsubstituted the hardcoded test path `file:///tmp/test.txt`. Two\nconsequences:\n\n  1. A caller that passes an empty or invalid URI (e.g., an extension\n     registering a custom editor for a virtual scheme that Mountain\n     does not yet translate) receives a resolved result for\n     `/tmp/test.txt` instead of an error. The provider's\n     `ResolveCustomEditor` then opens or creates that file, which:\n     - Leaks a sentinel file to the OS tmp directory on every\n       such call.\n     - Returns success to Cocoon, which treats the editor as\n       resolved. The extension's `openCustomDocument` never fires\n       for the real resource, and the editor panel stays empty.\n\n  2. The fallback URI makes the log completely undiagnosable: every\n     failed resolve shows `resource=file:///tmp/test.txt` regardless\n     of what the caller sent, masking the real resource path.\n\nFix: return an `Err` immediately when the URI is empty or fails to\nparse. The error string is deliberately plain (no `resource not\nfound` suffix) because a malformed URI is a caller contract violation,\nnot a benign 404 probe - it should surface at error level in the\n`grpc` log and NOT be swallowed by `LooksLike404`.",
-			"SHA": "8b3f1a90730370b689d1269d924f04f906624966"
+			"Message": "fix(WSAE): propagate Err from applyEdit instead of synthetic true (#54)\n\nWhen Sky does not answer sky://workspace/applyEdit, returning\nOk(json!(true)) causes every extension that checks the boolean\nresult of `workspace.applyEdit()` to believe the edit succeeded\nand proceed against post-apply state that never materialised.\n\nPropagate the error instead so the extension host surfaces the\nfailure correctly. showTextDocument already uses Ok(json!(null))\non its failure path; this aligns applyEdit with that safer\npattern while going one step further and returning a real Err\nso callers can distinguish a Sky failure from a successful\nfalse-result from the provider.",
+			"SHA": "fc59918c8e1ce7045b50bccabc57e23344167604"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:57:08Z",
+			"Date": "2026-05-11T17:43:39Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "Merge pull request #46 from CodeEditorLand/fix/TVIEW-unreg-dispose-emit\n\nfix(TVIEW): wire tree.unregister + tree.dispose to provider; emit TreeViewDispose",
-			"SHA": "22734234c478e2281666ae644675fcab1aece7f7"
+			"Message": "Merge pull request #53 from CodeEditorLand/fix/uiqp2-show-quick-pick\n\nfix(UIQP2): deserialise items and options from Parameters",
+			"SHA": "8083f74c0dab32d0b6bccdcab093011a0d3b9748"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-10T20:54:41Z",
+			"Date": "2026-05-11T17:34:26Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				1505,
 				1
 			],
-			"Message": "fix(TVIEW): wire tree.unregister + tree.dispose to provider + emit TreeViewDispose\n\n`tree.unregister` / `tree.dispose` were no-ops: the effect body\nlogged the handle but never called the provider and never emitted a\nSkyEvent. The consequence:\n\n  - Provider registry in `Sky/Source/TreeView/TreeViewService.ts`\n    kept the `_dataProvider` slot live after the extension called\n    `vscode.window.registerTreeDataProvider(...).dispose()`. A\n    subsequent re-registration from the same extension (reload,\n    update) produced a duplicate registration warning from Sky and\n    the new provider was ignored.\n\n  - `getChildren()` calls on a disposed tree continued to hit the\n    old provider pointer, producing stale results or panics if the\n    provider had been GC'd from the Cocoon side.\n\nFix: call `provider.UnregisterTreeDataProvider(view_id)`, emit\n`SkyEvent::TreeViewDispose` (parity with the register arm's\n`TreeViewCreate`), and log both outcomes under the same `tree-view`\nand `grpc` tags used by the register arm.",
-			"SHA": "90a62cdda4de6b6184a0e80498676c96d39f3f4d"
+			"Message": "fix(UIQP2): deserialise items and options from Parameters in ShowQuickPick",
+			"SHA": "77191858d1cb1af57f174db23fd7ee2f72f1eae7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-11T14:45:58Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1505,
+				1
+			],
+			"Message": "Merge pull request #52 from CodeEditorLand/fix/uiqp-reply-channel\n\nfix(UIQP): wire oneshot reply channel for all four dialog methods",
+			"SHA": "805107d5c9c75d693eb2a77eb57388867870b0c9"
 		}
 	],
-	"TimeStamp": 1783259764254
+	"TimeStamp": 1783777344729
 }

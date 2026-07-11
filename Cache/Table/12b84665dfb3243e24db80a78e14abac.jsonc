@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
+			"Author": "github-actions[bot]",
+			"Date": "2026-04-24T22:43:29Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "Merge pull request #485 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-3.0.0\n\nbuild(deps): bump pozil/auto-assign-issue from 2.2.0 to 3.0.0",
+			"SHA": "3f3ce2c432093dbd70ea5fafdd6d4c6e658728f5"
+		},
+		{
+			"Author": "dependabot[bot]",
+			"Date": "2026-04-24T22:43:15Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "build(deps): bump pozil/auto-assign-issue from 2.2.0 to 3.0.0\n\nBumps [pozil/auto-assign-issue](https://github.com/pozil/auto-assign-issue) from 2.2.0 to 3.0.0.\n- [Release notes](https://github.com/pozil/auto-assign-issue/releases)\n- [Commits](https://github.com/pozil/auto-assign-issue/compare/v2.2.0...v3.0.0)\n\n---\nupdated-dependencies:\n- dependency-name: pozil/auto-assign-issue\n  dependency-version: 3.0.0\n  dependency-type: direct:production\n  update-type: version-update:semver-major\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "2076b7ee0358f662975968d821ccb2b50d179557"
+		},
+		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T17:24:50Z",
+			"Date": "2026-04-24T20:33:55Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				81,
+				1
+			],
+			"Message": "feat(Sky): Wire extension tree views into workbench rendering pipeline\n\nAdd native data provider attachment so extension-registered tree views actually render in the workbench pane. Stock VS Code uses ExtHostContext RPC to set `treeView.dataProvider` via `MainThreadTreeViews.$registerTreeViewDataProvider` - we don't have that channel yet (Track A bring-up), so Sky bridges it by:\n\n1. Exposing `TreeViewByViewId(id)` from the Output transform plugin - returns the same `ITreeView` the stock mainThread accesses via `Registry.as(ViewsRegistry).getView(id).treeView`\n\n2. Attaching a data provider in `cel:tree-view:create` that calls `tree:getChildren` via `MountainIPCInvoke`, converting Cocoon's wire shape (`{handle, label, isCollapsed, icon}`) into the workbench's `ITreeItem` shape (`handle, collapsibleState, label: {label}, ...`). Side-panel observers retain access to extended fields like `icon` that the renderer ignores.\n\n3. Retry logic (5 attempts, 150ms spacing) handles the case where the view is registered BEFORE the tree descriptor mounts - covers both async workbench init and collapsed-pane-not-yet-mounted.\n\n4. New `cel:tree-view:refresh` handler calls `treeView.refresh()` so extensions that fire `onDidChangeTreeData` update both the native pane and Sky observers.\n\n5. New `cel:tree-view:dispose` handler clears `dataProvider` so the workbench falls back to empty-state while keeping the pane registered.\n\nDual-emit persists: the DOM CustomEvent `cel:tree-view:items` stays for any Sky/Astro observer (side-panel mirror, diagnostic inspector) to react without going through the workbench pipeline.",
+			"SHA": "3f5eee5f8571c9bb7a48ae27b4c1834c7b1ba66a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-24T15:36:24Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
 				81,
 				2
 			],
-			"Message": "feat(Sky): Add tree-view data bridge for cel: events\n\nAdd a document listener for `cel:tree-view:create` that bridges tree view data between Mountain and the Sky frontend. When triggered, the listener invokes Mountain's `tree:getChildren` method and re-dispatches the returned items as `cel:tree-view:items` for any downstream renderer shim.\n\nThis completes the F1.1 handoff contract: Mountain emits `cel:tree-view:create` but nothing was listening, resulting in `consumer-present=false` in the cel-dispatch logs. The listener now primes the viewer by requesting root children and broadcasting them, eliminating the orphan event pattern.\n\nDev logging via `RenderDevLog` tracks both successful item retrieval (`bridge-items`) and failures (`bridge-error`) for debugging.\n\nAlso removes obsolete Step 13 comment from astro.config.ts regarding the built-in extension copy workaround.",
-			"SHA": "4d9fb694ce1b313609c5c620583478aee4b09206"
+			"Message": "feat(Sky): Add land-native search provider and global exception cap\n\nAdd a search result provider that routes VS Code's Search viewlet queries through Mountain's `search:findFiles` / `search:findInFiles` handlers. The stock web's `RemoteSearchService` relies on File System Access API which returns `undefined` for Land's Mountain-based filesystem, causing silent zero-result returns. The new provider registers for both `file` (0) and `text` (1) search types, translating Mountain hits into the `IFileMatch` shape the workbench expects.\n\nAlso add a global exception cap to PostHogBridge to prevent flooding posthog-js's CDN limit. The CDN enforces a hard 10 events/10s cap on `$exception` regardless of signature — a diverse-error boot could blow through this without a global counter. The cap is configurable via `LAND_POSTHOG_SKY_EXCEPTION_GLOBAL_LIMIT` (defaults to 7) and reports global drop metrics in the throttle summary.",
+			"SHA": "b4358aa9cbb5b8231c3b6663778127863e708055"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T16:54:38Z",
+			"Date": "2026-04-24T14:48:45Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				81,
 				1
 			],
-			"Message": "feat(Sky): Add consumer tracking for cel:* event dispatch\n\nTrack whether each `cel:*` CustomEvent has at least one listener registered by patching `document.addEventListener`. Log every dispatch to Mountain's dev-log via the `RenderDevLog` Tauri command with a `consumer-present` flag.\n\nOrphan events (Mountain emits but no workbench listener) are now visible as `consumer-present=false` in the `cel-dispatch` tag - these are F1.1 indicators where a feature silently fails because nothing subscribes to the expected event.\n\nThe patch is wrapped in try/catch to gracefully degrade on Safari/WebKit where `Document.prototype.addEventListener` is readonly and would throw in strict mode. When tracking fails, the flag reports `?` rather than breaking boot.",
-			"SHA": "8da853ea62909d3ea381c97a9c57e75ee612e08d"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T15:32:15Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "refactor(Sky): Centralize event URIs through Wind's SkyEvent table\n\nReplace the hardcoded string table in SkyBridge with imports from Wind's `@codeeditorland/wind/Target/IPC/SkyEvent.js`, the single source of truth that mirrors Mountain's Rust `SkyEvent` enum. This catches drift at type-check time rather than failing silently at runtime.\n\nKey changes:\n- Import `SkyEvent` constants from Wind; remove local string array\n- Add `ChannelToDomEvent` helper to transform `sky://` → `cel:` with consistent `/` → `:` mapping\n- Standardize statusbar URIs from hyphenated `sky://status-bar/...` to `sky://statusbar/...`\n- Fold the separate webview fan-out loop into the main bulk loop via `SkyEvent.WebviewSetHTML`\n\nThe canonical wire format is now `sky://statusbar/` (no hyphen) matching the Wind table.",
-			"SHA": "78f6f82339f93c4ab5a35f64e64af452208fac42"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-04-23T02:13:32Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "",
-			"SHA": "16bda3dcabcd28298a9191cb36dfdb2a1e33f9c2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T20:25:07Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
-			],
-			"Message": "feat(Sky): Add exception signature throttling to PostHog bridge\n\nExceptions share the `$exception` event-name slot in posthog-js, so a burst of CSP refusals/console.error/unhandledrejection callbacks during workbench boot would blow through the 10/10s rate limit. Add a secondary throttle layer keyed by the first 200 chars of the error message.\n\nUnique exceptions still reach PostHog while bursts of the same error collapse into one. Both regular and exception drop counts are now reported in the `land:sky:throttle-dropped` event for visibility.\n\nThis follows the previous throttling commit (24e76da) which added the basic per-event-name throttle for non-exception events.",
-			"SHA": "f601c0a884535251332d05d5a36cf874c147af8d"
+			"Message": "feat(Sky): Wire status bar and command bridges into workbench services\n\nReplaces the no-op status bar handlers from the previous commit with real integrations using the workbench services exposed via `__CEL_SERVICES__`. Extension-contributed status bar items from `vscode.window.createStatusBarItem(...)` now route through `IStatusbarService.addEntry()`, enabling them to render in the same `.statusbar` DOM as stock VS Code items.\n\nAdds a new command bridge layer that bridges Cocoon → workbench command invocations:\n- `sky://command/execute` calls `ICommandService.executeCommand` and resolves the result back to the extension\n- `sky://command/register` registers extension commands into `CommandsRegistry`, with invocation fan-out back to Cocoon via `ResolveUIRequest`\n- `sky://command/unregister` disposes the registration\n\nThe status bar set-message handler now only dispatches DOM CustomEvents for Sky-side observers rather than dual-routing, as the workbench handles ephemeral messages through its own path.\n\nThis completes the status bar integration that was previously deferred and enables extension commands to execute against the workbench.",
+			"SHA": "ea2932ae02487b23967cbab690a7991ec1d19001"
 		}
 	],
-	"TimeStamp": 1783259763134
+	"TimeStamp": 1783777344099
 }

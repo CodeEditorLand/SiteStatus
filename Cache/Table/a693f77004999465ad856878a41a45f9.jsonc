@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-12T20:41:56Z",
+			"Date": "2026-05-13T22:23:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
+				1490,
 				1
 			],
-			"Message": "fix: enhance error handling for keyring access in SecretProvider\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "dd2f829377ccd0a591753e7776f4196c8f8405df"
+			"Message": "fix(Mountain): Wrap webview scheme handler closure in AssertUnwindSafe\n\nUpdate the `catch_unwind` invocation in `VscodeWebviewSchemeHandler` within `Scheme.rs` to explicitly wrap the closure in `AssertUnwindSafe`. The previous implementation omitted this trait requirement, causing compilation failures when attempting to catch panics inside the async closure passed to the panic handler.\n\nThis restores the ability to gracefully handle panics within the VS Code webview asset loading path, ensuring that errors in MIME resolution or file reading return HTTP 500 responses rather than crashing the editor process. The change aligns `VscodeWebviewSchemeHandler` with the established panic recovery pattern used in `VscodeFileSchemeHandler`.",
+			"SHA": "01422c257e48f4a9f8a8fb32093daf2a7d283073"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-12T14:47:57Z",
+			"Date": "2026-05-13T22:16:54Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
-				4
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "6ca7a456f9cfd5e403e9c95cfb697ae612fa01f1"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-12T14:47:54Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1505,
+				1490,
 				1
 			],
-			"Message": "save\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "c0119cc84926d455e551fe48aa9a3bb6987e3944"
+			"Message": "fix(Mountain): Consolidate panic recovery logic in scheme handlers\n\nMigrate the panic recovery implementation in `VscodeWebviewSchemeHandler` to match the established pattern in `VscodeFileSchemeHandler`. The previous implementation attempted to use `catch_unwind` but failed to handle the `AssertUnwindSafe` trait requirement and redundantly implemented the result matching logic inside the closure.\n\nUpdate `VscodeWebviewSchemeHandler` to use `catch_unwind` with `AssertUnwindSafe` for the closure wrapper and move the `match` result handling and `dev_log` error reporting to the function scope. This ensures that panics within the webview asset loading path (e.g., in MIME type resolution or file reading) are caught, logged with backtrace details, and converted to HTTP 500 responses without crashing the editor process.\n\nAlign the import structure in `Scheme.rs` to group `panic` imports correctly. This change unifies the error handling strategy for both file and webview scheme handlers, ensuring consistent graceful degradation across the native backend's asset serving layer.",
+			"SHA": "139de360adc2c0b17a5adbef32cee1d8d6e06c54"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-12T14:47:28Z",
+			"Date": "2026-05-13T22:10:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
-				3
+				1490,
+				2
 			],
-			"Message": "Merge pull request #59 from CodeEditorLand/fix/compile-errors\n\nfix: resolve 4 compile errors in CreateEffectForRequest",
-			"SHA": "fa8a03a3a041f7b7f13c91461bebb5355e6ddf77"
+			"Message": "fix(Mountain): Migrate VS Code webview scheme handler to internal panic wrapper\n\nMove the VS Code webview scheme handler logic into a private `_VscodeWebviewSchemeHandler` function and wrap the public entry point with `std::panic::catch_unwind`. This mirrors the protective pattern recently implemented for the file scheme handler to prevent editor crashes caused by panics crossing the Objective-C FFI boundary.\n\nConcurrently, remove the `LSEnvironment` dictionary from `Info.plist`. These runtime configuration values (including network ports and feature tiers) were previously stored in the property list but are now generated and injected at build time via `build.rs` and `Scheme.rs`. Removing the dead XML nodes cleans up the configuration file and aligns the binary structure with the current build process.\n\nThis change ensures graceful error recovery for webview asset requests and resolves configuration drift by centralizing environment setup in the Rust build logic.",
+			"SHA": "230ca02557a152875ce896802af0b4c5ec9d5929"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-12T14:45:36Z",
+			"Date": "2026-05-13T22:05:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1505,
-				3
+				1490,
+				1
 			],
-			"Message": "fix: resolve 4 compile errors in CreateEffectForRequest",
-			"SHA": "5ab02338552802697f1ce83577cf639cc48b09a9"
+			"Message": "fix(Mountain): Wrap scheme handlers in panic catch to prevent editor crash\n\nAdd `std::panic::catch_unwind` guards around `_VscodeFileSchemeHandler` and `_VscodeWebviewSchemeHandler` to prevent the entire editor process from aborting. These handlers run inside the `wkwebview` Objective-C FFI boundary, where panics crossing the `extern \"C\"` limit cause immediate process termination.\n\nThe implementation catches panics, logs the error message and current thread backtrace via the `lifecycle` dev_log, and returns a standard HTTP 500 Internal Server Error response instead. This ensures that bugs in memory mapping (mmap) or MIME type handling within the asset loading path result in a graceful failure rather than a full application crash.",
+			"SHA": "478ca92acb177ec84b73c6e5faf4f56c4d4b5ddf"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-13T21:54:43Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1490,
+				2
+			],
+			"Message": "chore(Mountain): Align documentation structure with recent refactoring and cleanup configuration\n\nUpdate README.md to reflect the current source directory structure following the recent migration from `Binary.rs` to the `Binary/` module folder and the addition of new components like `IPC/`, `RPC/`, `Telemetry/`, and `Cache/`. Correct the architectural diagram and module descriptions to match the actual file layout in `Source/`.\n\nAdditionally, clean up `Info.plist` by removing extraneous indentation and empty XML nodes around the `LSEnvironment` key to ensure a valid, consistent property list format. Remove trailing whitespace to maintain formatting standards.\n\nThis change synchronizes the project documentation with the current codebase state and resolves formatting inconsistencies in the build configuration.",
+			"SHA": "4ce8e735fd7551cdf8c3d5c41f2820eaef15eefc"
 		}
 	],
-	"TimeStamp": 1783259762634
+	"TimeStamp": 1783777343166
 }

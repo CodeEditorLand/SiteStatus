@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T10:13:19Z",
+			"Date": "2026-05-26T15:10:01Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				765,
+				13
+			],
+			"Message": "refactor(Output): Extract drag selectors at build time\n\nWebKit drops the Chromium-only `-webkit-app-region` declaration at CSS parse time, so runtime inspection of `CSSStyleRule.style.getPropertyValue(\"-webkit-app-region\")` returns `\"\"` for every rule under WKWebView. The runtime stylesheet-walking approach from the prior commit cannot work.\n\nRework InjectTauriDragRegion to scan VS Code's CSS source files on disk at build time, extracting every selector that declares `-webkit-app-region: drag|no-drag` via regex. The collected lists are baked into the workbench bundle as `globalThis.__LAND_DRAG_SELECTORS__` / `__LAND_NO_DRAG_SELECTORS__`. The runtime polyfill switches from walking stylesheets to iterating the prepared lists with `querySelectorAll`, with an early bail when both arrays are empty (transform not run).\n\nCompanion changes:\n- Remove the drag-region CSS inset (`left: 80px`) from MacTitlebarOffsetCSS since the HTML attribute polyfill handles the Tauri hit-test; stock drag-region geometry suffices\n- Add `padding-right: 0` assertion to the titlebar-container to prevent future stock CSS from introducing right-edge drift\n- Improve the fullscreen detector in MacTitlebarOffsetCSS (triple-signal: fullscreen API, matchMedia, window-vs-screen heuristic) and refactor initialisation to install stylesheet + detector together\n- Gate InjectPartZIndexCSS behind DisableUIFixes: the `isolation: isolate` rule can hide the in-window menubar, so operators diagnosing dropdown/clipping can skip it and return parts to stock stacking behaviour\n- Add InjectTauriDragRegion to both the bundle BuildPipeline and the patch ApplyPipeline",
+			"SHA": "905ac54afb0d1ebc6c1342cb5b258fab55b81934"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T14:17:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				757,
+				3
+			],
+			"Message": "refactor(Output): Replace hardcoded drag selectors with stylesheet-driven extraction\n\nRather than maintaining a brittle hardcoded list of titlebar drag and no-drag selectors in the polyfill itself, walk every accessible stylesheet rule at runtime to discover which elements VS Code already declares as `-webkit-app-region: drag` / `no-drag` and stamp the equivalent `data-tauri-drag-region` attribute.\n\n`Walk()` recurses into CSSMediaRule and CSSSupportsRule containers so OS-scoped and feature-gated rules (e.g. `@media (-webkit-min-device-pixel-ratio...)`) are picked up automatically. Selectors are cached after the first full pass and reused across MutationObserver callbacks; a second collection runs on `window.onload` to cover lazy-loaded extension stylesheets. Cross-origin sheets that throw on `cssRules` access are skipped defensively, and selector strings that fail `querySelectorAll` (e.g. `:has()` / `:where()` on older WebKit builds) are caught and skipped per-selector rather than aborting the pass.\n\nThis eliminates the need to manually update the polyfill whenever VS Code upstream changes its titlebar or sidebar drag-region markup — the polyfill now reflects whatever the stylesheets declare.\n\nMinor companion formatting: add blank-line separators in Editor and Terminal GPU layer CSS files for readability consistency with adjacent rule blocks.",
+			"SHA": "510588e3948874783f2e60f2f79ec8559f846e1d"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T14:02:02Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				757,
+				5
+			],
+			"Message": "feat(Output): Implement Tauri 2 drag region polyfill and macOS fullscreen detector\n\nTauri 2's overlay-titlebar window-drag hit-test ignores Chromium's `-webkit-app-region: drag` CSS rule used by stock VS Code; it requires the explicit `data-tauri-drag-region` HTML attribute on draggable elements. Without it, dragging the workbench titlebar selects text instead of moving the window.\n\nAdd the `InjectTauriDragRegion` polyfill and transform:\n- Stamps `data-tauri-drag-region` on `.titlebar-drag-region` and related selectors\n- Stamps `data-tauri-drag-region=\"false\"` on interactive children (menubar, command-center, window controls) so click events land correctly\n- Uses a `MutationObserver` on `<body>` to catch late-mounted drag regions (titlebar repaints on profile switch / window-mode toggle)\n- Transform injects the polyfill into `vs/code/electron-browser/workbench/workbench.js`, always active (cross-OS structural fix)\n\nExtend the MacTitlebarOffsetCSS polyfill with a fullscreen detector:\n- Triples-signal detection: HTML5 fullscreen API, `display-mode: fullscreen` media query, window-vs-screen dimension heuristic\n- Toggles `body.land-fullscreen` to reclaim the 80px left padding when macOS native fullscreen hides the traffic-light cluster\n- Asserts `padding-right: 0` explicitly so future stock CSS cannot introduce right-edge drift\n- The fullscreen detector and stylesheet are installed together on DOMContentLoaded\n\nGate `InjectPartZIndexCSS` behind `DisableUIFixes`: the `isolation: isolate` rule this transform emits has been observed to hide the in-window menubar under specific configurations. Operators running with the env var set (e.g. when diagnosing menubar / dropdown clipping) now bypass this transform, returning workbench parts to stock CSS stacking-context behaviour.\n\nAll additions are idempotent (runtime markers prevent re-application). Existing comments updated to reflect always-active vs gated semantics.",
+			"SHA": "9d76c4fb921c8bdc999fdadf8c0aaf48d26eebfd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T09:05:35Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				751,
 				1
 			],
-			"Message": "feat(Output): Initialize browserViewGroup channels in TauriMainProcessService stub\n\nExpand the `browserViewGroup` entry in the `StubChannels` record within `Source/Service/Tauri/Main/Process/Service.ts` to define the full set of expected communication channels. This includes `updateKeybindings`, `updateTheme`, `updateConfiguration`, `getBrowserViews`, `openDevTools`, and `closeDevTools`.\n\nAligns the compiled Output artifact with the requirements of the upcoming Tauri UI implementations in Sky and Wind, ensuring that the IPC transform pipeline and runtime resolution logic have valid stub entries for all browser group operations before the native backend is fully wired.",
-			"SHA": "6f571907334d9b133170adabb24cb92a838b19b3"
+			"Message": "chore(Output): Regenerate Service.js.map with updated VLQ mappings\n\nThe embedded TypeScript source in Service.js.map is unchanged, but the VLQ-encoded mappings field has been regenerated — likely from a build-tool version bump or non-deterministic compiler output. File size: 53396 → 53393 bytes.\n\nNo functional change to the TauriMainProcessService runtime behaviour.",
+			"SHA": "fa228dd1379a37242b606ae6150293417ad9c826"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T07:59:17Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				751,
-				2
-			],
-			"Message": "fix(Output): Hoist EditorResolverService imports above IEditorGroupsService\n\nRe-order the import statements in the compiled `Configuration/Service/CEL/Expose/Accessor.js` artifact. Move `IEditorResolverService` and `RegisteredEditorPriority` from a bottom import block to a position immediately following `IEditorGroupsService`.\n\nThis change aligns the compiled output with the `Source/` TypeScript definition and restores the consistent helpers-first, alphabetical import ordering required by the transform pipeline's pattern matching rules. It resolves a structural drift that could affect regex-based injection and patching scripts during the build process.\n\nNo runtime behavior is altered.",
-			"SHA": "e9da8f45fc84511fb474d7f4ffaea07612ca8a1f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T07:05:49Z",
+			"Date": "2026-05-25T20:44:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				751,
 				3
 			],
-			"Message": "feat(Output): Expose EditorResolverService and RegisteredEditorPriority\n\nAdd IEditorResolverService and RegisteredEditorPriority to the CEL ExposeAccessor in both Source and compiled Configuration artifacts. The TypeScript source in Source/Service/CEL/Expose/Accessor.ts is updated to import these new symbols from editorResolverService.js, and the ExposeAccessor function is extended to resolve IEditorResolverService and export the RegisteredEditorPriority constant.\n\nThis change ensures the extension host (Cocoon) has access to the editor resolver registry and priority constants via the exposed accessor interface, enabling proper handling of custom editor contributions and resolution logic.",
-			"SHA": "bcd81d98ac886dbb3bff82553977044d6d940c9e"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-23T03:47:43Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				751,
-				1
-			],
-			"Message": "",
-			"SHA": "827c9d6a49a8f58f8ec457915fb33a020743085e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-23T02:23:24Z",
-			"File": [
-				"⡟⠀⠀⠀⠀",
-				751,
-				116
-			],
-			"Message": "style(Output): Normalize compiled artifacts with helpers-first shim ordering and 2-space indent\n\nRe-align all compiled artifacts under Configuration/ and Source/ to a consistent esbuild output format across 100+ files in Apply, ESBuild, Plugin, Polyfill, Service, and Transform directories. Three structural changes:\n\n1. Hoist `__defProp`/`__name` helper shim declarations above all static import statements, reverting the imports-first ordering applied in 4f56ea0. The helpers-first preamble avoids a forward-reference hazard when the shim variables are referenced at module-eval time inside collapsed arrow functions.\n\n2. Convert indentation from tabs to 2-space, aligning compiled output with the Source/ TypeScript originals that the transform plugins pattern-match against. Tabs produced narrower diffs against upstream VS Code but broke visual alignment for regex-based pattern replacement in the transform pipeline (Replace, Rewrite, Inject, Strip, Patch, Instrument).\n\n3. Normalise expression formatting: collapse multi-line arrow function bodies and object property values to single-line where line length permits, strip trailing commas from final array/object entries, consolidate empty function bodies, and format export blocks with one binding per line. Remove redundant wrapping parens around spread-ternary expressions in pipeline arrays.\n\nNo runtime behaviour changes; the copy plugins, polyfill shims (Process, FileSystem, IPC, NativeModule, ChildProcess, SharedProcess), service stubs (TauriMainProcessService, CELExposeAccessor, NullTelemetry, NullUpdate, NullExtensionGallery, CELSearchService, CELSharedProcessService), transform pipelines, and Rest compiler plugin are semantically identical before and after.",
-			"SHA": "84032943f81a19c2246d87a923be496b5372018b"
+			"Message": "feat(Output): Implement per-subsystem tier resolution in TauriChannel IPC routing\n\nIntroduce per-subsystem tier assignment so IPC channels can route to either Mountain (Tauri backend) or Node (Cocoon extension host) independently, rather than being governed by the single global `_TierIPC` variable.\n\nAdd `_ReadTier` to read per-subsystem overrides from `import.meta.env` or `globalThis.__LandTiers`, with defaults that keep most routes on \"Mountain\" but route `tasks` and `auth` to \"Node\" by default. `_ResolveTierForRoute` maps route prefixes (`terminal`, `git`, `language`, `search`, `model`, etc.) to their configured tier. `TauriChannel.Call` and the fallback no-route path both consult the per-subsystem tier instead of — or alongside — the global `_TierIPC`, so e.g. a `tasks:List` call goes to Cocoon even when `TierIPC` is \"Mountain\".\n\nThis is the Output-side counterpart of the matching change in `Wind/Source/Service/TauriMainProcessService.ts` (TIER-SYSTEM Step 4b). The compiled `.js` and source map are regenerated from the updated `.ts`.",
+			"SHA": "cac1b663c47e6f535d5449d208dacdd8d941ab08"
 		}
 	],
-	"TimeStamp": 1783259749824
+	"TimeStamp": 1783777330789
 }
