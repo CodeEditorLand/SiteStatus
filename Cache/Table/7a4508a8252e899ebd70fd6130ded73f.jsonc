@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T20:34:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				924,
+				2
+			],
+			"Message": "style(Wind): Normalize README punctuation and build config indentation\n\nReplace em dashes (—) with hyphens (-) throughout README.md for consistent ASCII punctuation across the documentation. Reformat tsconfig.build.json from 2-space indentation to tab-indented with single-line array items, matching the project's convention established in tsconfig.json.\n\nNo behavioral changes — purely cosmetic formatting normalization across documentation and build configuration.",
+			"SHA": "ed1a42e950febefbd3b8d5a429195947fc413bfd"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T20:04:08Z",
+			"File": [
+				"⣿⡏⠀⠀⠀",
+				924,
+				300
+			],
+			"Message": "style(Wind): Strip extra blank lines inside interface/class bodies and between imports\n\nRemove ~1,200 blank lines that violated the project's formatting conventions across 300+ files in Source/. The changes fall into six categories:\n\n1. **Interface/class body blank lines**: Every exported interface, class, default-object, and exported-const-object that began with a blank line after `{` now has it removed — \"squaring\" the opening brace against the first member. Affected ~200 files across Bootstrap/Types, Codegen, Effect, FileSystem, Service, Telemetry, Types, and Workbench.\n\n2. **Import-group blank lines**: Blank lines separating two consecutive `import` statements (or `import type` statements) from the same module group are removed, collapsing multi-line import blocks into dense `import`-`import` runs. Exceptions preserved at semantic boundaries (e.g., Effect imports vs. local directory imports).\n\n3. **Discriminated union blank lines**: Blank lines between adjacent `| { _tag: ... }` branches in `*Problem` and `*State` type definitions are removed.\n\n4. **Missing blank lines in barrel exports**: `Mountain/index.ts`, `WorkbenchActivity/index.ts`, `WorkbenchCommand/index.ts` gain a blank line before `export type` sections after a series of value re-exports, matching the barrel convention in neighbouring modules.\n\n5. **Import ordering**: `BootstrapStage.ts` swaps `EnvironmentTag` above `EnvironmentInfo` to pair the Tag import with its type; `WorkbenchLayoutLive.ts`, `WorkbenchLifecycleLive.ts`, `WorkbenchNotificationLive.ts`, `WorkbenchProgressLive.ts`, `WorkbenchThemeLive.ts` fix `type` keyword placement and group imports consistently.\n\n6. **Build config**: `tsconfig.build.json` added with a focused compilation target (`Source/Build.ts`, Constants, Types, Effect/Layers); `tsconfig.json` exclude list expanded with 47 path entries to silence diagnostics in generated/polyfill/debug modules.\n\nNo behavioral changes.",
+			"SHA": "c458f3973e1db58d66720d262e758c6cf39d95b6"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-06-12T19:14:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "style(Wind): Rename catch variable Error to Failure in Configuration\n\nRename the catch-bound variable from `Error` to `Failure` across ConfigurationHelper and ConfigurationImplementation to avoid shadowing the global `Error` constructor. The identifier `Error` in catch clauses resolves to the caught exception at runtime but creates confusion with the built-in `Error` type in scope, making the code harder to read and potentially masking TypeScript narrowing issues.\n\nAffected sites: the `MakeApply` closure in ConfigurationHelper (zoomLevel and userEnv catch blocks) and the `GetConfiguration` and `Replace` functions in ConfigurationImplementation (sandbox fallback, IPC fetch, and listener notification catch blocks).\n\nNo behavioral changes — purely cosmetic identifier renaming in catch parameters.",
 			"SHA": "ceb4575d9130d35ce5b4bad8e0955138776ca680"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:12:13Z",
-			"File": [
-				"⣿⡏⠀⠀⠀",
-				923,
-				300
-			],
-			"Message": "refactor(Wind): Strip Effect-TS from Configuration, Mountain, and bridges\n\nFifth and broadest wave of the Effect-stripping initiative. All service\ninterfaces that no longer participate in the Effect dependency graph are\nconverted from Effect-typed returns to plain sync/async signatures:\n\n- **Configuration & Mountain** (wave-4 refactors) → finalize interface\n  conversion: `get()`, `fetch()` return plain values / Promise instead of\n  `Effect.Effect`; `changes` / `connectionChanges` / `syncEvents` Streams\n  replaced with callback-based `onChange(...) / onConnectionChange(...) /\n  onSyncEvent(...)` returning `IDisposable`.\n- **18 workbench bridge services** (Activity, Clipboard, Command,\n  ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout,\n  Lifecycle, Notification, Product, Progress, Storage, Theme, Workspace)\n  → all `Effect.Effect<T, E>` returns become `T` (sync) or `Promise<T>`\n  (async); all `Stream.Stream<T, E>` subscriptions become callback-based\n  `{ dispose }` handles.\n- **All other IPC-backed services** (Commands, Decorations, Editor,\n  Extensions, Files, History, Keybinding, Label, Language, Lifecycle,\n  Model, Notification, Output, Progress, QuickInput, Search, Storage,\n  Terminal, TextFile, TextModelResolver, Themes, WorkingCopy, Workspaces)\n  → same Effect→plain conversion for interface + stub implementations.\n- **Configuration & Mountain tags** converted from `Context.Tag` classes\n  to `export type` aliases.\n- **Configuration & Mountain removed** from all three Effect layer stacks\n  (ElectronLayer, TauriLayer, TestLayer) — they are now plain singleton\n  services loaded by their implementation modules.\n- **Error types**: every `*Problem` discriminated union gains a companion\n  `*Error extends Error` class so callers can `throw` failures directly\n  rather than returning `Effect.Effect<_, Problem>`.\n- **ConfigurationHelper**: `MakeValidate` / `MakeApply` return plain\n  throw-returning functions instead of `Effect.Effect`.\n- **ChangeStream (Extensions)**: refactored from Effect-Stream to\n  Tauri `listen`-based callback subscription.\n- **NotificationStream (Vine)**: refactored from Effect Layer + Queue +\n  Stream to plain subscriber-array fan-out over a shared Tauri Channel.\n- **UserSettings**: `Read`, `ReadOptional`, `HasUserValue` return plain\n  values (throw on failure); `Write` returns `Promise<void>`; `Changes`\n  switches from `Stream.async` to callback subscription.\n- **FileSystem**: `provider` field added as direct `IFileSystemProvider`\n  access; all Effect-wrapped methods converted to async.\n- **BootstrapStage**: replaces `yield* (yield* Configuration).get` with\n  `ConfigurationLive.refresh()` / `MountainLive.connect()` direct calls.\n- **HealthImplementation**: replaces `yield* MountainTag` / `yield*\n  ConfigurationTag` with `MountainLive.version()` / `ConfigurationLive.get()`\n  direct calls.\n- **Config schema**: blank-line separator added after `import type` and\n  before first `readonly` member in 200+ interface declarations for\n  consistent formatting across all module categories.\n\nNo behavioral changes — all tests pass with the same caller semantics\nat the boundary (async functions, throw on error, callback dispose).\nThis completes the Effect-simplification pass that began in wave 1\n(baabb3fa) across the entire Wind services surface.",
-			"SHA": "170c8131f224e98c8608011a6a269061c92f974e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:48:23Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				923,
-				44
-			],
-			"Message": "refactor(Wind): Standardize barrel export order and update tag docstrings\n\nReorganize all 18 workbench service barrel (index.ts) files into a consistent four-section ordering: (1) BridgeShape/Globals type exports and Live value export, (2) Interface type exports, (3) Tag type exports, (4) Problem type exports. Previously each module had a haphazard layout that mixed types and values without grouping convention.\n\nStandardize the LandWorkbench barrel (index.ts) to group CELWind globals first, then LandWorkbenchRuntime, then the Tags re-export barrel — matching the consumer-level priority for symbol lookup.\n\nReorder the Bootstrap barrel to follow a similar category grouping: live implementation, stages, service interface, mock, service tag, type definitions.\n\nNormalize import pairing in LandWorkbenchRuntime.ts — each Live import now sits immediately above its matching type import for the same service, improving scanning readability.\n\nReorder LandWorkbenchTags.ts re-exports so the friendly alias (e.g. `UserSettings`) precedes the tagged type (`UserSettingsServiceTag`), making the default name more visible in import completions.\n\nUpdate all 18 Tag files' JSDoc descriptions from the previous \"Context.Tag was removed\" phrasing to a generic \"available via the LandWorkbench registry\" — the Context.Tag removal is now historical, not a live description.\n\nNo runtime behavior changes — purely cosmetic reordering of exports and imports across 24 files.",
-			"SHA": "b9b6b34dc40c77d1eacb7f7a07dec39b6f9049b0"
 		}
 	],
-	"TimeStamp": 1783610766637
+	"TimeStamp": 1783777326023
 }

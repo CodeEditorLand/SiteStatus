@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:15:51Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				2
+			],
+			"Message": "fix(Mountain): Relay terminal shell execution events to Cocoon extension host\n\nAdd two new IPC notification handlers in WindServiceHandlers for `localPty:shellExecutionStart` and `localPty:shellExecutionEnd`, bridging terminal shell execution events from Sky to the Node.js extension host.\n\n`$acceptTerminalShellExecutionStart` fans to Cocoon so `vscode.window.onDidStartTerminalShellExecution` fires for extension subscribers. `$acceptTerminalShellExecutionEnd` fans two Vine notifications: `$acceptTerminalShellExecutionEnd` (for `onDidEndTerminalShellExecution`) and a derived `$acceptExecutedTerminalCommand` so `vscode.window.onDidExecuteTerminalCommand` subscribers observe the executed command without an additional Sky-side detection pass.\n\nAlso inline a multi-line closure chain in `CreateEffectForRequest/Diagnostics.rs` to a single-line filter_map for consistency with surrounding code style.",
+			"SHA": "275e31a312378afe6b7deb7a8e7f6f579e52b42c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:08:42Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1746,
+				4
+			],
+			"Message": "fix(Mountain): Forward editor state change notifications to Cocoon extension host\n\nAdd five missing Vine notification relays so VS Code API subscribers inside the Node.js extension host observe changes Mountain already delivers to the renderer:\n\n- **ThemesSet.rs**: Fan `$acceptActiveColorTheme` on theme switch, computing the workbench theme kind (Light/Dark/HighContrast) from the theme id. Without this, `vscode.window.onDidChangeActiveColorTheme` never fires for Node-resident extensions (GitLens, Roo Code, rust-analyzer).\n\n- **WindServiceHandlers/mod.rs**: Relay four Sky-detected editor state changes as Cocoon notifications: `$acceptVisibleEditorsChanged` (`onDidChangeVisibleTextEditors`), `$acceptTabsChanged` (`onDidChangeTabs`/`onDidChangeTabGroups`), `$acceptVisibleRangesChanged` (`onDidChangeTextEditorVisibleRanges`), and `$acceptTextEditorOptionsChanged` (`onDidChangeTextEditorOptions`). Each forwards the Sky-provided payload directly.\n\n- **Diagnostics.rs**: After every `SetDiagnostics`/`ClearDiagnostics` call, fan `$acceptDiagnosticsChanged` back to Cocoon with the owner and affected URIs so `vscode.languages.onDidChangeDiagnostics` subscribers in peer extensions observe the change. For clears, emit an empty URI list — consumers should re-query `getDiagnostics(uri)`.\n\n- **DebugLifecycle.rs**: For `debug.addBreakpoints`/`debug.removeBreakpoints` only, fan `$onDidChangeBreakpoints` with added/removed/changed arrays so `vscode.debug.onDidChangeBreakpoints` fires in all extensions, not just the one that made the mutation.\n\nCompletes the Mountain-to-Cocoon notification pipeline for theme, editor, diagnostics, and debug breakpoint surfaces that were previously renderer-only.",
+			"SHA": "dd925de41e8f4558f960cb99f6d1a78674eba4e7"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-25T21:53:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "build(Mountain): Restore simple crate and bundle identifiers\n\nRestore \"Mountain\" as the crate binary, library, and package name, and the\nTauri productName and bundle identifier, replacing the verbose development\nbuild descriptors from the prior commit. The Backup files are removed.\n\nGate the Cocoon sidecar launch on both the ExtensionHostCocoon feature flag\nand the absence of the no_node_host cfg flag, so the extension host tier\nrouting (Node vs WebWorker) is respected at boot time.\n\nInclude the task type in the task provider Options payload, fixing the\nregistration schema for Cocoon's task system.\n\nDerive Clone on ExtensionCollection to support shared access patterns in\nthe terminal environment variable mutation pipeline.\n\nAdd the zsh shell integration script to the Tauri resource bundle and\ntidy resource ordering.",
 			"SHA": "279ff30481d2276785d0a819d7314527ec775fb6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:31:18Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1748,
-				4
-			],
-			"Message": "build(Mountain): Differentiate development build identifiers from release\n\nRename the crate binary, library, package, Tauri productName, and bundle identifier to a verbose development build descriptor encoding the full toolchain configuration (Node 22, VS Code dependency, debug profile, esbuild compiler). This prevents the development build's binary name and macOS bundle ID from colliding with the release build, enabling side-by-side installation and testing.\n\nExpand the Tauri resource bundle to include all Sky deployment variant directories (Browser, BrowserProxy, Bundled, Electron, Favicon, Isolation, Manifest.json, Mountain) that were previously omitted, ensuring the development build can serve every editor UI target.",
-			"SHA": "960cc2f2c87bbd38613db3e6da10c856b2ae0dd3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T19:10:04Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1746,
-				19
-			],
-			"Message": "feat(Mountain): Implement EnvironmentVariableCollection and tier defaults\n\nAdd TerminalEnvCollection — a global registry for per-extension environment variable mutations matching VS Code's `EnvironmentVariableCollection` API (Replace/Append/Prepend/Delete/Clear/SetPersistent/SetDescription). Seven `terminal.envCollection.*` Vine notification handlers in MountainVinegRPCService dispatch Cocoon's requests to the registry via TerminalEnvCollectionDispatch. At every PTY spawn, TerminalProvider collects the inherited process env, applies all registered mutators via ApplyToEnv, and layers shell-integration vars on top, ensuring extensions like language servers see the environment they requested.\n\nAdd `tree.refresh` and `outputChannel.replace` Vine notification relays: the former forwards TreeDataProvider.onDidChangeTreeData events to Sky as `sky://tree-view/refresh`; the latter provides atomic output channel buffer replacement that avoids the visual flash of separate clear+append.\n\nExpand the tier routing infrastructure by adding compile-time defaults and Info.plist entries for 14 additional subsystems (Auth, Debug, Encryption, ExtensionHost, LanguageFeatures, Model, NativeHost, OutputChannel, SCM, Search, Storage, Tasks, Terminal, TreeView, WebSocket) and extending LandFixTier::LogResolvedTiers to emit all 16 tier values at boot for full routing observability.\n\nTidy formatting across AppLifecycle, Entry, RunGit, Reload, mod.rs, CocoonManagement, Dispatcher, build.rs, and bash.sh with no semantic changes.",
-			"SHA": "abba8a235310b01bca76aa32de8fe2de37a9a9af"
 		}
 	],
-	"TimeStamp": 1783610781388
+	"TimeStamp": 1783777335004
 }

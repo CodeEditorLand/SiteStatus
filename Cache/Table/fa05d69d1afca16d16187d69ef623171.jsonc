@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T08:24:05Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1183,
+				2
+			],
+			"Message": "feat(Cocoon): Implement registry-backed vscode.tests namespace shim\n\nThe stock inline stub in EnsureVscodeAPI.ts for `vscode.tests` used empty no-op objects whose `TestItemCollection` silently dropped every `controller.items.add(item)` call. Extensions like vitest, mocha-explorer, and rust-analyzer depend on that collection for their internal state machine — with a silent drop, `controller.items.get(id)` always returned `undefined`, breaking the extension.\n\nReplace the stub with a dynamic import of a real registry-backed `TestsNamespace` factory in Source/Services/Handler/VscodeAPI/Tests/Namespace.ts. Each TestController owns a `Map`-backed `TestItemCollection` with working add/delete/get/replace/forEach, a profile registry for `createRunProfile`, and a `TestRun` state machine tracking the full queued/started/skipped/failed/errored/passed lifecycle. `TestRun.end()` emits `tests.didChangeTestResults` on the Emitter channel with per-item results and accumulated output.\n\nRegistration is idempotent — re-registering a controller with the same id returns the existing instance, softening VS Code's duplicate-id throw to handle dev-reload double-calls.\n\nSky-side Testing panel rendering (via `ITestService` exposure in Output) is still gated, but every extension that imports `vscode.tests` now maintains correct internal state without crashes or silent data loss.",
+			"SHA": "5ecf61052f000f0f00150f8fecf307201c1467dc"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T08:11:36Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1181,
+				2
+			],
+			"Message": "feat(Cocoon): Route four notification events and auth session changes through Emitter\n\nAdd three new notification cases in Notification/Handler.ts and an authentication session-change subscription in the Auth namespace:\n\n- `$activateByEvent` — Wind's `extensions:activate` IPC fires this notification to trigger extension activation. Defer to `ExtensionHostHandler.HandleActivateByEvent` via `setImmediate` so the activation actually runs instead of falling into the default unknown-notification arm.\n- `$acceptTextEditorDiffInformationChanged` — Sky forwards Monaco's `onDidUpdateDiff` hunk list. Emit `window.didChangeTextEditorDiffInformation` with a minimal TextEditor stub keyed on `modifiedUri` so subscriber dereferences on `.textEditor.document.uri` resolve cleanly.\n- `$acceptTextEditorViewColumnChanged` — Sky detects per-group `onDidMoveEditor`. Emit `window.didChangeTextEditorViewColumn` with the URI and viewColumn, matching the VS Code event shape.\n- `$acceptTerminalStateChanged` — Sky fires after OSC 633;B (command-input-begins). Update the cached terminal entry's `state.isInteractedWith` flag and emit `window.didChangeTerminalState`. Includes a stub fallback for the race between terminal creation and first OSC sequence.\n- `AuthenticationProvider.onDidChangeSessions` — Register a listener on every provider passed to `registerAuthenticationProvider`, fanning `{ added, removed, changed }` to the `auth.didChangeSessions` Emitter channel. Capture and dispose the subscription on provider unregister to prevent listener leaks.\n\nAll paths complete the Mountain→Cocoon event bridge for these extension API surfaces, letting subscribers hooked via `MakeEventSubscriber` receive live workbench signals.",
+			"SHA": "acac6138b71814f1ec9dc17cbd0afcfdd4cecbd1"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-25T22:16:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "fix(Cocoon): Route onDidExecuteCommand through Emitter replacing dead Tauri listen\n\nThe prior `onDidExecuteCommand` implementation called `import(\"@tauri-apps/api/event\").listen(\"sky://commands/executed\", ...)` which never fires in Node.js (no `window.__TAURI__`), so every extension hooking this event silently missed all command executions. Replace with a subscription to the `commands.executed` Emitter channel, fed by two sources:\n\n- `$acceptCommandExecuted` case in Notification/Handler.ts catches Mountain's Vine dual-emit after every Mountain-routed `commands:execute` round-trip and forwards to the Emitter channel.\n- Local command routes in Commands/Namespace.ts emit on the same channel (symmetric with the Mountain branch) so extension-to-extension `executeCommand` calls are visible too.\n\nAlso extend the `viewId` dual-key resolution strategy (established in the prior commit for `setHtml`/`postMessage`) to five more webview mutators in CreateWebviewPanel.ts: `dispose`, `setTitle`, `setIconPath`, `setOptions`, and `reveal`. These operations can fire before the workbench finishes mounting the panel's IOverlayWebview; the `viewId` fallback in Sky's `InstallWebview.ts` ensures they still reach their target.\n\nMark Terminal/Service.ts as deprecated — its wire calls reference non-existent Mountain handler names and it is imported only by a dead bootstrap path. The active terminal management lives in `CreateTerminal.ts`. Retained pending vertical-split cleanup (Mountain-Crate-Split.md §#7a).",
 			"SHA": "fcb3f91e7c485985bab07b6e1da67c20b687531f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:38:14Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1181,
-				2
-			],
-			"Message": "fix(Cocoon): Send viewId in webview setHtml and postMessage to fix panel first-paint race\n\nThe `html` setter and `postMessage` method on WebviewPanel only sent `handle` to Mountain, relying on Sky's per-handle WebviewInput binding to route the payload. During first-paint, the `webview.create` ack can arrive before the workbench's `IOverlayWebview` instantiation has bound the handle to a WebviewInput, causing the initial setHtml to land in `ParkedHtml` and postMessage to miss its target.\n\nAdd `viewId: ViewType` to both `webview.setHtml` and `webview.postMessage` request payloads, matching the pattern already established in `CreateWebviewViewBuilder.ts:268`. Sky's `InstallWebview.ts` resolution path (lines 56-57, 300-302) accepts either `handle` or `viewId`; sending both eliminates the race by providing a fallback viewType-keyed lookup.\n\nAlso deprecate the `MountainGRPCClientLayer` and its Effect-TS service tag with documentation pointing consumers to the canonical wire-method names (`Window.ShowMessage`, `webview.setHtml`, `secrets.get`, etc.). The Layer is exported but never provided in any `Bootstrap.ts` entry point, so Effect branches referencing the tag fail at the dependency layer before any gRPC call fires. Removal scheduled for Track-B vertical split work.",
-			"SHA": "82e92eaf8ba75052d8b1434e9b18b63b36235253"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-25T21:28:39Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1181,
-				1
-			],
-			"Message": "fix(Cocoon): Skip failure count when circuit breaker is already Open\n\nOnce the circuit breaker trips to Open, in-flight gRPC requests that were launched before the trip can still resolve with errors. The original code incremented `circuitBreakerFailureCount` unconditionally on every error, causing the counter to pile up beyond the intended threshold (observed at N≥19 in the 2026-05-25 panel-debug run) while the breaker was already Open and doing nothing useful — every such increment produced a noisy `[Breaker] transition from=OPEN to=Open failures=N` dev-log line.\n\nAdd an early return in `CheckCircuitBreaker` when the state is already `Open` so that post-trip completions are logged at debug level but not counted. Recovery remains driven by the existing timeout-based transition to HalfOpen in the caller path, not by piling on more failures.\n\nThis eliminates the dev-log chatter and keeps the failure counter accurate for the Closed/HalfOpen windows that actually drive breaker state transitions.",
-			"SHA": "8fa4cdb83c199b1859c44b151f14ae6c1194dd7f"
 		}
 	],
-	"TimeStamp": 1783610776455
+	"TimeStamp": 1783777332875
 }

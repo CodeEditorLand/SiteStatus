@@ -3,6 +3,28 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T00:48:43Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1568,
+				5
+			],
+			"Message": "feat(Mountain): Add glob pattern normalization and text edit utilities\n\nIntroduce two new utility modules under `Source/Environment/Utility` to support workspace scanning and document manipulation. `GlobPattern.rs` normalizes VS Code glob patterns from various serialized shapes (bare strings, `RelativePattern` objects, legacy `value` fields) into a unified string and extracts optional base directories for bounded file walks. `TextEdit.rs` provides pure side-effect-free helpers for computing UTF-16 line offsets and converting `(line, character)` positions to byte offsets, adhering to VS Code's `Range`/`Position` semantics. It also includes a self-contained percent-decoder for `file://` URIs.\n\nThese utilities are exported in `mod.rs` to be consumed by the `FindFiles` workspace provider and language service layers. Additionally, the build system is updated in `build.rs` to recognize `TierIPC` as a runtime-only configuration variable, and the logging utility `LandFixTier.rs` is enhanced to emit this runtime tier value alongside the build-baked tiers.",
+			"SHA": "00a3ccf53ec931b07171c9e1217f006a6cbd4a86"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T00:46:07Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1566,
+				3
+			],
+			"Message": "feat(Mountain): Implement extension manifest NLS resolution and default config collection\n\nIntroduce two new modules in `Source/ExtensionManagement` to prepare extension manifests for runtime consumption. `NLSResolver.rs` handles the resolution of `%key%` placeholders found in VS Code `package.json` manifests by loading and parsing `package.nls.json` bundles, supporting both string and `{message, comment}` object formats. `DefaultConfigurations.rs` scans all scanned extensions to recursively merge `contributes.configuration.properties` into a single flat JSON object, utilizing dot-notation for nested keys and guarding against circular references.\n\nThese changes ensure that localized UI strings and default user settings are correctly extracted from extension definitions before they are processed by the extension host or applied to the settings engine. Both modules are exported in `mod.rs` to enable integration with the extension scanner and IPC handlers.",
+			"SHA": "df0df3f19cd2aa052a86a6ac4745b35845d1164a"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-05-20T00:44:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -33,29 +55,7 @@
 			],
 			"Message": "refactor(Mountain): Modularize extension host notification handlers into dedicated atoms\n\nExtract inline notification dispatch logic from the main IPC handler into dedicated atomic functions and sub-modules under `Source/RPC/CocoonService/GenericNotification/`. This completes the modularization strategy for the Cocoon bridge, decoupling the request parsing layer from the business logic execution.\n\nKey changes include:\n- **SkyEmit Module**: Introduce `SkyEmit.rs` to handle all `sky://` Tauri event emissions from the extension host. Consolidates logic for webview messages, status bar updates, output channel management, progress indicators, and `openExternal` into specific handler functions (`HandleWebviewPostMessage`, `HandleOutputAppend`, etc.).\n- **Atomic IPC Dispatch**: Replace inline `match` blocks for `cocoon:request`, `cocoon:notify`, and `extensionHostStarter` commands in `WindServiceHandlers/mod.rs` with calls to their respective atomic functions (e.g., `CocoonRequest`, `CocoonNotify`).\n- **Extension Host Reliability**: Refactor `extensionHostStarter:start` to delegate PID retrieval and `extensionHostDebugReload` to emit Tauri events via atomic wrappers, ensuring consistent error handling and separation of concerns.\n- **Modular Architecture**: Register the new `GenericNotification` (including `SkyEmit`, `Commands`, `LanguageProviders`) and `GenericRequest` modules in `Source/RPC/CocoonService/mod.rs`.\n\nThis refactoring reduces code duplication in the IPC layer, improves maintainability by grouping related UI bridge logic, and aligns the notification path with the request path's atomic function pattern.",
 			"SHA": "f7b87f51d861d81a15f5777511aa46a4f5e10974"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:40:50Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1561,
-				8
-			],
-			"Message": "refactor(Mountain): Modularize Cocoon RPC handlers and IPC dispatch layer\n\nRefactor the Mountain IPC and RPC layers to extract inline logic into dedicated, composable modules. This aligns with the modular architecture established in recent commits and improves maintainability for the Cocoon bridge and native service handlers.\n\nKey changes include:\n- **WindService Refactoring**: Replace inline platform-specific implementations in `WindServiceHandlers/mod.rs` with atomic function calls (e.g., `NativeMoveItemToTrash`, `NativeReadClipboardText`). This consolidates OS-specific logic (macOS osascript, Linux gio, Windows PowerShell) into reusable handlers for clipboard, trash, and ARM64 translation checks.\n- **Cocoon RPC Modularity**: Split the generic request/notification dispatcher into semantic sub-modules under `Source/RPC/CocoonService`. Introduced `GenericRequest` modules for `Commands`, `FileSystem`, `Secrets`, and `WindowDialogs`, and `GenericNotification` for language provider registration.\n- **IPC Abstraction**: The new RPC handlers strictly follow the `(RequestId, Params, &Env)` signature, decoupling request parsing from business logic and enabling typed `GenericResponse` construction without referencing `CocoonServiceImpl` directly.\n- **UI Bridge Enhancements**: The `WindowDialogs` module now routes `showTextDocument`, `saveAll`, and `webview` operations via Tauri events (`sky://...`), completing the bridge between the Rust backend and the Sky frontend.\n\nThese changes reduce code duplication, clarify the separation of concerns between the native backend and the extension host, and prepare the codebase for further extension host integration.",
-			"SHA": "edd0bb6051ae22a8f12017d144a03a2bcab8253f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:39:07Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1552,
-				4
-			],
-			"Message": "feat(Mountain): Refactor IPC handlers and implement workspace glob matching\n\nRefactored the `mountain_ipc_invoke` dispatcher to delegate native operations to modular, reusable handlers and implemented a bounded workspace-contains glob matcher for VS Code extension activation.\n\nKey changes include:\n- **Handler Refactoring**: Extracted inlined logic for `nativeHost:showSaveDialog`, `UserInterface.ShowSaveDialog`, `nativeHost:showMessageBox`, `nativeHost:getEnvironmentPaths`, `localPty:resize`, and `localPty:freePortKillProcess` into dedicated functions (`NativeShowSaveDialog`, `UserInterfaceShowSaveDialog`, etc.) in `WindServiceHandlers/mod.rs`. This reduces code duplication, improves readability, and centralizes error handling.\n- **Clipboard Enhancements**: Added `NativeTriggerPaste` and `NativeReadImage` stubs to `NativeHost/Clipboard.rs`. These return safe fallbacks (`false` and empty array) to support the IPC contract while Tauri 2.x native implementations are finalized.\n- **Workspace Activation**: Introduced `WorkspaceContainsGlob` module to efficiently resolve `workspaceContains:<pattern>` activation events. The implementation supports literal paths, single-segment wildcards (`*`), and recursive wildcards (`**`) up to a depth of 3, with a safety cap of 4096 entries per root to ensure sub-100ms performance in large monorepos.\n\nThese changes align the IPC layer with the modular architecture established in recent commits and provide the necessary file-system introspection for correct extension lifecycle management.",
-			"SHA": "b37ff5594d3d5a121ee027062b90e8ca1c804fde"
 		}
 	],
-	"TimeStamp": 1783610788354
+	"TimeStamp": 1783777340297
 }
