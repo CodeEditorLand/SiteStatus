@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:45:48Z",
+			"Date": "2026-04-26T20:04:45Z",
 			"File": [
-				"⣿⣿⣿⣿⣿",
-				95,
-				101
+				"⠁⠀⠀⠀⠀",
+				225,
+				5
 			],
-			"Message": "build(Output): Remove compiled JavaScript configuration artifacts\n\nDelete all compiled .js and .js.map files from the Configuration directory. These represent the transpiled output of TypeScript build configuration sources that have been moved to or consolidated under a different source location.\n\nThe removed files include ESBuild configurations (CodeEditorLand, Microsoft/VSCode, Exclude modules), plugin modules (Apply, Copy, Transform, Type), polyfills (ChildProcess, FileProtocol, FileSystem, IPCRenderer, NativeModule, Process, SharedProcess), services (DevLog, TauriMainProcess, Trace), and tsconfig JSON files.\n\nThis cleanup eliminates redundant build artifacts from the Output element, leaving only the TypeScript source files for the configuration system.",
-			"SHA": "461fcef32466f6afee5de65bf15049c0971506ec"
+			"Message": "feat(Output): Expand workbench service exports + add git instrumentation\n\nExpand the ExposeWorkbenchAccessor transform to export additional\nservices and classes needed by SkyBridge's in-process providers:\n\n- SCM, Debug, CustomEditor service decorators - allow SkyBridge to\n  register providers that mirror Cocoon's extension-host registrations\n  (sky://scm/*, sky://debug/*, sky://customEditor/* events)\n- Emitter, Disposable, toDisposable - required for SCM provider shim's\n  event interface (ISCMService expects onDidChange* events matching\n  vs/base/common/event.js::Emitter's shape)\n- IModelService + ILanguageService - needed to construct real ITextModel\n  for the SCM inputBox (MainThreadSCMProvider rejects null inputBox)\n- ResourceTree + IUriIdentityService - for grouped SCM repository rendering\n\nAlso add InstrumentVscodeGit, a new diagnostic transform that injects\nprocess.stdout.write('[GIT-MARK-X] ...') markers into the bundled\nvscode.git extension's main.js and model.js. This bypasses Cocoon's\noutputChannel routing (muted in LAND_DEV_LOG=short) to diagnose why\nthe SCM viewlet stays empty despite vscode.git activating within\n2814-4173ms. The last visible marker identifies the exact bail point.",
+			"SHA": "a349f4ae1e12e98b33334504832d802cdbf6d3b4"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T18:19:24Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				213,
-				37
-			],
-			"Message": "docs(Output): Document CopyNodeModules-StripDanglingSourceMap pairing rationale\n\nAdd rationale to Plugin/Index.ts explaining why the node_modules copy\nand sourcemap strip are expressed as separate plugins with role-scoped\nmatching rather than using the CopyPlugin.AfterCopy hook.\n\nStripDanglingSourceMap's Match is scoped to Role === \"app\" and\nCopyNodeModules writes into the app root, so the transform pass\nnaturally covers every file the copy emits. Leaving AfterCopy unused\nkeeps it available for future siblings (e.g., a copy that produces\nfiles outside the app root and still needs strip).\n\nThis clarifies the architectural decision made in the previous\nextraction commit.",
-			"SHA": "fbdf5352b1da3752cc680b5e44fe11c9d3b4a7f2"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:25:29Z",
-			"File": [
-				"⡇⠀⠀⠀⠀",
-				174,
-				19
-			],
-			"Message": "feat(Output): Extract Sky's inline build plugins into reusable module\n\nMove all copy and transform plugins previously inlined in Sky's `astro.config.ts` into a dedicated `Plugin` module under Output. This enables reuse across Sky, future desktop shells, and test harnesses without esbuild dependencies.\n\nNew plugins added:\n- Copy: CopyVSOutput, CopyVSRootFiles, SupplementFromDependency, CopyWorker, CopyNodeModules, StubUnpublishedAddons, CopyTauriMainProcessService\n- Transform: StripCSSImport, InjectNameShim, ReplaceElectronIPCService, ReplaceSharedProcess, StaticToDynamicImport, StripDanglingSourceMap, ExtensionScannerIPC\n\nThe Apply.ts runner walks roots, executes copy plugins then transform plugins, and provides a BuildPipeline factory matching Sky's ordered Steps 1-14. Type.ts defines the Plugin contract with TransformPlugin and CopyPlugin shapes.\n\nThis extraction maintains the same behavior while making the logic portable and testable.",
-			"SHA": "4c879094fd169c2fdf5dc0164e818a4e95f08769"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-22T17:11:26Z",
-			"File": [
-				"⡏⠀⠀⠀⠀",
-				153,
-				21
-			],
-			"Message": "feat(Output): Route colon-prefixed Tauri commands through MountainIPCInvoke\n\nThe polyfill modules (ChildProcessPolyfill, FileProtocolShim, FileSystemPolyfill, IPCRendererShim, NativeModulePolyfill, ProcessPolyfill, SharedProcessProxy) were attempting to invoke commands with colons in the name (e.g., file:read, file:write, shared_process:invoke) directly via Tauri invoke.\n\nHowever, Rust function names cannot contain colons. These commands dispatch through Mountain's single MountainIPCInvoke command, which unwraps the method name and params back into the positional Vec<Value> that internal handlers consume.\n\nUpdate invokeTauri in all polyfills to detect colon-prefixed commands and route them through MountainIPCInvoke. Also update sendTauri in IPCRendererShim to maintain consistency between async and fire-and-forget forms.\n\nThis ensures all polyfills behave consistently with the rest of Wind/Sky/Output.",
-			"SHA": "e6a8a93234866009796415ecc121f2d2d226cb7a"
-		},
-		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-04-22T15:06:15Z",
+			"Date": "2026-04-26T09:50:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				153,
+				224,
+				2
+			],
+			"Message": "feat(Output): Add URI import to ExposeWorkbenchAccessor transform\n\nComplete the workbench accessor patch by statically importing the `URI` class alongside the existing service decorators. The previous commit exposed the URI via the `__CEL_SERVICES__` object, but the import statement was missing from the transform's header injection.\n\nThis fix ensures the transform plugin injects the necessary import for `URI` when patching `web.main.js` and `desktop.main.js`, allowing SkyBridge's search provider to construct resource objects the workbench accepts directly without a `URI.revive` round-trip.",
+			"SHA": "3db8e24cd143fa7887d7395c6a0a2fbf53ac02f4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T09:29:33Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				224,
 				1
 			],
-			"Message": "Merge pull request #136 from CodeEditorLand/dependabot/github_actions/pnpm/action-setup-6.0.3\n\nBump pnpm/action-setup from 4.2.0 to 6.0.3",
-			"SHA": "14e93748d553f4e76c867ce895560a0cd104f468"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Output into Current",
+			"SHA": "842a79df562bc93fdaa122204343e99fa39933e9"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T09:29:09Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				224,
+				1
+			],
+			"Message": "feat(Output): Expose URI class to SkyBridge search provider\n\nAdd the `URI` class from vscode-uri to the workbench accessor exports so Sky-side bridges can construct real URI instances that the workbench accepts directly.\n\nThe workbench's SearchService deduplicates results by calling `getComparisonKey(uri)` which invokes `uri.with(...)`. Returning raw URIComponents POJOs causes \"uri.with is not a function\" errors. The exposed URI class has the full prototype chain (`.with()`, `.fsPath`, `.toString()`) needed by SkyBridge's search provider result rows.",
+			"SHA": "7b179e1a9caddb1f048473c766f7437cadffc35c"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T09:00:12Z",
+			"File": [
+				"⣿⣿⠇⠀⠀",
+				224,
+				104
+			],
+			"Message": "",
+			"SHA": "6b389ee08b3b3d3833c484dfc1e6916ef5f13c84"
 		}
 	],
-	"TimeStamp": 1782052026862
+	"TimeStamp": 1783777341868
 }

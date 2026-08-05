@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:20:21Z",
+			"Date": "2026-05-28T18:38:53Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				149,
-				7
+				"⣿⠁⠀⠀⠀",
+				155,
+				34
 			],
-			"Message": "refactor(Sky): Extract inline bridge handlers into dedicated module files\n\nReplace ~2500 lines of inline handler registrations in `Bridge.ts` with dynamic imports to four new dedicated module files, each owning a cohesive set of IPC channels:\n\n- `InstallWebview.ts`: Webview create/set-html/updateView/postMessage, WebviewView registration with workbench `IWebviewViewService` resolver chain, custom editor capability registration and disposal.\n- `InstallEditorOperations.ts`: Decoration set-ranges, text edits (`editor.edit()`), active editor / selection state push to Mountain, and `revealRange` scrolling.\n- `InstallTreeView.ts`: Tree view data provider attach (`TreeViewByViewId`), `ProvideChildren` via `MountainIPCInvoke`, exponential backoff retry chain, pending-attach queue for late-registering extensions, and DOM `cel:tree-view:*` event listeners.\n- `InstallUiRequests.ts`: Four show-message / show-input-box / show-quick-pick / show-message-with-actions request channels that require `ResolveUIRequest` round-trips to Mountain.\n\nEach module receives only the dependencies it needs (`Register`, `GetServices`, `Invoke`, `ApplyHtmlToWebview`, `ShowNotification`, `ResolveUiRequest`) via a thin injector interface, eliminating global-scope closure capture across unrelated handlers. The decomposition also simplifies per-module type definitions — previously all handler types were implicitly Any-typed from the inline closure chain.\n\nMinor side-effects:\n- `InstallDiagnostics.ts` and `InstallSearch.ts` get light formatting cleanup (single-line collapsed type annotations, removal of unused `Register` parameter) without behavioral change.\n- `ApplyHtmlToWebview` now loads eagerly in the bridge lifecycle (before any import call) so it's available for InstallWebview's registration callback, with a `globalThis.__CEL_WEBVIEW_APPLY_HTML__` stash for late-bound workbench resolvers.\n\nThe bridge's observable behaviour is unchanged: every registered channel fires the same handler logic as before, just from a dedicated module source file.",
-			"SHA": "47d08be5e4485f258d9bea1890f46bda357927a1"
+			"Message": "build(Sky): Extract bridge handlers into modular installers and harden build pipeline\n\nRefactor the monolithic `Bridge.ts` into discrete installer modules (Commands, EditorOperations, Scm, Webview, etc.) while introducing idempotent install guards and standardized error-surrounding try/catch blocks. The extraction preserves the existing dependency-injection shape (`Register`, `GetServices`, `Invoke`) so downstream call sites require no changes.\n\nStrengthen the Astro build pipeline: `BakeExtensionManifest` now scans `~/.land/extensions`, `~/.fiddee/extensions`, and `~/.vscode/extensions` with NLS-resolution fallback, writing both debug and production manifest paths while skipping stale cache hits. `CompressBundle` applies brotli compression (quality 11) to `_astro` and `Static/Application` artifacts, skipping files smaller than 1 KB or with < 5 % savings.\n\nHardened `astro.config.ts` with Vite define backfills for missing profile/color-scheme/terminal fields, performance-mark checkpoints spanning workbench boot phases, and robust extension auto-install logging. Output channel handlers now prefer `IOutputService.showChannel()` for targeted reveals, and notification relays drive `INotificationService.notify()` directly for production toast visibility.",
+			"SHA": "e7bd6f220ab05562878801bac301061173aedf06"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T05:06:23Z",
+			"Date": "2026-05-27T02:22:18Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				155,
+				1
+			],
+			"Message": "Merge pull request #522 from CodeEditorLand/dependabot/npm_and_yarn/astro-6.3.8\n\nbuild(deps): bump astro from 6.3.7 to 6.3.8",
+			"SHA": "4f4cb5171e1f0137974bd1d928ec02a8ec4ca780"
+		},
+		{
+			"Author": "dependabot[bot]",
+			"Date": "2026-05-27T02:11:49Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				155,
+				1
+			],
+			"Message": "build(deps): bump astro from 6.3.7 to 6.3.8\n\nBumps [astro](https://github.com/withastro/astro/tree/HEAD/packages/astro) from 6.3.7 to 6.3.8.\n- [Release notes](https://github.com/withastro/astro/releases)\n- [Changelog](https://github.com/withastro/astro/blob/main/packages/astro/CHANGELOG.md)\n- [Commits](https://github.com/withastro/astro/commits/astro@6.3.8/packages/astro)\n\n---\nupdated-dependencies:\n- dependency-name: astro\n  dependency-version: 6.3.8\n  dependency-type: direct:production\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "6a68dc5f0f3c8b66676d6bfb29c00f91fe9e533b"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T18:17:48Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				145,
-				4
+				155,
+				5
 			],
-			"Message": "feat: Implement Sky Bridge for Diagnostics, SCM, and Search\n\n- Added InstallDiagnostics.ts to bridge diagnostics from Mountain to IMarkerService, enabling error visibility in the editor.\n- Introduced InstallScm.ts to handle SCM events, allowing Sky-side viewlets to mirror SCM state and register providers against the live workbench service.\n- Created InstallSearch.ts to register a search result provider that routes search queries to Mountain's handlers, ensuring proper file and text search functionality.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "c6982bf52f64f2f9ef7a60e23743af8ba103ca2d"
+			"Message": "fix(Sky): Route bridge handlers through live workbench services\n\n**Output channel payload normalisation** — Mountain's coalescer, the legacy per-append path, and Cocoon's forwarding each use different field names (`channel`/`name`/`handle`/`id`, `text`/`value`). `sky://output/create`, `append`, `clear`, `replace`, `show`, and `dispose` now read every field shape so the Output panel populates regardless of producer. `sky://output/show` prefers the live `IOutputService.showChannel()` for channel-targeted reveal before falling back to the generic workbench command.\n\n**Notification service integration** — `sky://notification/show` previously dispatched a CustomEvent only, reaching no visual surface in production. Drive `INotificationService.notify()` directly with proper severity string-to-number mapping so `showInformationMessage`/`showWarningMessage`/`showErrorMessage` actually surface toasts.\n\n**Monaco language switch** — `sky://languages/setDocumentLanguage` now calls `monaco.editor.setModelLanguage()` so highlighting and tokenisation switch in place without re-opening the file.\n\n**SCM shim robustness** — Derive per-repo display labels from `rootUri` basename for multi-repo workspaces (e.g. `Git (Mountain)` instead of duplicate `Git` headers). Replace static zero-value field shims with `IObservable`-shaped facades exposing live derived resource counts. Fire `provider.onDidChange` and `ResourceGroupsEmitter` after populating groups so the viewlet badge and title-bar count reflect real totals.\n\n**Progress service routing** — Route through `IProgressService.withProgress()` when available for native VS Code progress rendering, with a DOM-painted fallback during early boot. Cache pending messages for in-flight starts whose Report handle hasn't yet been captured.\n\n**Replay summary** — Include `scmGroups` and `scmResourceUpdates` fields in event-replay summary logging.",
+			"SHA": "daf83add5db20440ded7f50f2af39e5e3573eee1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T04:38:18Z",
+			"Date": "2026-05-26T17:20:32Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				142,
-				1
+				"⠃⠀⠀⠀⠀",
+				155,
+				6
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "8fd293a19f9afdaa99e4cde5aae5c9ccb4b50b98"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T04:36:31Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				142,
-				1
-			],
-			"Message": "chore(Sky): Update license to CC0-1.0 in product metadata\n\nChange the `licenseName` and `licenseUrl` fields in `Public/product.json` from MIT to CC0-1.0 (Creative Commons Zero / Public Domain Dedication), and bump the date stamp to 2026-05-20.\n\nThis reflects the organization's transition to a public-domain-equivalent license for the editor metadata artifact, aligning with the broader open-source positioning under NLnet NGI0 Commons Fund stewardship.",
-			"SHA": "686b80d9aef4de5d81942cca7093e4e1efe80804"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-20T02:52:07Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				142,
-				1
-			],
-			"Message": "",
-			"SHA": "73d524a3aad12fc029b5ad7373806cb4e05fcfa9"
+			"Message": "fix(Sky): Route output panel through real IOutputService and fix multi-repo SCM registry\n\n**Output panel routing** — the `sky://output/append`, `clear`, and `replace` handlers previously wrote to `__CEL_WORKBENCH__.logger.log()` (the workbench diagnostic console sink), which never painted the Output panel. Re-route through `__CEL_SERVICES__.Output.getChannel().append()` — the real `IOutputService` exposed in `Accessor.ts` — so output channel content actually appears in the panel. The in-memory `OutputChannels` map is retained as a snapshot fallback. A try/catch guard prevents any failing append from crashing the bridge.\n\n**Multi-repo SCM deduplication** — vscode.git's multi-repo workspace (e.g. Land/Dependency/Microsoft submodules) calls `createSourceControl` once per repository, all with `scmId=\"git\"` but unique numeric handles. Keying the `ScmShimRegistry` by bare `scmId` collapsed every repo into a single workbench provider, causing visible group duplication (\"Merge Changes / Untracked / Merge Changes\"). Key by `scmId#handle` so each repository gets its own provider, and update `TryUnregisterScmProvider` and `ResolveScmShim` to use handle-first lookup with a safe `scmId` fallback.\n\n**IPC deduplication** — the `visibleChanged` and `tabsChanged` bridge handlers fire multiple times per user action because the workbench dispatches overlapping internal events (active editor change, group focus, tab reorder). Add snapshot serialization and early-return guards that suppress duplicate payloads before reaching `MountainIPCInvoke`, eliminating redundant `$acceptVisibleEditorsChanged` callbacks and tab/diagnostic listener re-runs in Cocoon.\n\n**Telemetry env var rename** — shorten `OTLPEndpoint`/`OTLPEnabled` to `Pipe`/`Emit` in both `OTELBridge.ts` and `astro.config.ts` Vite defines for cleaner ergonomics.",
+			"SHA": "a90a4516cef82066f9962a908f0e5e199f92bd5c"
 		}
 	],
-	"TimeStamp": 1782051984518
+	"TimeStamp": 1783777331150
 }

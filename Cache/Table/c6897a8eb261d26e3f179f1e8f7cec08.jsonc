@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T19:12:00Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				2515,
-				66
-			],
-			"Message": "feat(Vine): Add Envelope.ChannelId, DashMap connection pool, and multiplexer reverse-RPC dispatch\n\nThree interconnected changes across the wire protocol, client concurrency model, and streaming multiplexer:\n\n**Proto — Envelope.ChannelId:** Add a `uint64 ChannelId = 5` field to the `Envelope` message, assigned by the side that owns the channel registry entry for this stream. Receivers compare this against the identifier observed at channel-open time to detect frames from a stale (pre-reconnect) channel. Zero signals no registry-assigned identifier. All multiplexer `Envelope` constructions set this to `0` — Mountain and Cocoon will populate it once the per-stream registry is wired.\n\n**Client — DashMap connection pool:** Replace `Arc<Mutex<HashMap<String, CocoonClient>>>` with `dashmap::DashMap<String, CocoonClient>`, eliminating the single global lock on every `SendRequest`, `SendNotification`, and `DisconnectFromSideCar` call. All client site lock/unlock patterns collapse to direct `DashMap` method calls (`.get()`, `.insert()`, `.remove()`, `.contains_key()`). The `RecordSideCarFailure` eviction path similarly drops its explicit lock. Import `dashmap` in `Shared.rs`; no other dependency changes.\n\n**Multiplexer — reverse-RPC dispatch:** The `ReadPump` previously dropped inbound `Payload::Request` frames as a no-op with a comment reserving future dispatch. This commit wires full dispatch: a process-wide `REQUEST_HANDLER` storage (`Mutex<Option<RequestHandlerFn>>`) with an `InstallRequestHandler` public API that Mountain calls at gRPC-service construction time. Each inbound request spawns a `tokio::spawn` task invoking the handler, pushing the returned `GenericResponse` back over the stream sink under the original correlation id. If no handler is installed, the frame is dropped with a warning (preserving backward compatibility with the unary fallback). Cancellation frames remain dropped — the unary path has no cancellation either, so accepting and dropping preserves equivalence.\n\n**Doc polish:** Normalise line-wrapping across all 40+ notification atoms, Library.rs, Multiplexer.rs, and all Client files to a consistent column width. No behavioural changes in doc-only files.\n\nNo breaking changes — `ChannelId=0` is backward compatible, `DashMap` preserves the same `HashMap`-compatible API surface, and the multiplexer default handler is `None`.",
-			"SHA": "e9d332c501a4ef2eebee6d05e58e0c3713c6fb02"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:48:13Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				2515,
-				78
-			],
-			"Message": "docs(Vine): Add pub fn doc comments and normalize extension host references\n\nAdd `///` doc comments on every public notification atom function across all 40+ Server notification atoms, closing the gap between module-level docs and each individual handler. Each comment captures the wire method, its purpose, Sky event destination, and any idiosyncratic behaviour (channel draining, handle disambiguation, shape canonicalisation).\n\nAlso add doc comments on all Client public functions (CheckSideCarHealth, ConnectToSideCar, DisconnectFromSideCar, IsClientConnected, IsShuttingDown, MarkShutdown, PublishNotification, SendNotification, SendRequest, SubscribeNotifications, SubscriberCount, TryConnectSingle, WaitForClientConnection) and both Support helpers (RelayToSky, UnregisterByHandle).\n\nNormalise remaining inline references from \"Cocoon\" to \"Extension Host\" throughout doc comments and constants (DefaultCocoonAddress, DEFAULT_COCOON_PORT, RegisterCommand, TerminalLifecycle, UnregisterScmProvider). Update the multiplexer reference from OpenChannelFromCocoon to OpenChannelFromSidecar in Library.rs to match the LAND-PATCH identifier. Strip `Vine::` prefix from module-level headers in Client/mod.rs and Server/mod.rs for consistency with the rest of the crate.\n\nNo behavioural changes — documentation and reference consistency only.",
-			"SHA": "e36bf0fc178fc9a626d758f6a449cbccfae36570"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:21:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				2515,
-				20
-			],
-			"Message": "docs(Vine): Add comprehensive doc comments and normalize extension host references\n\nAdd module-level and item-level doc comments across every visible surface of the crate — Client (NotificationFrame, SendRequest, Shared, mod), Error (variant table, recoverability, tonic::Status mapping), Host, Library, Multiplexer, and all Server notification atoms (OutputAppend, OutputChannelClear, OutputChannelDispose, OutputChannelShow, OutputClear, OutputCreate, OutputDispose, OutputShow, ProgressComplete, Support).\n\nNormalise all inline references from \"Cocoon\" to \"extension host\" throughout Library.rs, Host.rs, Server/mod.rs, and Client/mod.rs to reflect the architecture accurately — the Node.js runtime hosts extensions but is not itself named Cocoon in the formal component model. Update port descriptions in Library.rs accordingly. Replace repository-relative doc links with absolute GitHub URLs. Format doc comments with consistent em-dash section separators, parameter/return/error documentation blocks, and bulleted tables for enumerations.\n\nEach notification atom now carries a one-line doc comment matching its Cocoon method name and Sky event destination, making the dispatcher role clear at a glance. The Error module gains a full gRPC status-code mapping table and IsRecoverable variant enumeration. Shared.rs has every static, const, and function documented with purpose, lifecycle, and parameters.\n\nNo behavioral changes — purely documentation and reference consistency.",
-			"SHA": "5a249d621523f42354f1379ecfefc285f88a60cf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:20:57Z",
+			"Author": "Auto",
+			"Date": "2026-06-30T02:11:57Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
 				2515,
 				1
 			],
-			"Message": "feat(Vine): Add cancellable unary requests with CancelOperation\n\nIntroduce `FnCancellable` in `SendRequest` alongside the existing `Fn` entry point. The new function accepts a `watch::Receiver<bool>` cancel signal; when the caller flips it mid-flight a best-effort `CancelOperation` gRPC request carrying the wire `RequestIdentifier` is sent to the sidecar, and `VineError::RequestCanceled` is returned. The original `Fn` delegates to `FnCancellable` with a process-lifetime `NeverCancelled()` signal via `OnceLock`, preserving backward compatibility for existing callers.\n\nA unary timeout now also fires a best-effort `CancelOperation` so the sidecar can abort work Mountain has already stopped waiting for.\n\nAdd comprehensive doc comments across every module: `Client` (NotificationFrame, SendRequest, Shared, mod), `Error` (variant table, recoverability, `tonic::Status` mapping), `Host`, `Library`, `Multiplexer`, and all `Server` notification atoms. Normalise references from \"Cocoon\" to \"extension host\" throughout to reflect the architecture accurately. Format doc comments with consistent em-dash section separators.\n\nCallers of `SendRequest::Fn` see no change. Callers that want cancellation support can switch to `FnCancellable` and provide a `watch::Receiver<bool>`.",
-			"SHA": "b37bfedb2b7149f3a8213ce2a5010c8e64bac7f7"
+			"Message": "",
+			"SHA": "3815eb320fa96ab2b25610f12e070428bc3c7409"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:06:05Z",
+			"Author": "github-actions[bot]",
+			"Date": "2026-06-29T19:05:59Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				2514,
-				2
+				2515,
+				1
 			],
-			"Message": "feat(Vine): Add action-button Items field to ShowMessageRequest\n\nExtend the ShowMessageRequest protobuf message with a repeated `Items` string field to carry optional action-button labels alongside the message text. This allows Mountain-side callers (or Cocoon) to present a message with user-selectable actions, enabling confirmation dialogs, choice prompts, and interactive notifications over the gRPC channel.\n\nThe generated Rust code in `Source/Generated/vine.rs` is regenerated from the proto, adding the `items: Vec<String>` field to the `ShowMessageRequest` struct with the corresponding prost annotation and wire tag.\n\nThe field is optional (empty vector) by default, preserving backward compatibility with existing callers that only send a plain message.",
-			"SHA": "a45249b1fdff37a15e592184cfbfbdc9c096b9f2"
+			"Message": "Merge pull request #6 from CodeEditorLand/dependabot/github_actions/actions/cache-6.1.0\n\nchore(deps): Bump actions/cache from 6.0.0 to 6.1.0",
+			"SHA": "e7ea8f66142f58551130b74c330bda70086b1f30"
+		},
+		{
+			"Author": "dependabot[bot]",
+			"Date": "2026-06-29T19:05:39Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				2515,
+				1
+			],
+			"Message": "chore(deps): Bump actions/cache from 6.0.0 to 6.1.0\n\nBumps [actions/cache](https://github.com/actions/cache) from 6.0.0 to 6.1.0.\n- [Release notes](https://github.com/actions/cache/releases)\n- [Changelog](https://github.com/actions/cache/blob/main/RELEASES.md)\n- [Commits](https://github.com/actions/cache/compare/v6.0.0...v6.1.0)\n\n---\nupdated-dependencies:\n- dependency-name: actions/cache\n  dependency-version: 6.1.0\n  dependency-type: direct:production\n  update-type: version-update:semver-minor\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "7bca77f9af0b35113f85dc754eb5ce5142f98476"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-06-29T02:28:26Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				2515,
+				1
+			],
+			"Message": "",
+			"SHA": "53abdf32eb8f7be203a9a458e67548a105dc147d"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-06-28T02:28:13Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				2515,
+				1
+			],
+			"Message": "",
+			"SHA": "8b1fce925fdd0db411f95b3cc9aaef1dbdf0cfd5"
 		}
 	],
-	"TimeStamp": 1782051965640
+	"TimeStamp": 1783777322481
 }

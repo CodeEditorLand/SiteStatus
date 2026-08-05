@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T05:35:25Z",
+			"Date": "2026-05-23T11:02:00Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1582,
-				19
+				1734,
+				3
 			],
-			"Message": "feat(Mountain): Complete Cocoon extension host bridge across providers, boot, and keyboard\n\nImplement the gRPC and provider-infrastructure layer for four extension-host features that Mountain forwards to Cocoon, three complementary improvements, and one build-config update.\n\n**Extension provider features:**\n\n- **Inline completion items** (GitHub Copilot, Roo Code, Continue): New `InlineCompletionItem` / `InlineCompletionContext` messages in Vine.proto, gRPC handler in `ProvideInlineCompletionItems.rs`, and `$provideInlineCompletionItems` dispatch from `FeatureMethods.rs` to Cocoon's registered provider. Registration flows through the generic notification dispatcher via `register_inline_completion_item_provider`.\n\n- **File decorations from extensions**: `DecorationsGet` in `Decoration.rs` falls back to `ProvideFileDecoration` via Cocoon gRPC when the in-memory store has no entry, populating git-status badges, error markers, and other extension-contributed decorations on demand.\n\n- **Terminal lifecycle sync**: `TerminalProvider.rs` emits `$acceptTerminalOpened` / `$acceptTerminalClosed` notifications to Cocoon so `vscode.window.terminals` stays current for terminals created from the UI (not just via the extension API).\n\n- **Webview message forwarding**: `Messaging.rs` implements the forward path for `acquireVsCodeApi().postMessage()` calls from extension iframes, sending them as `webview.message` notifications to Cocoon so the extension host's `onDidReceiveMessage` subscriber fires. `remove_webview_message_listener_impl` is now a logging stub rather than a no-op.\n\n**Boot performance and crash fixes:**\n\n- **Extension manifest cache (B7.P08)**: New `LoadFromCache.rs` reads a pre-baked `extensions.manifest.json` blob in a single `fs::read`, reducing extension-scan boot time from ~1200 ms to <50 ms. Falls back gracefully to the live `ScanAndPopulateExtensions` path on cache miss, staleness (>10 min), or corruption. The cache file is produced by `Maintain/Build/Manifest/PreBake.ts` during `beforeBundleCommand`.\n\n- **WKWebView NSUndoManager suppression**: `TauriBuild.rs` disables the macOS default menu (which pre-installs Edit > Undo/Redo). `WindowBuild.rs` injects a capture-phase keydown listener that `preventDefault()`s Cmd+Z/Cmd+Y before the webview's internal responder chain dispatches undo:/redo:, preventing WKWebView's NSUndoManager from competing with Monaco's undo stack.\n\n- **Profiles configuration**: `InitializationData.rs` adds the `INativeWindowConfiguration.profiles` section with all required URI fields (`languageModelsResource`, `agentPluginsHome`, `cacheHome`, etc.) to prevent the `TypeError: undefined is not an object (evaluating 'M.revive(o.languageModelsResource).with')` crash during workbench initialisation. Also adds `sqmId`, `devDeviceId`, and `isPortable` as defensive non-optional fields.\n\n**Build:** `tauri.conf.json` adds `node Maintain/Build/Manifest/PreBake.ts` to the `beforeBundleCommand` pipeline.\n\nCloses the Mountain side of the inline-completion provider circuit and addresses the workbench profile crash (VS Code desktop-mode init).",
-			"SHA": "8db51dd0dc8da12799836d25faaf61658c445a52"
+			"Message": "refactor(Mountain): Centralize URI sanitization and expand IPC macro overloads\n\nExtend the `call!` macro in `WindServiceHandlers` with a new overload for handlers accepting no arguments (app, tag, msg, Fn), replacing verbose inline logging and `RunTime.clone()` boilerplate across Extensions, Decorations, WorkingCopy, Keybinding, and Lifecycle dispatchers in `mountain_ipc_invoke`.\n\nConcurrently extract the `StripFileUriScheme` logic from `FileReadAlias.rs` into the centralized `Utilities::Params` module as `strip_file_uri`. Update `FileReadAlias.rs` to import this helper, unifying file URI normalization (handling `file://`, `file:///`, and `file://localhost` forms) across the request tracking layer and aligning with the project's utility standardization efforts.\n\nThis reduces code duplication in the IPC dispatcher and ensures consistent path handling for file system operations initiated by the extension host.",
+			"SHA": "baf9f001ea4633c739cd2e8851ff05900f5a8107"
 		},
 		{
-			"Author": "Auto",
-			"Date": "2026-05-22T02:53:08Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T11:00:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1580,
+				1734,
 				1
 			],
 			"Message": "",
-			"SHA": "138352332e04a0046c07228f1b171bb588a3f421"
+			"SHA": "aef9a3497996616e1874edd7a900624cb43f18b0"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T00:51:32Z",
+			"Date": "2026-05-23T11:00:04Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1734,
+				32
+			],
+			"Message": "refactor(Mountain): Standardize IPC handlers with centralized effect macro and parameter helpers\n\nIntroduce the `effect!` macro in `MappedEffectType` to eliminate verbose boilerplate for wrapping async logic into `MappedEffect` closures. Concurrently add the `Utilities::Params` module providing type-safe, default-aware argument extractors (`string_at`, `val_at`, `u64_at`, etc.) for handling `serde_json::Value` payloads.\n\nApply these utilities across the entire `Track/Effect/CreateEffectForRequest` tree, including `Authentication`, `FileSystem`, `Terminal`, `WindowUI`, and `Workspace` handlers. Refactor `WindServiceHandlers/mod.rs` to introduce the `call!` macro, replacing repetitive `dev_log!` and closure invocation patterns with a unified dispatch mechanism for Tauri IPC commands.\n\nThis consolidation reduces code duplication, enforces consistent parameter extraction and logging behavior, and aligns the native backend with the project's Effect-TS driven architectural principles.",
+			"SHA": "b791a1cad20c4554117feae7059bbdbed43939fe"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-23T10:44:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1580,
+				1731,
 				3
 			],
-			"Message": "feat(Mountain): Add TierSchemeAssetsFileSystem cfg feature flag\n\nIntroduce the `TierSchemeAssetsFileSystem` feature flag alongside the existing `TierSchemeAssetsHybrid` gating in Cargo.toml. When enabled (via `TierSchemeAssets=FileSystem` in `.env.Land`), assets are served from disk via the `static_root` fallback path with `frontendDist: null`, rather than being embedded or served in hybrid mode.\n\nAlso removes the unused `fs` import in InitializationData.rs that was left over from prior refactoring.\n\nThe bundled `Target/debug/Mountain/index.html` changes are incidental rebuild artifacts — asset content-hash and timestamp updates from the build process, no semantic change.\n\nRefs the tier-configuration scheme introduced in 4ba376b9.",
-			"SHA": "1e601e16bea86ac97efd00dd27b98ff5499d55b0"
+			"Message": "refactor(Mountain): Adopt standardized argument helpers in FileSystem and Git handlers\n\nApply the newly introduced `JsonValueHelpers` utilities to the `FileSystem` (Managed and Native) and `Git` IPC handler modules. Replace verbose `Arguments.get(...).and_then(...).unwrap_or(...)` patterns with the type-safe `arg_string`, `arg_u64`, and `arg_bool_true` helper functions.\n\nSpecific updates include:\n- `FileMkdir.rs`: Standardize retrieval of the `recursive` flag.\n- `FileCloseFd.rs`: Standardize extraction of the file descriptor index.\n- `HandleExec.rs`: Standardize retrieval of the working directory path.\n\nAlign these handlers with the project-wide refactoring to reduce boilerplate, ensure consistent default value handling, and improve type safety across the Mountain backend's IPC surface.",
+			"SHA": "1896d3a7e0862b27b66d686e1e2e12c64a8b8b70"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-21T21:56:41Z",
+			"Date": "2026-05-23T10:42:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1580,
-				0
+				1731,
+				1
 			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
-			"SHA": "c29ead747a6543b2aa61957457ddf3f728b06893"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-21T21:38:06Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1580,
-				7
-			],
-			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "8dfc504e19e9a61a39b323f526dd0973c033fb9d"
+			"Message": "",
+			"SHA": "f1adcf0b1b391589d014547ebaabfb05c5161808"
 		}
 	],
-	"TimeStamp": 1782052014666
+	"TimeStamp": 1783777336366
 }

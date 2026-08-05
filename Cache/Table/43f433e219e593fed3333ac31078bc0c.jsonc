@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-01T00:15:48Z",
+			"Author": "dependabot[bot]",
+			"Date": "2026-05-11T22:50:46Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				368,
-				3
+				616,
+				1
 			],
-			"Message": "perf(Output): Reduce IPC logging to fix channel saturation causing input lag\n\nThe per-invoke `_DevLogForward` calls on every successful `MountainIPCInvoke` were doubling IPC traffic during extension boot (dozens of file:stat/readFile/extensions:getInstalled calls per second). This saturated Tauri's invoke channel (175-280ms queue depth observed) and starved the WebKit message channel that carries both IPC replies AND keystrokes on macOS.\n\nObserved symptom: user types in editor, nothing visible happens, switches focus, then queued keystrokes flush into the newly-focused element (\"characters appearing automatically in chat input\").\n\nChanges:\n- Remove success-case `tauri-invoke` logging in InvokeMountain (failures still forward)\n- Remove fire-and-forget channel stub logging (logger/status-bar fire dozens/sec)\n- Only log stub-hit for `drift` disposition (command not covered by existing stub)\n\nRust-side `[DEV:IPC] invoke:/done:` lines already carry the same data at ns precision and are filterable via `Trace=ipc`.",
-			"SHA": "2588fe4706490748982b01d181db632c39bb3114"
+			"Message": "build(deps): bump pnpm/action-setup from 6.0.5 to 6.0.7\n\nBumps [pnpm/action-setup](https://github.com/pnpm/action-setup) from 6.0.5 to 6.0.7.\n- [Release notes](https://github.com/pnpm/action-setup/releases)\n- [Commits](https://github.com/pnpm/action-setup/compare/v6.0.5...v6.0.7)\n\n---\nupdated-dependencies:\n- dependency-name: pnpm/action-setup\n  dependency-version: 6.0.7\n  dependency-type: direct:production\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "01819264f16c0030138b4ffb2d65752066b68988"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:34:39Z",
+			"Author": "Auto",
+			"Date": "2026-05-11T04:00:43Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				368,
-				12
-			],
-			"Message": "fix(Output): Disable EditContext and refine WKWebView input polyfills\n\nAdd ForceTextAreaInput transform that flips Monaco's `editor.editContext`\ndefault from `true` to `false`, routing keyboard input through the legacy\n`<textarea class=\"inputarea\">` rather than the EditContext API. WKWebView's\nEditContext support is flaky enough that focused divs silently swallow\nkeystrokes - users see the cursor blink but typing produces nothing.\n\nRefine WorkbenchInteractivityCSS polyfill (V2):\n- Remove blanket `visibility: visible` and `opacity: 1` on workbench parts.\n  These forced invisible click-capturing rectangles over the editor that\n  absorbed clicks before Monaco's mousedown handler fired, presenting as\n  \"I clicked the editor but typing doesn't work\".\n- Add explicit `pointer-events: auto` rules for Monaco's textarea input\n  chain (.overflow-guard, .lines-content, .inputarea) to survive stacking\n  context interactions with our `InjectPartZIndexCSS` `isolation:isolate`.\n\nRefine WorkbenchPaintPrime polyfill (V2):\n- Remove `keydown` and `focus` capture-phase listeners. Each keystroke\n  triggered a synchronous `FindPartAncestor` + forced reflow BEFORE the\n  event reached Monaco's textarea, and the oninput queue could drop the\n  keystroke. Keeping only `pointerdown` still primes paint on first click\n  without breaking the input path.\n\nAdd LandDisableAll gate: when `process.env.Disable` is `\"true\"`, skip all\ntransform plugins and run only Copy plugins. Produces \"vanilla VS Code on\nTauri\" useful for bisecting whether regressions are in our polyfills or\nin upstream/Tauri/WKWebView.",
-			"SHA": "44e160c6b8a8de6aaa693bc8e4b6e3fcd56d49c6"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T23:34:25Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				365,
-				7
-			],
-			"Message": "feat(Output): Add RewriteWebviewShellCSP transform and fix icon URL rewriting\n\nAdd a new transform plugin that loosens the webview shell's CSP script-src from a stale sha256 hash to `'unsafe-inline' 'self' blob:`. Stock VS Code pins the hash; WKWebView computes it differently from Chromium, and any transform that touches the inline script body silently invalidates it. This matches Land's single-user desktop threat model and lets every extension webview boot.\n\nAlso fix RewriteIconsStyleSheetURLs to handle a third URL scheme that leaks through under Tauri/WKWebView: plain `file:///` URLs. Stock VS Code's FileAccess.uriToBrowserUri only converts file→vscode-file when process.versions.node exists, but the shim isn't always installed before iconsStyleSheet.getCSS() runs. The @font-face rule then fetches a 0-byte mixed-scheme response and codicons render as missing-glyph boxes. Add a third replace: `file:///...` → `<origin>/Extension/...`.\n\nBump marker version to _V2 so prior builds get re-patched rather than skipped. Update regex patterns to handle trailing replace chains from previous transform versions.",
-			"SHA": "8a3e8d281a0c6815422cea9dd2278e24923ff677"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T20:27:12Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				363,
-				19
-			],
-			"Message": "feat(Output): Add macOS titlebar offset and z-index CSS transforms\n\nAdd two new Output transforms that inject runtime CSS to fix WKWebView visual issues:\n\n- InjectMacTitlebarOffsetCSS: Reserve ~80px on the left of the workbench titlebar so the in-window menubar (`File / Edit / View / ...`) and command-center quick-pick stop overlapping with macOS traffic lights. Targets `.monoco-workbench.mac` only via the standard marker pattern.\n\n- InjectPartZIndexCSS: Establish explicit z-index hierarchy for every workbench part (`isolation: isolate` + numeric z-indexes) so a sibling that accidentally creates a stacking context (transform, opacity) can't hide the activity bar, sidebar, panel resize handle, status bar badges, or command-center dropdown.\n\nAlso expand StripWebviewIframeSandbox to patch BOTH the outer iframe creation site (`webviewElement.js`'s `element.sandbox.add(...)`) AND the pending-frame-swap site (`pre/index.html`'s `setAttribute('sandbox', ...)`). The earlier single-file patch wasn't sufficient - the outer iframe remained sandboxed and blocked all webview loads with the \"custom protocol from sandboxed iframe\" error.\n\nAdd RewriteWebviewShellCSP: loosen the webview shell's CSP script-src from a stale sha256 hash (WKWebView normalizes CR/LF differently) to `'unsafe-inline' 'self' blob:`. Matches Land's single-user desktop threat model; every extension webview now boots.",
-			"SHA": "0d47460778c1a546313b88539815d6ebde3bb03e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-30T18:59:27Z",
-			"File": [
-				"⣿⣿⡟⠀⠀",
-				350,
-				189
+				"⠀⠀⠀⠀⠀",
+				616,
+				1
 			],
 			"Message": "",
-			"SHA": "fc91741983660b9ae401dd22f9fbfa1fa3a1301f"
+			"SHA": "0925a325055228e50814c195a93f4d3a539b6e92"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-05-10T03:50:08Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				616,
+				1
+			],
+			"Message": "",
+			"SHA": "6fe03df7e43c74e01f09db3fc0eb0c7052870ff3"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-09T17:52:12Z",
+			"File": [
+				"⣿⠇⠀⠀⠀",
+				616,
+				168
+			],
+			"Message": "refactor(Output): Convert build pipeline configuration to TypeScript\n\nMigrate the entire Output build pipeline configuration from JavaScript to TypeScript. This includes the core ESBuild entry point, VS Code bundling logic, exclusion lists, and the extensive suite of transform plugins (Inject, Replace, Rewrite, Polyfill) used to adapt the upstream Editor source for the Land environment.\n\nAll `.js` files in `Configuration/` have been renamed to `.ts` (or kept as `.js` where acting as runtime output templates) and strictly typed. The `Source/` directory now contains the canonical TypeScript implementations, while `Configuration/` serves as the compiled output target for the build process itself. This ensures type safety across the build tooling and aligns with the project-wide mandate for PascalCase naming and strict typing.",
+			"SHA": "e963076a56c2adf413023ad7f13d66317411c2db"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-09T17:51:43Z",
+			"File": [
+				"⣿⠇⠀⠀⠀",
+				616,
+				168
+			],
+			"Message": "refactor(Output): Prettify ESBuild configuration and plugins\n\nReformat the entire Output build pipeline configuration from minified single-line JavaScript into readable, multi-line ES6+ syntax. This affects the core ESBuild entry point, the VS Code bundling logic, exclusion lists, and the extensive suite of transform plugins (Inject, Replace, Rewrite, Polyfill) used to adapt the upstream Editor source for the Land environment.\n\nNo logic changes were made; this is strictly a formatting pass to improve maintainability and diff readability for future development.",
+			"SHA": "08f51160a0665cfc85487377f106540288a79f3b"
 		}
 	],
-	"TimeStamp": 1782052008218
+	"TimeStamp": 1783777337309
 }

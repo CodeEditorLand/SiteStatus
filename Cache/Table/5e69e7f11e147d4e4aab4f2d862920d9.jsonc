@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-24T00:08:14Z",
+			"Date": "2026-04-29T22:17:51Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				81,
+				102,
 				1
 			],
-			"Message": "fix(Sky): Strip codicon syntax from status bar text and isolate fallback bar\n\nThe bridge now removes VS Code codicon syntax (`$(name)`, `$(name~spin)`) from status bar text before rendering. Stock workbench substitutes these for codicon font glyphs; the bridge doesn't parse them, so raw `$(sync~spin)` + Unicode placeholder codepoints were rendering as garbled \"weird emojis\" in the fallback bar.\n\nAlso changes status bar items to ALWAYS use the dedicated fallback bar - never inject into VS Code's native `.statusbar`. Mixing extension-routed items with native workbench DOM mixes two rendering systems and produced the \"not the default status bar\" appearance. Bridge items now live in a separate bar that workbench doesn't manage, so the two coexist without visual conflict.\n\nApplies StripCodicons to both create and update handlers.",
-			"SHA": "2ed0e226517e9f005354fb79f674b124a114ea63"
+			"Message": "fix(Sky): Add defensive error handling to SkyBridge IPC handlers\n\nWrap all Tauri listener handlers, tree-item mapping, TreeView.refresh(), and webview registration calls in try/catch to prevent one bad handler from crashing the listener loop. This mirrors VS Code's Emitter pattern where each subscriber's call is isolated.\n\nAlso add SSR safety checks for `window` being undefined during Astro's pre-render pass in both GetWorkbench() and GetServices(). The existing early-return contract is preserved - callers continue to use `if (!Services) return;`.\n\nSpecifically handles: Tauri listen() registration failures (window closing mid-boot), tree-item serialization errors (missing label/handle), TreeView.refresh() synchronous throws (older xterm/tree shims), WebviewViewService.register duplicate viewId (hot-reload), and CustomEvent dispatch failures. Each failure is now isolated and logged rather than propagating and breaking unrelated listeners.\n\nThis improves SkyBridge stability during startup, view transitions, and extension host reloads.",
+			"SHA": "7563ee4580bd46c41ffc01ef4e8a8a950437da13"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T22:53:29Z",
+			"Date": "2026-04-29T18:37:25Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				81,
-				1
+				"⠃⠀⠀⠀⠀",
+				102,
+				4
 			],
-			"Message": "Merge branches 'Current' and 'Current' of ssh://github.com/CodeEditorLand/Sky into Current",
-			"SHA": "24df2ee97bfbed4c1b2c61c1139b7f4c2fe0d203"
+			"Message": "fix(Sky): Add reentrancy guard to InstallSkyBridge and phase advancement\n\nThe InstallSkyBridge function lacked reentrancy protection, causing duplicate Tauri listen() registrations on Astro view-transitions, Tauri webview reloads, and dev HMR. Each Mountain emit fired handlers N times, resulting in duplicated tree views, markers, and webview renders—the \"workbench loading twice\" / \"purple overlays\" bug.\n\nAdd a module-level guard (_SkyBridgeInstalled, _SkyBridgeInstallPromise) so multiple calls to InstallSkyBridge only execute once. Also add the phase advance script to Layout.astro that fires BEFORE the workbench import, mirroring Mountain.astro to prevent the 8s/23s fallback timers from leaving the workbench in a half-restored render state. Finally, add a +5s view-registry snapshot diagnostic to probe extension-point registration status.\n\nAdditionally, update astro.config.ts: set output=\"static\", disable clientPrerender and contentIntellisense, and add queuedRendering config. This restores responsive UI during startup and eliminates the double-render flicker.",
+			"SHA": "876ea919a147073a94bff61862d7861719720b8d"
 		},
 		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-04-23T22:44:47Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T16:59:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				81,
+				102,
 				1
 			],
-			"Message": "Merge pull request #484 from CodeEditorLand/dependabot/npm_and_yarn/astrojs/compiler-rs-0.1.9\n\nbuild(deps-dev): bump @astrojs/compiler-rs from 0.1.8 to 0.1.9",
-			"SHA": "ae09ad2df9aa26982694a2992d311f86ea94af80"
+			"Message": "",
+			"SHA": "d574527e4edb29303f096511fc595dfa8dec9548"
 		},
 		{
-			"Author": "dependabot[bot]",
-			"Date": "2026-04-23T22:44:35Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T16:59:30Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				81,
+				102,
 				1
 			],
-			"Message": "build(deps-dev): bump @astrojs/compiler-rs from 0.1.8 to 0.1.9\n\nBumps [@astrojs/compiler-rs](https://github.com/withastro/compiler-rs) from 0.1.8 to 0.1.9.\n- [Release notes](https://github.com/withastro/compiler-rs/releases)\n- [Commits](https://github.com/withastro/compiler-rs/compare/@astrojs/compiler-rs@0.1.8...@astrojs/compiler-rs@0.1.9)\n\n---\nupdated-dependencies:\n- dependency-name: \"@astrojs/compiler-rs\"\n  dependency-version: 0.1.9\n  dependency-type: direct:development\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
-			"SHA": "094b93e4e8012e4902cf7fa8b2454cf79061351f"
+			"Message": "fix(Sky): Fix 0-based line indexing for search results and add diagnostic tracing\n\nThe search result `RangeLocations` was using 1-based line numbers, causing 'undefined is not an object' errors for single-line previews because `previewLines[1]` was out of bounds. VS Code's `MatchImpl` indexes `_fullPreviewLines` directly with 0-based indexing, so convert both `source` and `preview` to 0-based: `SourceLine = Math.max(0, M.lineNumber - 1)`.\n\nAlso add comprehensive diagnostic bridging to Mountain.dev.log for service shape probing. The original `console.log` only surfaces in DevTools which is invisible to log dissection. Add `ToMountain` helper that invokes `diagnostic:log` through the same `MountainIPCInvoke` path SkyBridge uses, making service shape and webview registration observable in Mountain's logs. Include `ResourceTree`, `UriIdentity`, `WebviewViews`, and `Markers` in the key probe list, and probe one level deeper for `WebviewViews.register` and `Markers.changeOne` to distinguish stubs from real implementations.\n\nThis restores search functionality and provides post-mortem visibility into the service initialization that drives the Problems panel and sidebar webviews.",
+			"SHA": "400379dc34d82e207dbeee66053e8dc22a11103a"
 		},
 		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-04-23T22:44:33Z",
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-29T05:25:07Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				81,
+				102,
 				1
 			],
-			"Message": "Merge pull request #483 from CodeEditorLand/dependabot/npm_and_yarn/vite-8.0.10\n\nbuild(deps): bump vite from 8.0.9 to 8.0.10",
-			"SHA": "9933819db2c2adc016370822dda61a515d9affee"
+			"Message": "docs(Sky): Rewrite CHANGELOG.md with improved formatting and v2.2 entries\n\nRestructure the changelog with clearer section headers, expanded prose for each version entry, and document the v2.2 \"Bundled-Electron Profile: Correctness Pass\" release. The update covers the `sky:replay-events` invoke, channel-event bridge for terminal PTY communication, promise-protocol short-circuit in TauriChannel.call, and search-result format migration to VS Code ≥1.92 schema.",
+			"SHA": "f87442b047efe2f43fd296e9d8f01380b2eb8868"
 		}
 	],
-	"TimeStamp": 1782052019855
+	"TimeStamp": 1783777341577
 }

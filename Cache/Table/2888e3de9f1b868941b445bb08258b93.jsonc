@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T12:49:34Z",
+			"Date": "2026-06-12T18:22:10Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				2000,
-				1
+				"⠁⠀⠀⠀⠀",
+				924,
+				18
 			],
-			"Message": "docs(Wind): Update documentation links to use Editor.Land domain capitalization\n\nChange the four documentation links in the See Also section from lowercase `editor.land` to properly capitalized `Editor.Land` domain format. The affected links are Wind Documentation, Architecture Overview, Why Effect-TS, and Why Tauri.\n\nThis aligns the README references with the project's official domain branding while preserving all link destinations and functionality.",
-			"SHA": "574e23cc0b22af60bc5fc73391d9b1c44df2f520"
-		},
-		{
-			"Author": "github-actions[bot]",
-			"Date": "2026-06-11T11:04:40Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				2000,
-				1
-			],
-			"Message": "Merge pull request #459 from CodeEditorLand/dependabot/npm_and_yarn/types/node-25.9.3\n\nbuild(deps-dev): bump @types/node from 25.9.2 to 25.9.3",
-			"SHA": "790af5dfc39b2c42465943c2028fd4d7318fc58e"
-		},
-		{
-			"Author": "dependabot[bot]",
-			"Date": "2026-06-11T11:04:19Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				2000,
-				1
-			],
-			"Message": "build(deps-dev): bump @types/node from 25.9.2 to 25.9.3\n\nBumps [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/HEAD/types/node) from 25.9.2 to 25.9.3.\n- [Release notes](https://github.com/DefinitelyTyped/DefinitelyTyped/releases)\n- [Commits](https://github.com/DefinitelyTyped/DefinitelyTyped/commits/HEAD/types/node)\n\n---\nupdated-dependencies:\n- dependency-name: \"@types/node\"\n  dependency-version: 25.9.3\n  dependency-type: direct:development\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
-			"SHA": "d8d6c879c81faf4a4cba9c6779e174808d3da50a"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-06-11T04:11:58Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				2000,
-				1
-			],
-			"Message": "",
-			"SHA": "cf19426dc8d81e8735a86fd8eaa5ab1bb2f3609e"
+			"Message": "refactor(Wind): Strip Effect Layer wrappers from 18 workbench live implementations\n\nRemove the `Layer.succeed` / `Layer` import indirection layer from all workbench service live implementations — UserSettings, Activity, Clipboard, Command, ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout, Lifecycle, Notification, Product, Progress, Storage, Theme, and Workspace — replacing `export const XLive = Layer.succeed(Tag, makeX())` with direct `export const XLive = makeX()`.\n\nThis is the second wave of the Layer-flattening initiative (following 8814bfe1). Each file also drops the unused `Layer` import and the corresponding `*ServiceTag` import. The factory function `makeX()` already produces a valid service object matching its interface; wrapping it in a `Layer` provided no additional composition value since these services are consumed directly via the tag in Wind's dependency graph.\n\nRemoves 72 lines of boilerplate across 18 files. All exports remain available as named and default exports for backward compatibility.",
+			"SHA": "baabb3fa4406f6dcd2f875658d0d27b73fefbf79"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-11T02:40:46Z",
+			"Date": "2026-06-12T18:05:32Z",
 			"File": [
-				"⡟⠀⠀⠀⠀",
-				2000,
-				300
+				"⠀⠀⠀⠀⠀",
+				924,
+				11
 			],
-			"Message": "build(Wind): Reformat ESBuild configs and simplify reactive layers\n\nReformat all ESBuild configuration files (BaseConfig, CompileConfig, TargetConfig, Wind.js, Target.js, index.js, and constants) to compact single-line format, removing expanded multi-line formatting from the previous codegen completion commit.\n\nSimplify PanelLive, SidebarLive, StatusBarLive, and TelemetryLive layers to use plain mutable state with direct Stream.empty references instead of Effect-TS SubscriptionRef and Stream.empty() calls, removing reactive overhead while preserving identical APIs.\n\nUpdate CommandCatalog.ts with regenerated upstream command registrations (551 total) and refresh all generated service interfaces under Source/Effect/Generated/ to align with current VS Code upstream sources.\n\nClean up bridge shape global type definitions (UserSettings, WorkbenchActivity, WorkbenchClipboard, WorkbenchCommand, WorkbenchContextKey, WorkbenchDialog, WorkbenchEditor, WorkbenchExtension, WorkbenchHost, WorkbenchKeybinding, WorkbenchLifecycle, WorkbenchNotification, WorkbenchProduct, WorkbenchProgress, WorkbenchStorage, WorkbenchWorkspace) by removing unnecessary blank lines in type declarations.\n\nImpact: Reduces configuration file verbosity, eliminates reactive subscription overhead in core UI layers, and ensures generated service interfaces reflect latest upstream definitions.",
-			"SHA": "1a05b4c84dbd063906b22e199a67581a1910f533"
+			"Message": "refactor(Wind): Flatten Effect wrappers and harden Tauri IPC dispatch\n\nRemove indirection from editor state management, progress reporter, and text model resolver by replacing `Ref`/`Effect.runFork` with direct mutable variables and sync calls where asynchronous wrapping added no value. Simultaneously strengthen the Tauri IPC layer with proper listener lifecycle tracking, reliable node-deferred fallback, and error propagation.\n\n**Editor state (Live.ts):** Replace `Ref.unsafeMake`/`Ref.set`/`Ref.get` wrapping with bare `let`/`const` variables and `Effect.sync` accessors. The Tauri event listener subscription shifts from `Effect.runFork`/`Effect.promise` to raw `async`/`await import`, removing the imperative Effect allocation around a fundamentally imperative callback.\n\n**Progress service (WorkbenchProgressLive/Interface):** Make `Report` a sync `void` return — the upstream VS Code reporter is already synchronous — and change `Run`'s body callback to `Promise<A>` instead of `Effect.Effect<A, …>`. The bridge API (`window.createAsyncWorkbenchProgress`) expects an async function, so wrapping its return in `Effect.runPromise` was pure overhead.\n\n**Text model resolver (TextModelResolver/Live):** Replace `Effect.runFork` + `Effect.ignoreLogged` with `Effect.runPromise` + `.catch(() => {})`, avoiding a forked fiber with logged-ignore semantics for a fire-and-forget close.\n\n**Tauri IPC (TauriIPC.ts):** Implement proper `ChannelUnlisteners` tracking in a module-level `Map<string, () => void[]>` so that `removeAllListeners` actually detaches Tauri event listeners instead of accumulating them across window reloads. Fix `send` to always serialize args as `unknown[]` — prior special-casing of single-element arrays caused Mountain-side argument desync with TauriMainProcessService's contract.\n\n**Tauri main process service (TauriMainProcessService.ts):**\n- Remove `output` from `FireAndForgetChannels`: Mountain's `output:createOutputChannel` and `registerLogger` return handles that callers consume, so they must round-trip.\n- Add `NodeDeferred` tier: when Mountain returns `undefined` (no native handler registered) or throws, the call re-dispatches through the Node-tier cocoon:request path instead of surfacing the error or returning `undefined` to undefined-intolerant workbench consumers.\n- Propagate MistWS errors: instead of silently catching and falling back to Mountain, `Node`-tier calls now rethrow the error to maintain the Node-only contract. Other tiers trace the double-dispatch.\n- Rethrow Mountain invocation errors instead of returning `undefined`: callers expecting arrays or tuples see a rejected promise rather than `undefined` leaking into `.map`/`.forEach`.\n\n**Storage (StorageService Live/Interface):** Add `GetItems` (bulk read as `[key, value][]` tuples), `UpdateItems` (atomic insert/delete in one round-trip), and `Optimize` (flush the store) — wiring three new IPC channels against Mountain's `StorageProvider`.\n\n**Search (SearchService Live/Interface):** Accept `string | readonly string[]` for `include`/`exclude` glob patterns and normalize to `string[]` via `ToGlobArray` before sending to Mountain, matching the workbench's dual single-string/array contract.\n\n**Workspaces (Live.ts):** Extract inline coercion logic into a named `CoerceFolderArray` helper for readability.",
+			"SHA": "8814bfe130f9dbe578f886694c4cb249d3c5e427"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T17:34:46Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				924,
+				3
+			],
+			"Message": "feat(Wind): Route output dispose and working copy dirty checks through IPC\n\nWire two previously local-only operations through to Mountain's native handlers, and implement a proper SaveAll flow that iterates dirty files instead of issuing a single no-op command.\n\n- **OutputService.Dispose**: Replace local `ActiveChannels.delete()` with `IPCService.invoke(Channel.OutputDispose)`, notifying Mountain's `OutputChannelManager` so the output channel is properly cleaned up on the native side. Document the `output:dispose` IPC channel.\n- **TextFileService.SaveAll**: Query `workingCopy:getAllDirty` to retrieve the list of dirty URIs from Mountain, then issue one `output:save` per dirty file with `Effect.all({ concurrency: \"unbounded\" })`. This replaces the prior no-op that called `output:save` with no arguments.\n- **TextFileService.IsDirty**: Invoke `workingCopy:isDirty` via IPC instead of returning `Effect.succeed(false)`, giving callers an accurate dirty-state check per URI.\n- **README.md**: Add `title=\"Star\"` attribute to the GitHub star badge image element; remove the trailing em-quad from the `## System Architecture` heading to match the revised convention.",
+			"SHA": "c267104ad468e9ce43ec49c746cb5dc8a138eaea"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T17:20:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				924,
+				3
+			],
+			"Message": "Merge pull request #454 from CodeEditorLand/dependabot/github_actions/actions/checkout-6.0.3\n\nbuild(deps): bump actions/checkout from 6.0.2 to 6.0.3",
+			"SHA": "24e4499660064d1977d15eccf34fbf5184a4f5b1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T16:42:04Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				924,
+				4
+			],
+			"Message": "feat(Wind): Route IPC channels through to Mountain and unify event constants\n\nRoute eight VS Code workbench IPC channels — `scm`, `debug`, `tasks`, `auth`, `language`, `languages`, `process`, `browserViewGroup`, `watcher`, `env`, and `history` — through the ChannelRouteMap to Mountain's native handlers, replacing their all-stub entries. The `watcher` channel's `watch`/`unwatch` methods reach Mountain's `file:watch`/`file:unwatch` arms, enabling the IFileWatcherService.\n\nConcrete changes:\n- **TauriMainProcessService**: Add 11 new `ChannelRouteMap` entries; remove stale stub blocks for `update`, `browserViewGroup`, and `watcher` (which are now fully routed); fix `utilityProcessWorker.createWorker` from a never-settling Promise to `Promise.resolve(undefined)` to prevent language-detection service init hangs; tighten stub resolution to only intercept commands explicitly named in the stub object, so partially-routed channels like `process` still pass unknown methods to Mountain\n- **FilesService.Watch**: Replace dead-code path-verification pattern with proper `IPCService.invoke(Channel.FileWatch)` / `Channel.FileUnwatch` calls, returning a `dispose` that actually sends the `unwatch` command\n- **EditorService**: Use the `SkyEvent.EditorActiveChanged` constant (`sky://editor/active-changed`) instead of the hardcoded string `editor:activeChanged`, and capture the `listen` unlisten callback for proper subscription cleanup\n- **Channel registry**: Add `AuthValidateToken: \"auth:validateToken\"` to support Mountain-side token validation\n\nRemoves the disposition-tracking and `_DevLogForward` diagnostics from the stub path since routed channels no longer hit stub code by accident.",
+			"SHA": "f7b0ce604af267552155df5d8216481a53c171d3"
 		}
 	],
-	"TimeStamp": 1782051978666
+	"TimeStamp": 1783777326578
 }

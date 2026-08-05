@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-03-04T16:38:57Z",
+			"Date": "2026-05-03T06:24:26Z",
 			"File": [
-				"⡇⠀⠀⠀⠀",
-				11,
-				1
+				"⣿⠀⠀⠀⠀",
+				19,
+				4
 			],
-			"Message": "fix(Mist): Remove redundant #[must_use] from start()\n\nThe Result<u16> return type is already #[must_use] via anyhow::Result",
-			"SHA": "6b5183fe41c3775ce327e70dfe062295f185a3df"
+			"Message": "style(Mist): Apply consistent formatting to DNS server and zone modules\n\nReformat `Server.rs`, `Zone.rs`, and integration tests to align with Rust formatting standards. Consolidate multi-line function calls and argument lists onto single lines where width permits, and reflow comment blocks to wrap cleanly at 100 characters.\n\nImport ordering in `tests/integration.rs` was normalized to match the project's alphabetical sorting convention for module items. These changes are cosmetic only, ensuring the codebase maintains visual consistency without altering runtime behavior or logic.\n\nThis aligns with the recent workbench-lift cycle focused on naming and formatting standards.",
+			"SHA": "7ada86ef8ee68427931ac254cf956ad332f5df20"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-03-04T16:36:09Z",
+			"Date": "2026-05-03T00:33:03Z",
 			"File": [
-				"⣿⠇⠀⠀⠀",
-				11,
+				"⠃⠀⠀⠀⠀",
+				19,
+				1
+			],
+			"Message": "chore(Deps/Rust): Update Documentation/Rust submodule to c3f97afa\n\nSync the Rust documentation submodule from commit c7abf568 to c3f97afa. This update aligns the in-tree documentation with the latest upstream Rust standards and CodeEditorLand-specific Rust practices, ensuring accuracy for the Mist WebSocket and DNS server implementations.\n\nThe submodule reference is advanced without local code changes in the current tree.",
+			"SHA": "b6c8047015b3ad4f4196e984bee6c522810d9518"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-30T01:24:32Z",
+			"File": [
+				"⡟⠀⠀⠀⠀",
+				19,
 				3
 			],
-			"Message": "chore(Mist): Apply lint attribute fixes (LA)\n\n- Add #![allow(clippy::tabs_in_doc_comments)] to lib.rs and server.rs\n- Add #![allow(clippy::unnecessary_lazy_evaluations)] to lib.rs\n- Add #![allow(clippy::useless_vec)] to zone.rs\n- Add #[must_use] to start() function\n\nThese changes address LA-015 (clippy warnings) and LA-013 (#[must_use])",
-			"SHA": "addf979511585b34c81a87e79807993f9d96a189"
+			"Message": "feat(Mist): Implement WebSocket transport for Sky↔Cocoon direct path\n\nAdd a new WebSocket module to Mist implementing local-first JSON-RPC over WebSocket for the B7-S6 path. This removes the Tauri-invoke → Mountain-gRPC double hop on extension-API traffic (~95% of IPC volume in interactive sessions).\n\nNew dependencies: tokio-tungstenite, futures-util, serde, serde_json, hex, rand.\n\nImplementation includes:\n- `ServeLocal`: TCP listener on 127.0.0.1 accepting WebSocket connections\n- `Client`: Connection with background reader task for response dispatch\n- JSON-RPC wire format: text frames with `{id, method, params}` requests and `{id, result/error}` responses\n- Shared secret: 32-byte per-spawn secret for connection auth (X-Land-Secret header)\n- Backpressure: HashMap of pending requests by id with oneshot channels\n- Reconnect: Exponential backoff (100ms → 200ms → 400ms → 1s → 2s, capped at 5s), 30s dead channel report\n\nBinary frames are logged and ignored (reserved for phase 2 prost-encoded payloads). The X-Land-Secret header validation is TODO B7-S6 P1.1.\n\nThis enables the Sky↔Cocoon direct communication path while maintaining loopback-only security.",
+			"SHA": "9998d8728702fc7b84998ee685cdcea0e5e109f1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-03-04T12:22:20Z",
+			"Date": "2026-04-29T15:59:08Z",
 			"File": [
-				"⡿⠀⠀⠀⠀",
-				11,
-				2
-			],
-			"Message": "chore(Mist): Clarify TODOs as DEPENDENCY comments for Hickory DNS\n\nThis commit updates comment prefixes in server.rs and zone.rs from `TODO:` to `DEPENDENCY:` to more accurately reflect the nature of the outstanding work.\n\nThe NxProofKind configuration for DNSSEC NSEC/NSEC3 support and the record insertion implementation via the Authority trait's update method are dependent on the upstream Hickory DNS library's API and behavior, rather than being internal implementation tasks.\n\nThis clarification helps distinguish between internal implementation work (TODOs) and external library dependencies (DEPENDENCIES) that may require upstream contributions or version updates to resolve.",
-			"SHA": "50f8db403fb6d0cafd5d439ccd48697c97da6df4"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-02-27T10:04:23Z",
-			"File": [
-				"⣿⣿⣿⡏⠀",
-				11,
-				8
-			],
-			"Message": "feat(Mist): Introduce DNS isolation element for private network\n\nThis commit introduces **Mist**, a new DNS server element for the Land Code Editor that provides secure DNS isolation and private network resolution.\n\n## Overview\n\nMist is a complete DNS server implementation built on the Hickory DNS library that creates a secure sandbox for resolving `*.editor.land` domains exclusively to localhost (127.0.0.1). This ensures all private network communication remains local and cannot leak to external networks.\n\n## Architecture Integration\n\nThis new element integrates with the Land ecosystem as follows:\n\n- **Mountain**: Will start the DNS server during application initialization and provide the port to other components via the `DnsPort` managed state.\n- **Air**: Uses the DNS server for secure HTTP requests, configuring HTTP clients to use the local DNS resolver.\n- **SideCar**: Spawns Node.js sidecars with DNS override configuration, ensuring all DNS queries go through the local server.\n- **Cocoon**: The Node.js extension host can resolve `editor.land` domains via the local DNS server for gRPC communication with Mountain.\n\n## Key Components\n\n- **`server.rs`**: Core DNS server implementation using Hickory, handles UDP/TCP listeners bound exclusively to loopback (127.0.0.1) with comprehensive security validation.\n- **`zone.rs`**: Authoritative zone configuration for `editor.land` with SOA, NS, and A records all pointing to loopback addresses.\n- **`resolver.rs`**: Provides `LandDnsResolver` implementing `reqwest::dns::Resolve` for HTTP client integration with defense-in-depth IP validation.\n- **`forward_security.rs`**: Forward allowlist restricting external DNS queries to trusted domains (update.editor.land, cdn.crashlytics.com).\n- **`lib.rs`**: Public API entry point with `start()` and `dns_port()` functions.\n\n## Security Features\n\n1. **Loopback-only binding**: Server binds exclusively to 127.0.0.1, preventing LAN access\n2. **Defense-in-depth IP validation**: Resolver enforces 127.x.x.x for editor.land domains\n3. **Forward allowlist**: Only permits external resolution to explicitly trusted domains\n4. **DNSSEC-ready**: Zone signing infrastructure (ECDSA P-256) is configured\n\nThis establishes the foundation for secure local service discovery and gRPC communication within the Land ecosystem.",
-			"SHA": "6db973f388107c7e8477d1c6c11c5ab923ed164b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-02-20T03:28:53Z",
-			"File": [
-				"⣿⣿⣿⣿⣿",
-				1,
+				"⠃⠀⠀⠀⠀",
+				18,
 				1
 			],
-			"Message": "save\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "7723a539a52797ce8278a0448af775a9632a4216"
+			"Message": "docs(Mist): Expand CHANGELOG with commit references and dates\n\nEnhance the CHANGELOG from a simple version list to a comprehensive\nnarrative of Mist's evolution. Each version now includes specific commit\nSHAs and dates for traceability, benefit-focused descriptions explaining\nwhat each feature provides (DNS isolation, security sandbox), and a clear\nreorganization: v2.1 (current workbench lift), v2.0 (DNS introduction),\nv1.x (placeholder phase), and v0.0 (inception).\n\nThis transforms the CHANGELOG from a mechanical change log into a story\nthat explains why each version matters to the project.",
+			"SHA": "911e215ed09f9b43255eb50870af2e3235ec6d26"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-26T22:45:45Z",
+			"File": [
+				"⠃⠀⠀⠀⠀",
+				18,
+				1
+			],
+			"Message": "style(Mist): Allow non-snake_case identifiers in module\n\nAdd `#![allow(non_snake_case)]` lint attribute to suppress Rust warnings for PascalCase naming conventions used throughout the CodeEditorLand project.\n\nThe project follows PascalCase for all identifiers (functions, variables, structs, modules) as documented in CLAUDE.md. This attribute permits the Mist module to use the same naming conventions as other Land components without generating lint warnings.",
+			"SHA": "94e88d14f977906af3bfd02bcdc6c513bc78cf28"
 		}
 	],
-	"TimeStamp": 1782051983171
+	"TimeStamp": 1783777327382
 }

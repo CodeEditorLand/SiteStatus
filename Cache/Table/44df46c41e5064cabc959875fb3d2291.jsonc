@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T14:37:24Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				1768,
-				103
-			],
-			"Message": "Refactor: Clean up code by removing unnecessary whitespace and comments\n\n- Removed redundant whitespace in multiple files to improve code readability.\n- Consolidated comments for clarity and consistency.\n- Streamlined the handling of parameters and responses in various functions.\n- Enhanced the overall structure of the codebase for better maintainability.\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "5c10b95f63323c3da8a410c3c75d1c15d750be6a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T13:04:24Z",
+			"Date": "2026-06-12T14:47:25Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1768,
+				1854,
 				1
 			],
-			"Message": "fix(tests): Update hostnames in test_multiple_server_certificates function\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "ea7158242a4bc680d4828177eb55995f86f20513"
+			"Message": "refactor(Mountain): Prune terminal, extension host, and redundant workspace inline dispatch arms; route through routers\n\nReplace the remaining inline `terminal:*` call! macros and the entire `localPty:*` block (43 match arms spanning ~700 lines) with a unified `command.starts_with(\"terminal:\") || command.starts_with(\"localPty:\")` guard delegating to TerminalRouter::route(). This completes the terminal consolidation alongside the earlier WorkspacesRouter, OutputRouter, and HistoryRouter extractions — all terminal lifecycle (create, sendText, dispose, show, hide), local PTY lifecycle (getProfiles, createProcess, resize, input, shutdown, ack), and the workbench-facing IPtyService surface (getTerminalLayoutInfo, listProcesses, refreshProperty, setActive, shellExecutionStart/End, installAutoReply, etc.) now pass through a single router.\n\nRemove the inline extension host starter/debug/message arms (extensionHostStarter:*, extensionhostdebugservice:*, cocoon:extensionHostMessage) and replace with a guard delegating to ExtensionHostRouter::route(). All extension host lifecycle (create/start/kill/waitForExit), debug session attach/terminate/reload/close, and the cocoon:extensionHostMessage relay are now routed consistently.\n\nPrune the dead inline workspaces:* arms (getRecentlyOpened, addRecentlyOpened, enterWorkspace, getWorkspaceIdentifier, etc.) that were shadowed by the `command.starts_with(\"workspaces:\")` guard added in the prior commit. These fallthrough paths were unreachable but remained as dead code — removing them eliminates the duplicate dispatch and the stale import dependencies.\n\nPure structural consolidation — no behavioural change to terminal PTY semantics, extension host debugging, or workspace lifecycle across any of the three domains.",
+			"SHA": "09a73d72dc86af6af32bc178b11deb3200fef970"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T13:00:32Z",
+			"Date": "2026-06-12T14:41:37Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1768,
+				1854,
 				2
 			],
-			"Message": "feat(Mountain): Add Cocoon auto-restart with exponential backoff and gRPC notification handlers\n\nAdd automatic restart capability for the Cocoon extension host sidecar. When the health monitor detects a crash, it schedules a restart with exponential backoff (1, 2, 4, 8, 16 seconds) up to 5 attempts via a new mpsc channel wired into CocoonProcessState.\n\nAlso add supplementary workspace activation events for well-known root config files (Cargo.toml, package.json, tsconfig.json, go.mod, pyproject.toml, CMakeLists.txt) that fire exact-filename activation events after the manifest-based phase, ensuring extensions activate even when the workspace opens after the initial scan.\n\nExtend the Vine gRPC notification dispatcher with four new handlers:\n- languageClient.status / languageServer.status — forwards language server status to Sky via Tauri event\n- extension.activating — logs extension activation for observability\n- task.completed / tasks.completed — removes task from active executions and emits completion to Sky\n- debug.session.stopped / debug.stopped — unregisters debug session and emits stop event to Sky\n\nImpact: Improves Cocoon resilience with self-healing restarts, closes activation gaps for workspace-root extensions, and wires language server, task, and debug lifecycle events from Cocoon to the Sky UI layer.",
-			"SHA": "ac5b27c6a5931f91ea25c543529dbaa33e080743"
+			"Message": "feat(Mountain): Route workspaces:getRecentlyOpened through WorkspacesRouter; consolidate remaining inline workspace dispatch\n\nAdd the `workspaces:getRecentlyOpened` route to WorkspacesRouter, delegating to the recently-developed `ReadRecentlyOpened` function for direct state access. This completes the recently-opened bookkeeping trio alongside add/remove/clear.\n\nReplace the remaining inline workspace match arms in DispatchMatch.rs (`getFolders`, `addFolder`, `removeFolder`, `getName`) with a single `command.starts_with(\"workspaces:\")` guard that delegates fully to `WorkspacesRouter::route()`. All four existing workspace lifecycle commands preserve their exact semantics — folder retrieval, folder addition/removal, and name resolution all pass through unchanged.\n\nPure structural consolidation with one new IPC command handler — no behavioural change to workspace lifecycle or recently-opened mutation semantics.",
+			"SHA": "30b70a218595124841a0b795135555b201c5601d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T12:57:03Z",
+			"Date": "2026-06-12T14:39:28Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				1854,
+				47
+			],
+			"Message": "refactor(Mountain): Consolidate output, model, terminal, and extension host dispatch into routers; prune empty Dispatcher/ stubs\n\nContinue the modularization pattern established by SearchRouter, HistoryRouter, and ExtensionsRouter by extracting four additional dispatch domains from the inline match block in DispatchMatch.rs:\n\n- **OutputRouter** — routes all `output:*` commands (create, append, appendLine, clear, show, replace, dispose) into a dedicated module under Output/OutputRouter.rs.\n- **ModelRouter** — routes `model:*`, `textFile:*`, `text:*`, and `workspace:openTextDocument` commands into Model/ModelRouter.rs, preserving the Sky Tauri event relay for document open intent.\n- **TerminalRouter** — routes all `terminal:*` and `localPty:*` commands into Terminal/TerminalRouter.rs, carrying the full terminal lifecycle (localPty:createProcess, layout persistence, shell execution events, auto-reply rules) from the previously inline block.\n- **ExtensionHostRouter** — routes extension host lifecycle commands (starter, debug service, Cocoon message relay) into ExtensionHost/ExtensionHostRouter.rs.\n\n**WorkspacesRouter** is substantially expanded to include recently-opened bookkeeping (add/remove/clear), workspace identifier derivation (hash of first folder URI), workspace display name delegation, and dirty-workspace stubs — replacing the earlier thin wrapper that only handled folder retrieval and enter/create/delete.\n\n**Dispatcher/ module** is stripped: all 31 per-domain stub files deleted and the mod.rs reduced to a doc comment noting dispatch now lives inline in DispatchMatch.rs. The deleted stubs had been empty shells since the original Consolidation pass — their function-level handlers were already imported directly.\n\nDispatchMatch.rs imports are cleaned up: Model, Output, and TextFile function imports removed, replaced by the corresponding router path. The new dispatch arms use `command.starts_with(\"...\")` guards with `unwrap_or_else(|| Ok(Value::Null))` fallback, matching the convention established by SearchRouter and HistoryRouter.\n\nPure structural consolidation — no behavioural change to output channels, text model lifecycle, terminal PTY semantics, extension host debugging, or workspace folder/recently-opened handling.",
+			"SHA": "1b4f8f6e8dcc4d3a4b57db2e804594b27c889359"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T13:53:32Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1768,
+				1882,
 				2
 			],
-			"Message": "feat(Mountain): Add URI resolution, extension reinstall, text document open, window title, and diagnostic marker handlers\n\nImplement missing IPC command handlers and a gRPC notification bridge to improve VS Code extension compatibility and editor integration.\n\nIPC additions in WindServiceHandlers:\n- `env:asExternalUri` / `env:resolveExternalUri` - pass-through URI resolution so extension-provided URIs work without a registered opener\n- `extensions:reinstall` - returns minimal ILocalExtension envelope preventing ExtensionManagementService retries (no gallery backend)\n- `text:open` / `workspace:openTextDocument` - relays open intent to Sky via Tauri event so Monaco loads the document and emits onDidOpenTextDocument\n- `window:setTitle` / `nativeHost:setTitle` - explicit title override from extensions or workbench title service\n- `nativeHost:setDocumentEdited` - visual dirty-dot proxy by prefixing window title with '•' since Tauri 2.x lacks NSWindow::setDocumentEdited\n- `language:getLanguages` / `languages:getLanguages` - returns hardcoded language identifier list for extension API compatibility\n\ngRPC addition in MountainVinegRPCService:\n- `markers.change` / `language.markers.change` - receives diagnostic marker updates from Cocoon and forwards to Mountain's DiagnosticManager via Environment.SetDiagnostics\n\nImpact: Closes gaps in extension host IPC surface, enables document opening from Cocoon, provides window title control, and wires diagnostic marker streaming from the extension host to the native backend.",
-			"SHA": "910b3cc89d4d2b685d05aaca35e150c51efdf03a"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "8720aa5b8affdca0f2c9ee4e9ef5729c2b9da7a0"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T12:45:39Z",
+			"Author": "github-actions[bot]",
+			"Date": "2026-06-12T07:53:02Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1768,
+				1879,
 				1
 			],
-			"Message": "feat(Mountain): Implement bidirectional streaming channel for Cocoon gRPC service\n\nThe `open_channel_from_mountain` RPC was a stub returning `Unimplemented` since the multiplexer wiring was deferred to a later patch. This change provides the full bidirectional streaming implementation so Cocoon can open a persistent stream and exchange Envelope frames with Mountain without falling back to unary endpoints.\n\nKey modifications:\n- Add `NEXT_CHANNEL_ID` atomic counter and `CHANNEL_REGISTRY` (DashMap) to track per-stream outbound senders\n- Implement stream handler that reads inbound frames and routes: Notification → GenericNotification::Dispatcher, Request → GenericRequest::Dispatcher with response sent back via the registered mpsc channel, Response → dropped (unexpected direction), Cancel → no-op\n- Spawn read pump as detached Tauri async task so the method returns the outbound stream immediately\n- Clean up registry entry on stream termination\n\nImpact: Enables low-latency bidirectional communication between Mountain and the Cocoon extension host, removing the need for polling or repeated unary calls for streaming workloads.",
-			"SHA": "4853ac85e2cc627cbd26e696a77b5d1ab9b93d61"
+			"Message": "Merge pull request #73 from CodeEditorLand/dependabot/github_actions/pozil/auto-assign-issue-4.0.1\n\nchore(deps): Bump pozil/auto-assign-issue from 4.0.0 to 4.0.1",
+			"SHA": "f7f11dff41e9e915b10a5354313726fed668f318"
 		}
 	],
-	"TimeStamp": 1782051979697
+	"TimeStamp": 1783777326773
 }

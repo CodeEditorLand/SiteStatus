@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T21:54:43Z",
+			"Date": "2026-05-19T03:01:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				2
+				1510,
+				14
 			],
-			"Message": "chore(Mountain): Align documentation structure with recent refactoring and cleanup configuration\n\nUpdate README.md to reflect the current source directory structure following the recent migration from `Binary.rs` to the `Binary/` module folder and the addition of new components like `IPC/`, `RPC/`, `Telemetry/`, and `Cache/`. Correct the architectural diagram and module descriptions to match the actual file layout in `Source/`.\n\nAdditionally, clean up `Info.plist` by removing extraneous indentation and empty XML nodes around the `LSEnvironment` key to ensure a valid, consistent property list format. Remove trailing whitespace to maintain formatting standards.\n\nThis change synchronizes the project documentation with the current codebase state and resolves formatting inconsistencies in the build configuration.",
-			"SHA": "4ce8e735fd7551cdf8c3d5c41f2820eaef15eefc"
+			"Message": "feat(Mountain): Implement custom editor registry, wire file watcher and PTY resize, optimize hot paths\n\nComplete several IPC/RPC stubs with actual implementations:\n- Store ViewType-to-sidecarId mappings in CustomEditorProvider's global\n  once-locked registry, enabling proper cleanup on unregistration\n- Route watch_file gRPC to FileWatcherProvider::RegisterWatcher for real\n  FSEvents/inotify monitoring instead of a no-op stub\n- Route resize_terminal gRPC through TerminalProvider to resize the PTY\n  (delivers SIGWINCH to the shell) alongside the existing Tauri event\n- Add extensions:activate handler sending $activateByEvent to Cocoon so\n  Wind's ExtensionsService triggers activation programmatically\n\nRefine IPC dispatch and sidecar routing:\n- Emit sky://commands/executed after commands:execute dispatch so\n  telemetry collectors and command subscribers observe every command\n- Look up debug configuration provider from ApplicationState.Feature.Debug\n  for correct sidecar routing instead of hardcoding cocoon-main\n\nOptimize high-frequency and hot paths:\n- Add StorageWriteDebouncer with 100ms write coalescing, replacing\n  per-call tokio::spawn disk writes with batched single-writes\n- Strip osascript subprocess from nativeHost:getCursorScreenPoint,\n  returning (0,0) to eliminate ~50ms macOS process spawn per invocation\n- Gate logger info/debug/trace to opt-in vscode-log tag; forward\n  error/warn/critical to dev_log consistently\n- Replace SystemTime-based ID generation with atomic sequence counters\n  in Notification and WindowUI, eliminating syscall overhead\n\nUpdate Tauri ACL manifests with the new tray allow-set-icon-with-as-template\npermission.",
+			"SHA": "e2e1d1e1b9088429512644b8901afcf9dd8d2347"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T21:13:48Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1490,
-				33
-			],
-			"Message": "refactor(Mountain): Consolidate imports and reformat Rust code across core modules\n\nStandardize multi-line import blocks to use brace-compressed syntax in CertificateManager.rs. Apply consistent line-wrapping and removal of unnecessary vertical whitespace across the Environment provider modules, Command handlers, and Track effect handlers.\n\nThis change focuses purely on formatting and code style alignment. No functional logic, business rules, or error handling flows are altered. The modifications ensure uniform indentation and line length compliance (typically wrapping comments and long method chains at 100 characters) across the Mountain native backend codebase.\n\nThis improves readability and prepares the codebase for automated linting enforcement.",
-			"SHA": "c8a486c1635ccee407de53db21f6127a3cce049b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T20:46:04Z",
+			"Date": "2026-05-19T02:56:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1510,
 				1
 			],
-			"Message": "fix(Mountain): Add default configuration options to Info.plist\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
-			"SHA": "4b43c376835eb7089928494f7ed9090eeb9e5737"
+			"Message": "perf(Mountain): Reduce command registration yield delay to 20ms\n\nThe 50ms `tokio::time::sleep` after extension activation was conservatively oversized since the `registerCommand` IPC channel drains in roughly 16ms. Lower the yield to a single 20ms frame, matching the actual batch-flush cadence of the Tauri event system.\n\nThis shaves 30ms from the extension activation hot path, accumulating measurably when multiple extensions register commands during startup.",
+			"SHA": "7c91748de9acede25cf29c983732453e7ffc2d4e"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T17:48:34Z",
+			"Author": "Auto",
+			"Date": "2026-05-19T02:49:17Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				2
-			],
-			"Message": "feat(Mountain): Enable telemetry collection defaults and enforce consent gates\n\nReverse the default build-time values for PostHog (`Report`), OTLP (`OTLPEnabled`), and trace capture (`Capture`) from 'false' to 'true' in `build.rs`. This enables telemetry by default for the current development cycle, allowing the team to collect diagnostic data unless explicitly disabled via environment variables.\n\nSimultaneously, reinforce runtime safety in `scripts/cocoon/bootstrap-fork.js` by adding explicit environment variable checks before any network request. The `PostHogCapture` and `OTLPFlush` functions now verify that `Report`, `Capture`, and `OTLPEnabled` are strictly set to 'true' before proceeding. This ensures that even with production builds enabled in the build script, no data is sent without explicit runtime consent, maintaining the privacy barrier for production environments while facilitating data collection during development.\n\nThis change aligns the build defaults with the telemetry requirements for the current `Current` branch while preserving the logical gatekeeping in the Extension Host sidecar.",
-			"SHA": "dfe7c6e4e60e8d589ce3eccb516e905a78c45cee"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T17:23:42Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
+				1510,
 				1
 			],
-			"Message": "chore(Mountain): Disable telemetry collection by default in build script\n\nUpdate the default values in build.rs for telemetry-related environment variables (`Report`, `OTLPEnabled`, `Capture`). Change the defaults from \"true\" to \"false\" to ensure no telemetry data is captured or sent unless explicitly enabled via environment configuration.\n\nThis aligns the default build behavior with privacy best practices for development and distribution, requiring an explicit opt-in for PostHog, OTLP, and trace capture mechanisms.",
-			"SHA": "9cdc391367fd3acde2f55bdac84728cbe413d47a"
+			"Message": "",
+			"SHA": "32a00801945f697b6a7504c419666c2c5ea56267"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T02:20:46Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1510,
+				3
+			],
+			"Message": "",
+			"SHA": "af45c696979f36bc068823417654b96805b2d491"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-19T02:20:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1510,
+				7
+			],
+			"Message": "feat(Mountain): Implement native file descriptor API and refine Tauri window handlers\n\nComplete the implementation of the `nativeHost` IPC surface by adding `file:open` and `file:close` handlers. These functions establish a process-global file descriptor table (backed by `HashMap<u32, File>` and `AtomicU32`) to support VS Code's `DiskFileSystemProvider` for large binary I/O, replacing previous full-read/write fallbacks.\n\nRefine window management handlers: implement `setDocumentEdited` for the macOS dirty-dot indicator, `setMinimumSize` to prevent workbench collapse, and `positionWindow` for multi-window restoration. Update `setRepresentedFilename` to display the filename component in the title bar. Re-evaluate `is_alive` connection logic to remove artificial sleep delays.\n\nOptimize `tree-view/create` event emission in `EnqueueTreeViewEmit` by migrating from per-call `tokio::spawn` to a persistent mpsc channel with a 16ms frame-aligned batcher. This eliminates task overhead during boot. Additionally, reduce the terminal startup delay from 120ms to 20ms, matching M-series hardware capabilities, and improve `LifecyclePhaseState` formatting.",
+			"SHA": "8cde99c082f32ec6c8726e947e7a696d2c3ccf7e"
 		}
 	],
-	"TimeStamp": 1782052028981
+	"TimeStamp": 1783777341348
 }

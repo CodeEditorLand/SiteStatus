@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:16:10Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				154,
-				5
-			],
-			"Message": "fix(Sky): Seal SkyBridge resource lifecycle — content listener teardown, timer cleanup, and dead code removal\n\n**InstallEditorOperations — content listener lifecycle**\n  - Move `ScrollFlushTimer` outside `onDidChangeActiveCodeEditor` so teardown can clear a pending scroll flush from the previous editor before wiring the new one.\n  - Add `LastFlushedVersion` map per URI: skip the `sky:model:contentChanged` IPC round-trip when an edit or undo leaves the model version unchanged, reducing redundant full-text transmissions.\n  - Capture content listener disposables in `ContentDisposables` so they can be torn down when the editor is removed, preventing stale closures from firing into Mountain after the editor is closed.\n  - Wire `onCodeEditorRemove` to unregister all per-editor bookkeeping — pending debounce timers, version tracking, and content listener — and reset the `__celContentListened` guard so a re-added editor rewires fresh.\n\n**InstallWebview — resolveView timeout and multi-key dispose cleanup**\n  - Guard the `cocoon:request('webview.resolveView', ...)` round-trip with a 10 s timeout that resolves (never rejects) and logs a diagnostic. A hung Cocoon request must not pin the resolver past the workbench's deadline and permanently fail the view — the parked view repaints when the extension's `sky://webview/set-html` arrives.\n  - Generalise the `sky://webview/dispose` handler: accept `panelId` or `handle` from the payload, then coerce the key across string/number shapes since Mountain's emitters vary by dispatch path. Clean up three registries — `__CEL_WEBVIEW_VIEWS_BY_HANDLE__`, `PendingWebviewHtmlByHandle`, and `PendingWebviewHtml` — plus reverse-look up the viewId through `WebviewViewResolvers` to clear the by-viewId cache as well.\n\n**InstallUiRequests — timer leak fix**\n  - Capture the `window.setTimeout(…, 60_000)` return value in `FallbackTimer` instead of letting it run loose. Clear `FallbackTimer` inside `ResolveOnce` so the timeout no longer fires after a button click resolves the prompt, preventing a stray `ResolveUiRequest(RequestId, null)` from overwriting the user's choice.\n\n**InstallTreeView — remove dead code paths**\n  - Strip the four `document.addEventListener('cel:tree-view:selectionChanged|collapse|expand|visibilityChanged', …)` handlers. These `cel:tree-view:*` events are never dispatched by anyone; direct subscription to the workbench's `ITreeView.onDid*` events in the registration handler is the sole canonical path.\n  - Remove the eager `void ProvideChildren(ViewId, undefined)` call on every registration: the workbench pulls children through the attached dataProvider when the pane actually renders, so priming every registration issues a `tree:getChildren` IPC round-trip at boot for panes that may never become visible.\n  - Remove the redundant `void ProvideChildren(ViewId, undefined)` from the refresh handler: `TreeView.refresh()` already re-queries the dataProvider's `getChildren`, which re-emits `cel:tree-view:items` for Sky-side observers — calling `ProvideChildren` again doubles every `tree:getChildren` IPC.\n\n**Bridge.ts — unload guard**\n  - Add a `window.addEventListener('unload', …)` that calls `__CEL_SKY_BRIDGE_CLEANUP__` when the page unloads, ensuring bridge-side disposables are invoked even if the workbench lifecycle path doesn't reach the cleanup call in normal navigation.",
-			"SHA": "16f7ac329b7c295c4544de390b2bcfaf376b1ecc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:42:41Z",
+			"Author": "dependabot[bot]",
+			"Date": "2026-06-30T22:43:06Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				154,
+				157,
 				1
 			],
-			"Message": "fix(Sky): Add missing diagnostic log for unmatched revealRange URI\n\nComplete the diagnostic logging added in the full-URI matching fix by emitting a \\`[SkyBridge] editor/revealRange: no editor matches <URI>\\` diagnostic when revealRange fails to resolve an editor. This operation was left without a logging path when the Matched tracking was introduced for the other editor operations, depriving operators of visibility into stale or mismatched URIs for scroll-reveal commands.",
-			"SHA": "896cf7258e7e08897d6f7f7c642c007f46287070"
+			"Message": "build(deps): bump vite from 8.1.0 to 8.1.2\n\nBumps [vite](https://github.com/vitejs/vite/tree/HEAD/packages/vite) from 8.1.0 to 8.1.2.\n- [Release notes](https://github.com/vitejs/vite/releases)\n- [Changelog](https://github.com/vitejs/vite/blob/main/packages/vite/CHANGELOG.md)\n- [Commits](https://github.com/vitejs/vite/commits/v8.1.2/packages/vite)\n\n---\nupdated-dependencies:\n- dependency-name: vite\n  dependency-version: 8.1.2\n  dependency-type: direct:production\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "541d1d6abc1842df5ab68f6cda37ec8f084015a0"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:38:30Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				154,
-				5
-			],
-			"Message": "fix(Sky): Enforce full-URI editor matching to prevent cross-editor bleed\n\nReplace suffix-based editor lookup (`endsWith`) with strict full-URI equality in three SkyBridge operations — decoration set-ranges, text edits, and scroll-position. The suffix match caused commands targeting one file (e.g. `src/foo/index.ts`) to bleed into every other editor whose model shared the same basename (`src/bar/index.ts`, `test/index.ts`), resulting in misplaced decorations, applied edits, and scroll jumps across unrelated tabs.\n\nAlongside this core fix:\n- Correct the model service fallback in InstallEditorAndOutput from `ModelService` to `Models`.\n- Add `Matched` tracking with diagnostic logging via `MountainIPCInvoke` when no editor resolves, giving operators visibility into stale or mismatched URIs.\n- Refactor ProbeServices to use the `ToMountain` wrapper instead of raw `invoke(\"MountainIPCInvoke\", ...)` plus try/catch — reducing boilerplate and centralizing IPC calls.\n- Update Architecture.md and DeepDive.md: fix repository/issue links to point to the Land monorepo, correct opening descriptions, and add the standard maintainer footer to DeepDive.\n\nEditor operations now reliably target the intended editor by exact URI, and unmatched commands produce actionable diagnostics instead of silently affecting the wrong view.",
-			"SHA": "53afb5281516509009a741209f8eace64a9916fc"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:23:23Z",
+			"Author": "Auto",
+			"Date": "2026-06-30T02:55:49Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				154,
+				157,
 				1
 			],
-			"Message": "docs(Sky): Expand README with architecture details and consistent formatting\n\nRestructure the README with comprehensive new sections covering Key Features, Core Architecture Principles, Workbench Variants, and System Architecture connection paths. Add expanded Key Components and Project Structure trees with deeper path annotations. Include a new \"In the Land Project\" role table and a PlayForm stewardship note under Funding.\n\nFormatting changes: apply em-quad (U+2001) spacing in section headings consistently per CodeEditorLand convention, standardize table styling with left-aligned headers, wrap prose at 80-100 characters throughout, and add a prominent architecture quote as a tagline. Add the Mountain repository link to Related Documentation.\n\nThis makes the README a more complete technical reference for the Sky UI component layer, documenting its multi-variant workbench system, SkyBridge event routing, and build pipeline integration.",
-			"SHA": "94429a7c9723f8a7cf46fbe18de0e858e1455615"
+			"Message": "",
+			"SHA": "e8a15cf14f5ecf591bbb8fe4c1dec9301827889b"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T14:38:37Z",
+			"Author": "Auto",
+			"Date": "2026-06-29T03:31:29Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				154,
+				157,
 				1
 			],
-			"Message": "style(Sky): Use em-quad spacing between heading text and emoji\n\nReplace the regular space before the sun emoji in the README title with an em-quad (U+2001) space, matching the CodeEditorLand convention for consistent heading formatting across Land project documentation.\n\nNo functional change.",
-			"SHA": "eb330a63a63d066e08b7ca4a113ad38b03367ffc"
+			"Message": "",
+			"SHA": "0ef32ee74cae7104852b75afd58682a834694b1b"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-06-28T03:26:37Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				157,
+				1
+			],
+			"Message": "",
+			"SHA": "77329c47de4e8cb1b74e0d7f564e5fedae5ba167"
+		},
+		{
+			"Author": "Auto",
+			"Date": "2026-06-27T02:46:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				157,
+				1
+			],
+			"Message": "",
+			"SHA": "954e60c36d98c6d4de2ee85029bde028842b222c"
 		}
 	],
-	"TimeStamp": 1782051967751
+	"TimeStamp": 1783777324359
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T14:46:57Z",
+			"Date": "2026-06-12T22:26:07Z",
 			"File": [
-				"⣿⣿⣿⣿⠇",
-				344,
-				300
+				"⠁⠀⠀⠀⠀",
+				358,
+				7
 			],
-			"Message": "chore(Output): Remove all legacy configuration files and modules\n\nThis commit removes the entire set of previously existing pre-bundled configuration files and their associated source modules. These files were generated outputs from a previous build system or configuration generation process and are no longer needed as the project now uses the source files in `Configuration/Element/Output/Source` as the single source of truth for idempotent builds.\n\nThe removal includes all files in the `Configuration/` directory related to the build configuration, including but not limited to, the ESBuild configuration, plugin system, polyfills, and service workers. This change enables a clean slate for build process changes and enforces the new architecture where all configuration is generated from source.\n\nImpact: This is a refactor to remove legacy bundled configuration files and to ensure a single source of truth for build artifacts.",
-			"SHA": "56f383174a903ac19db4634227b36d536d7c0d94"
+			"Message": "refactor(Output): Convert Intercept proxies to async import, remove poll retry loops\n\nReplace synchronous `require()` with `await import()` across all six low-level Intercept proxies (AsyncProxy, CancellationProxy, DisposableProxy, EmitterFireProxy, ErrorHandlerProxy, TimingProxy), eliminating the 50-attempt × 100ms poll-based retry fallback in each. Since the activation sequence in `activateLowLevelHooks()` guarantees target modules are already loaded by the time these fire, dynamic import either resolves immediately or the proxy returns early.\n\nAlso: correct the ErrorHandlerProxy marker comment to `__LAND_SHIM_LOW_ERROR_HANDLER_PROXY__`, thread the `stopwatchModule` reference directly into TimingProxy's `patchStopWatch()` instead of re-requiring it, and add `Intercept/Index.ts` — a barrel file exporting all six proxies as default-exported async functions for unified import in the activation site.\n\nThis reduces boilerplate by ~120 lines of polling infrastructure and removes the last `require()` calls from the shim runtime, making the intercept layer fully ES-module-compatible.",
+			"SHA": "fe9476e466ee4553f105ec9679a13675af46c6b1"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T13:07:29Z",
+			"Date": "2026-06-12T22:19:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1080,
+				357,
+				2
+			],
+			"Message": "feat(Output): Add unified LandDiagnostics tracer and wire low-level hooks into Init\n\nCreate `LandDiagnostics.ts`, a shared tracing pipeline that consolidates all shim hook reporting — both 🟠 low-level engine hooks (error, emitter, cancellation, disposable, async, timing) and 🔵 coverage-level audit entries. Each category gets a 512-entry ring buffer with a 30-second flush to Mountain via Tauri IPC `diagnostic:log`. Also adds `checkLandSwallowMap()` for fast event suppression (status bar and telemetry events) used by the Emitter.fire proxy.\n\nRefactor `Init.ts` to import `recordAuditEntry` and `forceFlush` from the new diagnostics module, replacing the local `recordAuditEntry` helper. Add `activateLowLevelHooks()` which dynamically imports all six Intercept proxy modules at `Own`/`Preempt` tiers — the runtime activation site for the low-level engine hooks added in ebe465d04. Restructure tier logic with clear 🔵 (coverage/Proxy/Replace) and 🟠 (low-level/Own/Preempt) sections.",
+			"SHA": "df86a1f7314aea016d58e0fc919dbe3d2a608b0e"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:17:14Z",
+			"File": [
+				"⠁⠀⠀⠀⠀",
+				355,
+				6
+			],
+			"Message": "feat(Output): Add six low-level intercept proxies for deep-shim Own/Preempt tiers\n\nIntroduce the runtime intercept layer — six proxy modules that monkey-patch VS Code internals at Startup/StartupServices time to provide Land-controlled diagnostics, suppression, and batching.\n\nAll six follow a consistent pattern:\n- Gate at TierShim = Own | Preempt (dead-code-eliminated by esbuild define otherwise)\n- Idempotent via globalThis marker (checks `__LAND_SHIM_LOW_*__`)\n- Poll-based retry (50 attempts × 100ms) if the target module is not yet loaded\n- Non-fatal error handling (try/catch everywhere — shim must never crash the workbench)\n\nProxies added:\n- AsyncProxy — intercepts `setTimeout0` from platform.ts with micro-batching (MAX_BATCH_SIZE=64), coalescing rapid microtasks to reduce layout thrash. Samples every 128th call for trace.\n- CancellationProxy — patches `CancellationTokenSource.prototype.cancel()` to record timestamp, stack trace, and cancellation order for diagnostic analysis.\n- DisposableProxy — wraps `DisposableStore.prototype.add()` and `dispose()` to assign unique tracking IDs and trace resource creation/disposal for leak detection.\n- EmitterFireProxy — intercepts `Emitter.prototype.fire()` from event.js, checks `checkLandSwallowMap` for event suppression, and applies sample-based tracing (1% production, 100% dev) via tick-counter throttle.\n- ErrorHandlerProxy — patches `errorHandler.onUnexpectedError()` to capture error message, stack, and name into LandErrorTrace before VS Code processes the error.\n- TimingProxy — wraps StopWatch construction, stop(), and elapsed() with microsecond-resolution timing via performance.now / process.hrtime fallback, uniquely identifying each instance.",
+			"SHA": "ebe465d04fcdb4715f44e51a60dd16aa4dda4a93"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T21:56:13Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				348,
 				1
 			],
-			"Message": "style(Output): Reorganize imports and fix indentation in Tauri main process service\n\nMove MistWebSocketTransport import after VSCode IPC type imports to follow logical grouping (external deps before internal modules). Remove extraneous blank line in tier resolution section. Fix inconsistent indentation on Node tier branch in TauriChannel.call().\n\nThese are purely cosmetic changes improving code readability in the Output component's Tauri main process entry point without altering runtime behavior.",
-			"SHA": "b21e8fd53e9fdf37a61517cd943e950a29038939"
+			"Message": "feat(Output): Wire InjectShimHook into the BuildPipeline plugin array\n\nRegister `InjectShimHook` in the `BuildPipeline` plugin sequence, slotting it immediately after `ExposeWorkbenchAccessor`. The hook is gated by the `TierShim` env var (None → no-op) and performs deep-shim injection — audit proxy, service replacement, or container ownership — depending on the configured shim level.\n\nThis completes the integration of the compile-time injection site (added in 9b81aa2c7) into the actual esbuild plugin pipeline that runs during Output builds. The shim init module (`CEL/Land/Shim/Init.js` from 07d07070f) is compiled, copied, and injected as part of `ApplyPipeline`; this wiring ensures the hook fires on every workbench build.\n\nSee: .hermes/microsoft/04-Atomic-Task-List.md",
+			"SHA": "b403f823fef6e20e6e8a294a7a55d564044e76e3"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T12:58:07Z",
-			"File": [
-				"⡏⠀⠀⠀⠀",
-				1080,
-				122
-			],
-			"Message": "build(Output): Add authoritative ESBuild configuration source modules\n\nAdd the complete ESBuild build system source to Configuration/ including: ESBuild entry configurations (Editor, VSCode, Bundle variants), exclusion rule modules (Bootstrap, Electron, Node, Network, Telemetry, Test, Types, WebWorker, Workbench, and Chromium IPC), plugin pipeline (Apply, Copy, Polyfill, Transform namespaces with 50+ transforms), runtime polyfills (ChildProcess, FileProtocol, FileSystem, IPC/Renderer, NativeModule, Process, SharedProcessProxy, Telemetry), and CEL services (ExposeAccessor, ExtensionsScanner, NullExtensionGallery, NullTelemetry, NullUpdate, Search, SharedProcess, DevLog, TauriMainProcess with MistWebSocketTransport, Trace). Also add TypeScript composite project configs for CodeEditorLand/Editor and Microsoft/VSCode targets.\n\nThese modules were previously only present as compiled .js/.js.map outputs in Configuration/ — the authoritative source now lives in the repository enabling reproducible builds, source-level debugging of the build pipeline, and version-controlled evolution of the Output component's bundling logic. The ESBuild configuration supports Rest compiler integration (conditional via Compiler=Rest), PostHog build telemetry (debug-only), target cleanup via Clean=true, and declarative exclusion/transform pipelines that rewrite VS Code's Electron workbench for Tauri/WKWebView compatibility.",
-			"SHA": "9c639bbef37f676169472c6845d926b9a7987ecf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T12:51:55Z",
-			"File": [
-				"⣿⡇⠀⠀⠀",
-				769,
-				238
-			],
-			"Message": "build(Output): Add authoritative ESBuild configuration source modules\n\nAdd the complete ESBuild build system source to Configuration/ including: ESBuild entry configurations (Editor, VSCode, Bundle variants), exclusion rule modules (Bootstrap, Electron, Node, Network, Telemetry, Test, Types, WebWorker, Workbench, and Chromium IPC), plugin pipeline (Apply, Copy, Polyfill, Transform namespaces with 50+ transforms), runtime polyfills (ChildProcess, FileProtocol, FileSystem, IPC/Renderer, NativeModule, Process, SharedProcessProxy, Telemetry), and CEL services (ExposeAccessor, ExtensionsScanner, NullExtensionGallery, NullTelemetry, NullUpdate, Search, SharedProcess, DevLog, TauriMainProcess with MistWebSocketTransport, Trace). Also add TypeScript composite project configs for CodeEditorLand/Editor and Microsoft/VSCode targets.\n\nThese modules were previously only present as compiled .js/.js.map outputs in Configuration/ — the authoritative source now lives in the repository enabling reproducible builds, source-level debugging of the build pipeline, and version-controlled evolution of the Output component's bundling logic. The ESBuild configuration supports Rest compiler integration (conditional via Compiler=Rest), PostHog build telemetry (debug-only), target cleanup via Clean=true, and declarative exclusion/transform pipelines that rewrite VS Code's Electron workbench for Tauri/WKWebView compatibility.",
-			"SHA": "884a658bf7da712985a0ed74b00eda9726b9738c"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-10T12:35:06Z",
+			"Date": "2026-06-12T21:55:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				344,
-				3
+				348,
+				2
 			],
-			"Message": "",
-			"SHA": "49dadd4c7719d79c5d9d1ddcc942a9790bb8198b"
+			"Message": "feat(Output): Add deep-shim init module with tiered runtime strategies\n\nAdd `Source/Service/CEL/Land/Shim/Init.ts`, the runtime entry point\ninjected into VS Code workbench by the `InjectShimHook` TransformPlugin.\nWire it up in the Plugin index with import and re-export.\n\nThe shim init module is compiled by esbuild as a standalone file, copied\nto the VS Code target tree, then injected by InjectShimHook immediately\nafter `workbench.startup()` returns the `IInstantiationService`.\n\nThree tiered runtime strategies gated by `__LandTier_Shim__` esbuild define:\n- **Proxy** tier: wraps `ServiceCollection.get/set` with an audit wrapper,\n  logs every service resolution to an in-memory ring buffer (MAX 500), and\n  flushes a summary to Mountain via Tauri IPC every 30 seconds.\n- **Replace/Own/Preempt** tiers: patches `ServiceCollection.get` to return\n  a no-op `ITelemetryService` (intercepting service IDs matching \"telemetry\"\n  or \"itelemetry\"), silencing telemetry at the service resolution level.\n- **None** tier: dead code elimination — entire module body is a no-op.\n\nShim failures are always non-fatal (try/catch at the top-level call site\nand individual fire-and-forget operations) to maintain workbench stability.\n\nThis is the runtime complement to the compile-time injection site added\nin the parent commit (9b81aa2c7).",
+			"SHA": "07d07070ffac1ddfcad959db2a4037f2bebf9c3e"
 		}
 	],
-	"TimeStamp": 1782051970734
+	"TimeStamp": 1783777326026
 }

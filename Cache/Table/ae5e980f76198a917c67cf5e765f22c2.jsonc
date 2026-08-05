@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:42:04Z",
+			"Date": "2026-06-12T22:18:15Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				924,
-				4
+				"⠇⠀⠀⠀⠀",
+				805,
+				52
 			],
-			"Message": "feat(Wind): Route IPC channels through to Mountain and unify event constants\n\nRoute eight VS Code workbench IPC channels — `scm`, `debug`, `tasks`, `auth`, `language`, `languages`, `process`, `browserViewGroup`, `watcher`, `env`, and `history` — through the ChannelRouteMap to Mountain's native handlers, replacing their all-stub entries. The `watcher` channel's `watch`/`unwatch` methods reach Mountain's `file:watch`/`file:unwatch` arms, enabling the IFileWatcherService.\n\nConcrete changes:\n- **TauriMainProcessService**: Add 11 new `ChannelRouteMap` entries; remove stale stub blocks for `update`, `browserViewGroup`, and `watcher` (which are now fully routed); fix `utilityProcessWorker.createWorker` from a never-settling Promise to `Promise.resolve(undefined)` to prevent language-detection service init hangs; tighten stub resolution to only intercept commands explicitly named in the stub object, so partially-routed channels like `process` still pass unknown methods to Mountain\n- **FilesService.Watch**: Replace dead-code path-verification pattern with proper `IPCService.invoke(Channel.FileWatch)` / `Channel.FileUnwatch` calls, returning a `dispose` that actually sends the `unwatch` command\n- **EditorService**: Use the `SkyEvent.EditorActiveChanged` constant (`sky://editor/active-changed`) instead of the hardcoded string `editor:activeChanged`, and capture the `listen` unlisten callback for proper subscription cleanup\n- **Channel registry**: Add `AuthValidateToken: \"auth:validateToken\"` to support Mountain-side token validation\n\nRemoves the disposition-tracking and `_DevLogForward` diagnostics from the stub path since routed channels no longer hit stub code by accident.",
-			"SHA": "f7b0ce604af267552155df5d8216481a53c171d3"
+			"Message": "refactor(Wind): Purge all orphaned Effect service tags and de-Effectify Extensions and History\n\nDelete all 46 remaining *ServiceTag.ts files across every Wind service domain — these became dead code when their corresponding Live implementations were stripped of Layer.succeed wrappers in the prior de-Effectification commits (ff60a11, ae82728, f97e5dd, e71ed57). Each Tag file was a two-line module (GenericTag import + Context.GenericTag<ServiceInterface>) with zero remaining consumers.\n\nConvert Extensions and History — the last two service domains still using Effect.Effect return types — to native async/await:\n- ExtensionsService interface: all 6 methods (GetExtension, GetAllExtensions, IsActive, Activate, InstallVsix, Uninstall) change from Effect.Effect<T, ExtensionsProblem> to Promise<T>\n- Extensions/Live.ts: replace Effect.pipe chains with try/catch wrapping TauriIPC.invoke, preserving the fallback-on-Activate-failure logic in plain try/catch\n- History/Live.ts: all 7 methods (GoBack, GoForward, CanGoBack, CanGoForward, Push, Clear, GetStack) convert to async/await\n\nRename barrel exports across History/History.ts, History/Live.ts, and History/Mock.ts:\n- LiveHistoryServiceLayer → LiveHistoryService, MockHistoryServiceLayer → MockHistoryService, dropping the 'Layer' suffix since no Layer.succeed wrapping remains\n- MockHistoryService is now a direct re-export of StubHistoryService instead of a Layer.succeed wrapper\n- Delete HistoryServiceTag export from History/History.ts barrel\n\nStrip orphaned Effect import from ExtensionsStub.ts and ExtensionsService.ts interface file.\n\nImpact: Zero Effect-TS references remain in any Wind service implementation. This completes the de-Effectification of Wind's IPC-bound service layer — every service binding is now a plain async/sync function.",
+			"SHA": "1621bf7158c50e152f22dfd869dabddff9207162"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:37:46Z",
+			"Date": "2026-06-12T22:17:16Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				924,
-				3
+				"⡟⠀⠀⠀⠀",
+				897,
+				133
 			],
-			"Message": "feat(Wind): Enable IUpdateService channel route in TauriMainProcessService\n\nUncomment the `update` channel route mapping, connecting VS Code's `IUpdateService` IPC channel through the Tauri preload bridge to Mountain. This route was previously stubbed pending Mountain's update service implementation.\n\nAccompanying documentation updates:\n- Architecture.md: Add branded table header with Land logo and em-quad spaced heading, matching the README convention\n- DeepDive.md: Reframe opening sentence with Wind as the grammatical subject for clarity",
-			"SHA": "8c4f08013d189d4bfb3446c1d9e8d6ccae7d66d3"
+			"Message": "refactor(Wind): Strip Effect monad from remaining Wind service bindings\n\nComplete the de-Effectification of Wind service bindings across all 25 service domains, following the pattern established in Commits, Editor, and TextModelResolver (f97e5dd, ae82728, e71ed57).\n\n**Service interfaces:**\n- Clipboard, Environment, Label, Search, Storage, Themes, WorkingCopy: sync return types (string/boolean/void) with throw-on-error, no Effect/Effect<never>\n- Decorations, History, Keybinding, Language, Lifecycle, Model, MountainSync, Notification, Progress, QuickInput, Terminal, TextFile, Workspaces: async/Promise<T> signatures instead of Effect<T, Problem>\n- Panel, StatusBar, Telemetry, Workspaces: replace Effect Stream with ReadableStream + callback subscription (onViewsChanges/onItemsChanges/onActiveViewChanges)\n\n**Live implementations:**\n- Clipboard, Environment, Label, Search, Storage, Themes, WorkingCopy: export as plain service objects, fire-and-forget IPC promises via void/catch\n- Decorations, History, Keybinding, Language, Lifecycle, Model, Notification, Progress, QuickInput, Terminal, TextFile, Workspaces: async/await with try/catch wrapping TauriIPC.invoke\n- MountainSync: replace Effect Fiber with setInterval/clearInterval, sync now a plain async function\n- Panel/StatusBar: replace Stream.asyncInterrupt/Either with callback arrays returning unsubscribe functions\n- Telemetry: replace Effect.sync with async functions, Stream with ReadableStream\n\n**Dependency injection:**\n- Delete EnvironmentTag, FilesServiceTag, ModelServiceTag, PanelTag, StatusBarTag (fully removed)\n- Other Tag files (ClipboardServiceTag, LabelServiceTag, SearchServiceTag, etc.) preserved for consumers but service implementations no longer wrap via Layer.succeed\n- All Mock.ts files export the stub instance directly, removing Layer.succeed wrapper\n- All barrel exports renamed: *ServiceLayer → *Service (e.g. LiveClipboardServiceLayer → LiveClipboardService)\n\n**Impact:** Zero Effect-TS runtime overhead for all Wind service bindings. The Tauri bridge layer (Layers/Tauri.ts) and Effect/index.ts barrel re-exports updated to use the renamed exports. This completes the de-Effectification of Wind's IPC-bound service layer.",
+			"SHA": "ff60a1168fd4a26312c44c02b51cf3e62be268fe"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T16:17:57Z",
+			"Date": "2026-06-12T21:59:50Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				924,
+				907,
 				1
 			],
-			"Message": "docs(Wind): Overhaul README with comprehensive architecture and feature documentation\n\nRewrite the Wind README from a terse overview to a detailed reference documenting the complete service layer architecture. The previous README covered only basic mechanisms; the new version enumerates all 40+ Effect-TS services, documents the codegen pipeline, adds security and compatibility sections, and provides a full project structure tree with autogenerated Workbench* bridge entries.\n\nKey additions:\n- Compelling project epigraph framing Wind's replacement of untyped Electron IPC with typed Effect-TS services\n- \"Key Features\" section with emoji headers covering Effect-TS architecture, Preload shim, typed IPC, codegen pipeline, Mountain RPC, file system provider, telemetry, and layer composition\n- \"Core Architecture Principles\" table mapping principles (Compatibility, Modularity, Type Safety, Abstraction, Integration) to their key components\n- \"Connection paths\" table documenting all four IPC pathways (invoke, listen, direct import, TAURI bridge)\n- Expanded project structure tree including all Workbench* generated bridge modules, Codegen subdirectories, and Documentation/ entry\n- \"Security\" section with six enumerated security layers (type safety, IPC isolation, sandbox, network restrictions, DI, telemetry privacy)\n- \"Compatibility\" table showing integration targets (Sky, VS Code, Mountain, Cocoon, Tauri)\n- Updated dependency table (replacing @tauri-apps/plugin-dialog with typescript) and funding acknowledgement section",
-			"SHA": "93f2c2786695873cbab8fd625e7bed0971280641"
+			"Message": "chore(Wind): Sync commit.json with latest refactor message\n\nUpdate commit.json to reflect the actual message of the most recent commit (e71ed57b) — Prune orphaned imports and error helpers from de-Effectified services.\n\nThe file had fallen out of sync, still carrying the message from the prior f97e5ddf commit (Strip Effect monad from Commands service).",
+			"SHA": "f7c9aff429e42ea83dfcfa8d6154d944334f565d"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T15:12:23Z",
+			"Date": "2026-06-12T21:59:11Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				924,
-				2
+				907,
+				6
 			],
-			"Message": "chore(Wind): Remove tracked tsconfig.tsbuildinfo from version control\n\nThe .gitignore entry from 5217c99c prevented future tracking but left the\npreviously-committed tsconfig.tsbuildinfo file in the index. Stage a git rm\nof the file to fully untrack it.\n\nCompletes the build-artifact cleanup in the Wind submodule.",
-			"SHA": "111983f8ff46fadbab5cdf20bc29029dbdb062f2"
+			"Message": "refactor(Wind): Prune orphaned imports and error helpers from de-Effectified services\n\nRemove three Make*Error helper functions (MakeCommandsError, MakeEditorProblem, MakeResolverProblem) from Live implementations — they were used only in Effect error-channel conversion logic that was already stripped in the prior de-Effectification commits (ae82728, f97e5dd). They became dead code when the corresponding service methods switched from Effect.Effect<T, Problem> to native sync/Promise<T> signatures.\n\nDrop three unused type imports (CommandsProblem, EditorProblem, TextModelResolverProblem) from the interface declaration files — these type-only imports referenced the old Effect error types that are no longer part of any method signature.\n\nFix import paths in TextModelResolver/Live.ts from ../../Model/ to ../Model/, correcting a path that resolved to the nonexistent Source/Model/ instead of the actual Source/Effect/Model/.",
+			"SHA": "e71ed57bf80034ee3c443ee007143d4395253582"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T15:11:00Z",
+			"Date": "2026-06-12T21:58:02Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				925,
-				1
+				907,
+				5
 			],
-			"Message": "chore(Wind): Untrack and ignore tsconfig.tsbuildinfo (TypeScript incremental build cache)\n\nAdd explicit .gitignore entry for tsconfig.tsbuildinfo — the TypeScript incremental compilation cache file produced by tsc's --incremental flag. This binary-adjacent JSON file changes on every build and should never be version-controlled.\n\nContinues the ongoing cleanup of build artifacts in the Wind submodule (previously: *.d.ts, *.d.ts.map, Source/ESBuild.js, *Generated.ts).",
-			"SHA": "5217c99c5a7bd438d23b763f25bc19452dce1046"
+			"Message": "refactor(Wind): Strip Effect monad from Editor and TextModelResolver services\n\nContinue the de-Effectification of low-level Wind service bindings, following the pattern established in the Commands service (f97e5dd). Both EditorService and TextModelResolverService convert their Effect.Effect return types to native sync/Promise signatures.\n\nEditorService:\n- Sync getters (GetActiveEditor, GetVisibleEditors, GetSelections) return plain values instead of Effect<..., EditorProblem>.\n- Async methods (OpenEditor, CloseEditor, etc.) return Promise<T> instead of Effect<T, EditorProblem>.\n- Delete the EditorServiceTag reference and Layer.succeed wrapper from Live.ts. Export LiveEditorServiceLayer as the plain service object.\n- Replace the tagged union EditorProblem type with plain Error via MakeEditorProblem.\n\nTextModelResolverService:\n- Interface methods (Resolve, HasModel, Reload) return Promise<T> instead of Effect<T, TextModelResolverProblem>.\n- Delete TextModelResolverServiceTag and Layer.succeed wrapper from Live.ts. Export LiveTextModelResolverServiceLayer as the plain service object.\n- Bridge the ModelService (which still uses Effect) via Effect.runPromise wrappers (OpenModel, GetModel, CloseModel) at the top of the module, isolating Effect imports to a single bridge boundary.\n- Replace MakeResolverProblem tagged union with plain Error.\n\nThis reduces runtime overhead from Effect pipeline construction for these thin Tauri IPC wrappers where no composition, retry, or scheduling guarantees are required.",
+			"SHA": "ae827284cc4b3c44f88e7069e3b369a5092b1afc"
 		}
 	],
-	"TimeStamp": 1782051973414
+	"TimeStamp": 1783777324984
 }

@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:20:44Z",
+			"Date": "2026-05-20T05:37:16Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1510,
-				7
+				1574,
+				4
 			],
-			"Message": "feat(Mountain): Implement native file descriptor API and refine Tauri window handlers\n\nComplete the implementation of the `nativeHost` IPC surface by adding `file:open` and `file:close` handlers. These functions establish a process-global file descriptor table (backed by `HashMap<u32, File>` and `AtomicU32`) to support VS Code's `DiskFileSystemProvider` for large binary I/O, replacing previous full-read/write fallbacks.\n\nRefine window management handlers: implement `setDocumentEdited` for the macOS dirty-dot indicator, `setMinimumSize` to prevent workbench collapse, and `positionWindow` for multi-window restoration. Update `setRepresentedFilename` to display the filename component in the title bar. Re-evaluate `is_alive` connection logic to remove artificial sleep delays.\n\nOptimize `tree-view/create` event emission in `EnqueueTreeViewEmit` by migrating from per-call `tokio::spawn` to a persistent mpsc channel with a 16ms frame-aligned batcher. This eliminates task overhead during boot. Additionally, reduce the terminal startup delay from 120ms to 20ms, matching M-series hardware capabilities, and improve `LifecyclePhaseState` formatting.",
-			"SHA": "8cde99c082f32ec6c8726e947e7a696d2c3ccf7e"
+			"Message": "style(Mountain): Reflow long lines and brace placement across four files\n\nNormalize formatting in `UpdateValue.rs`, `WindServiceHandlers/mod.rs`, `InitializationData.rs`, and `CocoonService/mod.rs` to align with Rust style conventions. Changes are limited to comment reflow, static declaration compaction, method body compression, and brace positioning — no logic is altered.\n\nCleans up artifacts from prior commits where formatter passes were missed, keeping the codebase consistent.",
+			"SHA": "65f1cf26cfa85fc1639f84d0458df61276bfa44a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:12:50Z",
+			"Date": "2026-05-20T05:37:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1508,
+				1574,
+				6
+			],
+			"Message": "feat(Mountain): Add lang-scoped config override, stable session ID\n\n**Language-scoped configuration overrides** — `UpdateValue` now writes into\n`\"[<langId>]\": { key: value }` when the `ConfigurationOverridesDTO` carries a\nnon-empty `OverrideIdentifier`, matching the VS Code convention used by\nprettier-vscode, vscode-eslint, and other per-language formatters. The scope\nkey is cleaned up when its last entry is removed.\n\n**Stable session ID** — `ConstructSandboxConfiguration` and\n`ConstructExtensionHostInitializationData` now share a `OnceLock`-backed\nstatic `SESSION_ID` instead of generating a fresh `Uuid::new_v4()` per call.\nExtensions comparing `telemetryInfo.sessionId` across initialization calls now\nsee a consistent value for the process lifetime.\n\n**Call/Type hierarchy RPC handlers** — `CocoonService` now dispatches\n`$provideCallHierarchyItems`/`prepareCallHierarchy` and\n`$provideTypeHierarchyItems`/`prepareTypeHierarchy` generic requests to\n`Environment::PrepareCallHierarchy` and `PrepareTypeHierarchy` respectively,\nunblocking F12 / Go to References / Call Hierarchy in the editor.\n\n**Real IPC stubs** — `mountain_get_configuration` returns the live merged\nconfig object; `mountain_get_services_status` reports actual Cocoon connection\nstate; `mountain_get_state` surfaces real workspace folder count and active\ndocument URI. Eliminates hardcoded mock data.\n\n**SOCKS proxy support** — Proxy env-var parsing now emits the correct PAC\nkeyword (`SOCKS` for socks/socks4/socks5 URIs, `PROXY` for http/https),\nso extensions using the `proxy` setting work behind SOCKS proxies.\n\n**Dev-log lock contention** — `FlushDedup::Fn` switches from `lock()` to\n`try_lock()` so a contended dedup mutex never parks a Tokio worker thread.\nThe dedup line is cosmetic; missing one flush costs nothing.\n\n**Atomic always-on-top toggle** — Replaces the heuristic title-prefix proxy\nwith a `static AtomicBool` so `nativeHost:toggleWindowAlwaysOnTop` correctly\nflips and sets the opposite state on each invocation.\n\n**ViewColumn forwarding** — The `window.didChangeTextEditorSelection`\nVine notification now includes `viewColumn` from the incoming arguments,\nso extensions calling `activeTextEditor.viewColumn` see the correct pane\nnumber in split-editor layouts.",
+			"SHA": "5c627091d0aecbc4b96f536dde7bdf12242cc6f7"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T05:21:19Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1574,
 				1
 			],
 			"Message": "",
-			"SHA": "6d6a91d70b16bd92b1e029b42f68b7a60810df75"
+			"SHA": "07bd1cd0f25a8de5e7c19ec3eb0eab1bfabc8eca"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:12:50Z",
+			"Date": "2026-05-20T05:21:19Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1508,
-				8
+				1574,
+				6
 			],
-			"Message": "feat(Mountain): Implement native AES-256-GCM encryption and async lifecycle synchronization\n\nIntroduce a complete encryption subsystem for the Wind service handlers to support VS Code's `IEncryptionService`. Implement `encryption:encrypt` and `encryption:decrypt` using AES-256-GCM via the `ring` crate. The 256-bit key is derived from the host machine's hardware UUID (macOS `IOPlatformUUID`, Linux `/etc/machine-id`, Windows `MachineGuid`), ensuring stored secrets survive process restarts but remain unreadable on other machines, matching native editor semantics.\n\nRefactor the application lifecycle state to eliminate 100ms polling loops. Replace `LifecycleWhenPhase` busy-wait logic with `tokio::sync::Notify` primitives in `LifecyclePhaseState`. Handlers now await specific phase transitions immediately, reducing boot latency and CPU usage during startup.\n\nUpdate `DecorationTypeLifecycle` notification handling to use a single batched emit operation per channel, reducing IPC overhead during high-frequency UI updates.",
-			"SHA": "eafc4a40a6dc02017466152643d736c8eccced92"
+			"Message": "fix(Mountain): Reduce lock contention; notify Cocoon on config change\n\n**Lock contention fixes** — In `ScanAndPopulateExtensions`, replace the N-insert\nloop under `ScannedExtensions` lock with a single pointer-swap (`*Guard = All.clone()`),\nreducing lock hold time from 100–500 ms to a clone duration. In `DiagnosticProvider`,\nsnapshot the `DiagnosticsMap` under the lock then aggregate outside it, so concurrent\n`SetDiagnostics`/`ClearDiagnostics` calls are not blocked during serialization.\n\n**Cocoon config notification** — After a successful configuration value write in\n`UpdateValue`, fire a `configuration.change` Vine notification to `cocoon-main` so\nextensions' `ConfigCache` invalidates the affected key and re-primes on next access.\nWithout this, `workspace.getConfiguration().get(key)` returns stale cached data until\nthe next full re-merge notification.\n\n**Cleanup** — Group `SkyEvent` import into existing block in `UpdateValue`; collapse\n`TextfileSave` import paths; fix `AppMenu` and `FileWriteNative` formatting.",
+			"SHA": "7018ff29e26f00125ebe80f2482765bbdb842202"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:07:52Z",
+			"Date": "2026-05-20T05:20:43Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1503,
-				1
+				1574,
+				2
 			],
-			"Message": "",
-			"SHA": "b0efb2cbc7f5e481b38f8b4190c511a99c41388e"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T02:07:52Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1503,
-				26
-			],
-			"Message": "feat(Mountain): Replace polling loops with async notifies and wire native IPC handlers\n\nRefactor extension scanning and sidecar connection logic to replace busy-wait polling with `tokio::sync::Notify` synchronization primitives. Introduce `ExtensionState.ScanReady` and per-sidecar connection notifiers to unblock callers (e.g., `extensions:getInstalled`, `WaitForClientConnection`) immediately upon state transition, eliminating 50ms polling intervals and reducing boot latency.\n\nImplement full handlers for the `nativeHost` lifecycle surface (Exit, Quit, Relaunch, Reload, KillProcess, Install/UninstallShellCommand) and filesystem watching (`file:watch`, `file:unwatch`). These replace previous stub acknowledgments, enabling proper process management and native file system event routing to extensions.\n\nOptimize high-frequency gRPC notification paths (`RegisterCommand`, `ProgressReport`, `DecorationTypeLifecycle`) by migrating from per-call task spawning to a single long-lived mpsc-backed batch flusher. This reduces IPC saturation and task overhead during extension boot by coalescing thousands of rapid updates into single frame-aligned events.\n\nUpdate `Entitlements.plist` to use block-style XML formatting and clarify sandbox exemptions for the non-sandboxed editor environment.",
-			"SHA": "41b8029154da51b0556aa59039f99e6a7751c31c"
+			"Message": "fix(Mountain): Fix StorageProvider race and Cocoon-connect boot latency\n\n**StorageWriteDebouncer race** — Reorder the flush loop to take the pending\nitem before clearing `FlushScheduled`, so a concurrent `Queue()` call\ncannot observe the flag as `false` and the slot as empty, scheduling a\nno-op flush.\n\n**Scope-correct debouncer** — Select `GetWorkspaceDebouncer` for workspace\nscopes instead of always routing through the global debouncer, preventing\na workspace bulk-save and global bulk-save from sharing the same pending\nslot.\n\n**Dev-log noise suppression** — Add `file:open`, `file:close`, and\n`textFile:save` to the low-level noise skip list. These fire once per file\nduring project-open cascades and once/second per dirty file for auto-save\nintent, polluting IPC logs without diagnostic value.\n\n**Cocoon-connect boot latency** — Remove the 3-second blocking\n`WaitForClientConnection` from `languages:getAll` and\n`languages:getEncodedLanguageId` handlers. Tokenizer calls\n`getEncodedLanguageId` synchronously on first editor open. With the old\nwait, the worker stalls for up to 3 s before Cocoon is available. Return an\nempty fallback array immediately when Cocoon isn't connected; the workbench\nretries on next keystroke.",
+			"SHA": "920f9dc6bbda677a2de6d3018582afbb14de5b26"
 		}
 	],
-	"TimeStamp": 1782052022276
+	"TimeStamp": 1783777339568
 }

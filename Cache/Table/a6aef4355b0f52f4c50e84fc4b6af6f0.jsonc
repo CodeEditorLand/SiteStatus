@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:38:10Z",
+			"Date": "2026-05-19T21:44:44Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				"⠁⠀⠀⠀⠀",
+				1517,
+				21
 			],
-			"Message": "feat(Mountain): Enable content protection for macOS overlay title bar\n\nAdd the `content_protected(true)` setting to the macOS `WindowBuilder` configuration in `WindowBuild.rs`. While the `TitleBarStyle::Overlay` is required for custom traffic light rendering, it allows webview content to extend underneath the system window controls by default.\n\nThis protection flag reserves a safe zone around the traffic-light cluster on macOS, preventing the `WKWebView` from rendering underneath the native buttons. This resolves potential click-through issues and visual overlap between the editor workbench and the system titlebar, ensuring the custom traffic lights remain interactive and visually distinct.",
-			"SHA": "2d569c4b2d69bcbff098a7bcaf449f7098f3db8b"
+			"Message": "refactor(Mountain): Extract shared notification relay/unregister helpers\n\nSixteen Cocoon-to-Mountain notification handler files contained nearly\nduplicated inline code — every output, progress, channel, and\nprovider-unregistration atom repeated the same three-step pattern\n(emit a Tauri sky:// event + dev_log, or extract a u32 handle +\nunregister + dev_log).\n\nCollapse all of them into two shared helpers under a new\n`Support/` submodule:\n\n- `RelayToSky` — calls `ApplicationHandle.emit(SkyEvent, Parameter)`\n  and optionally writes a dev-log line. Used by OutputAppend,\n  OutputClear, OutputCreate, OutputDispose, OutputShow,\n  OutputChannelClear, OutputChannelCreate, OutputChannelDispose,\n  OutputChannelShow, ProgressComplete, and ProgressUpdate — each now\n  a single delegation call.\n- `UnregisterByHandle` — reads a `handle` u64 from the parameter,\n  guards against zero, calls\n  `ProviderRegistration::UnregisterProvider`, and logs the provider\n  kind. Used by UnregisterAuthenticationProvider,\n  UnregisterDebugAdapter, UnregisterDebugConfigurationProvider,\n  UnregisterFileSystemProvider, UnregisterTaskProvider, and\n  UnregisterUriHandler.\n\n`UnregisterFileSystemProvider` and `UnregisterUriHandler` additionally\nlog their scheme field before delegating, preserving the traceability\ninformation that was unique to those atoms.\n\n21 files changed, 67 insertions, 231 deletions.\n\nNo behavioural changes — every handler produces the same Tauri\nsky:// event and the same dev-log output as before.",
+			"SHA": "3427a0c39e6129a8df9ff50b6b1015a70c4dd2e2"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:23:17Z",
+			"Date": "2026-05-19T21:41:36Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				1
+				1513,
+				13
 			],
-			"Message": "fix(Mountain): Wrap webview scheme handler closure in AssertUnwindSafe\n\nUpdate the `catch_unwind` invocation in `VscodeWebviewSchemeHandler` within `Scheme.rs` to explicitly wrap the closure in `AssertUnwindSafe`. The previous implementation omitted this trait requirement, causing compilation failures when attempting to catch panics inside the async closure passed to the panic handler.\n\nThis restores the ability to gracefully handle panics within the VS Code webview asset loading path, ensuring that errors in MIME resolution or file reading return HTTP 500 responses rather than crashing the editor process. The change aligns `VscodeWebviewSchemeHandler` with the established panic recovery pattern used in `VscodeFileSchemeHandler`.",
-			"SHA": "01422c257e48f4a9f8a8fb32093daf2a7d283073"
+			"Message": "feat(Mountain): Terminal serialization/revival, fill IPC gaps\n\nComplete the terminal window-reload persistence cycle and close multiple VS Code Workbench IPC compatibility gaps:\n\n**Terminal state persistence (window reload):**\n- Add `SerializeTerminalState` — snapshot all active PTYs to `ISerializedTerminalState[]` with `shellLaunchConfig`, `processDetails`, and replay metadata, called by `localPty:serializeTerminalState` just before reload.\n- Add `ReviveTerminalProcesses` — respawn shells from the snapshot array, forwarding each entry to `TerminalCreate` and emitting `sky://terminal/create` for the xterm panel. Skips entries with an empty executable.\n- Wire `localPty:getRevivedPtyNewId` to `GetNextTerminalIdentifier()` (no longer a no-op) so the workbench pre-allocates collision-free IDs before revival.\n\n**Configuration/Theme IPC completeness:**\n- Alias `configuration:lookup` → `ConfigurationGet` — needed by `IConfigurationService.getValue(key)` in the Workbench singleton.\n- Implement `configuration:inspect` — returns `{value, default, user, workspace, workspaceFolder, memory}` with the current effective value in both `value` and `default`, null for all scope overrides (correct for Land where no user/workspace JSON overrides exist).\n- Alias `themes:getColorTheme` → `ThemesGetActive` — `IThemeService.getColorTheme()` Workbench channel method.\n- Extend `ThemesGetActive` response with numeric `ColorThemeKind` enum (`type`: 1-4) and `semanticHighlighting: false` so tokenization and colour-picker internals have the expected shape.\n\n**Dialog unwrapping for Wind consumption:**\n- `UserInterface.ShowOpenDialog` — unwrap `{canceled, filePaths}` envelope to bare `string[]` so Wind's `Array.isArray(result)` guard finds the paths.\n- `UserInterface.ShowSaveDialog` — unwrap `{canceled, filePath}` envelope to bare path string so Wind's `typeof result === \"string\"` guard succeeds.\n\n**Path format fix in sandbox config:**\n- Convert `appRoot`, `homeDir`, `tmpDir`, `userDataDir`, `backupPath` from `file://` URLs to plain OS filesystem paths. VS Code's `URI.file(path)` receives these via `AbstractNativeEnvironmentService` and double-encodes a `file://` string, producing broken `path.join` bases.\n\n**Provider registration for VS Code ≥1.87 APIs:**\n- Add `register_inline_completion_item_provider`, `register_inline_edit_provider`, `register_multi_document_highlight_provider`, `register_mapped_edits_provider`, `register_document_paste_edit_provider`, `register_document_drop_edit_provider` — each wires through `CreateProviderEffect` into the existing ProviderRegistration map so the Language Feature dispatch layer can proxy `$provideXxx` requests back to Cocoon.\n\n**Terminal show/hide via gRPC provider path:**\n- Wire `$terminal:show`/`$terminal:hide` and `Terminal.Show`/`Terminal.Hide` through `TerminalProvider` — Cocoon's window namespace shim calls these when extensions invoke `terminal.show(preserveFocus)` or `terminal.hide()`, and both call sites now share one implementation.\n\n**Debug configuration provider cleanup:**\n- Add gRPC notification `unregister_debug_configuration_provider` with `UnregisterDebugConfigurationProvider` handler — mirrors `UnregisterDebugAdapter` for the DebugConfiguration slot, invoked when an extension disposes a `vscode.debug.registerDebugConfigurationProvider` registration.\n\n**Stub-ack additions:**\n- Add `log:registerLogger`/`log:createLogger` alongside the existing `logger:*` stubs — VS Code 1.87+ calls both prefixes and was crashing on every boot with \"registered but no dispatch arm\".\n\n13 files changed, 479 insertions, 23 deletions.",
+			"SHA": "7d6b949d24c36559cb084154ef6c4be20b9a716e"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:16:54Z",
+			"Date": "2026-05-19T04:43:59Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1510,
 				1
 			],
-			"Message": "fix(Mountain): Consolidate panic recovery logic in scheme handlers\n\nMigrate the panic recovery implementation in `VscodeWebviewSchemeHandler` to match the established pattern in `VscodeFileSchemeHandler`. The previous implementation attempted to use `catch_unwind` but failed to handle the `AssertUnwindSafe` trait requirement and redundantly implemented the result matching logic inside the closure.\n\nUpdate `VscodeWebviewSchemeHandler` to use `catch_unwind` with `AssertUnwindSafe` for the closure wrapper and move the `match` result handling and `dev_log` error reporting to the function scope. This ensures that panics within the webview asset loading path (e.g., in MIME type resolution or file reading) are caught, logged with backtrace details, and converted to HTTP 500 responses without crashing the editor process.\n\nAlign the import structure in `Scheme.rs` to group `panic` imports correctly. This change unifies the error handling strategy for both file and webview scheme handlers, ensuring consistent graceful degradation across the native backend's asset serving layer.",
-			"SHA": "139de360adc2c0b17a5adbef32cee1d8d6e06c54"
+			"Message": "fix(Mountain): Supply missing INativeWindowConfiguration fields in sandbox config\n\nAdd eight non-optional fields to the `ConstructSandboxConfiguration` JSON blob that VS Code's `NativeWorkbenchEnvironmentService` and related environment service layers access without null-checks:\n\n- `perfMarks`, `loggers` — empty arrays expected by performance-mark collection and logger initialization pathways.\n- `colorScheme` — default `{ dark: false, highContrast: false }` used early in startup before the real theme is resolved.\n- `mainPid` — the current process ID, consumed by process-tree and crash-reporter logic.\n- `os` — includes `release`, `hostname`, and `arch` derived from `std::env::consts`, required by platform-conditional feature gating in the workbench.\n- `dataFolderName` / `sharedDataFolderName` — set to `.fiddee` (or the `ProductDataFolderName` env var), preventing `URI.joinPath(userHome, undefined, \"extensions\")` from throwing a TypeError in `extensionsPath` and `appSharedDataHome`.\n- `version` — read from `ProductVersion` env var, defaulting to `1.0.0`, used by extension compatibility checks and telemetry reporting.\n\nMissing any of these causes crashes during extension host initialization and workbench service construction. Body uses trailing comma syntax consistently.",
+			"SHA": "0066703567eaf9dd4ae8579009011dbc6b79318a"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:10:11Z",
+			"Date": "2026-05-19T04:19:09Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
-				2
+				1510,
+				6
 			],
-			"Message": "fix(Mountain): Migrate VS Code webview scheme handler to internal panic wrapper\n\nMove the VS Code webview scheme handler logic into a private `_VscodeWebviewSchemeHandler` function and wrap the public entry point with `std::panic::catch_unwind`. This mirrors the protective pattern recently implemented for the file scheme handler to prevent editor crashes caused by panics crossing the Objective-C FFI boundary.\n\nConcurrently, remove the `LSEnvironment` dictionary from `Info.plist`. These runtime configuration values (including network ports and feature tiers) were previously stored in the property list but are now generated and injected at build time via `build.rs` and `Scheme.rs`. Removing the dead XML nodes cleans up the configuration file and aligns the binary structure with the current build process.\n\nThis change ensures graceful error recovery for webview asset requests and resolves configuration drift by centralizing environment setup in the Rust build logic.",
-			"SHA": "230ca02557a152875ce896802af0b4c5ec9d5929"
+			"Message": "fix(Mountain): Add logsPath to sandbox config, clean up handlers\n\nAdd the required `logsPath` field to `ISandboxConfiguration` to prevent VS Code's `NativeWorkbenchEnvironmentService.logsHome` from resolving to `undefined`, which crashes the extension host with a `TypeError` in `path.join`. The path is derived from `AppDataDir/logs/<session-timestamp>`, created eagerly before constructing the sandbox object.\n\nRemove the `nativeHost:setDocumentEdited` handler body — `NSWindow::setDocumentEdited` is not exposed by Tauri 2.x's `WebviewWindow` API — and strip the unused `ping_timeout` field from `ConnectionHealthChecker` since health checks are now call-path-driven rather than timer-based.\n\nSimplify early-return control flow in `isPortFree` and `getTerminalProcessId` to reduce branch nesting and eliminate dead returns. Fix the `TerminalId` type in `ResizeTerminal` with an explicit `.into()` conversion.\n\nRedraw the README architecture diagram as a structured subsystem hierarchy (Binary/, Track/, RunTime/, IPC/, Vine/, RPC/) with accurate gRPC port annotations for the Cocoon (:50052) and Air (:50053) sidecars.\n\nAdd `MIRIFLAGS=-Zmiri-disable-isolation` to `.cargo/config.toml` to permit `_NSGetExecutablePath` calls during Miri testing.",
+			"SHA": "0644dc0e1c7ea10717d827c6f4bdbde334d3da45"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-13T22:05:17Z",
+			"Date": "2026-05-19T03:01:20Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1490,
+				1510,
 				1
 			],
-			"Message": "fix(Mountain): Wrap scheme handlers in panic catch to prevent editor crash\n\nAdd `std::panic::catch_unwind` guards around `_VscodeFileSchemeHandler` and `_VscodeWebviewSchemeHandler` to prevent the entire editor process from aborting. These handlers run inside the `wkwebview` Objective-C FFI boundary, where panics crossing the `extern \"C\"` limit cause immediate process termination.\n\nThe implementation catches panics, logs the error message and current thread backtrace via the `lifecycle` dev_log, and returns a standard HTTP 500 Internal Server Error response instead. This ensures that bugs in memory mapping (mmap) or MIME type handling within the asset loading path result in a graceful failure rather than a full application crash.",
-			"SHA": "478ca92acb177ec84b73c6e5faf4f56c4d4b5ddf"
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "f05bb15337235ffc6fc2de4ac1988fe3a8d9e19a"
 		}
 	],
-	"TimeStamp": 1782052027904
+	"TimeStamp": 1783777341090
 }

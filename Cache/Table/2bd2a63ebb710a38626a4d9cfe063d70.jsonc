@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:23:00Z",
+			"Author": "Auto",
+			"Date": "2026-06-13T04:01:23Z",
 			"File": [
-				"⠃⠀⠀⠀⠀",
-				924,
-				38
+				"⠀⠀⠀⠀⠀",
+				795,
+				1
 			],
-			"Message": "refactor(Wind): Strip Effect Context.Tag from workbench service tags and replace ManagedRuntime with plain registry\n\nRemove the final Effect abstraction layer from all 18 workbench services by converting each `Context.Tag` class into a simple type alias. The `LandWorkbenchRuntime` switches from `ManagedRuntime.make(LandWorkbenchLayer)` to an eagerly-constructed plain-object registry that imports each `*Live` implementation directly.\n\nConcrete changes:\n- **18 Tag files** (UserSettings, Activity, Clipboard, Command, ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout, Lifecycle, Notification, Product, Progress, Storage, Theme, Workspace): Replace `class XTag extends Context.Tag(...)` with `export type XTag = XService`. Drop the `Context` import, `const X = XTag` alias, and `default` export.\n- **LandWorkbenchRuntime**: Replace `ManagedRuntime` wrapping `LandWorkbenchLayer` with a `LandWorkbenchServices` interface + plain object. Each service field receives its `XLive` instance directly. The `Dispose` method no longer calls `ManagedRuntime.dispose()` — it only clears the global singleton.\n- **LandWorkbenchGlobal**: Replace `RunPromise`/`RunPromiseExit` Effect-based accessors with a direct `Services` property exposing the typed `LandWorkbenchServices` object. Drop the `LandWorkbenchLayer` import and the `Layer` export from `CELWindGlobalShape`.\n- **18 index.ts barrel files**: Change `export { ... }` to `export type { ... }` since the tags are now only type-level artifacts.\n\nAll 18 index.ts barrel files now emit only type declarations — no runtime Effect artifacts remain. This completes the third wave of the Layer-flattening initiative, following the live-implementation and Layer wrapper stripping in previous commits.",
-			"SHA": "aa7933b23ae1f73d154edf7a2e83a8f3e7342555"
+			"Message": "",
+			"SHA": "fc06d87b1dae12f2069734e0cf05c549af5384eb"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:22:10Z",
+			"Date": "2026-06-12T23:17:38Z",
+			"File": [
+				"⣿⡿⠀⠀⠀",
+				795,
+				300
+			],
+			"Message": "refactor(Wind): Complete service migration from Source/Effect/ to Source/Service/Effect/, prune dead Configuration module\n\nMove all 30+ Wind service domains from the outdated `Source/Effect/` path to the canonical `Source/Service/Effect/` hierarchy, updating barrel exports and JSDoc import paths accordingly. Delete the orphaned Configuration module — all 6 files under `Source/Effect/Configuration/` (ConfigApplyError, ConfigFetchError, ConfigValidationError, ConfigurationHelper, ConfigurationImplementation, ConfigurationService, ConfigurationMock, ConfigurationSchemaType, and index) — which became dead code when its functionality was absorbed into Bootstrap stages.\n\nActivate the deep-shim system at bootstrap time: wire EventInterceptor, NetworkProxy, and AsyncProxy into `TauriMainProcessService` constructor under the TierShim gate, ensuring DOM event interception, network routing, and async scheduling interception are installed before any workbench code executes. Add `createInterceptedInvoke` wrapper to both `_InvokeViaNode` and `InvokeMountain` so all MountainIPCInvoke calls flow through the IPCInterceptor for ShinkLevel-aware routing.\n\nReformat the entire codebase for consistent blank-line spacing between statement blocks, satisfying the format-pipeline blank-line formatter. Fix import ordering in shim modules (IPCInterceptor, EventInterceptor, Index) to match project convention. Improve type safety in AsyncProxy by replacing `@ts-nocheck` with proper typed originals and eliminating the nullable Originals pattern. Remove stale `effect` and `@effect/language-service` dependencies from package.json.\n\nImpact: Clean module boundaries under `Source/Service/Effect/`, zero dead Configuration code, and fully wired deep-shim activation at the Tauri service level. All 388 staged files pass formatting and type checks.",
+			"SHA": "967049675678d7d31281e1af1983291819dbbc3f"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:34:44Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				810,
+				5
+			],
+			"Message": "feat(Wind): Add async scheduling and network proxy interceptors to deep-shim system\n\nIntroduce two new proxy layers for Land's deep-shim interception architecture, completing Layers E (network) and F (async scheduling) alongside the existing EventInterceptor (Layer D).\n\n**AsyncProxy (Source/Shim/AsyncProxy.ts):** Monkeys all 8 async scheduling primitives — setTimeout, clearTimeout, setInterval, clearInterval, requestAnimationFrame, cancelAnimationFrame, requestIdleCallback, cancelIdleCallback — routing zero-delay timers through a microtask batch flush for coalescing, tracking interval handles through an ActiveIntervals map for proper cleanup, and delegating rAF/rIC to Land's render/idle cycle. String-eval callbacks are safely wrapped.\n\n**NetworkProxy (Source/Shim/NetworkProxy.ts):** Intercepts global fetch() and XMLHttpRequest to route network calls through Land's service tree. Microsoft telemetry endpoints (dc.services.visualstudio.com, vortex.data.microsoft.com) are silently discarded with a 204 response. vscode-file:// URIs are routed to Mountain's scheme handler (501 stub pending wire-up). Extension gallery queries (marketplace.visualstudio.com, open-vsx.org) are forwarded to Land's GalleryService (501 stub pending wire-up). All other traffic passes through to the original fetch/XHR unchanged.\n\n**FullIndex (Source/Shim/FullIndex.ts):** Combined barrel export re-exporting the core shim (Index.ts) plus EventInterceptor, NetworkProxy, and AsyncProxy — the \"everything\" entry point for the deep-shim system. All exports are dead-code-eliminated by esbuild when TierShim=None.\n\n**Documentation:** Add Shim Compatibility section to Architecture.md with shim tier comparison table. Add a standalone Repository README.md with the same tier table pointing to the architecture doc.\n\nAll three new modules are gated behind the IsEnabled check from Gate.ts — zero runtime overhead when TierShim=None.",
+			"SHA": "bfefeb33a21df23add80241edb7ef02836ee103a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:26:03Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				806,
+				1
+			],
+			"Message": "feat(Wind): Install EventTarget.addEventListener interceptor for TierShim event swallow\n\nAdd `Source/Shim/EventInterceptor.ts` — a DOM-level interceptor that patches `EventTarget.prototype.addEventListener` to redirect matched event types to Land's RedirectBus instead of attaching them to the DOM element.\n\nWhen TierShim is \"Own\" or \"Preempt\", the interceptor checks each registered listener against SwallowMap rules. Matched listeners are registered on the RedirectBus (with the event type as the pattern) and the DOM attachment is skipped entirely. Unmatched event types pass through to the original `addEventListener` unchanged. The activation gate uses the esbuild-defined `__LandTier_Shim__` symbol in production builds, falling back to `process.env.TierShim` in dev.\n\nThe module must be installed at the top of Wind's bootstrap entry point, before any UI component registers listeners. This completes the DOM-intercept layer of the deep-shim architecture, giving Land control over event dispatch for specific event types that VS Code would otherwise capture.",
+			"SHA": "072b495a2e9d70308841fee63f3192f86204515a"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-06-12T22:19:55Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				924,
-				18
+				805,
+				23
 			],
-			"Message": "refactor(Wind): Strip Effect Layer wrappers from 18 workbench live implementations\n\nRemove the `Layer.succeed` / `Layer` import indirection layer from all workbench service live implementations — UserSettings, Activity, Clipboard, Command, ContextKey, Dialog, Editor, Extension, Host, Keybinding, Layout, Lifecycle, Notification, Product, Progress, Storage, Theme, and Workspace — replacing `export const XLive = Layer.succeed(Tag, makeX())` with direct `export const XLive = makeX()`.\n\nThis is the second wave of the Layer-flattening initiative (following 8814bfe1). Each file also drops the unused `Layer` import and the corresponding `*ServiceTag` import. The factory function `makeX()` already produces a valid service object matching its interface; wrapping it in a `Layer` provided no additional composition value since these services are consumed directly via the tag in Wind's dependency graph.\n\nRemoves 72 lines of boilerplate across 18 files. All exports remain available as named and default exports for backward compatibility.",
-			"SHA": "baabb3fa4406f6dcd2f875658d0d27b73fefbf79"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T18:05:32Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				924,
-				11
-			],
-			"Message": "refactor(Wind): Flatten Effect wrappers and harden Tauri IPC dispatch\n\nRemove indirection from editor state management, progress reporter, and text model resolver by replacing `Ref`/`Effect.runFork` with direct mutable variables and sync calls where asynchronous wrapping added no value. Simultaneously strengthen the Tauri IPC layer with proper listener lifecycle tracking, reliable node-deferred fallback, and error propagation.\n\n**Editor state (Live.ts):** Replace `Ref.unsafeMake`/`Ref.set`/`Ref.get` wrapping with bare `let`/`const` variables and `Effect.sync` accessors. The Tauri event listener subscription shifts from `Effect.runFork`/`Effect.promise` to raw `async`/`await import`, removing the imperative Effect allocation around a fundamentally imperative callback.\n\n**Progress service (WorkbenchProgressLive/Interface):** Make `Report` a sync `void` return — the upstream VS Code reporter is already synchronous — and change `Run`'s body callback to `Promise<A>` instead of `Effect.Effect<A, …>`. The bridge API (`window.createAsyncWorkbenchProgress`) expects an async function, so wrapping its return in `Effect.runPromise` was pure overhead.\n\n**Text model resolver (TextModelResolver/Live):** Replace `Effect.runFork` + `Effect.ignoreLogged` with `Effect.runPromise` + `.catch(() => {})`, avoiding a forked fiber with logged-ignore semantics for a fire-and-forget close.\n\n**Tauri IPC (TauriIPC.ts):** Implement proper `ChannelUnlisteners` tracking in a module-level `Map<string, () => void[]>` so that `removeAllListeners` actually detaches Tauri event listeners instead of accumulating them across window reloads. Fix `send` to always serialize args as `unknown[]` — prior special-casing of single-element arrays caused Mountain-side argument desync with TauriMainProcessService's contract.\n\n**Tauri main process service (TauriMainProcessService.ts):**\n- Remove `output` from `FireAndForgetChannels`: Mountain's `output:createOutputChannel` and `registerLogger` return handles that callers consume, so they must round-trip.\n- Add `NodeDeferred` tier: when Mountain returns `undefined` (no native handler registered) or throws, the call re-dispatches through the Node-tier cocoon:request path instead of surfacing the error or returning `undefined` to undefined-intolerant workbench consumers.\n- Propagate MistWS errors: instead of silently catching and falling back to Mountain, `Node`-tier calls now rethrow the error to maintain the Node-only contract. Other tiers trace the double-dispatch.\n- Rethrow Mountain invocation errors instead of returning `undefined`: callers expecting arrays or tuples see a rejected promise rather than `undefined` leaking into `.map`/`.forEach`.\n\n**Storage (StorageService Live/Interface):** Add `GetItems` (bulk read as `[key, value][]` tuples), `UpdateItems` (atomic insert/delete in one round-trip), and `Optimize` (flush the store) — wiring three new IPC channels against Mountain's `StorageProvider`.\n\n**Search (SearchService Live/Interface):** Accept `string | readonly string[]` for `include`/`exclude` glob patterns and normalize to `string[]` via `ToGlobArray` before sending to Mountain, matching the workbench's dual single-string/array contract.\n\n**Workspaces (Live.ts):** Extract inline coercion logic into a named `CoerceFolderArray` helper for readability.",
-			"SHA": "8814bfe130f9dbe578f886694c4cb249d3c5e427"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:34:46Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				924,
-				3
-			],
-			"Message": "feat(Wind): Route output dispose and working copy dirty checks through IPC\n\nWire two previously local-only operations through to Mountain's native handlers, and implement a proper SaveAll flow that iterates dirty files instead of issuing a single no-op command.\n\n- **OutputService.Dispose**: Replace local `ActiveChannels.delete()` with `IPCService.invoke(Channel.OutputDispose)`, notifying Mountain's `OutputChannelManager` so the output channel is properly cleaned up on the native side. Document the `output:dispose` IPC channel.\n- **TextFileService.SaveAll**: Query `workingCopy:getAllDirty` to retrieve the list of dirty URIs from Mountain, then issue one `output:save` per dirty file with `Effect.all({ concurrency: \"unbounded\" })`. This replaces the prior no-op that called `output:save` with no arguments.\n- **TextFileService.IsDirty**: Invoke `workingCopy:isDirty` via IPC instead of returning `Effect.succeed(false)`, giving callers an accurate dirty-state check per URI.\n- **README.md**: Add `title=\"Star\"` attribute to the GitHub star badge image element; remove the trailing em-quad from the `## System Architecture` heading to match the revised convention.",
-			"SHA": "c267104ad468e9ce43ec49c746cb5dc8a138eaea"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T17:20:44Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				924,
-				3
-			],
-			"Message": "Merge pull request #454 from CodeEditorLand/dependabot/github_actions/actions/checkout-6.0.3\n\nbuild(deps): bump actions/checkout from 6.0.2 to 6.0.3",
-			"SHA": "24e4499660064d1977d15eccf34fbf5184a4f5b1"
+			"Message": "refactor(Wind): Prune orphaned Effect-TS imports from de-Effectified service domains\n\nRemove the final dangling Effect-TS import statements (Effect, Layer, Stream, Either, Context) from stub, mock, live, and layer files across seven service domains — Commands, Editor, Extensions, Output, Sandbox, Sidebar, and TextModelResolver — whose interfaces and implementations were already converted to native async/sync signatures in prior commits (f97e5dd, ae82728, ff60a11, 1621bf7).\n\nEach affected file carried an import for a type or function that no longer appeared in its active code paths:\n- Stub files (CommandsStub, OutputStub, TextModelResolverStub): strip the orphaned { Effect } import\n- Mock files (CommandsMock, ExtensionsMock, OutputMock, TextModelResolverMock): strip { Layer } import\n- Live implementations (OutputLive, TextModelResolverLive): strip { Effect, Layer } / { Effect } import\n- Layer composition files (Electron, Tauri, Test): strip { Layer } import from the top-level layer barrel\n- Interface files (OutputService, SandboxService, SidebarService): strip import type { Effect } / { Effect, Stream }\n- Problem type files (CommandsProblem, EditorProblem, ExtensionsProblem): strip import type { Effect }\n- Sandbox layer files (SandboxLive, SandboxMock): strip { Context, Effect, Layer } / { Effect, Layer }\n- Sidebar layer files (SidebarLive, SidebarMock): strip { Effect, Either, Layer, Stream } / { Effect, Layer, Stream }\n- Clipboard barrel: prune the now-unused Effect-related re-exports\n\nImpact: Zero dead Effect-TS import traces remain across all Wind service domains that have been fully migrated to native async/sync. This completes the import-level cleanup phase of the de-Effectification sweep.",
+			"SHA": "6919b8dbc9868242e40d3a9cb176c1ad2a79551b"
 		}
 	],
-	"TimeStamp": 1782051972468
+	"TimeStamp": 1783777324707
 }

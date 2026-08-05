@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:47:19Z",
+			"Date": "2026-05-23T07:59:38Z",
 			"File": [
-				"⠀⠀⠀⠀⠀",
-				1146,
-				1
+				"⠁⠀⠀⠀⠀",
+				1181,
+				43
 			],
-			"Message": "feat(Cocoon): Add IPC routing tier configuration\n\nIntroduce the `TierIPCValue` type and corresponding runtime tier selector to control the extension host's gRPC strategy. The new `IPC` tier allows switching between `Mountain` (native Tauri backend), `NodeDeferred`, and `Node` execution paths.\n\nDefined in `Source/Utility/Tier.ts`, the default configuration is set to `\"Mountain\"`, ensuring the standard path through the Mountain gRPC client is used by default. This change prepares the codebase for hybrid execution modes where specific gRPC calls may be deferred or routed directly to the Node.js sidecar, aligning with the project's modular IPC architecture.",
-			"SHA": "3ad09894e513acb869a0c0cb1fe12d65d9b8d366"
+			"Message": "refactor(Cocoon): Align RPC method names with Vine proto PascalCase\n\nUpdate the gRPC method invocation strings across multiple Cocoon services to match the exact PascalCase naming defined in the `Vine.proto` specification. Replace legacy camelCase and lowercase prefixes (e.g., `window.showMessage`, `fs.stat`, `storage:set`) with their canonical counterparts (`Window.ShowMessage`, `FileSystem.Stat`, `Storage.GetItems`).\n\nApply corrections in the following namespaces:\n- `API/Factory`: Map VS Code message dialogs to `Window.ShowMessage`.\n- `Extension/Context`: Align memento storage calls to `Storage.GetItems` and `Storage.Set`.\n- `File/Service`: Standardize file system operations (`FileSystem.Stat`, `ReadFile`, `WriteFile`, `ReadDirectory`, `CreateDirectory`, `Delete`, `Rename`).\n- `Tasks`: Rename `taskType` to `type` in provider registration payloads.\n- `Workspace/Text/Document`: Switch `saveAll` fallback from notification to `Workspace.SaveAll` request to bypass silent Tauri re-emission issues.\n- `Terminal`: Correct send text to `$terminal:sendText`.\n\nThis ensures strict adherence to the strongly-typed IPC contract, preventing silent failures where the Mountain backend rejects unrecognized method names during the gRPC call resolution phase.",
+			"SHA": "4cfa806fcad082e2acd24678913c01bb5078a0f7"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-20T00:36:12Z",
+			"Date": "2026-05-23T07:05:57Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				1146,
-				22
+				1181,
+				38
 			],
-			"Message": "refactor(Dev/Log): Replace native console calls with CocoonDevLog across core services\n\nReplaced all native `console.log`, `console.warn`, and `console.error` invocations with the centralized `CocoonDevLog` utility across 20+ files in the Cocoon extension host. This change standardizes logging output, enabling consistent categorization via tags (e.g., `grpc`, `mountain-client`, `ext-host`, `service`, `configuration`) and aligning with the project's structured logging requirements.\n\nKey changes include:\n- **Bootstrap & Effect Layers**: Updated RPC server startup and module interceptor warnings in `Bootstrap.ts`, `RPCServer.ts`, and `Interceptor.ts`.\n- **Mountain Integration**: Replaced raw console output in `Mountain/Client.ts` and `Mountain/Client/Service.ts` with tagged logs for connection states, health checks, and request tracing.\n- **Service Layer**: Migrated `Configuration`, `Error/Handling`, `Security`, `Health`, `Terminal`, and `gRPC/Server` services to use `CocoonDevLog` for lifecycle events, error reporting, and circuit breaker state transitions.\n- **Handler & IPC**: Updated `Extension/Host/Handler`, `Request/Routing/Handler`, and `Channel.ts` to route logs through the new system, while explicitly preserving `process.stderr.write` for critical IPC errors that must bypass the logging abstraction.\n- **Module Interception**: Applied the change to `Module/Interceptor` classes to ensure security audit logs are properly tagged.\n\nThis refactoring paves the way for advanced log filtering, performance metrics extraction, and centralized log aggregation in the development workflow, removing the dependency on the global `console` object which may be replaced or suppressed in certain runtime contexts.",
-			"SHA": "d28d660e5db3e3f6bec9d8796f0607109659766c"
+			"Message": "feat(Cocoon): Include file selector metadata in custom editor registration\n\nEnhance the `RegisterCustomEditor` handler in the Window namespace to scan the `Context.ExtensionRegistry` for the custom editor contribution matching the `ViewType`. Extract the file `Selector` (glob patterns like `*.{png,jpg}`) and include it in the payload sent to Mountain via `webview.registerCustomEditor`.\n\nPreviously, only the `ViewType` and `Options` were transmitted. Without the selector, Mountain lacks the necessary context to register the editor with `IEditorResolverService`, preventing VS Code from routing file opens to the custom editor instead of the default text editor.\n\nThis change ensures the full registration contract is satisfied, allowing custom editors defined in `package.json` to be correctly activated and file associations to be honored. The commit also includes a standard regeneration of the `RouteManifest` timestamp and all ESBuild artifacts in the `Target/` directory.",
+			"SHA": "c3faa474ad2232dc1b76d66fb046deec30ef8a57"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:44:10Z",
+			"Date": "2026-05-23T06:28:47Z",
 			"File": [
-				"⠁⠀⠀⠀⠀",
-				1146,
-				31
+				"⠃⠀⠀⠀⠀",
+				1181,
+				51
 			],
-			"Message": "chore(Cocoon): Rebuild ESBuild artifacts and refresh RouteManifest\n\nTrigger a full recompilation of the Cocoon extension host bundles to propagate recent source changes. Regenerate the `RouteManifest` TypeScript definition and its markdown report, updating the timestamp from 2026-05-19T22:50:39Z to 2026-05-19T23:28:41Z to reflect the current build state.\n\nAll 39 compiled output files in `Target/` (including `Bootstrap`, `Effect`, `gRPC/Server`, and `Handler` layers) and their corresponding source maps are rebuilt to ensure the Node.js sidecar runtime is synchronized with the latest service implementations and method signatures.",
-			"SHA": "ff6b00c0f6e076eb3ef9c870683a960f46f3484d"
+			"Message": "fix(Cocoon): Fix bootstrap ordering and extend gRPC method validation\n\nReorder the bootstrap pipeline in `Effect/Bootstrap.ts` to initialize the `ModuleInterceptor` (the `require('vscode')` shim) before establishing the `MountainConnection`. Previously, Mountain could send `InitializeExtensionHost` before the shim was ready, causing race conditions during extension activation. Also, await all extension activations in `Handler/Extension/Host/Handler.ts` to ensure the response is not sent until extensions are fully loaded, preventing premature LSP requests.\n\nRelax the `IsValidMethod` check in `Services/gRPC/Server/Service.ts` to accept any non-empty string. The previous strict regex blocked valid dynamic methods (e.g., `$resolve*`, `$onDid*`), silently dropping LSP traffic like code actions and hover data. Replace redundant circuit breaker failure increments in `Services/Mountain/Client/Service.ts` and add null-safety to `Notification/Handler.ts`.\n\nEnsure diagnostics without messages render as `\"(diagnostic)\"` and normalize `relatedInformation` shapes in `Services/Handler/VscodeAPI/Languages/Namespace.ts` to prevent empty markers from being silently dropped by VS Code's marker service. Regenerate build artifacts and the route manifest timestamp.",
+			"SHA": "cd86977aaf77f366b37f1598cff36f9747f47d98"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T23:01:16Z",
+			"Date": "2026-05-23T06:03:55Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				1146,
-				33
+				1181,
+				35
 			],
-			"Message": "",
-			"SHA": "29eaa8c666e4e89fee49b19c492e5960cdeb760e"
+			"Message": "chore(Cocoon): Regenerate build artifacts and route manifest\n\nRe-run the ESBuild pipeline to compile the updated SCM handler source into the `Target/` directory. This commit includes the regenerated `RouteManifest.ts` with an updated generation timestamp, reflecting the latest enumeration of known Mountain RPC methods and built handler mappings.\n\nAll compiled artifacts (`Main.js`, `Bootstrap.js`, `RPCServer.js`, and service handlers) have been rebuilt to ensure the extension host runtime matches the current source state following the alignment of SCM payload structures. Source map files are regenerated to maintain debug coverage for the updated bundles.",
+			"SHA": "e036255f00bbd39e6afa6a4ea09a8345136cd5fb"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T22:41:32Z",
+			"Date": "2026-05-23T05:34:09Z",
 			"File": [
 				"⠁⠀⠀⠀⠀",
-				1146,
-				42
+				1181,
+				34
 			],
-			"Message": "refactor(Cocoon): Rename dotfile root from .land to .fiddee\n\nExtract the FIDDEE user-data directory path ($HOME/.fiddee) into a shared FiddeeRoot() atom at Source/Platform/FiddeeRoot.ts, replacing the scattered `process.env.HOME/.land/...` string literals across three storage-path resolution sites and one extension-bug stack filter.\n\nThe new file mirrors the Rust atom at Element/Mountain/Source/IPC/WindServiceHandlers/Utilities/FiddeeRoot.rs, centralising the product-name mapping so a future rename touches one file per language. The fallback semantics match the previous `$HOME/.land` resolution.\n\nUpdate Source/Services/Extension/Context.ts to derive GlobalStorageRoot from FiddeeRoot() instead of hardcoding the $HOME/.land prefix. Rewrite Source/Services/Handler/Extension/Host/Handler.ts to use FiddeeRoot() for extensionStorage, globalStorage, and logs, preserving the dedicated (non-scanned) root discipline that keeps storage out of the Mountain extension scanner path. Add `/.fiddee/extensions/` to the extension-internal-bug frame matcher in Source/Services/Handler/Notification/Handler.ts so the rejection filter works for both old and new dotfile layouts.\n\nBuild artifacts in Target/ are rebuilt to reflect the new FiddeeRoot path dependency across the ESBuild output graph.",
-			"SHA": "16ab1dd18507535605e3386477f56c20bb638950"
+			"Message": "fix(Cocoon): Align SCM group update with Vine proto field names\n\nCorrect the payload structure for the `update_scm_group` Mountain RPC call in the Source Control Management (Scm) namespace. Replace non-standard `scmHandle` and `groupHandle` properties with the correct `providerId` and `groupId` fields as defined in the `Vine.proto` `UpdateScmGroupRequest` definition.\n\nThis change ensures that the Extension Host correctly serializes SCM group updates, allowing Mountain to properly route state changes to the UI. The commit also includes a regeneration of the build artifacts and `RouteManifest` timestamp to reflect the source update.\n\nWithout this fix, SCM group updates were likely failing silently or deserializing incorrectly on the Rust side due to missing expected fields.",
+			"SHA": "2eb6e421c07c63bfd6fb0ac92c8151c5de94ac9b"
 		}
 	],
-	"TimeStamp": 1782052014817
+	"TimeStamp": 1783777334183
 }

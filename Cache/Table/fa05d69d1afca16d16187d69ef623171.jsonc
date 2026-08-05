@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T07:49:53Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1173,
-				41
-			],
-			"Message": "style(Cocoon): Normalise config JS to tab indentation with trailing commas\n\nRestore tab indentation across all Configuration/ESBuild/*.js, Configuration/Mountain/Config.js, and Source/ESBuild.js, reversing the 2-space normalisation from the previous style pass (3bc8d83). Alongside the indentation change:\n\n- Restore trailing commas to all array and object literals across every config file.\n- Reorder imports so re-exports (`export *`) appear before local imports in Cocoon.js and index.js, matching the convention used by sibling config files.\n- Flatten Environment Constant.js named exports to a single-line block.\n- Wrap `__name` helper calls and long template expressions with consistent multi-line formatting at soft line widths (Compile Config.js, Mountain Config.js).\n\nRegenerate the RouteManifest timestamp (2026-05-22T07:31:17Z) and rebuild all Target/ compiled artifacts to reflect the reformatted configuration sources. No functional changes to build logic, RPC method registration (still 135 Mountain methods), or runtime behaviour.",
-			"SHA": "7a468ec779910c9ba74090f444f30ffed6ec766f"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T06:19:37Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1173,
-				41
-			],
-			"Message": "style(Cocoon): Normalise config JS to 2-space indentation without trailing commas\n\nReformat all Configuration/ESBuild/*.js, Configuration/Mountain/Config.js, and Source/ESBuild.js from tab indentation back to consistent 2-space indentation, the opposite direction from the previous style pass. Alongside the indentation change:\n\n- Remove trailing commas from all array and object literals across every config file.\n- Normalise import ordering so re-exports (`export *`) appear before local imports, and `node:path` imports precede project imports.\n- Consolidate duplicate imports in Target.js (default3/default5 now share a single import from Config/Target/Config.js).\n- Collapse `__name` helper calls in Compile Config.js and Mountain Config.js from multi-line to single-line format.\n- Flatten Environment Constant.js boolean expressions to single lines, and expand exports to multiline block format.\n- Move named export declarations to the end of the module body in Base Config.js, matching the convention used by sibling config files.\n\nRegenerate the RouteManifest timestamp (2026-05-22T06:13:11Z) and rebuild all Target/ compiled artifacts to reflect the reformatted configuration sources. No functional changes to build logic, RPC method registration (still 135 Mountain methods), or runtime behaviour.",
-			"SHA": "3bc8d83c341d0ac0078baa456d16f55344d7712a"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T05:36:23Z",
-			"File": [
-				"⠁⠀⠀⠀⠀",
-				1173,
-				41
-			],
-			"Message": "style(Cocoon): Normalise config JS to tab indentation with trailing commas\n\nReformat all Configuration/ESBuild/*.js, Configuration/Mountain/Config.js, and Source/ESBuild.js from 2-space indentation back to tab indentation, restoring the project convention. Alongside the indentation change:\n\n- Restore trailing commas to all array and object literals across every config file.\n- Reorder imports so re-exports (`export *`) appear after local imports in Cocoon.js and index.js, matching the convention used by sibling config files.\n- Normalise `node:path` import ordering to `{ posix, sep }` throughout.\n- Collapse Environment Constant.js named exports to a single-line block.\n- Wrap `__name` helper calls and long template expressions with consistent multi-line formatting at soft line widths (Compile Config.js, Mountain Config.js).\n\nRegenerate the RouteManifest timestamp (2026-05-22T05:18:10Z) and rebuild all Target/ compiled artifacts to reflect the reformatted configuration sources. No functional changes to build logic, RPC method registration (still 135 Mountain methods), or runtime behaviour.",
-			"SHA": "f37eb88fd6025a5eb65e1c1a20dc7567c2c3a8bf"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T05:36:04Z",
-			"File": [
-				"⠃⠀⠀⠀⠀",
-				1173,
-				72
-			],
-			"Message": "feat(Cocoon): Wire extension host secrets, storage, provider dispatch, and live UI dialogs through Mountain\n\nReplace stubs across the Cocoon extension host with real implementations routed through Mountain's gRPC IPC:\n\n**Secrets & Storage** (`ActivateExtension.ts`): Extension secrets (`secrets.get/store/delete/onDidChange`) now round-trip via Mountain's AES-256-GCM encrypted storage with extension-scoped keys. Workspace/global state uses a local cache primed asynchronously from `Storage.Get`.\n\n**Extension Dependency Ordering** (`Extension/Host/Handler.ts`): Replace flat fire-and-forget activation with `ActivateWithDeps` — a recursive, depth-guarded (max 20) sequential activator that resolves `extensionDependencies` before the depending extension. Cycle-breaking via `InProgress` set.\n\n**Language Provider Resolution** (`Language/Provider/Handler.ts`): Add `$provideFileDecoration` and two-phase resolution handlers (`$resolveCodeAction`, `$resolveCodeLens`, `$resolveCompletionItem`, `$resolveHover`, `$resolveInlayHint`, `$resolveDocumentLink`, `$resolveWorkspaceSymbol`) so extension providers can return lightweight items that Monaco resolves for details.\n\n**Notification Handler** (`Notification/Handler.ts`): Track `window.focused/blurred` state via `__windowState`. Overhaul virtual document model in `$acceptModelChanged` — range-aware `getText()`, `lineAt()` with `range`/`firstNonWhitespaceCharacterIndex`/`isEmptyOrWhitespace`, `getWordRangeAtPosition()`, correct `offsetAt()`/`positionAt()`, `isUntitled` detection, language derivation from extension. Route `revealRange`/`showTextDocument` through `sendRequest` (Track effect) not `SendToMountain`. Add `$acceptTerminalOpened`/`$acceptTerminalClosed` handlers for UI-created terminal lifecycle.\n\n**Content Provider Routing** (`Request/Routing/Handler.ts`): Add `$provideTextDocumentContent` route that looks up the registered `__textDocumentContentProvider:{scheme}` and calls `provideTextDocumentContent` with a hydrated `Uri`.\n\n**VSCode API Namespaces:**\n- **Authentication**: Stash registered provider in `ExtensionRegistry` as `__authProvider:{id}` so `ExtHostAuthentication$getSession` can call `getSessions()`.\n- **Debug**: Stash debug config provider; forward `_TriggerKind` parameter.\n- **Languages**: `setLanguageConfiguration` now forwards through Mountain's `set_language_configuration` notification for Sky/Monaco relay.\n- **Tasks**: Stash task provider in `ExtensionRegistry` for `ExtHostTaskService$fetchTasks` callback.\n- **StatusBarItem** (`CreateStatusBarItem.ts`): Reactive getter/setter properties for `text`, `tooltip`, `command`, `backgroundColor`, `color` — each setter pushes an incremental `statusBar.update` to Mountain. `accessibilityInformation` stub added.\n- **Window** (`Window/Namespace.ts`): Live `showInformationMessage` with action buttons routes through `Window.ShowQuickPick` when actions are present. Live `createQuickPick`/`createInputBox` that open via `Window.ShowQuickPick`/`Window.ShowInputBox` round-trips and emit `onDidAccept`/`onDidChangeSelection`/`onDidHide` events. `showTextDocument` returns a full `TextEditor` shim with live `setDecorations()`, `edit()`, `insertSnippet()`, `revealRange()`, `show()` methods that dispatch through Mountain. Active tab getter returns a minimal `Tab` shape. `state` becomes a live getter backed by `__windowState`. Terminal creation fires `didOpenTerminal`/`didChangeActiveTerminal` events; dispose fires `didCloseTerminal`/`didChangeActiveTerminal`.\n- **Workspace/Providers**: Wire `onDidChange` handler on `TextDocumentContentProvider` — re-fetches content on provider change and emits `didChangeTextDocument` for virtual docs. Stash/unstash task providers on register/unregister.\n- **Workspace/Text/Document** (`Document.ts`): `openTextDocument({language, content})` creates an untitled in-memory document. `untitled:` scheme documents return synchronously from cache. Scheme-based provider dispatch queries `__textDocumentContentProvider:{scheme}` before falling back to disk/Mountain. `BuildSaveAll` routes through `Workspace.SaveAll`. `BuildApplyEdit` routes through Mountain's `applyEdit` Track effect (awaitable round-trip). `onWillSaveTextDocument` now supports `waitUntil` via `__willSaveListeners` array for format-on-save.\n\n**gRPC Server** (`GRPCServerService`): Route `$resolve*` methods alongside `$provide*` to language provider handler. Implement `ExtHostAuthentication$getSession` via stashed auth providers. Implement `ExtHostTaskService$fetchTasks/provideTasks/executeTask` via stashed task providers. Implement `ExtHostDebug$resolveDebugConfiguration/provideDebugConfigurations` via stashed debug config providers. Implement `ExtHostFileSystem$readFile/writeFile/stat/readDirectory/createDirectory/delete/rename/copy` via stashed file system providers. Add generic `ExtHost[A-Z]` fallback returning `null` instead of crashing on unknown methods.\n\n**Build**: Re-indent `ESBuild.js` from tabs to 4-space indentation. Regenerate `RouteManifest.ts` timestamp.\n\n388 Mountain RPC methods registered, 0 bespoke routes.",
-			"SHA": "a6241df5a0c6a01f9eaeb1420d08f646c8d3b396"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-22T01:49:59Z",
+			"Date": "2026-05-26T08:24:05Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1173,
+				1183,
+				2
+			],
+			"Message": "feat(Cocoon): Implement registry-backed vscode.tests namespace shim\n\nThe stock inline stub in EnsureVscodeAPI.ts for `vscode.tests` used empty no-op objects whose `TestItemCollection` silently dropped every `controller.items.add(item)` call. Extensions like vitest, mocha-explorer, and rust-analyzer depend on that collection for their internal state machine — with a silent drop, `controller.items.get(id)` always returned `undefined`, breaking the extension.\n\nReplace the stub with a dynamic import of a real registry-backed `TestsNamespace` factory in Source/Services/Handler/VscodeAPI/Tests/Namespace.ts. Each TestController owns a `Map`-backed `TestItemCollection` with working add/delete/get/replace/forEach, a profile registry for `createRunProfile`, and a `TestRun` state machine tracking the full queued/started/skipped/failed/errored/passed lifecycle. `TestRun.end()` emits `tests.didChangeTestResults` on the Emitter channel with per-item results and accumulated output.\n\nRegistration is idempotent — re-registering a controller with the same id returns the existing instance, softening VS Code's duplicate-id throw to handle dev-reload double-calls.\n\nSky-side Testing panel rendering (via `ITestService` exposure in Output) is still gated, but every extension that imports `vscode.tests` now maintains correct internal state without crashes or silent data loss.",
+			"SHA": "5ecf61052f000f0f00150f8fecf307201c1467dc"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-26T08:11:36Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1181,
+				2
+			],
+			"Message": "feat(Cocoon): Route four notification events and auth session changes through Emitter\n\nAdd three new notification cases in Notification/Handler.ts and an authentication session-change subscription in the Auth namespace:\n\n- `$activateByEvent` — Wind's `extensions:activate` IPC fires this notification to trigger extension activation. Defer to `ExtensionHostHandler.HandleActivateByEvent` via `setImmediate` so the activation actually runs instead of falling into the default unknown-notification arm.\n- `$acceptTextEditorDiffInformationChanged` — Sky forwards Monaco's `onDidUpdateDiff` hunk list. Emit `window.didChangeTextEditorDiffInformation` with a minimal TextEditor stub keyed on `modifiedUri` so subscriber dereferences on `.textEditor.document.uri` resolve cleanly.\n- `$acceptTextEditorViewColumnChanged` — Sky detects per-group `onDidMoveEditor`. Emit `window.didChangeTextEditorViewColumn` with the URI and viewColumn, matching the VS Code event shape.\n- `$acceptTerminalStateChanged` — Sky fires after OSC 633;B (command-input-begins). Update the cached terminal entry's `state.isInteractedWith` flag and emit `window.didChangeTerminalState`. Includes a stub fallback for the race between terminal creation and first OSC sequence.\n- `AuthenticationProvider.onDidChangeSessions` — Register a listener on every provider passed to `registerAuthenticationProvider`, fanning `{ added, removed, changed }` to the `auth.didChangeSessions` Emitter channel. Capture and dispose the subscription on provider unregister to prevent listener leaks.\n\nAll paths complete the Mountain→Cocoon event bridge for these extension API surfaces, letting subscribers hooked via `MakeEventSubscriber` receive live workbench signals.",
+			"SHA": "acac6138b71814f1ec9dc17cbd0afcfdd4cecbd1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:16:09Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1181,
 				1
 			],
-			"Message": "",
-			"SHA": "2938d7c371fa6e94785c3f1456bb68ba76d15e71"
+			"Message": "feat(Cocoon): Route three terminal shell execution events through Emitter channel\n\nAdd notification handlers in Notification/Handler.ts for three OSC 633-sequence terminal events that Mountain fires after Sky's localPty parser detects command boundaries:\n\n- `$acceptTerminalShellExecutionStart` → `window.didStartTerminalShellExecution`\n- `$acceptTerminalShellExecutionEnd` → `window.didEndTerminalShellExecution`\n- `$acceptExecutedTerminalCommand` → `window.didExecuteTerminalCommand`\n\nEach handler extracts the Mountain notification payload (id, commandLine, cwd, exitCode), resolves the matching terminal from the `__terminals` context cache, and assembles the VS Code event shape with the required `terminal`, `shellIntegration`, and `execution` sub-objects including the `{ value, isTrusted }` commandLine contract. The End handler maps exitCode per the event contract; the Executed handler preserves the proposed API surface for legacy extension compatibility.\n\nThese three cases complete the terminal shell execution event bridge, letting extension subscribers hooked via `window.didStartTerminalShellExecution` and related Emitter channels receive live notifications from OSC 633 sequence parsing in the Sky terminal layer.",
+			"SHA": "7cb3fb3543010f9e82ed6409aa4ccd393debe771"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T22:09:10Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1181,
+				1
+			],
+			"Message": "feat(Cocoon): Route six Mountain-originated events through Emitter channel\n\nAdd notification handlers in Notification/Handler.ts for six VS Code extension API events that Mountain now fires after relevant workbench state changes:\n\n- `$acceptDiagnosticsChanged` → `languages.onDidChangeDiagnostics`\n- `$acceptVisibleEditorsChanged` → `window.onDidChangeVisibleTextEditors`\n- `$acceptTabsChanged` → `window.tabGroups.onDidChangeTabs` + `onDidChangeTabGroups`\n- `$acceptVisibleRangesChanged` → `window.onDidChangeTextEditorVisibleRanges`\n- `$acceptTextEditorOptionsChanged` → `window.onDidChangeTextEditorOptions`\n- `$acceptActiveColorTheme` → `window.onDidChangeActiveColorTheme`\n\nEach handler extracts the Mountain notification payload, builds minimal stub objects where the VS Code event contract requires a TextEditor or tab model shape so listener callbacks that dereference `.document.uri` / `.viewColumn` don't crash, and emits on the matching Emitter channel consumed by extension subscribers.\n\nThe `$acceptTabsChanged` handler caches the latest tab-group snapshot on the Context anchor (`__tabGroups`) so synchronous `window.tabGroups.all` getters reflect current workbench state, and computes `opened`/`closed` diffs from the prior snapshot for `onDidChangeTabs` event shape compliance.\n\nAll six handlers complete the Mountain→Cocoon event bridge for these extension API surfaces, eliminating the silent-hookup gap where subscribers registered via `MakeEventSubscriber` never received events because no notification case pumped the Emitter.",
+			"SHA": "256e4bf94272554ae78abd0553452d97d0cefba4"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-25T21:53:49Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1181,
+				4
+			],
+			"Message": "fix(Cocoon): Route onDidExecuteCommand through Emitter replacing dead Tauri listen\n\nThe prior `onDidExecuteCommand` implementation called `import(\"@tauri-apps/api/event\").listen(\"sky://commands/executed\", ...)` which never fires in Node.js (no `window.__TAURI__`), so every extension hooking this event silently missed all command executions. Replace with a subscription to the `commands.executed` Emitter channel, fed by two sources:\n\n- `$acceptCommandExecuted` case in Notification/Handler.ts catches Mountain's Vine dual-emit after every Mountain-routed `commands:execute` round-trip and forwards to the Emitter channel.\n- Local command routes in Commands/Namespace.ts emit on the same channel (symmetric with the Mountain branch) so extension-to-extension `executeCommand` calls are visible too.\n\nAlso extend the `viewId` dual-key resolution strategy (established in the prior commit for `setHtml`/`postMessage`) to five more webview mutators in CreateWebviewPanel.ts: `dispose`, `setTitle`, `setIconPath`, `setOptions`, and `reveal`. These operations can fire before the workbench finishes mounting the panel's IOverlayWebview; the `viewId` fallback in Sky's `InstallWebview.ts` ensures they still reach their target.\n\nMark Terminal/Service.ts as deprecated — its wire calls reference non-existent Mountain handler names and it is imported only by a dead bootstrap path. The active terminal management lives in `CreateTerminal.ts`. Retained pending vertical-split cleanup (Mountain-Crate-Split.md §#7a).",
+			"SHA": "fcb3f91e7c485985bab07b6e1da67c20b687531f"
 		}
 	],
-	"TimeStamp": 1782052007422
+	"TimeStamp": 1783777332875
 }

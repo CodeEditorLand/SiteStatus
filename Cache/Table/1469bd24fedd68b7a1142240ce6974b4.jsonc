@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T16:42:33Z",
-			"File": [
-				"⡿⠀⠀⠀⠀",
-				738,
-				125
-			],
-			"Message": "feat(Output): Inject Webview debugging diagnostics and update CSP\n\nIntroduce three new transform plugins to the Output build pipeline to diagnose extension webview loading failures under WKWebView/Tauri:\n\n- `InjectWebviewDebugLogging`: Injects a `DEBUG_WV` helper and lifecycle logging (INDEX_BOOT, SW_REGISTER, SIGNAL_START/OK/FAIL, CONTENT_EVENT, INNER_FRAME_FAKE/LOADED/WRITE) into the webview preloader.\n- `InjectWebviewRuntimeDiagnostics`: Injects global error handlers, console interception, and React/DOM mutation observers into the runtime to capture unhandled rejections and render failures.\n- `InjectWebviewRuntimeDiagnosticsInner`: Injects diagnostic hooks into the inner iframe creation routine (`toContentHtml`) to monitor module loading and DOM insertion within the extension's isolated context.\n\nSimultaneously, update `RewriteWebviewShellCSP` to include `'unsafe-eval'`, `'wasm-unsafe-eval'`, and explicit `vscode-webview-resource:`/`vscode-file:` permissions in the Content Security Policy to accommodate dynamic extension execution requirements.\n\nThese changes enable detailed traceability of webview bootstrapping and execution phases, facilitating diagnosis of silent hangs and extension load failures.",
-			"SHA": "7747bbddd0bbdb2f8cd153d7b7bf90475f70df85"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-14T03:52:53Z",
+			"Date": "2026-05-20T00:55:24Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
-				1
+				751,
+				2
 			],
-			"Message": "",
-			"SHA": "298f24e30f786c977ab12320c0ee28ce688c355f"
+			"Message": "fix(Output): Route polyfill diagnostics through Mountain IPC and suppress errors\n\nIn `Disable/Lazy/Paint.ts`, removed direct `console.error` calls in polyfill callbacks. Replaced with silent error swallowing to prevent stack traces for non-fatal lifecycle errors.\n\nIn `Telemetry/Consent/Off.ts`, replaced direct `console.log` with a conditional `MountainIPCInvoke` call targeting `diagnostic:log`. This aligns the telemetry notification with the unified diagnostic pipeline established in recent commits, ensuring consent status appears in `Mountain.dev.log` rather than the browser console.\n\nBoth changes ensure that `Output` polyfill artifacts rely on the Rust backend for diagnostics and do not pollute the runtime console with expected behavior errors.",
+			"SHA": "50dd492ca0b69e13a675a9931a7ee21fdd3ea6ed"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T01:31:06Z",
+			"Date": "2026-05-20T00:53:54Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				725,
-				3
-			],
-			"Message": "feat(Output): Add environment gate to disable UI/CSS rendering fixes\n\nIntroduce the `DisableUIFixes` environment variable check within the `BuildPipeline` logic to selectively omit UI-stabilization transforms. When enabled, the pipeline splices out plugins responsible for WKWebView compositor workarounds, including `InjectDisableLazyPaint`, `InjectPartZIndexCSS`, `InjectMacTitlebarOffsetCSS`, and GPU-layer hints for Terminal/Editor canvases.\n\nThis modification preserves all non-visual wire-level patches (IPC, URL rewriting, telemetry, service disabling) while restoring stock VS Code CSS and rendering behavior. It facilitates targeted debugging of compositor-specific artifacts without reverting core integration changes.\n\nThe corresponding JavaScript artifacts and source maps in `Configuration/Plugin/` and `Source/Plugin/` are regenerated to reflect the conditional pipeline construction.",
-			"SHA": "49bbdd825717ad64e2cd31da059e97fcc40ccdd9"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T00:51:55Z",
-			"File": [
-				"⠇⠀⠀⠀⠀",
-				725,
-				63
-			],
-			"Message": "refactor(Output): Encapsulate polyfill markers to local scope\n\nMove `Marker` constants from module-level exports to local variables within the `Polyfill` and `Inject` plugins across the entire `Output` configuration tree. Previously, these unique string identifiers (e.g., `__LAND_DISABLE_LAZY_PAINT__`, `__LAND_PART_ZINDEX__`) were exported from the `Source/Plugin/Polyfill` definitions and imported by their respective `Inject` wrappers.\n\nThis change removes the unnecessary module-level export in the source TypeScript files and re-declares the markers locally within the IIFE generation logic in the transform plugins. The `Configuration` artifacts (compiled JS) are regenerated to reflect this scoping adjustment, removing the `Marker` export from the default import statements in the injectors.\n\nThis reduces the public API surface of the polyfill modules and ensures the marker strings are strictly internal implementation details used only for idempotency checks within the injected runtime code.",
-			"SHA": "c38a082a4f95320fdfca197556ce3db39b7e6402"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-05-14T00:14:51Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				725,
+				751,
 				4
 			],
-			"Message": "fix(Output): Enforce context-menu visibility and titlebar spacing\n\nExtend the `Apply/Pipeline` orchestration to activate `InjectMacTitlebarOffsetCSS` and `InjectPartZIndexCSS` plugins, resolving layer conflicts in the Tauri WKWebView context.\n\nThe `InjectPartZIndexCSS` plugin overrides VS Code's implicit stacking order by pinning `.context-view` (menubar dropdowns, command palette, right-click menus) to `z-index: 2600`, ensuring they render above the editor content and titlebar. It also explicitly handles `.context-view.fixed` and `.shadow-root-host` to counteract `all: initial` resets and Shadow DOM isolation issues. Additionally, `.monaco-hover` and `.editor-widget` are pinned to `z-index: 50` to maintain visibility for inline suggestions.\n\nSimultaneously, `InjectMacTitlebarOffsetCSS` reserves the width of the macOS traffic-light controls on the titlebar's left edge, preventing the in-window menubar and command-center quick-pick from colliding with the OS-painted window controls.\n\nThese changes eliminate menu visibility bugs and ensure the native window controls do not overlap the application interface.",
-			"SHA": "0cc859c27f7c609872bfb9e846c10a25179ea30c"
+			"Message": "feat(Output): Route plugin polyfill diagnostics through Mountain IPC\n\nReplace direct `console.*` calls in Eager plugin polyfills (Activation, Idle/Value, Lifecycle/Phase) and the CEL Extension Scanner Service with a unified `_CELLog` helper. This helper invokes the `MountainIPCInvoke` command to forward diagnostic messages to the Rust backend's `diagnostic:log` handler.\n\nKey modifications:\n- Introduced `_CELLog` helper in polyfill files to safely bridge browser context logs to the Tauri/Mountain layer.\n- Updated `Source/Service/CEL/Extensions/Scanner/Service.ts` to forward warnings via `diagnostic:log` instead of stdout.\n- Ensures runtime logs from the `Output` bundled artifacts appear in `Mountain.dev.log` alongside native Rust events, aiding unified debugging.\n\nThis change eliminates reliance on browser developer tools for extension activation and scanner diagnostics within the Tauri runtime.",
+			"SHA": "716eff424c76065b7d3a5446d16a8f8e11c7326e"
+		},
+		{
+			"Author": "github-actions[bot]",
+			"Date": "2026-05-20T00:46:29Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				751,
+				1
+			],
+			"Message": "Merge pull request #150 from CodeEditorLand/dependabot/npm_and_yarn/types/node-25.9.1\n\nbuild(deps-dev): bump @types/node from 25.9.0 to 25.9.1",
+			"SHA": "78b869d1ad20246a377dcec6df4d85188dbdd80b"
+		},
+		{
+			"Author": "dependabot[bot]",
+			"Date": "2026-05-20T00:46:18Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				751,
+				1
+			],
+			"Message": "build(deps-dev): bump @types/node from 25.9.0 to 25.9.1\n\nBumps [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/HEAD/types/node) from 25.9.0 to 25.9.1.\n- [Release notes](https://github.com/DefinitelyTyped/DefinitelyTyped/releases)\n- [Commits](https://github.com/DefinitelyTyped/DefinitelyTyped/commits/HEAD/types/node)\n\n---\nupdated-dependencies:\n- dependency-name: \"@types/node\"\n  dependency-version: 25.9.1\n  dependency-type: direct:development\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "a02f5dfb079adbe479ba81a57445923acc9aba09"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T00:37:06Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				751,
+				1
+			],
+			"Message": "feat(tauri): Implement dual-track IPC routing with Tier-based fallback\n\nIntroduced a tiered IPC strategy to support both the existing 'Mountain' route and a new 'Node'/'Cocoon' fallback path within the Tauri channel implementation. This change addresses the need for flexible backend routing during the transition period between architectural tiers.\n\nKey modifications include:\n- Added `_TierIPC` configuration logic to determine the active IPC strategy via environment variables or global constants, defaulting to 'Mountain'.\n- Implemented `_InvokeViaNode` helper to forward requests to the 'Cocoon' backend using the `MountainIPCInvoke` mechanism or direct Node method invocation.\n- Updated `TauriChannel` to route calls through the Node path when `_TierIPC` is set to 'Node' or 'NodeDeferred', ensuring graceful fallback if the primary 'Mountain' route is unavailable or intentionally deferred.\n- Preserved existing behavior by defaulting to the standard `InvokeMountain` flow unless explicitly configured otherwise.\n\nThis implementation ensures backward compatibility while enabling incremental adoption of the new Node-based communication layer.",
+			"SHA": "22b14ca67fe8c26b4f9c033d47974d6f93414801"
 		}
 	],
-	"TimeStamp": 1782051992775
+	"TimeStamp": 1783777333366
 }

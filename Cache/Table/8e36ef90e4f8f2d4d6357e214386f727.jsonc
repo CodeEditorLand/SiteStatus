@@ -3,59 +3,59 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-19T00:58:05Z",
+			"Date": "2026-05-20T05:13:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1492,
-				4
+				1574,
+				3
 			],
-			"Message": "feat(Mountain): Implement dual-layer debug server and SCM diff handling\n\nUpgrade the `WebkitServer` debug utility into a configurable dual-layer diagnostics tool supporting independent activation for the Mountain (Rust) and Cocoon (Node.js) layers. Introduce a unified `DebugServer` environment variable to select mode (mountain, cocoon, both, or off) and distinct ports (default 9933/9934). Add new HTTP endpoints for layer discovery (`/health`, `/layers`), iframe inspection, workbench command invocation, and transparent HTTP proxying to the Cocoon extension host.\n\nImplement the `vscode.diff` and `$scm:openDiff` command handlers in `SCM.rs` to bridge the VS Code Git extension with the editor UI. When triggered, these commands now forward the request to the `sky://editor/diff` endpoint via the Effect system, ensuring the native backend correctly resolves the promise and opens the diff editor as expected.\n\nThese changes restore full debuggability across the full stack and enable native Git workflows by correctly handling the canonical diff command invoked by upstream VS Code extensions.",
-			"SHA": "6ae748d57faee496b259c4f513cf2c296f4dc585"
-		},
-		{
-			"Author": "Auto",
-			"Date": "2026-05-18T02:52:37Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				1492,
-				1
-			],
-			"Message": "",
-			"SHA": "7de344c980125a4acd67895fe0730d84681ea75c"
+			"Message": "fix(IPC): Enhance file write and save handlers to update metadata and notify configuration changes\n\nSigned-off-by: Nikola Hristov <Nikola@PlayForm.Cloud>",
+			"SHA": "37d18e0da89ec21186531428f1ddec68815699df"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-18T00:30:44Z",
+			"Date": "2026-05-20T05:06:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1492,
-				12
+				1574,
+				5
 			],
-			"Message": "refactor(Mountain): Rename application identity to FIDDEE\n\nUpdate the native backend to rebrand the editor from 'Land' to 'FIDDEE'. This involves a comprehensive change of product identifiers, folder names, URI schemes, and application metadata across configuration files and source code.\n\nIn `Info.plist`, update `ProductNameShort`, `ProductNameLong`, `ProductDataFolderName`, and `ProductUrlProtocol` to use 'FIDDEE' and 'fiddee'. Modify `tauri.conf.json` to change the bundle identifier to `fiddee.editor.binary` and the development team to 'FIDDEE'.\n\nUpdate internal references in `Entry.rs`, `Scheme.rs`, `CliParse.rs`, `InitializationData.rs`, and `WindServiceHandlers/mod.rs` to ensure the URI scheme, window titles, and VS Code `productConfiguration` fields correctly reflect the new identity. Adjust `PostHogPlugin/CaptureEvent.rs` to tag telemetry under 'fiddee'. Remove the deprecated `WebkitServer.rs` debug utility.\n\nThis change aligns the binary artifacts and runtime data with the new project branding while maintaining the existing architectural structure.",
-			"SHA": "37e1304709590ce001a8ffbb2707cf477074204b"
+			"Message": "feat(Mountain): Fire $acceptModelSaved after disk writes; strip Undo/Redo from native Edit menu\n\n**T1.4 save notification** — `FileWriteNative` and `TextfileWrite` now fire `$acceptModelSaved` via Vine after a successful disk write, so Cocoon can dispatch `onDidSaveTextDocument` to subscribed extensions (format-on-save, organize-imports, save listeners). The save is fire-and-forget (tokio::spawn) so a Vine failure never cascades back to the workbench IPC caller. Both handlers also gain `dev_log` instrumentation for write latency and byte count.\n\n**Cmd+Z routing fix** — On macOS, Tauri's default `Builder::default()` installs an Edit submenu with native Undo/Redo items that intercept Cmd+Z at the AppKit responder-chain level before the WKWebView's keydown handler fires, preventing VS Code's Monaco editor from seeing `meta+z`. The new `AppMenu::SetAppMenu` builds a custom Edit submenu containing only Cut/Copy/Paste/SelectAll, removing Undo/Redo so Cmd+Z and Cmd+Shift+Z reach the JS layer. Called from `AppLifecycleSetup` immediately after window creation. Non-fatal; logs a warning and keeps the default menu if the override fails. No-op on Windows/Linux.",
+			"SHA": "f79990166465444bbe3a00ca968af7527b0bea13"
 		},
 		{
 			"Author": "Nikola Hristov",
-			"Date": "2026-05-17T15:45:01Z",
+			"Date": "2026-05-20T04:39:32Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1499,
-				13
+				1573,
+				10
 			],
-			"Message": "refactor(Mountain): Migrate domain configuration to land.playform.cloud\n\nReplace all instances of the `editor.land` domain with `land.playform.cloud` across the Mountain native backend. This includes updating the `README.md` documentation, `tauri.conf.json` security policies (CSP), and internal service configurations.\n\nUpdate the `Scheme`, `ServiceRegistry`, and `CertificateManager` modules to reference `code.land.playform.cloud` and `api.land.playform.cloud` as the primary hostnames for local service routing and TLS certificate generation. Align DNS command logic (`DnsCommands`) to resolve the new zone `land.playform.cloud` and its subdomains to `127.0.0.1` for the diagnostic panel.\n\nRefactor unit and integration tests in `certificate_tests.rs` and `service_registry_tests.rs` to assert behavior against the new domain strings, ensuring consistency across the build artifacts and runtime environment.",
-			"SHA": "87ada867c668fef848ce561612d365d9baab197f"
+			"Message": "fix(Mountain): Fix shell PATH, git cache, build constraints, and import paths\n\n**EnhanceShellEnvironment** — Allow shell PATH to override the Finder/Dock\nminimal default (`/usr/bin:/bin:/usr/sbin:/sbin`) when `IsTty()` is false,\nso git, Node, and language servers resolve correctly after launchd/Dock\nlaunches.\n\n**HandleIsAvailable** — Cache only a `true` result. A transient `false`\nfrom the first git probe (fired before EnhanceShellEnvironment extends\nPATH) must not permanently disable the SCM UI.\n\n**CocoonService/mod.rs** — Remove `prepare_call_hierarchy` and\n`prepare_type_hierarchy` gRPC handlers that were prematurely introduced\nin the previous commit. Rename `GenericNotification` and `GenericRequest`\nimports with `Msg` aliases to avoid name clashes with sibling modules.\n\n**Import path fixes** — Qualify `MountainVinegRPCService` path in\nRegisterLanguageProvider and call `RunTime()` as a method; fix `MetricType`\nimport alias in DashboardHelpers; add missing `CommandExecutor` import in\nGenericNotification and GenericRequest commands.\n\n**build.rs** — Gate `tauri_build::build()` behind an absent\n`CARGO_BUILDING_DOCS` var so `cargo doc` succeeds without Sky Astro assets.\n\n**tauri.conf.json** — Add Brotli pre-bake as `beforeBundleCommand`.\n\nBump `Record` to 1 in Info.plist.",
+			"SHA": "36c8655681c646f7f1119aac1cbca04346b69d91"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-05-20T04:38:17Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				1573,
+				1
+			],
+			"Message": "Merge branch 'Current' of ssh://github.com/CodeEditorLand/Mountain into Current",
+			"SHA": "681cfe8f308427aac8ffd722e8e54fa78590d634"
 		},
 		{
 			"Author": "Auto",
-			"Date": "2026-05-17T02:42:21Z",
+			"Date": "2026-05-20T02:49:44Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				1499,
+				1568,
 				1
 			],
 			"Message": "",
-			"SHA": "ee4c027dc9e99b134829ad4e8808c1a633738765"
+			"SHA": "36da8bc51580580fa19bb4f352b28c37e57a7073"
 		}
 	],
-	"TimeStamp": 1782052022604
+	"TimeStamp": 1783777339804
 }

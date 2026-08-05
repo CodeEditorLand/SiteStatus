@@ -3,6 +3,50 @@
 	"Set": [
 		{
 			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T17:25:41Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				100,
+				1
+			],
+			"Message": "feat(Project): Update Element submodule with Git IPC and tree-view round-trip\n\nSubmodule sync to 6f49be5 bringing coordinated changes across Common, Mountain, Output, Sky, and Wind:\n\n- **Git IPC:** Route localGit channel to Mountain's git subprocess handlers, fixing SourceControl panel hang with InvokeMountain(\"undefined:exec\"). Common adds Git IPC definitions (cancel, checkout, clone, exec, fetch, isAvailable, pull, revListCount, revParse).\n\n- **Tree-View:** Add tree:getChildren invoke handler in Mountain to forward to Cocoon's $provideTreeChildren. Sky adds cel:tree-view:create listener that re-dispatches as cel:tree-view:items, completing the F1.1 handoff contract.\n\n- **Diagnostics:** Add ext-scan and scheme-assets diagnostic tags. Add tauri-invoke timing instrumentation to distinguish webview transport latency from Mountain handler slowness.\n\nImpact: Built-in Git extension now functions with native git binaries. Extension tree views (GitLens, SCM, debug, tasks) render with data from providers.",
+			"SHA": "a4feadcddd29b833207b91a5a20820f388483486"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T17:02:00Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				100,
+				1
+			],
+			"Message": "feat(Project): Coordinate performance optimization and diagnostic instrumentation\n\nThree coordinated changes eliminate ~156 unnecessary Tauri IPC round-trips per editor boot and add comprehensive diagnostic capabilities:\n\n- **Performance (Wind/Output):** Add no-op IPC stubs for telemetryAppender (155 calls/boot) and mcpGalleryManifest (1 call/boot). These channels were falling through to Rust invoke with undefined handlers, adding latency to every editor startup. Stubs short-circuit in the TypeScript layer.\n\n- **Diagnostics (Mountain):** Add Git service handlers implementing the full localGit channel (clone, pull, checkout, revParse, fetch, etc.). Add SkyEmit instrumentation logging all Mountain→Wind/Sky emits under the sky-emit tag. Expand provider registration from 8 to 34+ types with scheme extraction.\n\n- **Diagnostics (Sky):** Track cel:* CustomEvent listener registration via document.addEventListener patching. Log consumer-present flag on every dispatch to identify orphan events (Mountain emits but no workbench listener). These are F1.1 indicators where features silently fail.\n\nImpact: Editor startup latency reduced by eliminating ~156 IPC round-trips. Developers can now audit SkyEmit traffic via LAND_DEV_LOG=sky-emit and identify dead event routes via cel-dispatch consumer-present=false.",
+			"SHA": "2d95bc0ae30754abf7c20dabc8b7feb319499429"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:58:11Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				100,
+				1
+			],
+			"Message": "feat(Project): Add unified dev-log forwarding from Wind/Sky/Cocoon to Mountain\n\nCoordinate logging infrastructure across Mountain, Output, and Wind to enable filtered dev logging in a single file. Three related changes:\n- **Mountain**: Add `RenderDevLog` Tauri command that bridges TypeScript-side tagged logs into Mountain's `dev_log!` file sink. Also add five diagnostic tags (`notif-drop`, `provider-register`, `channel-stub`, `git`, `tree-view`) to isolate architectural gaps during debugging.\n- **Output**: Add `_DevLogForward` helper to TauriMainProcessService that mirrors IPC channel routing decisions into Mountain's dev-log. Logs channel name, command, route prefix, and hit/miss status in three code paths: fire-and-forget, stub hits, and misses.\n- **Wind**: Add `_DevLogForward` helper mirroring tagged log lines via `RenderDevLog` command, integrated into TauriChannel's three code paths.\n\nThis enables `LAND_DEV_LOG=<tag> tail -f Mountain.dev.log` to capture both TypeScript and Rust logs together, providing complete visibility into extension host integration issues.\n\nImpact: Developers can now filter by subsystem (e.g., `LAND_DEV_LOG=git,tree-view`) and see the full picture of a session in one file rather than cross-referencing browser console and log file.",
+			"SHA": "ba431af6c47cc7cd6694715a65cc97e1ddb1c2a1"
+		},
+		{
+			"Author": "Nikola Hristov",
+			"Date": "2026-04-23T15:36:35Z",
+			"File": [
+				"⠀⠀⠀⠀⠀",
+				100,
+				1
+			],
+			"Message": "refactor(Project): Standardize IPC event channel naming to kebab-case\n\nCoordinate refactoring across Common, Mountain, Sky, and Wind to unify IPC event channel naming:\n- Standardize all sky:// event channels to consistent kebab-case format (status-bar → statusbar)\n- Remove duplicate/forked channels: StatusBarMessage, TreeViewRegister, WebviewPostMessageCamelCase, WebviewSetHTMLCamelCase\n- Add test comparing Rust enum wire strings against TypeScript mirror to prevent future drift\n- Emit TreeViewCreate events after TreeDataProvider registration so renderer wires up data providers\n- Add diagnostics stub methods in Wind/Output for getWorkspaceFileExtensions to prevent language detection crashes\n- Bump dev dependencies: effect (3.21.1 → 3.21.2), @effect/platform (0.96.0 → 0.96.1), @cloudflare/workers-types (4.20260422.1 → 4.20260423.1)\n\nImpact: Extension tree views now render correctly, language detection runs without crashes, and IPC channel naming is consistent across the Rust/TypeScript boundary.",
+			"SHA": "d6e148f1a77a6ab8a7b9ed8effd08007db5ed6a8"
+		},
+		{
+			"Author": "Nikola Hristov",
 			"Date": "2026-04-23T01:47:53Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
@@ -11,51 +55,7 @@
 			],
 			"Message": "fix(Project): Coordinate submodule updates for extension host reliability\n\nFour submodule updates improve extension activation and webview compatibility:\n- **Mountain**: Treat view registry commands (<viewId>.focus, .resetViewLocation, .removeView) as silent no-ops to eliminate GitLens error spam. Also preserve VSIX executable bits (0o755) during extraction so extensions with native binaries (codex, language servers) can spawn correctly.\n- **Output**: Add StripWebviewIframeSandbox transform plugin to remove sandbox attribute from VS Code's webview iframe. WKWebView blocks custom protocol loads (vscode-webview://, land://) from sandboxed iframes, breaking extension webview panels.\n- **Echo**: Submodule sync for task scheduler alignment.\n- **Cocoon**: Submodule sync for extension host alignment.\n\nImpact: Extensions with native binaries now activate correctly, extension webview panels load in Tauri, and spurious error logs are eliminated.",
 			"SHA": "ae825d2c75e042f9b65ae397c3ea7e0160b43e7b"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:29:16Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				100,
-				1
-			],
-			"Message": "fix(Output): Handle ILocalExtension envelope shape in extension scanner\n\nMountain's scanSystem/UserExtensions now returns ILocalExtension-wrapped objects with nested manifest, identifier.id, and location fields, rather than the flat structure the scanner previously expected. This caused all extensions to appear as 'unknown' with empty names/publishers in the sidebar.\n\nThe fix reads the nested ext.manifest first, falls back to flat ext for backward compatibility. Also maps: location (new) / extensionLocation (old), identifier.id (new) / identifier.value (old), and properly propagates targetPlatform, isValid, and validationMessages instead of hardcoded defaults.\n\nThis ensures the @builtin/@installed extension split works correctly in the Extensions sidebar.",
-			"SHA": "cf9e5e4553a92c5bb2acc4525ca38669931e5bd5"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T01:21:10Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				100,
-				1
-			],
-			"Message": "build(Project): Coordinate extension scanning and file URI handling fixes\n\nThree related fixes improve extension host integration:\n- **Mountain:** Add `StripFileUriScheme()` helper to strip `file://` or `file:///` prefixes from URIs before creating PathBuf. Applies to all 8 FileSystem operations (ReadFile, WriteFile, ReadDirectory, StatFile, CreateDirectory, Delete, Rename, Copy). This fixes redhat.java extension activation failure with \"Resource not found: file:///...\" errors.\n- **Output:** Separate system and user extension scanning in ExtensionScannerIPC. Now calls `extensions:scanSystemExtensions` for ForceBuiltin=true and `extensions:scanUserExtensions` for ForceBuiltin=false. Previously all extensions were hardcoded as builtin, causing user VSIXes to appear under @builtin in the sidebar. Also implements the stubbed `scanUserExtensions()` method.\n- **Cocoon:** Minor submodule sync.\n\nImpact: User-installed extensions now appear under \"Installed\" (not \"Built-in\") and file operations correctly resolve paths from gRPC FileSystem calls.",
-			"SHA": "a672e28212a9effc120c8f7d8074f8043d6cc3a3"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:40:30Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				100,
-				1
-			],
-			"Message": "fix(Wind): Align FileSystemProviderError names with VS Code's token format\n\nWind's FileSystemErrorCode uses key-like values ('FileNotFound', 'FileExists'), but VS Code's toFileSystemProviderErrorCode extracts the token from error.name and switches on 'EntryNotFound', 'EntryExists', etc. Add a mapping function VsCodeErrorCodeToken to translate between the two formats. Also set this.name to the '<code> (FileSystemError)' pattern that VS Code's markAsFileSystemProviderError() expects. Remove individual name assignments from subclasses since the base class now handles naming.\n\nWithout this fix, mkdirp and validateWriteFile treat missing-file/dir errors as unknown and rethrow, surfacing as unhandled rejections like 'Unable to write file .../tasks.log (Error: Failed to stat file ...)'.\n\nThis is a coordinated update with Cocoon (submodule sync).",
-			"SHA": "6682d648fc1c3b599493c5a6d71ef0f66c4d6d40"
-		},
-		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-04-23T00:29:07Z",
-			"File": [
-				"⠀⠀⠀⠀⠀",
-				100,
-				1
-			],
-			"Message": "build(Project): Coordinate extension compatibility and IPC channel fixes across 4 components\n\nSynchronize Cocoon, Mountain, Output, and Wind submodules with the following changes:\n- **Cocoon:** Add missing TextEditorCursorStyle (.Line, .Block, etc.) and UIKind (.Desktop, .Web) enums that extensions like vscodevim and gitlens depend on at activation. Also add stub terminal shell-integration event handlers to prevent crashes.\n- **Mountain:** Return correct Cocoon PID via GetCocoonPid() instead of Mountain's own PID. The renderer needs this to correlate extension-host debug adapters with the actual Node.js process. Also register walkthrough commands as no-ops for claude-code extension.\n- **Output:** Fix CatchOutputFolderRejection regex to match both `() => undefined` and minified `() => void 0`. Correct userDataSync channel names: `userDataSyncService` → `userDataSync`, `userDataSync` → `userDataSyncAccount` per VS Code source.\n- **Wind:** Sync userDataSync IPC channel names to match Output and VS Code registration.\n\nImpact: Extensions with cursor styling and UI detection now activate without crashes, debug adapters attach to the correct process, and user data sync IPC routes correctly.",
-			"SHA": "d7fba66f9a270bf7c4e66bf085e305a432b49128"
 		}
 	],
-	"TimeStamp": 1782052037995
+	"TimeStamp": 1783777342138
 }

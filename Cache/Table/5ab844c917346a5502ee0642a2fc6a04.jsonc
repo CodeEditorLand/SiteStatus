@@ -2,60 +2,60 @@
 {
 	"Set": [
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:55:20Z",
+			"Author": "Auto",
+			"Date": "2026-07-01T04:21:18Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				345,
+				361,
 				1
 			],
-			"Message": "feat(Output): Inject deep-shim hook into VS Code workbench main files\n\nAdd `InjectShimHook`, a new TransformPlugin that patches the VS Code\nworkbench entry points at compile time — `web.main.js` and\n`desktop.main.js` — to import and call `LandShimInit` immediately\nafter `IInstantiationService` is created, before any contribution\nregisters.\n\nThis is the compile-time injection site for Land's deep-shim layer,\nfollowing the same pattern as ExposeWorkbenchAccessor:\n\n- Two injection pass variants: one for the web target (shorter import\n  path), one for electron-browser/desktop (`../browser/` import prefix).\n- Gated by `TierShim` env var at compile time via `Enabled()`; when set\n  to `None` the transform is a no-op.\n- Idempotent via `__LAND_SHIM_HOOK__` marker — rerunning on an already-\n  patched tree returns `Unchanged`.\n\nThis is the first piece of the deep-shim pipeline; the shim module itself\n(`CEL/Land/Shim/Init.js`) is compiled by Output's esbuild step and copied\ninto the target tree by ApplyPipeline before this transform runs.",
-			"SHA": "9b81aa2c72abf722891ac194b5a0d29661572476"
+			"Message": "",
+			"SHA": "d70d72d0601df92d9ea0e738ab9c60181d6e4ff9"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:41:55Z",
+			"Author": "Auto",
+			"Date": "2026-06-30T04:05:21Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				343,
+				361,
 				1
 			],
-			"Message": "fix(Output): Resolve vscode-webview-resource:// via sync localhost rewrite\n\nMountain registers only `vscode-file://` as a custom Tauri scheme handler;\n`vscode-webview-resource://` is not registered, so async blob-fetch calls\nfor those URLs silently fail and the inner iframe never loads the assets.\n\nRemove `vscode-webview-resource://` from the `VSCODE_SCHEMES` array so\nthe async fetch path never attempts blob conversion for it. Instead, add\n`rewriteToLocalhost()` — a synchronous regex pass that converts every\n`vscode-webview-resource://` URL to its `http://localhost:18992/`\nequivalent before `document.write` executes. The `origWrite` wrapper now\napplies two independent string checks: first the localhost rewrite for\n`vscode-webview-resource://` URLs, then cached blob substitution for\n`vscode-file://` URLs, replacing the combined `needsRewriteHtml()` gate.\n\nThis keeps the synchronous contract of `document.write` while ensuring\nassets served via the unregistered scheme resolve to Mountain's actual\nlocalhost origin.",
-			"SHA": "fa1e57583caa72f6a714f601a3023630e2d589ee"
+			"Message": "",
+			"SHA": "f945520768eb8345010c9a00c78d670364817a67"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:23:50Z",
+			"Author": "github-actions[bot]",
+			"Date": "2026-06-29T15:05:04Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				343,
+				361,
 				1
 			],
-			"Message": "fix(Output): Rewrite blob URL injection as synchronous two-phase pass\n\nThe async `rewriteHtml()` approach in `Document.prototype.write` deferred the original write until all fetch-and-blob conversions completed. Multi-write callers (extension reload, panel re-open) received an empty first write because the wrapper returned before calling `_origWrite`, followed by a duplicate document-open on the second write.\n\nReplace the single async pass with a synchronous two-phase strategy inside the injected blob URL rewrite script:\n- **Synchronous phase** (`rewriteCachedUrls`): substitutes every `vscode-file://` / `vscode-webview-resource://` URL that already has a cached `blob:` URL into each chunk via simple string replacement, then immediately calls `_origWrite.apply(this, args)`.\n- **Async patch phase** (`patchWrittenDocument`): after the write returns, fetches uncached URLs collected in the `pending` array and patches the already-written document — `<link>` href swaps and `<script>` clone replacement — so the bytes still execute.\n\nThis preserves the synchronous contract of `document.write` while still converting uncached URLs to blob: URLs as a deferred patch. The caller's own write/close sequence is untouched and multi-write sequences keep a single document-open.",
-			"SHA": "e029bf20a81a9f187648f18343ac1f1af11a8cc2"
+			"Message": "Merge pull request #165 from CodeEditorLand/dependabot/npm_and_yarn/types/node-26.0.1\n\nbuild(deps-dev): bump @types/node from 26.0.0 to 26.0.1",
+			"SHA": "57bda5804a8b33237a769e5dec04e98c39af4697"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T21:22:08Z",
+			"Author": "dependabot[bot]",
+			"Date": "2026-06-29T15:04:42Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				343,
+				361,
 				1
 			],
-			"Message": "fix(Output): Keep webview blob URL rewrite synchronous for document.write\n\n`document.write` is a synchronous API — deferring it with an async `rewriteHtml()` pass that waited on all fetch-and-blob conversions before calling the original `write()` broke multi-write callers (extension reload, panel re-open) by producing an empty first write and a double document-open.\n\nSplit the rewrite into two phases inside `pre/index.html`’s injected script:\n- **Synchronous phase** (`rewriteCachedUrls`): substitutes every `vscode-file://` / `vscode-webview-resource://` URL that already has a cached `blob:` URL into the HTML string via simple string replacement, then calls the original `document.write` immediately.\n- **Async patch phase** (`patchWrittenDocument` + `applyBlobUrl`): fetches uncached URLs after the write, then patches the already-written document — `<link>` gets a live `href` swap, `<script>` is replaced with a clone carrying the `blob:` `src` so the bytes actually execute.\n\nExtract `warnFetchFailure()` as a centralized helper so fetch errors (CORS rejection, missing scheme handler) surface via both the DEBUG_WV channel and `console.warn` instead of being silently swallowed.\n\nMulti-write callers now keep a single document-open and never re-fetch unchanged assets on repeated `setHtml()` calls.",
-			"SHA": "641f349075db774bbfd6f96191b31070e4b1b8ba"
+			"Message": "build(deps-dev): bump @types/node from 26.0.0 to 26.0.1\n\nBumps [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/HEAD/types/node) from 26.0.0 to 26.0.1.\n- [Release notes](https://github.com/DefinitelyTyped/DefinitelyTyped/releases)\n- [Commits](https://github.com/DefinitelyTyped/DefinitelyTyped/commits/HEAD/types/node)\n\n---\nupdated-dependencies:\n- dependency-name: \"@types/node\"\n  dependency-version: 26.0.1\n  dependency-type: direct:development\n  update-type: version-update:semver-patch\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>",
+			"SHA": "37f8775f57c1432da868718c135866362d5a8aa3"
 		},
 		{
-			"Author": "Nikola Hristov",
-			"Date": "2026-06-12T20:34:43Z",
+			"Author": "Auto",
+			"Date": "2026-06-29T04:25:47Z",
 			"File": [
 				"⠀⠀⠀⠀⠀",
-				343,
+				361,
 				1
 			],
-			"Message": "style(Output): Replace em-dashes with hyphens in README.md\n\nSubstitute typographic em-dashes (—) with plain ASCII hyphens (-) throughout the featured description quote, Key Features bullets, Rest OXC bullet list, Security table cells, API Reference entries, and Related Documentation links.\n\nThis aligns the README punctuation with the project's plain-ASCII convention, avoiding rendering issues across terminals, editors, and GFM viewers that may mishandle Unicode dashes.",
-			"SHA": "505949d504b0c753cdeae7126a1538d49d8c91df"
+			"Message": "",
+			"SHA": "6e01d2a83131a663bff46958e60b0f381c5e8e28"
 		}
 	],
-	"TimeStamp": 1782051965777
+	"TimeStamp": 1783777323052
 }
